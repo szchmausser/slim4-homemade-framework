@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use App\Models\User;
+
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -21,6 +23,21 @@ use Tests\Support\AppFactory;
  */
 final class PartialRenderTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SESSION['user_id']);
+        User::query()->delete();
+    }
+
     private static function app(): App
     {
         return AppFactory::make();

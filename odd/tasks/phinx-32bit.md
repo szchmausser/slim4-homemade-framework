@@ -45,4 +45,4 @@ Investigar + implementar el fix + verificar. Commit/push solo si lo pide.
 - [x] T3 — guía (cap 4 pin+techo, cap 11 nota 0.13, cap 21.20 con el error literal)
 
 ## Progress
-- 2026-09-28: T1-T3 done en working tree. PENDIENTE decisión del usuario: commit+push (lo necesita en Termux vía pull).
+- 2026-09-28: T1-T3 done. Commit 01b828f pusheado a origin/main. Usuario desbloqueado vía pull.

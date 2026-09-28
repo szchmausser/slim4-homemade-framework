@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\RememberMeMiddleware;
+use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\StreamHandler;
@@ -138,5 +140,8 @@ return [
     },
 
     SecurityHeadersMiddleware::class => \DI\autowire(SecurityHeadersMiddleware::class),
+
+    RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
+    RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ];
 

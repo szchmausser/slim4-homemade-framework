@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
+use App\Models\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -22,10 +23,21 @@ use Tests\Support\AppFactory;
  */
 final class DeleteTaskTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
     protected function tearDown(): void
     {
         // El schema vive en memoria y se crea una sola vez: si no limpiás,
         // la suite depende de la orden de ejecución.
+        unset($_SESSION['user_id']);
+        User::query()->delete();
         Task::query()->delete();
     }
 

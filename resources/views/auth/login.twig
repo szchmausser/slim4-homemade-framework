@@ -1,0 +1,47 @@
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Acceder{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-sm">
+        <h1 class="mb-4 text-2xl font-bold">Acceder</h1>
+
+        {% if flash_error %}
+            <div class="alert alert-error mb-4" role="alert">
+                <span>{{ flash_error }}</span>
+            </div>
+        {% endif %}
+        {% if flash_info is defined and flash_info %}
+            <div class="alert alert-info mb-4" role="alert">
+                <span>{{ flash_info }}</span>
+            </div>
+        {% endif %}
+
+        {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
+        <form method="post" action="/login" class="card border border-base-300 bg-base-100">
+            <div class="card-body gap-3">
+                {% include 'partials/_csrf.twig' %}
+                <label class="form-control">
+                    <span class="label"><span class="label-text">Email</span></span>
+                    <input type="email" name="email" required autocomplete="username"
+                           value="{{ email|default('') }}"
+                           placeholder="vos@ejemplo.com"
+                           class="input input-bordered w-full">
+                </label>
+                <label class="form-control">
+                    <span class="label"><span class="label-text">Clave</span></span>
+                    <input type="password" name="password" required autocomplete="current-password"
+                           placeholder="••••••••"
+                           class="input input-bordered w-full">
+                </label>
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="remember" value="1" class="checkbox">
+                    <span class="label-text">Recordarme 30 días</span>
+                </label>
+                <button type="submit" class="btn btn-primary w-full">
+                    Entrar
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}

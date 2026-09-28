@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\SessionMiddleware;
 use Psr\Log\LoggerInterface;
@@ -26,6 +27,10 @@ return function (App $app) {
 
     // 3ro: resuelve la ruta solicitada
     $app->addRoutingMiddleware();
+
+    // Entre sesión y routing: resume remember-me con la sesión ya abierta.
+    // En orden de ejecución corre justo después de SessionMiddleware.
+    $app->add(RememberMeMiddleware::class);
 
     // 2do: arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);

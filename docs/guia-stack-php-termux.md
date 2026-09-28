@@ -15,9 +15,9 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 6. Contenedor DI (con base resiliente)
 7. Bootstrap de la app y pipeline de middlewares
 8. Sesiones nativas (middleware propio)
-9. Rutas y controladores (con base reutilizable)
-10. Modelos Eloquent
-11. Migraciones con Phinx
+9. Rutas, controladores y auth (login/logout/remember-me)
+10. Modelos Eloquent (+ User y RememberToken)
+11. Migraciones con Phinx (+ seed del admin)
 12. Validación estilo Laravel sobre respect/validation
 13. CSRF en formularios Twig
 14. Frontend: assets vendorizados + SRI (nada de CDN)
@@ -26,7 +26,7 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 17. Levantar el servidor y mantenerlo vivo
 18. El capítulo que de verdad importa: 32 bits
 19. Antes de exponer la app fuera de tu teléfono
-20. Testing: testear el esqueleto, no la demo
+20. Testing: testear el esqueleto, no la demo (+ suite de auth)
 21. Troubleshooting: síntomas, no theory
 22. Cómo verificar esta guía vos mismo
 23. Archivos que existen pero NO se replican
@@ -187,7 +187,12 @@ composer require --dev phpunit/phpunit
 > `rollback -t 0`, `status`) es idéntica entre ambas. Si upstream algún día quita
 > el requisito, se re-evalúa; mientras tanto, `^0.13` es techo, no pin.
 
-> Si tu `php -v` muestra algo menor a 8.2, fijá una major vieja de Eloquent compatible: `composer require illuminate/database:^10.0`.
+> **PHP ≥ 8.2 obligatorio, sin atajos.** Los pins actuales (`illuminate/database ^13.33`,
+> `phpunit/phpunit ^13.3` y el `"php": ">=8.2"` del `composer.json`) lo exigen los tres:
+> con un PHP menor no instala ni por clon (el lock falla el platform check) ni desde
+> cero. Verificá primero con `php -v` (cap. 22.4); si tu Termux trae uno viejo,
+> actualizá el paquete `php` antes de seguir. No hay fallback documentado porque
+> implicaría retroceder tres pins a la vez.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
 > corre limpio sobre PHP 8.5 (cero deprecations). Mientras no migres a 3.x
@@ -723,6 +728,115 @@ Registralo en `config/container.php` (`SecurityHeadersMiddleware::class => \DI\a
 
 El orden importa: `addErrorMiddleware` es el que *genera* las respuestas 404/500, así que los headers tienen que agregarse **por fuera** de él o las páginas de error salen limpias.
 
+### 7.3 Middlewares de auth: dónde van y por qué ahí
+
+Dos middlewares más, con posiciones distintas por motivos distintos. En `config/container.php`:
+
+```php
+RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
+RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
+```
+
+`app/Http/Middleware/RememberMeMiddleware.php` (global: resume la sesión desde la cookie remember):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Middleware;
+
+use App\Support\RememberMe;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface as Handler;
+
+/**
+ * Resume la sesión desde la cookie remember-me, si hay una y no hay sesión.
+ * Corre globalmente justo después de SessionMiddleware (ver abajo).
+ * La rotación/limpieza viaja en ESTA misma respuesta: aplicada en otro lado,
+ * el token nuevo nunca llegaría al navegador.
+ */
+final class RememberMeMiddleware implements MiddlewareInterface
+{
+    public function process(Request $request, Handler $handler): Response
+    {
+        $outgoing = empty($_SESSION['user_id'])
+            ? RememberMe::resumeFromCookie()
+            : null;
+
+        $response = $handler->handle($request);
+
+        return $outgoing === null
+            ? $response
+            : $response->withAddedHeader('Set-Cookie', $outgoing);
+    }
+}
+```
+
+En `config/middleware.php`, entre routing y sesión (en ejecución corre justo después de `SessionMiddleware`, con la sesión ya abierta y antes de resolver la ruta):
+
+```php
+    // 3ro: resuelve la ruta solicitada
+    $app->addRoutingMiddleware();
+
+    // Entre sesión y routing: resume remember-me con la sesión ya abierta.
+    // En orden de ejecución corre justo después de SessionMiddleware.
+    $app->add(RememberMeMiddleware::class);
+
+    // 2do: arranca la sesión nativa para toda la app
+    $app->add(SessionMiddleware::class);
+```
+
+`app/Http/Middleware/RequireAuthMiddleware.php` (NO global: se agrega por grupo, solo a `/tareas`):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Middleware;
+
+use App\Support\Auth;
+use App\Support\Flash;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface as Handler;
+
+/**
+ * Puerta de las rutas protegidas (se agrega por grupo, no global).
+ * HTMX no sigue un 303 con swap (no es 2xx): se le ordena navegación completa
+ * con HX-Redirect en un 200 — el mismo patrón que el failureHandler de CSRF
+ * usa con HX-Trigger. Formularios/navegación normal: 303 clásico.
+ */
+final class RequireAuthMiddleware implements MiddlewareInterface
+{
+    public function __construct(private ResponseFactoryInterface $responseFactory) {}
+
+    public function process(Request $request, Handler $handler): Response
+    {
+        if (Auth::check()) {
+            return $handler->handle($request);
+        }
+
+        if ($request->getHeaderLine('HX-Request') !== '') {
+            return $this->responseFactory->createResponse(200)
+                ->withHeader('HX-Redirect', '/login');
+        }
+
+        Flash::set('error', 'Iniciá sesión para continuar.');
+
+        return $this->responseFactory->createResponse(303)
+            ->withHeader('Location', '/login');
+    }
+}
+```
+
+El 200 + `HX-Redirect` es deliberado (no 401): htmx procesa ese header en respuestas completadas sin meterse en el camino de error. El 401 es para APIs; acá queremos navegación.
+
 ## 8. Sesiones nativas (middleware propio)
 
 Slim no trae middleware de sesión — lo escribimos nosotros:
@@ -797,28 +911,254 @@ class Flash
 }
 ```
 
-## 9. Rutas y controladores
+### 8.1 Auth, remember-me y tokens CSRF compartidos
 
-`routes/web.php`:
+Tres clases de soporte para el cap. 9.2. La security-critical es `RememberMe`: cualquier cambio ahí merece relectura y suite verde.
+
+`app/Support/Auth.php` (sesión de auth sobre la sesión nativa; solo guarda el id):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
+namespace App\Support;
+
+use App\Models\User;
+
+/**
+ * Sesión de autenticación sobre la sesión nativa de PHP (que abre
+ * SessionMiddleware). Solo guarda el id: el usuario se lee de la base en
+ * cada request (una query indexada; si el usuario se borra, la sesión muere).
+ */
+final class Auth
+{
+    public static function id(): ?int
+    {
+        $id = $_SESSION['user_id'] ?? null;
+        return $id === null ? null : (int) $id;
+    }
+
+    public static function check(): bool
+    {
+        return self::id() !== null;
+    }
+
+    public static function user(): ?User
+    {
+        $id = self::id();
+        return $id === null ? null : User::find($id);
+    }
+
+    /** Establece la sesión. Regenera el ID (fijación de sesión). */
+    public static function login(int $id): void
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+        $_SESSION['user_id'] = $id;
+    }
+
+    /**
+     * Vacía la sesión y regenera el ID. No la destruye: el CSRF vive ahí y
+     * el redirect siguiente lo necesita.
+     */
+    public static function logout(): void
+    {
+        $_SESSION = [];
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        }
+    }
+}
+```
+
+`app/Support/RememberMe.php` (split-token con rotación — leer los comentarios, SON el diseño):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+use App\Models\RememberToken;
+use App\Models\User;
+
+/**
+ * Remember-me con split-token. ESTE es el archivo security-critical del login:
+ * cualquier cambio acá merece relectura y sus tests (AuthTest) en verde.
+ *
+ * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
+ *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
+ * - Rotación en cada uso: el token presentado muere y nace otro. Achica la
+ *   ventana de replay de un token copiado.
+ * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
+ * - Selector conocido + validator que NO matchea: posible robo → se queman
+ *   TODOS los tokens del usuario y se borra la cookie.
+ * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `secure`
+ *   queda en false por el mismo motivo (solo HTTPS real): ver cap. 19.
+ */
+final class RememberMe
+{
+    public const COOKIE = 'remember';
+
+    public const TTL = 2592000; // 30 días, en segundos
+
+    /**
+     * Crea un token para el usuario y devuelve el par crudo "selector:validator"
+     * para la cookie. El validator sale de acá una sola vez: no se loguea.
+     */
+    public static function create(int $userId): string
+    {
+        $selector = bin2hex(random_bytes(12));
+        $validator = bin2hex(random_bytes(32));
+
+        RememberToken::create([
+            'selector'         => $selector,
+            'user_id'          => $userId,
+            'hashed_validator' => password_hash($validator, PASSWORD_DEFAULT),
+            'expires_at'       => time() + self::TTL,
+        ]);
+
+        return $selector . ':' . $validator;
+    }
+
+    /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
+    public static function cookieHeader(string $pair = '', bool $clear = false): string
+    {
+        if ($clear) {
+            return self::COOKIE . '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+        }
+
+        return self::COOKIE . '=' . $pair . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' . self::TTL;
+    }
+
+    /**
+     * Intenta sesión desde la cookie. Devuelve el header Set-Cookie a aplicar
+     * en la respuesta de salida (rotación o limpieza), o null si no hay nada
+     * que hacer. Nunca lanza: un token roto simplemente no loguea.
+     */
+    public static function resumeFromCookie(): ?string
+    {
+        $raw = $_COOKIE[self::COOKIE] ?? '';
+        if ($raw === '' || !str_contains($raw, ':')) {
+            return null;
+        }
+
+        [$selector, $validator] = explode(':', $raw, 2);
+
+        $row = RememberToken::query()->where('selector', $selector)->first();
+        if ($row === null) {
+            return null; // selector desconocido: nada que quemar, solo ignorar
+        }
+
+        $user = User::find($row->user_id);
+        if ($user === null) {
+            $row->delete();
+            return self::cookieHeader(clear: true);
+        }
+
+        if ((int) $row->expires_at <= time()) {
+            $row->delete(); // vencimiento normal: sin alarma, solo limpieza
+            return self::cookieHeader(clear: true);
+        }
+
+        if (!password_verify($validator, $row->hashed_validator)) {
+            // Posible robo: el selector existe pero el secreto no matchea.
+            RememberToken::query()->where('user_id', $user->id)->delete();
+            return self::cookieHeader(clear: true);
+        }
+
+        $row->delete();
+        Auth::login($user->id);
+
+        return self::cookieHeader(self::create($user->id));
+    }
+
+    public static function clearUser(int $userId): void
+    {
+        RememberToken::query()->where('user_id', $userId)->delete();
+    }
+}
+```
+
+`app/Support/CsrfTokens.php` (las 4 vars de `_csrf.twig`, una sola fuente para controladores y closures de ruta):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Csrf\Guard;
+
+/**
+ * Las 4 vars que espera partials/_csrf.twig. Una sola fuente para
+ * controladores (vía Controller::csrf) y closures de ruta (p. ej. la home,
+ * que renderiza directo y también necesita el form de logout del layout).
+ */
+final class CsrfTokens
+{
+    public static function fields(Request $request, Guard $guard): array
+    {
+        $nameKey  = $guard->getTokenNameKey();
+        $valueKey = $guard->getTokenValueKey();
+
+        return [
+            'csrf_name_key'  => $nameKey,
+            'csrf_name'      => $request->getAttribute($nameKey),
+            'csrf_value_key' => $valueKey,
+            'csrf_value'     => $request->getAttribute($valueKey),
+        ];
+    }
+}
+```
+
+> **Advertencia honesta sobre remember-me en red local:** en `127.0.0.1` es seguro; en un wifi abierto sin TLS, un token de 30 días está *más* expuesto que una cookie de sesión (ventana más larga para olfatearlo). Si la app va a vivir en red local, primero el túnel/TLS del cap. 19, después remember-me.
+
+## 9. Rutas, controladores y auth
+
+`routes/web.php` completo. Novedades respecto al CRUD pelado: rutas de auth (login/logout públicas, `/tareas` protegido por grupo) y la home que pasa `user_*` + CSRF porque el layout los necesita en todo render:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\TaskController;
+use App\Http\Middleware\RequireAuthMiddleware;
+use App\Support\Auth;
+use App\Support\CsrfTokens;
 use Slim\App;
+use Slim\Csrf\Guard;
 use Slim\Views\Twig;
 
 return function (App $app) {
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
     // GET / devuelve 404 y el boton "Volver al inicio" de errors/error.twig
-    // vuelve a ser un link muerto. El formulario de altas vive solo en /tareas.
-    $twig = $app->getContainer()->get(Twig::class);
+    // vuelve a ser un link muerto. Pública a propósito (lo pide /tareas, no ella).
+    // El layout necesita csrf (form de logout) y usuario: como acá se renderiza
+    // directo sin Controller, van explícitos con la misma fuente (CsrfTokens).
+    $app->get('/', function ($request, $response) use ($app) {
+        $container = $app->getContainer();
 
-    $app->get('/', function ($request, $response) use ($twig) {
-        return $twig->render($response, 'home.twig', ['active' => 'home']);
+        // Guard se resuelve acá (en request), no al registrar: al construirse
+        // exige sesión iniciada y en registro todavía no hay ninguna.
+        return $container->get(Twig::class)->render($response, 'home.twig', [
+            'active'     => 'home',
+            'user_id'    => Auth::id(),
+            'user_email' => Auth::user()?->email,
+            ...CsrfTokens::fields($request, $container->get(Guard::class)),
+        ]);
     });
+
+    $app->get('/login', [AuthController::class, 'show']);
+    $app->post('/login', [AuthController::class, 'store']);
+    $app->post('/logout', [AuthController::class, 'destroy']);
 
     $app->group('/tareas', function ($group) {
         $group->get('', [TaskController::class, 'index']);
@@ -826,9 +1166,11 @@ return function (App $app) {
         $group->get('/{id}/edit', [TaskController::class, 'edit']);
         $group->put('/{id}', [TaskController::class, 'update']);
         $group->delete('/{id}', [TaskController::class, 'destroy']);
-    });
+    })->add(RequireAuthMiddleware::class);
 };
 ```
+
+El `->add()` al grupo protege las 5 rutas de un saque; `/`, `/login` y `/logout` quedan públicas. El logout es POST a propósito (con CSRF del Guard global): un logout por GET se dispara con un link externo sin que quieras.
 
 **Por qué la raíz renderiza una página y no una redirección.** `errors/error.twig` (cap. 7.1) cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto: se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. La ruta responde `200` con `home.twig` y no redirige. De paso es el health check más barato que existe y el test de humo más económico del proyecto (cap. 20.6).
 
@@ -1034,7 +1376,125 @@ Tres cosas que este controlador deja por escrito y que antes estaban implícitas
 
 Y una deliberada: cada acción repite `return $this->render($request, $response, 'tasks/_panel.twig', ...)` con el template a la vista. Como en Laravel repetís `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que lo esconda (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
 
-## 10. Modelos Eloquent
+### 9.2 AuthController: login, logout y remember-me
+
+Diseño v1 deliberadamente chico: login + logout + remember-me + usuario inicial por seed. **Sin registro público** (achica superficie: enumeración, spam de cuentas) y **sin reset por email** (en Termux no hay MTA; eso es otro proyecto con SMTP externo). Cero dependencias nuevas: `password_hash`/`password_verify` son núcleo PHP, 32-bit safe.
+
+`app/Http/Controllers/AuthController.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Support\Auth;
+use App\Support\Flash;
+use App\Support\RememberMe;
+use App\Support\Validator;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+
+class AuthController extends Controller
+{
+    public function show(Request $request, Response $response): Response
+    {
+        if (Auth::check()) {
+            return $response->withStatus(303)->withHeader('Location', '/tareas');
+        }
+
+        return $this->render($request, $response, 'auth/login.twig', [
+            'active'     => 'login',
+            'flash_info' => Flash::get('info'),
+        ]);
+    }
+
+    public function store(Request $request, Response $response): Response
+    {
+        $data = (array) $request->getParsedBody();
+        $email = trim((string) ($data['email'] ?? ''));
+
+        $validator = Validator::make($data, [
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
+
+            return $this->render($request, $response, 'auth/login.twig', [
+                'active'     => 'login',
+                'flash_info' => Flash::get('info'),
+                'email'      => $email,
+            ]);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+
+        // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
+        // no delata si la cuenta existe o no (enumeración por timing).
+        $hash = $user?->password_hash
+            ?? '$2y$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+        $password = (string) ($data['password'] ?? '');
+
+        if ($user === null || !password_verify($password, $hash)) {
+            // Genérico a propósito: nunca decir si falló el email o la clave.
+            Flash::set('error', 'Credenciales inválidas.');
+
+            return $this->render($request, $response, 'auth/login.twig', [
+                'active'     => 'login',
+                'flash_info' => Flash::get('info'),
+                'email'      => $email,
+            ]);
+        }
+
+        // Rehash silencioso si cambió el algoritmo o el costo.
+        if (password_needs_rehash($user->password_hash, PASSWORD_DEFAULT)) {
+            $user->password_hash = password_hash($password, PASSWORD_DEFAULT);
+            $user->save();
+        }
+
+        Auth::login($user->id);
+
+        $response = $response->withStatus(303)->withHeader('Location', '/tareas');
+
+        if (!empty($data['remember'])) {
+            $response = $response->withAddedHeader(
+                'Set-Cookie',
+                RememberMe::cookieHeader(RememberMe::create($user->id))
+            );
+        }
+
+        return $response;
+    }
+
+    public function destroy(Request $request, Response $response): Response
+    {
+        $id = Auth::id();
+        if ($id !== null) {
+            RememberMe::clearUser($id);
+        }
+
+        Auth::logout();
+        Flash::set('info', 'Sesión cerrada.');
+
+        $response = $response->withStatus(303)->withHeader('Location', '/login');
+
+        return $response->withAddedHeader('Set-Cookie', RememberMe::cookieHeader(clear: true));
+    }
+}
+```
+
+El login es un form normal (sin HTMX): navega de verdad con 303. Cuatro detalles que importan y son fáciles de hacer mal:
+
+1. **Mensaje genérico** (`Credenciales inválidas.`) + **dummy bcrypt** con email inexistente: ni el texto ni el tiempo delatan si la cuenta existe.
+2. **`session_regenerate_id(true)`** al entrar y salir (vive en `Auth::login/logout`, cap. 8.1): fijación de sesión.
+3. **Logout quema todo**: filas remember del usuario + cookie expirada, no solo la sesión.
+4. **Rehash silencioso**: si PHP sube el costo default, los hashes viejos migran solos al próximo login.
+
+## 10. Modelos Eloquent (+ User y RememberToken)
 
 `app/Models/Task.php`:
 
@@ -1054,6 +1514,52 @@ class Task extends Model
     protected $casts = [
         'done' => 'boolean',
     ];
+}
+```
+
+`app/Models/User.php` (`password_hash` oculto en serializaciones por las dudas):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class User extends Model
+{
+    protected $fillable = ['email', 'password_hash'];
+
+    protected $hidden = ['password_hash'];
+}
+```
+
+`app/Models/RememberToken.php` (sin id autoincrement: el selector ES la clave; sin timestamps de Eloquent: la tabla lleva solo `created_at`):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class RememberToken extends Model
+{
+    protected $table = 'remember_tokens';
+
+    public $timestamps = false;
+
+    protected $primaryKey = 'selector';
+
+    public $incrementing = false;
+
+    protected $keyType = 'string';
+
+    protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at'];
 }
 ```
 
@@ -1127,11 +1633,222 @@ vendor/bin/phinx status          # verifica: down
 vendor/bin/phinx migrate         # vuelve a up
 ```
 
+### 11.1 Migraciones de auth y seed del admin
+
 ```bash
-vendor/bin/phinx rollback -t 0   # baja todo a down
-vendor/bin/phinx status          # verifica: down
-vendor/bin/phinx migrate         # vuelve a up
+vendor/bin/phinx create CreateUsersTable
+vendor/bin/phinx create CreateRememberTokensTable
 ```
+
+Ojo: si los dos `create` caen en el mismo segundo, Phinx genera el MISMO prefijo de versión y el tracking se rompe. Renombrá uno a mano (la versión son los primeros 14 dígitos del nombre).
+
+`database/migrations/<timestamp>_create_users_table.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Migration\AbstractMigration;
+
+final class CreateUsersTable extends AbstractMigration
+{
+    public function change(): void
+    {
+        $this->table('users')
+            ->addColumn('email', 'string', ['limit' => 160])
+            ->addColumn('password_hash', 'string', ['limit' => 255])
+            ->addIndex(['email'], ['unique' => true])
+            ->addTimestamps()
+            ->create();
+    }
+}
+```
+
+`database/migrations/<timestamp>_create_remember_tokens_table.php` (posterior al de users):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Migration\AbstractMigration;
+
+final class CreateRememberTokensTable extends AbstractMigration
+{
+    public function change(): void
+    {
+        // Sin id autoincrement: el selector ES la clave (lookup directo).
+        // expires_at como entero unix: sin dramas de timezone al comparar.
+        $this->table('remember_tokens', ['id' => false, 'primary_key' => ['selector']])
+            ->addColumn('selector', 'string', ['limit' => 48])
+            ->addColumn('user_id', 'integer')
+            ->addColumn('hashed_validator', 'string', ['limit' => 255])
+            ->addColumn('expires_at', 'integer')
+            ->addColumn('created_at', 'datetime', ['default' => 'CURRENT_TIMESTAMP'])
+            ->addForeignKey('user_id', 'users', 'id', ['delete' => 'CASCADE'])
+            ->create();
+    }
+}
+```
+
+Sin registro público, el primer usuario nace por **seed**: en Phinx, migraciones para SCHEMA y seeds para DATOS. Los seeds corren con `seed:run`, quedan registrados y se pueden repetir sin duplicar.
+
+Primero declará el path en `phinx.php`, junto a `migrations`:
+
+```php
+return [
+    'paths' => [
+        'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
+        'seeds'      => '%%PHINX_CONFIG_DIR%%/database/seeds',
+    ],
+```
+
+```bash
+vendor/bin/phinx seed:create AdminSeeder
+```
+
+Completá `database/seeds/AdminSeeder.php` (el secret sale de entorno real o de `.env` —ojo: Dotenv immutable NO usa `putenv`, así que `.env` llega a `$_ENV` pero nunca a `getenv()`: se miran ambos—; valida con el `Validator` del cap. 12 y nunca imprime la clave; Eloquent sale del bootstrap de la app, igual que en runtime):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Models\User;
+use App\Support\Validator;
+use Phinx\Seed\AbstractSeed;
+
+final class AdminSeeder extends AbstractSeed
+{
+    public function run(): void
+    {
+        require_once __DIR__ . '/../../bootstrap/app.php';
+
+        // $_ENV primero (ahí cae `.env` vía Dotenv), getenv después (entorno
+        // real). Con Dotenv immutable el real gana en ambos si está en los dos.
+        $email = $_ENV['ADMIN_EMAIL'] ?? getenv('ADMIN_EMAIL') ?: null;
+        $password = $_ENV['ADMIN_PASSWORD'] ?? getenv('ADMIN_PASSWORD') ?: null;
+
+        $validator = Validator::make(
+            ['email' => $email, 'password' => $password],
+            ['email' => 'required|email', 'password' => 'required|min:8']
+        );
+
+        if ($email === null || $validator->fails()) {
+            throw new \RuntimeException(
+                'ADMIN_EMAIL y ADMIN_PASSWORD (8+ caracteres) son obligatorios: ' .
+                'ADMIN_EMAIL=x ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s AdminSeeder'
+            );
+        }
+
+        $user = User::updateOrCreate(
+            ['email' => $email],
+            ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]
+        );
+
+        echo "OK admin {$user->email} (id {$user->id})" . PHP_EOL;
+    }
+}
+```
+
+Uso — vía `.env` (recomendado: descomentá `ADMIN_EMAIL`/`ADMIN_PASSWORD` en tu `.env`; no pasan por history ni `ps`):
+
+```bash
+vendor/bin/phinx seed:run -s AdminSeeder
+# OK admin vos@ejemplo.com (id 1)
+```
+
+Orden obligatorio: **primero `composer migrate` (tablas), después el seed**. Sin tablas verás `no such table: users` — no es un bug del seed, es orden de ejecución. Y si el seed aborta con el mensaje de uso, te falta alguna de las dos variables (o la clave tiene menos de 8).
+
+O inline (el entorno real gana si están ambos; ojo que en bash SÍ queda en el history):
+
+```bash
+ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s AdminSeeder
+```
+
+### 11.2 DatabaseSeeder: sembrar otros datos
+
+Phinx no trae el `$this->call()` de Laravel: `seed:run` pelado ejecuta todo el directorio en orden de `glob` (~alfabético, sin garantía contractual) y `-s` corre uno solo. El orden explícito vive entonces en un orquestador propio, y cada seeder DEBE ser idempotente (porque nada impide correrlos sueltos).
+
+`database/seeds/DatabaseSeeder.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Phinx\Seed\AbstractSeed;
+
+/**
+ * Orquestador estilo DatabaseSeeder de Laravel. Phinx no trae $this->call():
+ * `seed:run` pelado ejecuta todo el directorio en orden de glob, así que el
+ * orden explícito vive acá. Cada seeder DEBE ser idempotente (updateOrCreate
+ * o guardas), porque nada impide correrlos sueltos con -s.
+ *
+ * Uso: vendor/bin/phinx seed:run -s DatabaseSeeder
+ */
+final class DatabaseSeeder extends AbstractSeed
+{
+    /** @var class-string[] en orden explícito de ejecución. */
+    private const SEEDS = [
+        AdminSeeder::class,
+        TaskSeeder::class,
+    ];
+
+    public function run(): void
+    {
+        foreach (self::SEEDS as $class) {
+            (new $class())->setAdapter($this->getAdapter())->run();
+        }
+    }
+}
+```
+
+`database/seeds/TaskSeeder.php` (datos demo; el guard la hace idempotente):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Task;
+use Phinx\Seed\AbstractSeed;
+
+/**
+ * Datos demo para desarrollo. Idempotente: si ya hay tareas no toca nada,
+ * así re-correr el DatabaseSeeder (o seed:run pelado) nunca duplica.
+ */
+final class TaskSeeder extends AbstractSeed
+{
+    public function run(): void
+    {
+        require_once __DIR__ . '/../../bootstrap/app.php';
+
+        if (Task::query()->exists()) {
+            echo "TaskSeeder: ya hay tareas, no se toca nada." . PHP_EOL;
+            return;
+        }
+
+        foreach (['Comprar pan', 'Regar las plantas', 'Terminar la guía'] as $title) {
+            Task::create(['title' => $title]);
+        }
+
+        echo "TaskSeeder: 3 tareas demo." . PHP_EOL;
+    }
+}
+```
+
+```bash
+ADMIN_EMAIL=... ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s DatabaseSeeder
+# OK admin ... (id 1)
+# TaskSeeder: 3 tareas demo.
+# All Done.
+```
+
+¿Otros datos mañana? Nuevo seeder con guard, una línea en `SEEDS`, listo. Regla: ningún seeder duplica en re-ejecución, nunca.
+
+> **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido acá. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usá el comando de arriba con una clave larga que solo vos sepas.
 
 ## 12. Validación estilo Laravel sobre respect/validation
 
@@ -1513,6 +2230,79 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 {% endif %}
 ```
 
+### 15.2 Página de login y bloque usuario/salir
+
+`resources/views/auth/login.twig` (form normal, sin HTMX: el login navega de verdad con 303):
+
+```twig
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Acceder{% endblock %}
+
+{% block content %}
+    <div class="mx-auto max-w-sm">
+        <h1 class="mb-4 text-2xl font-bold">Acceder</h1>
+
+        {% if flash_error %}
+            <div class="alert alert-error mb-4" role="alert">
+                <span>{{ flash_error }}</span>
+            </div>
+        {% endif %}
+        {% if flash_info is defined and flash_info %}
+            <div class="alert alert-info mb-4" role="alert">
+                <span>{{ flash_info }}</span>
+            </div>
+        {% endif %}
+
+        {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
+        <form method="post" action="/login" class="card border border-base-300 bg-base-100">
+            <div class="card-body gap-3">
+                {% include 'partials/_csrf.twig' %}
+                <label class="form-control">
+                    <span class="label"><span class="label-text">Email</span></span>
+                    <input type="email" name="email" required autocomplete="username"
+                           value="{{ email|default('') }}"
+                           placeholder="vos@ejemplo.com"
+                           class="input input-bordered w-full">
+                </label>
+                <label class="form-control">
+                    <span class="label"><span class="label-text">Clave</span></span>
+                    <input type="password" name="password" required autocomplete="current-password"
+                           placeholder="••••••••"
+                           class="input input-bordered w-full">
+                </label>
+                <label class="label cursor-pointer justify-start gap-2">
+                    <input type="checkbox" name="remember" value="1" class="checkbox">
+                    <span class="label-text">Recordarme 30 días</span>
+                </label>
+                <button type="submit" class="btn btn-primary w-full">
+                    Entrar
+                </button>
+            </div>
+        </form>
+    </div>
+{% endblock %}
+```
+
+El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque tiene que estar en todas las páginas. Necesita `user_id`/`user_email` + CSRF en TODO render completo — por eso el `render()` base los pasa siempre (una PK indexada cuando hay sesión, nada cuando no) y el cierre de `/` los pasa explícito (cap. 9):
+
+```twig
+{% if user_id is defined and user_id %}
+<div class="border-t border-base-300 p-2">
+    <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
+    <form method="post" action="/logout">
+        {% include 'partials/_csrf.twig' %}
+        <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
+        </button>
+    </form>
+</div>
+{% endif %}
+```
+
+Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto plano "Acceder"): con dos ramas el header mentiría en la página de login. Si agregás páginas, cada una necesita su `active` y su rama — anotado como deuda visible, no como magia.
+
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
 La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `resources/views/tasks/index.twig`.
@@ -1712,6 +2502,8 @@ cp .env.example .env
 composer install:termux            # dependencias sin resolver en el teléfono
 composer dump-autoload -o
 composer migrate                   # crea el schema (phinx usa safeLoad: no pide .env)
+nano .env                          # descomentar ADMIN_EMAIL y ADMIN_PASSWORD (cap. 11.1)
+vendor/bin/phinx seed:run -s DatabaseSeeder   # admin + datos demo
 composer serve
 ```
 
@@ -1763,6 +2555,9 @@ Con workers, dos requests concurrentes sobre la **misma sesión** se contendian 
 ```bash
 composer migrate                         # corre migraciones pendientes
 vendor/bin/phinx create NombreMigracion  # crea una nueva migración
+vendor/bin/phinx seed:create NombreSeed  # crea un seed de datos (cap. 11.1)
+vendor/bin/phinx seed:run -s DatabaseSeeder  # corre todos en orden (cap. 11.2)
+vendor/bin/phinx seed:run -s NombreSeed  # corre uno solo
 vendor/bin/phinx rollback -t 0           # baja todo (el "fresh", ver cap. 11)
 vendor/bin/phinx status                  # up/down por migración
 composer dump-autoload -o                # regenera el autoload tras agregar clases
@@ -2812,7 +3607,342 @@ final class EditTaskTest extends TestCase
 
 Notá el `alert-error` en el test del flash: el panel renderiza `alert alert-error` de daisyUI, y el test asserta esa clase (antes era `bg-red-100`). El contrato es el mismo ("el flash se renderiza"); el selector cambió con el rework visual. Y el test de `editing_title` deja por escrito que en fallo de validación el input conserva lo tipeado, no el valor guardado.
 
-### 20.9 Qué NO testear
+### 20.9 Auth: login, remember-me y la puerta
+
+`tests/Http/AuthTest.php`. Los tests comparten proceso (y `$_SESSION`) con el resto de la suite: cada test parte de sesión limpia y deja las tablas vacías. La cookie remember se pasa a mano por header (el cliente de tests no guarda cookies solo) y hay que poblar `$_COOKIE` a mano porque el `ServerRequest` no lo hace:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Http;
+
+use App\Models\RememberToken;
+use App\Models\User;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Slim\App;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\StreamFactory;
+use Tests\Support\AppFactory;
+
+/**
+ * Auth v1: login/logout + remember-me + puerta de /tareas.
+ *
+ * Los tests comparten proceso (y $_SESSION) con el resto de la suite: cada
+ * test parte de sesión limpia y deja las tablas vacías. La cookie remember se
+ * pasa a mano por header: el cliente de tests no guarda cookies solo.
+ */
+final class AuthTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        $_SESSION = [];
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SESSION['user_id']);
+        RememberToken::query()->delete();
+        User::query()->delete();
+    }
+
+    private static function app(): App
+    {
+        return AppFactory::make();
+    }
+
+    public function test_login_muestra_el_formulario(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/login'));
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('name="csrf_name"', $html);
+        self::assertStringContainsString('type="password"', $html);
+        self::assertStringContainsString('name="remember"', $html);
+    }
+
+    public function test_login_con_credenciales_malas_no_entra_ni_dice_cual_fallo(): void
+    {
+        $this->createUser('yo@ejemplo.com', 'secreto123');
+        $token = $this->csrf();
+
+        foreach ([
+            ['email' => 'otro@ejemplo.com', 'password' => 'secreto123'], // email inexistente
+            ['email' => 'yo@ejemplo.com', 'password' => 'clave-errada'], // clave errada
+        ] as $body) {
+            $response = self::app()->handle(
+                self::request('POST', '/login', $body + $token)
+            );
+
+            self::assertSame(200, $response->getStatusCode());
+            // El MISMO mensaje en ambos casos: decir cuál falló es enumeración.
+            self::assertStringContainsString('Credenciales inválidas.', (string) $response->getBody());
+        }
+
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    public function test_login_valido_redirige_y_abre_sesion(): void
+    {
+        $user = $this->createUser();
+        $token = $this->csrf();
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email'    => 'yo@ejemplo.com',
+                'password' => 'secreto123',
+            ] + $token)
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+        self::assertSame($user->id, $_SESSION['user_id'] ?? null);
+    }
+
+    public function test_login_con_remember_emite_cookie_y_guarda_solo_el_hash(): void
+    {
+        $this->createUser();
+        $token = $this->csrf();
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email'    => 'yo@ejemplo.com',
+                'password' => 'secreto123',
+                'remember' => '1',
+            ] + $token)
+        );
+
+        $pair = $this->rememberPair($response);
+        self::assertMatchesRegularExpression('/^[0-9a-f]{24}:[0-9a-f]{64}$/', $pair);
+
+        [$selector, $validator] = explode(':', $pair);
+        $row = RememberToken::query()->where('selector', $selector)->first();
+
+        self::assertNotNull($row, 'El token no se persistió.');
+        // En base solo el hash: si se filtra la base, el par no sirve.
+        self::assertNotSame($validator, $row->hashed_validator);
+        self::assertTrue(password_verify($validator, $row->hashed_validator));
+    }
+
+    public function test_remember_reanuda_sesion_y_rota_el_token(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        // Request nueva sin sesión pero con la cookie.
+        $_SESSION = [];
+        $response = self::app()->handle(
+            self::request('GET', '/tareas', [], false, ['remember' => $pair])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame($user->id, $_SESSION['user_id'] ?? null, 'La cookie no reanudó la sesión.');
+
+        // Rotación: el selector presentado murió y nació otro.
+        [$oldSelector] = explode(':', $pair);
+        self::assertNull(RememberToken::query()->where('selector', $oldSelector)->first());
+        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
+
+        $newPair = $this->rememberPair($response);
+        self::assertNotSame($pair, $newPair);
+    }
+
+    public function test_remember_adulterado_no_entra_y_quema_todo(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+        [$selector] = explode(':', $pair);
+
+        $_SESSION = [];
+        $response = self::app()->handle(
+            self::request('GET', '/tareas', [], false, ['remember' => $selector . ':' . str_repeat('0', 64)])
+        );
+
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertSame(0, RememberToken::query()->where('user_id', $user->id)->count());
+        self::assertStringContainsString('Max-Age=0', $this->rememberRaw($response));
+    }
+
+    public function test_remember_expirado_no_entra_y_se_limpia(): void
+    {
+        $user = $this->createUser();
+        $validator = str_repeat('a', 64);
+
+        RememberToken::create([
+            'selector'         => 'expiretest1234567890abcd',
+            'user_id'          => $user->id,
+            'hashed_validator' => password_hash($validator, PASSWORD_DEFAULT),
+            'expires_at'       => time() - 60,
+        ]);
+
+        $_SESSION = [];
+        $response = self::app()->handle(
+            self::request('GET', '/tareas', [], false, ['remember' => 'expiretest1234567890abcd:' . $validator])
+        );
+
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertNull(RememberToken::query()->where('selector', 'expiretest1234567890abcd')->first());
+        self::assertStringContainsString('Max-Age=0', $this->rememberRaw($response));
+    }
+
+    public function test_ruta_protegida_sin_login_redirige(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas'));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/login', $response->getHeaderLine('Location'));
+    }
+
+    public function test_ruta_protegida_htmx_devuelve_hx_redirect(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas', [], true));
+
+        // 200 + HX-Redirect (no 303): un redirect rompería el swap de HTMX.
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('/login', $response->getHeaderLine('HX-Redirect'));
+    }
+
+    public function test_logout_cierra_quema_remember_y_redirige(): void
+    {
+        $user = $this->createUser();
+        // El token de logout se scrapea ANTES de entrar: logueado, GET /login
+        // redirige a /tareas y ya no hay form.
+        $token = $this->csrf();
+        $this->loginWithRemember($user);
+
+        $response = self::app()->handle(
+            self::request('POST', '/logout', $token)
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/login', $response->getHeaderLine('Location'));
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertSame(0, RememberToken::query()->where('user_id', $user->id)->count());
+        self::assertStringContainsString('Max-Age=0', $this->rememberRaw($response));
+    }
+
+    public function test_login_estando_logueado_redirige_a_tareas(): void
+    {
+        $user = $this->createUser();
+        $_SESSION['user_id'] = $user->id;
+
+        $response = self::app()->handle(self::request('GET', '/login'));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+    }
+
+    private function createUser(string $email = 'yo@ejemplo.com', string $password = 'secreto123'): User
+    {
+        return User::create([
+            'email'         => $email,
+            'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+        ]);
+    }
+
+    /** Token CSRF fresco de la página de login. */
+    private function csrf(): array
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
+
+        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
+        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
+
+        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name en /login');
+        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value en /login');
+
+        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
+    }
+
+    /** Login con remember y devuelve el par crudo de la cookie emitida. */
+    private function loginWithRemember(User $user): string
+    {
+        $token = $this->csrf();
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email'    => $user->email,
+                'password' => 'secreto123',
+                'remember' => '1',
+            ] + $token)
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+
+        return $this->rememberPair($response);
+    }
+
+    private function rememberPair(ResponseInterface $response): string
+    {
+        $raw = $this->rememberRaw($response);
+
+        self::assertNotSame('', $raw, 'No se emitió cookie remember.');
+
+        return explode(';', $raw, 2)[0];
+    }
+
+    private function rememberRaw(ResponseInterface $response): string
+    {
+        foreach ($response->getHeader('Set-Cookie') as $line) {
+            if (str_starts_with($line, 'remember=')) {
+                return substr($line, strlen('remember='));
+            }
+        }
+
+        return '';
+    }
+
+    private static function request(
+        string $method,
+        string $path,
+        array $body = [],
+        bool $htmx = false,
+        array $cookies = []
+    ): ServerRequestInterface {
+        $request = (new ServerRequestFactory())
+            ->createServerRequest($method, 'http://localhost' . $path);
+
+        if ($body !== []) {
+            $request = $request
+                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
+                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
+
+        if ($cookies !== []) {
+            $pairs = [];
+            foreach ($cookies as $k => $v) {
+                $pairs[] = $k . '=' . $v;
+            }
+            $request = $request->withHeader('Cookie', implode('; ', $pairs));
+        }
+
+        // La cookie remember llega por header: hay que poblar $_COOKIE a mano,
+        // el ServerRequest no lo hace solo.
+        if (isset($cookies['remember'])) {
+            $_COOKIE['remember'] = $cookies['remember'];
+        } else {
+            unset($_COOKIE['remember']);
+        }
+
+        return $htmx
+            ? $request->withHeader('HX-Request', 'true')
+            : $request;
+    }
+}
+```
+
+Dos consecuencias de proteger `/tareas` que te van a morder si no las sabés:
+
+1. **Los tests viejos entran logueados.** CsrfFlow, Delete, Edit y Partial pegan a `/tareas`: cada uno crea un usuario en `setUp()` e inyecta `$_SESSION['user_id']` (la auth en sí se testea acá, no ahí), y lo limpia en `tearDown()` junto con las tablas. Sin eso, todo lo viejo da 303.
+2. **`AppFactory` crea las tres tablas** en `:memory:` (`tasks`, `users`, `remember_tokens` espejando las migraciones). Si agregás una migración y olvidás su `CREATE TABLE` acá, los tests corren contra un esquema viejo en verde.
+
+### 20.10 Qué NO testear
 
 - **Eloquent.** Es de Laravel. `Task::create()` inserta una fila: eso es un test de SQLite, no tuyo.
 - **Twig.** Es de Twig. Un test de render de plantillas testea el motor de plantillas.
@@ -2997,6 +4127,14 @@ composer serve
 
 Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `pull` lo resuelve. Regla de oro que este bug deja escrita: **en 32 bits el teléfono nunca resuelve dependencias** — instala (`install`) lo que se resolvió en 64 bits y vino en el lock. El `update` en Termux no es una herramienta, es el síntoma de que algo hay que traer de otro lado.
 
+### 21.21 `Invalid CSRF storage` al bootear en tests (o al registrar rutas)
+
+**[v]** Mensaje completo: `Invalid CSRF storage. Use session_start() before instantiating the Guard middleware or provide array storage.` Pasa si resolvés `Guard` del container al **registrar** rutas (como hacía el cierre de `/` para el form de logout): al construirse exige sesión iniciada y en registro todavía no hay ninguna. La fix es resolverlo **en request**, dentro del cierre (cap. 9) — en ejecución la sesión ya la abrió `SessionMiddleware`.
+
+### 21.22 Suite roja de golpe tras proteger una ruta
+
+**[v]** Protegés `/tareas` con `RequireAuth` y 12 tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
+
 ## 22. Cómo verificar esta guía vos mismo
 
 Todo lo que la guía afirma es reproducible. Los capítulos 4 a 20 son código y se **ejecutan**; los capítulos 1 a 3 y 17 a 19 son afirmaciones sobre tu teléfono y **no** se verifican desde afuera. Por eso este capítulo está partido en dos.
@@ -3010,7 +4148,7 @@ composer show respect/validation | head -2
 
 # 2. Suite completa: el esqueleto, no la demo (cap. 20)
 composer test
-# esperado: OK (38 tests, 94 assertions)
+# esperado: OK (49 tests, 154 assertions)
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &
@@ -3024,23 +4162,44 @@ curl -sI http://127.0.0.1:8080/no-existe | head -5
 curl -s http://127.0.0.1:8080/no-existe | wc -c
 # esperado: 507
 
-# 5. La cookie de sesión tiene que viajar (cap. 8)
-curl -sI http://127.0.0.1:8080/tareas | grep -i set-cookie
+# 5. La cookie de sesión tiene que viajar (cap. 8). Ojo: /tareas ahora exige
+# login, así que la cookie se verifica contra /login (pública, con sesión).
+curl -sI http://127.0.0.1:8080/login | grep -i set-cookie
 # esperado: mi_app_session=...; path=/; HttpOnly; SameSite=Lax
+
+# 5b. La puerta (cap. 9.2): sin login, /tareas no muestra nada.
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://127.0.0.1:8080/tareas
+# esperado: 303 .../login
+curl -sI -H "HX-Request: true" http://127.0.0.1:8080/tareas | grep -i hx-redirect
+# esperado: HX-Redirect: /login (200, no 303: el swap no sigue redirects)
 ```
 
-Chequeos extra del frontend vendorizado (cap. 14):
+Chequeos extra del frontend vendorizado (cap. 14) y el login (cap. 9.2):
 
 ```bash
-curl -s http://127.0.0.1:8080/tareas | wc -c
-# esperado: ~10683 con la base vacía (varía unos bytes con cada token CSRF).
+curl -s http://127.0.0.1:8080/login | wc -c
+# esperado: ~10910 (varía unos bytes con cada token CSRF).
 # Lo que no puede salir es 0.
-curl -s http://127.0.0.1:8080/tareas | grep -c 'csrf.window'
+curl -s http://127.0.0.1:8080/login | grep -c 'csrf.window'
 # esperado: 1 o más — el listener de CSRF tiene que estar en el layout
 curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/assets/daisyui-5.7.46.css
 # esperado: 200
 curl -s http://127.0.0.1:8080/ | wc -c
-# esperado: ~12678 (varía con los tokens)
+# esperado: ~12686 (varía con los tokens)
+```
+
+Y el flujo de login punta a punta con cookie-jar (cap. 9.2) — la prueba que el Nivel A no cubre pero vos sí deberías hacer una vez:
+
+```bash
+curl -s -c jar.txt http://127.0.0.1:8080/login -o login.html
+# extraé csrf_name/csrf_value del HTML y:
+curl -s -b jar.txt -c jar.txt --data-urlencode "csrf_name=..." \
+  --data-urlencode "csrf_value=..." --data-urlencode "email=TU_EMAIL" \
+  --data-urlencode "password=TU_CLAVE" --data-urlencode "remember=1" \
+  -i http://127.0.0.1:8080/login | grep -E "^(HTTP|Location|Set-Cookie)"
+# esperado: 303, Location: /tareas, Set-Cookie de sesión + remember=... (HttpOnly, Max-Age)
+curl -s -b jar.txt http://127.0.0.1:8080/tareas | wc -c
+# esperado: >0 (con jar logueado; sin jar es el 303 del chequeo 5b)
 ```
 
 ### 22.2 Nivel B — cuarenta y cinco minutos, el que de verdad importa
@@ -3107,6 +4266,8 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `odd/tasks/*.md` | Registros de trabajo del desarrollo (decisiones, evidencia, próximos pasos). Útiles para entender *por qué*, innecesarios para replicar el *qué*. |
 | `.phpunit.cache/` | Cache local de PHPUnit. |
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
+
+> Todo lo demás (`app/Models/User.php`, `RememberToken.php`, `app/Support/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 

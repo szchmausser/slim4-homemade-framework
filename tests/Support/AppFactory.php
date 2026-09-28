@@ -45,5 +45,22 @@ final class AppFactory
             $table->boolean('done')->default(false);
             $table->timestamps();
         });
+
+        // Espeja database/migrations/*_create_users_table.php
+        Capsule::schema()->create('users', function ($table) {
+            $table->increments('id');
+            $table->string('email', 160)->unique();
+            $table->string('password_hash', 255);
+            $table->timestamps();
+        });
+
+        // Espeja database/migrations/*_create_remember_tokens_table.php
+        Capsule::schema()->create('remember_tokens', function ($table) {
+            $table->string('selector', 48)->primary();
+            $table->integer('user_id');
+            $table->string('hashed_validator', 255);
+            $table->integer('expires_at');
+            $table->dateTime('created_at')->useCurrent();
+        });
     }
 }

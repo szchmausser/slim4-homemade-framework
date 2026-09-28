@@ -8,6 +8,7 @@ Dotenv\Dotenv::createImmutable(__DIR__)->safeLoad();
 return [
     'paths' => [
         'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
+        'seeds'      => '%%PHINX_CONFIG_DIR%%/database/seeds',
     ],
     'environments' => [
         'default_environment' => 'development',
