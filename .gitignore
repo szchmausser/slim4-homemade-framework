@@ -6,6 +6,7 @@
 /storage/logs/*.log
 /storage/cache/
 /storage/sessions/
+/storage/backups/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
 .env

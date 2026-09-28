@@ -22,11 +22,11 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 13. CSRF en formularios Twig
 14. Frontend: assets vendorizados + SRI (nada de CDN)
 15. Shell de la app: sidebar, header, temas y footer
-16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
-17. Levantar el servidor y mantenerlo vivo
+16. Ejemplo funcional de punta a punta (lista de tareas con HTMX + paginación reutilizable)
+17. Levantar el servidor y mantenerlo vivo (+ backup)
 18. El capítulo que de verdad importa: 32 bits
 19. Antes de exponer la app fuera de tu teléfono
-20. Testing: testear el esqueleto, no la demo (+ suite de auth)
+20. Testing: testear el esqueleto, no la demo (+ suite de auth y paginación)
 21. Troubleshooting: síntomas, no theory
 22. Cómo verificar esta guía vos mismo
 23. Archivos que existen pero NO se replican
@@ -232,6 +232,7 @@ composer require --dev phpunit/phpunit
     "scripts": {
         "serve": "php -S 0.0.0.0:8080 -t public",
         "migrate": "phinx migrate",
+        "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "install:termux": "composer install --prefer-dist --no-scripts",
         "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
@@ -301,6 +302,7 @@ php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesi
 /storage/logs/*.log
 /storage/cache/
 /storage/sessions/
+/storage/backups/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
 .env
@@ -1862,6 +1864,39 @@ ADMIN_EMAIL=... ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s DatabaseSeeder
 
 ¿Otros datos mañana? Nuevo seeder con guard, una línea en `SEEDS`, listo. Regla: ningún seeder duplica en re-ejecución, nunca.
 
+`database/seeds/DemoTasksSeeder.php` (100 filas para ejercitar la paginación del cap. 16.1 — a propósito FUERA de `DatabaseSeeder`: una instalación fresca no quiere 100 filas de ruido, se corre solo con `-s`):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Models\Task;
+use Phinx\Seed\AbstractSeed;
+
+final class DemoTasksSeeder extends AbstractSeed
+{
+    public function run(): void
+    {
+        require_once __DIR__ . '/../../bootstrap/app.php';
+
+        $created = 0;
+        for ($i = 1; $i <= 100; $i++) {
+            if (Task::firstOrCreate(['title' => "Tarea demo {$i}"])->wasRecentlyCreated) {
+                $created++;
+            }
+        }
+
+        echo "DemoTasksSeeder: {$created} nuevas (100 esperadas en base vacía)." . PHP_EOL;
+    }
+}
+```
+
+```bash
+vendor/bin/phinx seed:run -s DemoTasksSeeder
+# DemoTasksSeeder: 100 nuevas (100 esperadas en base vacía).
+```
+
 > **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido acá. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usá el comando de arriba con una clave larga que solo vos sepas.
 
 ## 12. Validación estilo Laravel sobre respect/validation
@@ -2502,6 +2537,201 @@ $app = require __DIR__ . '/../bootstrap/app.php';
 $app->run();
 ```
 
+### 16.1 Paginación reutilizable estilo Laravel
+
+Nada de `get()` pelado en listados (cap. 18.3): cada render trae su slice + metadata. Y sin `illuminate/pagination` a propósito — ese paquete exige `php ^8.3` y subiría el piso de todo el proyecto solo por un objeto cuyos links igual renderizamos nosotros. Son las mismas 2 queries que hace `paginate()` por dentro (count + slice), a mano:
+
+`app/Support/Pagination.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Support;
+
+use Illuminate\Database\Eloquent\Builder;
+
+/**
+ * Paginación estilo Laravel sin illuminate/pagination (ese paquete exige
+ * php ^8.3 y subiría el piso del proyecto; acá son las mismas 2 queries que
+ * hace paginate() por dentro: count + slice). Todo testeable sin HTTP.
+ */
+final class Pagination
+{
+    public const DEFAULT_PER_PAGE = 10;
+
+    /** @var int[] */
+    public const ALLOWED_PER_PAGE = [10, 15, 25, 50];
+
+    /**
+     * Pagina un query Eloquent. Devuelve items + metadata lista para
+     * partials/_pagination.twig. $page fuera de rango se clampena (nunca vacío
+     * por pedir de más).
+     *
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array}
+     */
+    public static function paginate(Builder $query, int $page, int $perPage, string $baseUrl): array
+    {
+        $perPage = self::clampPerPage($perPage);
+
+        $total = (int) (clone $query)->count();
+        $lastPage = (int) max(1, (int) ceil($total / $perPage));
+        $page = min(max(1, $page), $lastPage);
+
+        $items = (clone $query)->forPage($page, $perPage)->get();
+
+        return [
+            'items'        => $items,
+            'total'        => $total,
+            'per_page'     => $perPage,
+            'current_page' => $page,
+            'last_page'    => $lastPage,
+            'from'         => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
+            'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
+            'base_url'     => $baseUrl,
+            'pages'        => self::window($page, $lastPage),
+        ];
+    }
+
+    public static function clampPerPage(mixed $value): int
+    {
+        $value = (int) $value;
+
+        return in_array($value, self::ALLOWED_PER_PAGE, true)
+            ? $value
+            : self::DEFAULT_PER_PAGE;
+    }
+
+    /**
+     * Ventana de páginas estilo Laravel: primera, última y actual±2.
+     * null = ellipsis ("…"). Los números no pueden repetirse por construcción
+     * (el rango va de 2 a last-1), así que no se deduplica: array_unique con
+     * comparación laxa borraría un ellipsis doble, que es válido.
+     *
+     * @return array<int|null>
+     */
+    public static function window(int $current, int $last): array
+    {
+        if ($last <= 7) {
+            return range(1, $last);
+        }
+
+        $pages = [1];
+
+        if ($current > 4) {
+            $pages[] = null;
+        }
+
+        foreach (range(max(2, $current - 2), min($last - 1, $current + 2)) as $p) {
+            $pages[] = $p;
+        }
+
+        if ($current < $last - 3) {
+            $pages[] = null;
+        }
+
+        $pages[] = $last;
+
+        return $pages;
+    }
+}
+```
+
+En el controlador, un método privado por ruta listada (la página y el tamaño salen del query string, que mandan tanto el navegador como los links HTMX):
+
+```php
+    private function pageData(Request $request): array
+    {
+        $query = $request->getQueryParams();
+
+        $listing = Pagination::paginate(
+            Task::orderByDesc('id'),
+            (int) ($query['page'] ?? 1),
+            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            '/tareas'
+        );
+
+        return [
+            'tasks'      => $listing['items'],
+            'pagination' => $listing,
+        ];
+    }
+```
+
+Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): full y swap llevan su slice al día. Ojo con el casteo `(int)`: bajo `strict_types`, pasar el string del query directo al `int` del helper es `TypeError`.
+
+`resources/views/partials/_pagination.twig` (portable: sin ids ni rutas propias, todo por params — `pagination`, `target` obligatorio, `swap`/`show_size` opcionales; así sirve en cualquier ruta sin cambios):
+
+```twig
+{# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
+   (ver Pagination::paginate) y target (selector hx-target). Opcionales: swap
+   (default outerHTML) y show_size (default true). Sin ids ni rutas propias:
+   todo sale de los params, así sirve en cualquier ruta sin cambios. #}
+{% if pagination.total > 0 %}
+<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm opacity-70">
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} registros
+    </p>
+
+    <div class="flex flex-wrap items-center gap-2">
+        {% if show_size|default(true) %}
+        <select class="select select-bordered select-sm w-auto" name="per_page"
+                aria-label="Registros por página"
+                hx-get="{{ pagination.base_url }}"
+                hx-target="{{ target }}"
+                hx-swap="{{ swap|default('outerHTML') }}"
+                hx-trigger="change"
+                hx-include="this">
+            {% for size in [10, 15, 25, 50] %}
+                <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <div class="join" role="navigation" aria-label="Paginación">
+            {% if pagination.current_page > 1 %}
+                <a class="join-item btn btn-sm"
+                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page - 1 }}&per_page={{ pagination.per_page }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">«</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página anterior">«</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
+                {% else %}
+                    <a class="join-item btn btn-sm"
+                       hx-get="{{ pagination.base_url }}?page={{ p }}&per_page={{ pagination.per_page }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                <a class="join-item btn btn-sm"
+                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page + 1 }}&per_page={{ pagination.per_page }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">»</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página siguiente">»</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+```
+
+Tres decisiones que importan:
+
+1. **Los links conservan `per_page`.** Sin eso, cambiar de página resetearía el tamaño a 10 en silencio. El selector, al revés, resetea a página 1 (no manda `page`): es lo correcto cuando cambia el tamaño.
+2. **`per_page` se valida contra lista blanca** (`clampPerPage`): un `?per_page=999999` cae al default en vez de traer la tabla entera a memoria — que es exactamente el bug de 18.3 con otro nombre.
+3. **En vacío no se renderiza nada** (el `{% if %}` exterior): la fila "No hay tareas todavía" ya comunica el estado, y un paginador de cero páginas es ruido.
+
 ## 17. Levantar el servidor y mantenerlo vivo
 
 ```bash
@@ -2575,9 +2805,55 @@ vendor/bin/phinx seed:run -s NombreSeed  # corre uno solo
 vendor/bin/phinx rollback -t 0           # baja todo (el "fresh", ver cap. 11)
 vendor/bin/phinx status                  # up/down por migración
 composer dump-autoload -o                # regenera el autoload tras agregar clases
+composer db:backup                       # backup timestamped a storage/backups/
 composer test                            # corre la suite (phpunit)
 composer check:termux                    # 32 o 64 bits, según PHP_INT_SIZE
 ```
+
+### 17.6 Backup: el teléfono se puede perder
+
+`scripts/db-backup.php` (con `composer db:backup`): copia `database.sqlite` + sidecars WAL (`-wal`/`-shm`/`-journal`) si existen, a `storage/backups/YYYYMMDD-HHMMSS/` (gitignored: son datos reales). La base y el path salen del mismo default relativo del cap. 6:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+// Backup timestamped de SQLite + sidecars WAL (-wal/-shm/-journal) si existen.
+// Uso: composer db:backup
+// Destino: storage/backups/YYYYMMDD-HHMMSS/ (gitignored: son datos reales).
+// Hacelo con la app quieta: en caliente la copia puede ir a medias (WAL).
+
+require __DIR__ . '/../vendor/autoload.php';
+
+Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+$db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+
+if ($db === ':memory:' || !file_exists($db)) {
+    fwrite(STDERR, "No hay base para respaldar en '{$db}'.\n");
+    exit(1);
+}
+
+$storage = __DIR__ . '/../storage';
+if (!is_dir($storage)) {
+    mkdir($storage, 0777, true);
+}
+$dest = realpath($storage) . '/backups/' . date('Ymd-His');
+mkdir($dest, 0777, true);
+
+$n = 0;
+foreach ([$db, $db . '-wal', $db . '-shm', $db . '-journal'] as $file) {
+    if (file_exists($file)) {
+        copy($file, $dest . '/' . basename($file));
+        $n++;
+    }
+}
+
+echo "Backup en {$dest} ({$n} archivos)." . PHP_EOL;
+```
+
+Hacelo con la app quieta (sin requests en vuelo): copiar sqlite+WAL en caliente puede partir el backup por la mitad. Y si querés sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
 
 ## 18. El capítulo que de verdad importa: 32 bits
 
@@ -2789,7 +3065,7 @@ Correr:
 ```bash
 vendor/bin/phpunit
 composer test
-# esperado: OK (38 tests, 94 assertions)
+# esperado: OK (65 tests, 200 assertions)
 ```
 
 ### 20.2 El `Validator`, con tabla
@@ -3956,7 +4232,241 @@ Dos consecuencias de proteger `/tareas` que te van a morder si no las sabés:
 1. **Los tests viejos entran logueados.** CsrfFlow, Delete, Edit y Partial pegan a `/tareas`: cada uno crea un usuario en `setUp()` e inyecta `$_SESSION['user_id']` (la auth en sí se testea acá, no ahí), y lo limpia en `tearDown()` junto con las tablas. Sin eso, todo lo viejo da 303.
 2. **`AppFactory` crea las tres tablas** en `:memory:` (`tasks`, `users`, `remember_tokens` espejando las migraciones). Si agregás una migración y olvidás su `CREATE TABLE` acá, los tests corren contra un esquema viejo en verde.
 
-### 20.10 Qué NO testear
+### 20.10 Paginación: matemática pura + flujo con 12 filas
+
+`tests/Support/PaginationTest.php` (sin HTTP: clamp, ventana y slices contra `:memory:` — si esto está verde, lo raro en pantalla es maquetación, no datos):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Support;
+
+use App\Models\Task;
+use App\Support\Pagination;
+use Illuminate\Database\Eloquent\Builder;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * La matemática de la paginación, sin HTTP: clamp, ventana y slices.
+ * Si esto está verde, lo que se ve raro en pantalla es maquetación, no datos.
+ */
+final class PaginationTest extends TestCase
+{
+    protected function tearDown(): void
+    {
+        Task::query()->delete();
+    }
+
+    public function test_clamp_acepta_solo_tamanos_permitidos(): void
+    {
+        self::assertSame(10, Pagination::clampPerPage(10));
+        self::assertSame(15, Pagination::clampPerPage(15));
+        self::assertSame(25, Pagination::clampPerPage(25));
+        self::assertSame(50, Pagination::clampPerPage(50));
+        self::assertSame(10, Pagination::clampPerPage(7));
+        self::assertSame(10, Pagination::clampPerPage(0));
+        self::assertSame(10, Pagination::clampPerPage(-5));
+        self::assertSame(10, Pagination::clampPerPage('abc'));
+        self::assertSame(10, Pagination::clampPerPage(null));
+    }
+
+    /** @return array<string, array{0: int, 1: int, 2: array}> */
+    public static function windows(): array
+    {
+        return [
+            'una sola'            => [1, 1, [1]],
+            'pocas sin ellipsis'  => [1, 5, [1, 2, 3, 4, 5]],
+            'inicio con ellipsis' => [1, 10, [1, 2, 3, null, 10]],
+            'medio con dos'       => [5, 10, [1, null, 3, 4, 5, 6, 7, null, 10]],
+            'final con una'       => [9, 10, [1, null, 7, 8, 9, 10]],
+            'última exacta'       => [10, 10, [1, null, 8, 9, 10]],
+        ];
+    }
+
+    #[DataProvider('windows')]
+    public function test_ventana(int $current, int $last, array $expected): void
+    {
+        self::assertSame($expected, Pagination::window($current, $last));
+    }
+
+    public function test_pagina_intermedia_trae_su_slice_y_contadores(): void
+    {
+        $this->seedTasks(25);
+
+        $p = Pagination::paginate($this->query(), 2, 10, '/tareas');
+
+        self::assertSame(25, $p['total']);
+        self::assertSame(10, $p['per_page']);
+        self::assertSame(2, $p['current_page']);
+        self::assertSame(3, $p['last_page']);
+        self::assertSame(11, $p['from']);
+        self::assertSame(20, $p['to']);
+        self::assertCount(10, $p['items']);
+        self::assertSame('/tareas', $p['base_url']);
+    }
+
+    public function test_pagina_fuera_de_rango_se_clampea_a_la_ultima(): void
+    {
+        $this->seedTasks(25);
+
+        $p = Pagination::paginate($this->query(), 99, 10, '/tareas');
+
+        self::assertSame(3, $p['current_page']);
+        self::assertCount(5, $p['items']);
+        self::assertSame(21, $p['from']);
+        self::assertSame(25, $p['to']);
+    }
+
+    public function test_pagina_cero_o_negativa_es_la_primera(): void
+    {
+        $this->seedTasks(5);
+
+        self::assertSame(1, Pagination::paginate($this->query(), 0, 10, '/t')['current_page']);
+        self::assertSame(1, Pagination::paginate($this->query(), -3, 10, '/t')['current_page']);
+    }
+
+    public function test_sin_filas_no_rompe_los_contadores(): void
+    {
+        $p = Pagination::paginate($this->query(), 1, 10, '/tareas');
+
+        self::assertSame(0, $p['total']);
+        self::assertSame(1, $p['last_page']);
+        self::assertSame(0, $p['from']);
+        self::assertSame(0, $p['to']);
+        self::assertCount(0, $p['items']);
+    }
+
+    public function test_per_page_invalido_cae_al_default(): void
+    {
+        $this->seedTasks(25);
+
+        $p = Pagination::paginate($this->query(), 1, 999, '/tareas');
+
+        self::assertSame(10, $p['per_page']);
+        self::assertSame(3, $p['last_page']);
+    }
+
+    private function query(): Builder
+    {
+        return Task::orderByDesc('id');
+    }
+
+    private function seedTasks(int $n): void
+    {
+        for ($i = 1; $i <= $n; $i++) {
+            Task::create(['title' => sprintf('Tarea %02d', $i)]);
+        }
+    }
+}
+```
+
+Este archivo ya pagó su costo: la primera versión de `window()` deduplicaba con `array_unique` y borraba un ellipsis doble válido — el test `medio con dos` lo agarró antes que cualquier ojo.
+
+`tests/Http/PaginationFlowTest.php` (12 filas a propósito: con pocas, todo cae en página 1 y estos tests serían verdes sin paginar nada):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Http;
+
+use App\Models\Task;
+use App\Models\User;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ServerRequestInterface;
+use Slim\App;
+use Slim\Psr7\Factory\ServerRequestFactory;
+use Tests\Support\AppFactory;
+
+/**
+ * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
+ * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
+ * paginar nada: por eso se siembran 12.
+ */
+final class PaginationFlowTest extends TestCase
+{
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth).
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+
+        for ($i = 1; $i <= 12; $i++) {
+            Task::create(['title' => sprintf('Tarea %02d', $i)]);
+        }
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SESSION['user_id']);
+        User::query()->delete();
+        Task::query()->delete();
+    }
+
+    private static function app(): App
+    {
+        return AppFactory::make();
+    }
+
+    public function test_pagina_dos_trae_las_mas_viejas_y_contadores(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas?page=2'));
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        // Orden desc por id: la 1 y la 2 caen en la página 2, la 12 queda en la 1.
+        self::assertStringContainsString('Tarea 01', $html);
+        self::assertStringNotContainsString('Tarea 12', $html);
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+    }
+
+    public function test_per_page_grande_mete_todo_en_una(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas?per_page=25'));
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('Tarea 01', $html);
+        self::assertStringContainsString('Tarea 12', $html);
+        self::assertStringContainsString('Mostrando 1 al 12 de 12 registros', $html);
+    }
+
+    public function test_per_page_invalido_cae_al_default(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas?per_page=999&page=2'));
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+    }
+
+    public function test_los_links_apuntan_al_panel_y_conservan_el_tamano(): void
+    {
+        $response = self::app()->handle(self::request('GET', '/tareas?page=2&per_page=10'));
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('hx-get="/tareas?page=1&per_page=10"', $html);
+        self::assertStringContainsString('hx-target="#tareas-panel"', $html);
+    }
+
+    private static function request(string $method, string $path): ServerRequestInterface
+    {
+        return (new ServerRequestFactory())
+            ->createServerRequest($method, 'http://localhost' . $path);
+    }
+}
+```
+
+### 20.11 Qué NO testear
 
 - **Eloquent.** Es de Laravel. `Task::create()` inserta una fila: eso es un test de SQLite, no tuyo.
 - **Twig.** Es de Twig. Un test de render de plantillas testea el motor de plantillas.
@@ -4166,7 +4676,7 @@ composer show respect/validation | head -2
 
 # 2. Suite completa: el esqueleto, no la demo (cap. 20)
 composer test
-# esperado: OK (49 tests, 154 assertions)
+# esperado: OK (65 tests, 200 assertions)
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &
@@ -4282,6 +4792,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `database/database.sqlite` (+ `-wal`/`-shm`) | Lo crea la app sola (cap. 6) y el schema lo pone `composer migrate` (cap. 11). Nunca va a git. |
 | `storage/` | Lo crea el bootstrap (cap. 7). Nunca va a git. |
 | `odd/tasks/*.md` | Registros de trabajo del desarrollo (decisiones, evidencia, próximos pasos). Útiles para entender *por qué*, innecesarios para replicar el *qué*. |
+| `README.md` | La puerta de entrada del repo (arranque, receta CRUD, comandos). Se lee, no se programa — igual que esta guía. |
 | `.phpunit.cache/` | Cache local de PHPUnit. |
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
 

@@ -8,4 +8,10 @@
     <div id="lista-tareas">
         {% include 'tasks/_list.twig' %}
     </div>
+
+    {# Paginación dentro del swap: viaja actualizada con cada acción. #}
+    {% include 'partials/_pagination.twig' with {
+        pagination: pagination,
+        target: '#tareas-panel'
+    } %}
 </div>

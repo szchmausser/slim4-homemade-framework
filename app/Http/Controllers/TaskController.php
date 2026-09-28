@@ -6,18 +6,33 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Support\Flash;
+use App\Support\Pagination;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class TaskController extends Controller
 {
-    protected function viewDefaults(): array
+    /**
+     * Slice paginado + metadata para TODA respuesta de esta ruta (página
+     * completa o swap parcial: ambas regiones llevan su paginación al día).
+     * La página y el tamaño salen del query string (?page=, ?per_page=), que
+     * mandan tanto el navegador como los links HTMX del partial.
+     */
+    private function pageData(Request $request): array
     {
-        // Solo lo que TODAS las acciones necesitan: la lista. 'active' no va
-        // acá porque solo lo usa la página completa (los parciales no tienen nav).
+        $query = $request->getQueryParams();
+
+        $listing = Pagination::paginate(
+            Task::orderByDesc('id'),
+            (int) ($query['page'] ?? 1),
+            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            '/tareas'
+        );
+
         return [
-            'tasks' => Task::orderByDesc('id')->get(),
+            'tasks'      => $listing['items'],
+            'pagination' => $listing,
         ];
     }
 
@@ -32,7 +47,7 @@ class TaskController extends Controller
             ? 'tasks/_panel.twig'
             : 'tasks/index.twig';
 
-        return $this->render($request, $response, $template, [
+        return $this->render($request, $response, $template, $this->pageData($request) + [
             'active' => 'tareas',
         ]);
     }
@@ -53,14 +68,14 @@ class TaskController extends Controller
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
-        return $this->render($request, $response, 'tasks/_panel.twig');
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
 
     public function destroy(Request $request, Response $response, array $args): Response
     {
         Task::destroy((int) $args['id']);
 
-        return $this->render($request, $response, 'tasks/_panel.twig');
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
 
     public function edit(Request $request, Response $response, array $args): Response
@@ -79,7 +94,7 @@ class TaskController extends Controller
             $flash = Flash::get('error');
         }
 
-        return $this->render($request, $response, 'tasks/_panel.twig', [
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
             'editing_id'  => $task?->id,
             'flash_error' => $flash,
         ]);
@@ -94,7 +109,7 @@ class TaskController extends Controller
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->render($request, $response, 'tasks/_panel.twig', [
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
                 'editing_id' => null,
             ]);
         }
@@ -110,7 +125,7 @@ class TaskController extends Controller
             // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
             // el input se repinta con task.title (guardado) y el usuario pierde
             // lo que escribió justo cuando aparece el error.
-            return $this->render($request, $response, 'tasks/_panel.twig', [
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
                 'editing_id'    => $task->id,
                 'editing_title' => $data['title'] ?? '',
             ]);
@@ -118,7 +133,7 @@ class TaskController extends Controller
 
         $task->update(['title' => $data['title']]);
 
-        return $this->render($request, $response, 'tasks/_panel.twig', [
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
             'editing_id'    => null,
             'editing_title' => null,
         ]);

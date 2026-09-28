@@ -1,0 +1,60 @@
+{# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
+   (ver Pagination::paginate) y target (selector hx-target). Opcionales: swap
+   (default outerHTML) y show_size (default true). Sin ids ni rutas propias:
+   todo sale de los params, así sirve en cualquier ruta sin cambios. #}
+{% if pagination.total > 0 %}
+<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm opacity-70">
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} registros
+    </p>
+
+    <div class="flex flex-wrap items-center gap-2">
+        {% if show_size|default(true) %}
+        <select class="select select-bordered select-sm w-auto" name="per_page"
+                aria-label="Registros por página"
+                hx-get="{{ pagination.base_url }}"
+                hx-target="{{ target }}"
+                hx-swap="{{ swap|default('outerHTML') }}"
+                hx-trigger="change"
+                hx-include="this">
+            {% for size in [10, 15, 25, 50] %}
+                <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+
+        <div class="join" role="navigation" aria-label="Paginación">
+            {% if pagination.current_page > 1 %}
+                <a class="join-item btn btn-sm"
+                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page - 1 }}&per_page={{ pagination.per_page }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">«</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página anterior">«</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
+                {% else %}
+                    <a class="join-item btn btn-sm"
+                       hx-get="{{ pagination.base_url }}?page={{ p }}&per_page={{ pagination.per_page }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                <a class="join-item btn btn-sm"
+                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page + 1 }}&per_page={{ pagination.per_page }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">»</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página siguiente">»</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}

@@ -28,6 +28,7 @@
     "scripts": {
         "serve": "php -S 0.0.0.0:8080 -t public",
         "migrate": "phinx migrate",
+        "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "install:termux": "composer install --prefer-dist --no-scripts",
         "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
