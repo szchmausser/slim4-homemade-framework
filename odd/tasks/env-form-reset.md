@@ -41,12 +41,19 @@ Usuario autorizó: probar rollback/migrate, generar `.env`, crear `.env.example`
 - `ask-on-risk` (default). Forecast <20 líneas authored. Sin slicing.
 
 ## Tasks
-- [x] T1 — env: generar `.env` local + crear `.env.example` versionado (route: inline)
-- [ ] T2 — form-reset: `hx-on::after-request` + `maxlength` en `#alta-tarea` (route: inline, 1 file)
-- [ ] T3 — verificación: phpunit + smoke, cerrar doc (route: inline checks)
+- [x] T1 — env: generar `.env` local + crear `.env.example` versionado (route: inline) — commit 06ad670
+- [x] T2 — form-reset: `hx-on::after-request` + `maxlength` en `#alta-tarea` (route: inline, 1 file) — commit 60ec2b6
+- [x] T3 — verificación: phpunit + smoke, cerrar doc (route: inline checks)
 
 ## Progress
-- 2026-09-28: doc creado. Phinx rollback/migrate probado OK. Branch `feat/env-form-reset`. T1 done. T2 en curso.
+- 2026-09-28: T1-T3 done en `feat/env-form-reset`. Pendiente: decisión push/PR del usuario.
+
+## Verification evidence
+- phinx: `rollback -t 0` → down, `migrate` → up, `status` final up (2026-09-28).
+- `vendor/bin/phpunit`: OK (37 tests, 89 assertions).
+- Smoke `/tareas`: 200, `hx-on::after-request` count 1, input alta con `maxlength="120"`. `/`: 200.
+- `git check-ignore .env`: ignorado OK. `.env.example` commiteado.
+- Running authored count: ~30 líneas. Sin slicing (ask-on-risk, bajo 400).
 
 ## Verification evidence
 - phinx: `CreateTasksTable: reverted` → status down → `migrated` → status up (2026-09-28).
