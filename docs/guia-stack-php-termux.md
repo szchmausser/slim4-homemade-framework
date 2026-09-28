@@ -178,6 +178,15 @@ composer require --dev filp/whoops
 composer require --dev phpunit/phpunit
 ```
 
+> **Techo duro: Phinx queda en `^0.13`, y no es conservadurismo.** Verificado contra
+> Packagist: las líneas 0.14, 0.15 y 0.16 exigen `php-64bit` (la 0.16.12 ni siquiera
+> pide `php` a secas, pide `php-64bit >= 8.1` directo). En un ARM de 32 bits eso es
+> imposible por arquitectura, no por versión: ningún bump dentro de esas líneas te
+> salva. La 0.13.4 (`php >= 7.2`, sin requisito 64-bit) es la última instalable, y
+> la API que usa esta guía (`change()`, `table()->...->create()`, `migrate`,
+> `rollback -t 0`, `status`) es idéntica entre ambas. Si upstream algún día quita
+> el requisito, se re-evalúa; mientras tanto, `^0.13` es techo, no pin.
+
 > Si tu `php -v` muestra algo menor a 8.2, fijá una major vieja de Eloquent compatible: `composer require illuminate/database:^10.0`.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
@@ -205,7 +214,7 @@ composer require --dev phpunit/phpunit
         "monolog/monolog": "^3.12"
     },
     "require-dev": {
-        "robmorgan/phinx": "^0.16.12",
+        "robmorgan/phinx": "^0.13",
         "filp/whoops": "^2.18",
         "phpunit/phpunit": "^13.3"
     },
@@ -219,7 +228,7 @@ composer require --dev phpunit/phpunit
         "serve": "php -S 0.0.0.0:8080 -t public",
         "migrate": "phinx migrate",
         "test": "phpunit",
-        "install:termux": "composer install --prefer-dist --no-dev --no-scripts",
+        "install:termux": "composer install --prefer-dist --no-scripts",
         "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
     },
     "config": {
@@ -238,7 +247,10 @@ En el teléfono, para instalar dependencias usá SIEMPRE el script low-mem (band
 
 ```bash
 composer install:termux
-# equivalente a: COMPOSER_MEMORY_LIMIT=1024M composer install --prefer-dist --no-dev --no-scripts
+# equivalente a: COMPOSER_MEMORY_LIMIT=1024M composer install --prefer-dist --no-scripts
+# (SIN --no-dev a propósito: en el teléfono necesitás Phinx y PHPUnit, o sea
+# las dev. --no-dev solo ahorra memoria en el SOLVER del update, y el install
+# no resuelve nada: saca las dev y te deja sin migrate ni tests.)
 ```
 
 ## 5. Variables de entorno
@@ -1107,7 +1119,13 @@ vendor/bin/phinx migrate
 # o: composer migrate
 ```
 
-El equivalente a `migrate:fresh` de Laravel (con una sola migración, verificado ida y vuelta):
+El equivalente a `migrate:fresh` de Laravel (con una sola migración, verificado ida y vuelta, y funciona igual en Phinx 0.13):
+
+```bash
+vendor/bin/phinx rollback -t 0   # baja todo a down
+vendor/bin/phinx status          # verifica: down
+vendor/bin/phinx migrate         # vuelve a up
+```
 
 ```bash
 vendor/bin/phinx rollback -t 0   # baja todo a down
@@ -2954,6 +2972,30 @@ mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es es
 ### 21.19 Flash animado al recargar con el menú plegado
 
 **[v]** Alpine aplica el estado de `localStorage` post-paint con la transición activa: el sidebar se ve abrir y cerrarse. La fix es pre-pintar (script + CSS en `<head>`, cap. 15): misma receta que el flash del tema oscuro.
+
+### 21.20 `requires php-64bit` al instalar en el teléfono
+
+**[v]** Este es el error literal que te escupe el solver en 32 bits (armv7l), y el único de esta guía que NO se arregla en el teléfono:
+
+```
+Problem 1
+  - Root composer.json requires robmorgan/phinx ^0.16.12 -> satisfiable by robmorgan/phinx[0.16.12].
+  - robmorgan/phinx 0.16.12 requires php-64bit >=8.1 -> the php-64bit package is disabled by your platform config.
+```
+
+Leelo bien: no es tu PHP viejo ni tu mirror. Phinx 0.14/0.15/0.16 exigen `php-64bit` por arquitectura (verificado paquete por paquete contra Packagist; la 0.16.12 ni pide `php` a secas). En 32 bits es imposible, punto. Y NO lo arreglés con `composer update` en el teléfono: el solver no puede inventar un Phinx 0.16 de 32 bits que no existe.
+
+La fix vive en el repo, no en tu teléfono (cap. 4: pin `^0.13`, última línea sin el requisito):
+
+```bash
+cd ~/slim4-homemade-framework
+git pull
+composer install:termux
+composer migrate
+composer serve
+```
+
+Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `pull` lo resuelve. Regla de oro que este bug deja escrita: **en 32 bits el teléfono nunca resuelve dependencias** — instala (`install`) lo que se resolvió en 64 bits y vino en el lock. El `update` en Termux no es una herramienta, es el síntoma de que algo hay que traer de otro lado.
 
 ## 22. Cómo verificar esta guía vos mismo
 
