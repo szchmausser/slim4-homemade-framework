@@ -1,31 +1,35 @@
-# Guía paso a paso — Framework base en Termux (Slim 4 + Eloquent + Twig + HTMX/Alpine/Tailwind)
+# Guía paso a paso — Framework base en Termux (Slim 4 + Eloquent + Twig + HTMX/Alpine/daisyUI)
 
-Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phinx, **respect/validation**, Twig, slim/csrf, **monolog/monolog**, whoops (solo dev), SQLite3, HTMX + Alpine.js + Tailwind CDN, estructura de carpetas al estilo Laravel.
+Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phinx, **respect/validation**, Twig, slim/csrf, **monolog/monolog**, whoops (solo dev), SQLite3, HTMX + Alpine.js + **daisyUI 5 as-is** (los tres vendorizados, cero CDN en producción), estructura de carpetas al estilo Laravel.
 
 > Nota sobre `respect/validation`: buena decisión — su repo tiene actividad reciente, a diferencia de `illuminate/validation` standalone (pesado) o alternativas abandonadas.
+>
+> Nota sobre daisyUI: se usa **as-is**, temas claro/oscuro por defecto, sin personalizar. Nada de `dark:` utilities (el tema lo gobierna `data-theme`), nada de JS de terceros, nada de variantes `is-drawer-*` (no existen en el CSS linkeado — verificado, capítulo 14).
 
 ## Índice
 1. Preparar Termux
 2. Instalar Composer
 3. Estructura de carpetas (Laravel-way)
 4. Dependencias del backend
-5. Variables de entorno
-6. Contenedor DI
+5. Variables de entorno (`.env.example` + `.env`)
+6. Contenedor DI (con base resiliente)
 7. Bootstrap de la app y pipeline de middlewares
 8. Sesiones nativas (middleware propio)
-9. Rutas y controladores
+9. Rutas y controladores (con base reutilizable)
 10. Modelos Eloquent
 11. Migraciones con Phinx
 12. Validación estilo Laravel sobre respect/validation
 13. CSRF en formularios Twig
-14. Frontend: Tailwind v4 + Alpine + HTMX (CDNs actuales)
-15. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
-16. Levantar el servidor y mantenerlo vivo
-17. El capítulo que de verdad importa: 32 bits
-18. Antes de exponer la app fuera de tu teléfono
-19. Testing: testear el esqueleto, no la demo
-20. Troubleshooting: síntomas, no theory
-21. Cómo verificar esta guía vos mismo
+14. Frontend: assets vendorizados + SRI (nada de CDN)
+15. Shell de la app: sidebar, header, temas y footer
+16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
+17. Levantar el servidor y mantenerlo vivo
+18. El capítulo que de verdad importa: 32 bits
+19. Antes de exponer la app fuera de tu teléfono
+20. Testing: testear el esqueleto, no la demo
+21. Troubleshooting: síntomas, no theory
+22. Cómo verificar esta guía vos mismo
+23. Archivos que existen pero NO se replican
 
 ---
 
@@ -72,10 +76,10 @@ rm composer-setup.php
 composer --version
 ```
 
-Para evitar que el solver de dependencias se quede sin memoria (el problema que ya detectaste con Eloquent), dejalo seteado de forma permanente en tu shell:
+Para evitar que el solver de dependencias se quede sin memoria (el problema clásico con Eloquent en 32 bits), dejalo seteado de forma permanente en tu shell. Ojo: el valor es `1024M`, NO `-1` (cap. 18.1 explica por qué `-1` te mata sin mensaje):
 
 ```bash
-echo 'export COMPOSER_MEMORY_LIMIT=-1' >> ~/.bashrc
+echo 'export COMPOSER_MEMORY_LIMIT=1024M' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -87,22 +91,28 @@ mkdir mi-app && cd mi-app
 
 mkdir -p app/Http/Controllers app/Http/Middleware app/Models app/Support
 mkdir -p bootstrap config database/migrations
-mkdir -p public resources/views/layouts resources/views/tasks resources/views/partials resources/views/errors
-mkdir -p routes storage/logs storage/cache/twig
+mkdir -p public/assets resources/views/layouts resources/views/tasks resources/views/partials resources/views/errors
+mkdir -p routes storage/logs storage/cache/twig storage/sessions
 mkdir -p tests/Http tests/Support
-touch database/database.sqlite
 ```
 
-Árbol final:
+Árbol final (lo que va a git; `storage/`, `vendor/`, `.env` y la base NO viajan, ver `.gitignore` en el cap. 5):
 
 ```
 mi-app/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
+│   │   │   ├── Controller.php      # base abstracta: render()+csrf()+viewDefaults()
+│   │   │   └── TaskController.php
 │   │   └── Middleware/
+│   │       ├── SessionMiddleware.php
+│   │       └── SecurityHeadersMiddleware.php
 │   ├── Models/
+│   │   └── Task.php
 │   └── Support/
+│       ├── Flash.php
+│       └── Validator.php
 ├── bootstrap/
 │   └── app.php
 ├── config/
@@ -110,28 +120,38 @@ mi-app/
 │   └── middleware.php
 ├── database/
 │   ├── migrations/
-│   └── database.sqlite
+│   │   └── 20260927235809_create_tasks_table.php
+│   └── database.sqlite             # se autocrea; NO va a git
 ├── public/
+│   ├── assets/                     # vendorizado, SÍ va a git
+│   │   ├── tailwind-browser-4.3.3.js
+│   │   ├── htmx-2.0.11.min.js
+│   │   ├── alpine-3.17.4.min.js
+│   │   └── daisyui-5.7.46.css
 │   └── index.php
 ├── resources/
 │   └── views/
-│       ├── layouts/app.twig
-│       ├── errors/error.twig
+│       ├── layouts/app.twig        # shell: sidebar+header+footer
+│       ├── errors/error.twig       # standalone a propósito (cap. 7.1)
 │       ├── home.twig
-│       ├── partials/_csrf.twig
-│       └── tasks/{index.twig, _panel.twig, _list.twig}
+│       ├── partials/{_csrf.twig,_logo.twig,_icon.twig}
+│       └── tasks/{index.twig,_panel.twig,_list.twig}
 ├── routes/
 │   └── web.php
-├── storage/
+├── storage/                        # se autocrea; NO va a git
 │   ├── cache/twig/
-│   └── logs/
+│   ├── logs/
+│   └── sessions/
 ├── tests/
 │   ├── bootstrap.php
-│   ├── Http/{CsrfFlowTest, DeleteTaskTest, EditTaskTest, ErrorHandlingTest, PartialRenderTest, RoutingTest}.php
-│   └── Support/{AppFactory, ValidatorTest, FlashTest}.php
-├── .env
+│   ├── Http/{CsrfFlowTest,DeleteTaskTest,EditTaskTest,ErrorHandlingTest,PartialRenderTest,RoutingTest}.php
+│   └── Support/{AppFactory,ValidatorTest,FlashTest}.php
+├── .env                            # local; NO va a git (se genera de .env.example)
+├── .env.example                    # SÍ va a git
+├── .gitattributes
 ├── .gitignore
 ├── composer.json
+├── composer.lock                   # SÍ va a git (cap. 18.1)
 ├── phinx.php
 └── phpunit.xml
 ```
@@ -155,86 +175,137 @@ composer require monolog/monolog
 
 composer require --dev robmorgan/phinx
 composer require --dev filp/whoops
+composer require --dev phpunit/phpunit
 ```
 
 > Si tu `php -v` muestra algo menor a 8.2, fijá una major vieja de Eloquent compatible: `composer require illuminate/database:^10.0`.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
-> corre limpio sobre PHP 8.5 (cero deprecations). Las versiones 2.3/2.4 sí tiraban
-> `ReflectionProperty::setAccessible()` deprecado unas 13-16 veces por test que
-> valida: si `composer.lock` te deja atado a una de esas, te llena el log. Subí
-> `error_reporting` en `tests/bootstrap.php` o fijá `^2.5`.
->
-> Lo que el pin **sí** te cuesta de verdad: migrar a 3.x no es un bump. En 3.x
-> `Respect\Validation\Validator` pasó a ser una interface, `V::create()` y las
-> excepciones anidadas desaparecen, y el capítulo 12 hay que reescribirlo. Mientras
-> no lo hagas, `^2.0` es lo correcto.
+> corre limpio sobre PHP 8.5 (cero deprecations). Mientras no migres a 3.x
+> (`Validator` interface, sin `V::create()` ni excepciones anidadas), `^2.0` es
+> lo correcto y el capítulo 12 no se toca.
 
-Agregá el autoload PSR-4 en `composer.json` (dentro de la clave raíz, junto a `require`):
+`composer.json` completo (incluye scripts para Termux y autoload optimizado):
 
 ```json
-"autoload": {
-    "psr-4": {
-        "App\\": "app/",
-        "Tests\\": "tests/"
+{
+    "name": "tuusuario/mi-app",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "slim/slim": "^4.15",
+        "slim/psr7": "^1.8",
+        "php-di/php-di": "^7.1",
+        "vlucas/phpdotenv": "^5.7",
+        "illuminate/database": "^13.33",
+        "twig/twig": "^3.30",
+        "slim/twig-view": "^3.4",
+        "slim/csrf": "^1.5",
+        "respect/validation": "^2.0",
+        "monolog/monolog": "^3.12"
+    },
+    "require-dev": {
+        "robmorgan/phinx": "^0.16.12",
+        "filp/whoops": "^2.18",
+        "phpunit/phpunit": "^13.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "serve": "php -S 0.0.0.0:8080 -t public",
+        "migrate": "phinx migrate",
+        "test": "phpunit",
+        "install:termux": "composer install --prefer-dist --no-dev --no-scripts",
+        "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
     }
-},
-"scripts": {
-    "serve": "php -S 0.0.0.0:8080 -t public",
-    "migrate": "phinx migrate",
-    "test": "phpunit"
 }
 ```
 
 ```bash
 composer dump-autoload -o
+composer check:termux   # te dice si tu PHP es de 32 o 64 bits
+```
+
+En el teléfono, para instalar dependencias usá SIEMPRE el script low-mem (banderas que bajan el pico del solver), nunca un `update` pelado:
+
+```bash
+composer install:termux
+# equivalente a: COMPOSER_MEMORY_LIMIT=1024M composer install --prefer-dist --no-dev --no-scripts
 ```
 
 ## 5. Variables de entorno
 
-`.env`:
+`.env.example` (este SÍ se commitea — es la referencia documentada):
 
-```bash
+```
+# Copiá a .env y ajustá a tu máquina:
+#   cp .env.example .env
+# .env nunca se commitea (está en .gitignore).
 APP_ENV=local
 APP_DEBUG=true
 
-DB_DATABASE=/data/data/com.termux/files/home/proyectos/mi-app/database/database.sqlite
+# Opcional: si no se setea, la app usa database/database.sqlite relativo
+# al proyecto. En Termux, si clonaste en otro path, descomentá y poné TU absoluto:
+# DB_DATABASE=/data/data/com.termux/files/home/proyectos/mi-app/database/database.sqlite
+#DB_DATABASE=
 
 SESSION_NAME=mi_app_session
 ```
 
-> **Si el proyecto se muda, editá `DB_DATABASE`.** Es la causa N.º 1 de que la app
-> "no arranque y ni siquiera muestre el error bonito": la conexión a SQLite se hace
-> dentro de `config/container.php`, que corre en `bootstrap/app.php` — **antes** de
-> que exista el error middleware. Un path inexistente revienta con un
-> `Illuminate\Database\QueryException` (envolviendo un `SQLiteDatabaseDoesNotExistException`)
-> tirado desde la línea del `PRAGMA` en `config/container.php` — el manejador de
-> errores del capítulo 7 todavía no está en el pipeline, así que ves el stack trace
-> crudo.
-
-Generá una clave random si más adelante la necesitás para firmar cookies:
+Generá tu `.env` local:
 
 ```bash
-php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
+cp .env.example .env
+php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesitás firmar cookies
 ```
 
-`.gitignore`:
+> **DB_DATABASE es opcional.** Si no está, la app usa `database/database.sqlite`
+> relativo al proyecto y lo crea solo (cap. 6). El path absoluto del ejemplo es
+> para el caso "cloné en otro lado". La causa N.º 1 de "la app no arranca y ni
+> siquiera muestra el error bonito" era justamente un path inexistente: ahora
+> verías un `RuntimeException` accionable en vez del stack crudo (cap. 21.3).
+
+`.gitignore` completo:
 
 ```
 /vendor/
-/database/database.sqlite
+/database/*.sqlite
+/database/*.sqlite-journal
+/database/*.sqlite-wal
+/database/*.sqlite-shm
 /storage/logs/*.log
 /storage/cache/
+/storage/sessions/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
 .env
+.atl/
 ```
 
-`composer.lock` **sí** se commitea (no está en el `.gitignore` a propósito). Es lo que hace que un `composer install` en el teléfono sea determinista y no tenga que resolver dependencias — que en 32-bit es la diferencia entre 10 segundos y un OOM.
+Fijate qué cubre y por qué: la base y sus sidecars de WAL (`-wal`/`-shm`, cap. 18.6 — sin ellos el backup va incompleto pero al repo no van nunca), las sesiones (datos reales de usuarios), el caché de Twig, y `.env` (secretos locales). `composer.lock` **sí** se commitea a propósito: con el lock, `install` no resuelve dependencias — en 32 bits es la diferencia entre 10 segundos y un OOM (cap. 18.1). `public/assets/` SÍ va a git (vendorizado: clonar ya trae el frontend).
+
+`.gitattributes` completo (una línea que salva el SRI):
+
+```
+# Evita que Git convierta LF->CRLF en assets vendorizados.
+# Si cambia un byte, el SRI del layout falla y la app queda sin JS sin error visible.
+public/assets/* binary
+*.min.js binary
+```
+
+Sin esto, un checkout en Windows reescribe los `.js` a CRLF, el hash `integrity` deja de matchear y el navegador **rechaza el script en silencio**: página sin HTMX/Alpine y cero errores en el log. Es el tipo de bug que te hace dudar de todo menos del culpable.
 
 ## 6. Contenedor DI
 
-`config/container.php`:
+`config/container.php` completo. Dos cosas cambiaron respecto a la primera versión de esta guía: la base tiene **default relativo + autocreación** (ya no revienta con path inexistente) y el `failureHandler` del CSRF distingue HTMX de formularios normales:
 
 ```php
 <?php
@@ -271,10 +342,32 @@ return [
     },
 
     Capsule::class => function () {
+        // Default relativo al proyecto; .env solo lo overridea. Sin esto un
+        // clon fresco o un path absoluto de otro teléfono revienta en el
+        // PRAGMA antes del error middleware (ver 21.3): QueryException cruda.
+        $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+
+        if ($db !== ':memory:') {
+            $dir = dirname($db);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            if (!file_exists($db) && !touch($db)) {
+                throw new \RuntimeException(
+                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/21.3)."
+                );
+            }
+            if (file_exists($db) && !is_writable($db)) {
+                throw new \RuntimeException(
+                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/21.3)."
+                );
+            }
+        }
+
         $capsule = new Capsule();
         $capsule->addConnection([
             'driver'   => 'sqlite',
-            'database' => $_ENV['DB_DATABASE'],
+            'database' => $db,
             'prefix'   => '',
         ]);
         $capsule->setAsGlobal();
@@ -322,8 +415,7 @@ return [
             // pero acá no es lo que pasa: el submit exitoso devuelve
             // `_panel.twig`, que no incluye los hidden del CSRF, y el form
             // queda con el token ya consumido. Resultado: el primer alta anda
-            // (200) y el segundo tira 400 + HX-Trigger con la página vieja — la
-            // tarea se
+            // (200) y el segundo tira 303 con la página vieja — la tarea se
             // pierde sin ningún error visible.
             //
             // Con true el token vive toda la sesión. El trade-off es real: la
@@ -361,7 +453,7 @@ return [
 
 ## 7. Bootstrap de la app y pipeline de middlewares
 
-`bootstrap/app.php`:
+`bootstrap/app.php` completo. Cambios respecto a la primera versión: `safeLoad()` (no revienta sin `.env` — clave en un clon fresco) y autocreación de `storage/` + `database/` antes del container:
 
 ```php
 <?php
@@ -375,7 +467,17 @@ use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Slim\Factory\AppFactory;
 
-Dotenv::createImmutable(__DIR__ . '/..')->load();
+Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+// Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
+// fallan en silencio o con paths inexistentes. Se crean acá, antes del
+// container, para que el primer boot ya sea usable.
+foreach (['storage/logs', 'storage/cache/twig', 'storage/sessions', 'database'] as $dir) {
+    $path = __DIR__ . '/../' . $dir;
+    if (!is_dir($path)) {
+        mkdir($path, 0777, true);
+    }
+}
 
 $containerBuilder = new ContainerBuilder();
 $containerBuilder->addDefinitions(__DIR__ . '/../config/container.php');
@@ -394,7 +496,7 @@ $app = AppFactory::create();
 return $app;
 ```
 
-`config/middleware.php` — respeta el pipeline LIFO que ya habías definido, con un agregado necesario: **Body Parsing Middleware**, que Slim tampoco trae activado por defecto y que necesitás para leer `$_POST`/JSON antes de que el Guard de CSRF pueda validar el token del formulario:
+`config/middleware.php` completo — respeta el pipeline LIFO, con un agregado necesario: **Body Parsing Middleware**, que Slim tampoco trae activado por defecto y que necesitás para leer `$_POST`/JSON antes de que el Guard de CSRF pueda validar el token del formulario:
 
 ```php
 <?php
@@ -484,7 +586,7 @@ return function (App $app) {
             // trace que valga la pena. Medido: `curl -s http://localhost:8080/
             // no-existe` devuelve 154.490 bytes con Whoops y 507 bytes sin él.
             // Son ~150 KB por request de HTML de debugger, un pico de memoria
-            // que en 32 bits (cap. 17) se paga caro, y además entrenás a
+            // que en 32 bits (cap. 18) se paga caro, y además entrenás a
             // ignorar la página de error real, que queda en errors/error.twig.
             if ($whoops !== null && $status >= 500) {
                 ob_start();
@@ -531,7 +633,7 @@ return function (App $app) {
 
 ### 7.1 La vista de error (404, 500 y compañía)
 
-El error handler del arriba renderiza `errors/error.twig`, que recibe `code` y `message`:
+El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `message`:
 
 `resources/views/errors/error.twig`:
 
@@ -553,7 +655,7 @@ El error handler del arriba renderiza `errors/error.twig`, que recibe `code` y `
 </html>
 ```
 
-**Deliberadamente NO extiende `layouts/app.twig`.** Si el layout es justamente lo que se rompió (una variable indefinida, un filtro que no existe, un `{% include %}` de un archivo borrado), una página de error que extiende el mismo layout vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entrás en un loop hasta que se te queda la memoria. Esta plantilla no depende de nada: ni del layout, ni de la sesión, ni de Alpine, ni de los CDNs. Por eso el handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
+**Deliberadamente NO extiende `layouts/app.twig` y NO usa daisyUI.** Si el layout es justamente lo que se rompió, una página de error que depende del mismo layout o del CSS vendorizado vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entrás en un loop hasta que se te queda la memoria. Esta plantilla no depende de nada: ni del layout, ni de la sesión, ni de Alpine, ni de los assets. Por eso el handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
 
 Los 404 y 405 salen gratis de este mismo handler: Slim lanza `HttpNotFoundException` y `HttpMethodNotAllowedException`, el `ErrorMiddleware` las captura y nos llegan con su código correcto. No hace falta una ruta catch-all.
 
@@ -575,9 +677,10 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 /**
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
- * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
- * momento en que conviene. Lo que sí va acá es lo que suma sin romper nada.
+ * (HTMX + Alpine + Tailwind browser + daisyUI vendorizados) una CSP estricta
+ * no es alcanzable sin abandonar varias cosas; el capítulo 19 tiene el costo
+ * exacto y el momento en que conviene. Lo que sí va acá es lo que suma sin
+ * romper nada.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
@@ -596,9 +699,9 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // dentro de una CSP, pero eso implicaría adoptar CSP entera.
             ->withHeader('X-Frame-Options', 'DENY')
 
-            // La app carga recursos de jsdelivr y unpkg. Sin esto, cada request
-            // a esos CDNs manda tu URL completa (con paths y query string)
-            // en el header Referer.
+            // Sin esto, cada request a un CDN manda tu URL completa (con paths
+            // y query string) en el header Referer. Con assets vendorizados el
+            // riesgo es menor, pero el header sale gratis.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     }
 }
@@ -641,7 +744,7 @@ class SessionMiddleware implements MiddlewareInterface
                 'path'     => '/',
                 'httponly' => true,   // inaccesible desde document.cookie
                 'samesite' => 'Lax',  // capa extra; el token CSRF sigue siendo la defensa real
-                'secure'   => false,  // poné true SOLO si servís por HTTPS (ver capítulo 18)
+                'secure'   => false,  // poné true SOLO si servís por HTTPS (ver capítulo 19)
             ]);
 
             // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
@@ -702,7 +805,7 @@ return function (App $app) {
     $twig = $app->getContainer()->get(Twig::class);
 
     $app->get('/', function ($request, $response) use ($twig) {
-        return $twig->render($response, 'home.twig');
+        return $twig->render($response, 'home.twig', ['active' => 'home']);
     });
 
     $app->group('/tareas', function ($group) {
@@ -715,21 +818,70 @@ return function (App $app) {
 };
 ```
 
-**Por qué la raíz renderiza una página y no una redirección.** `errors/error.twig` (cap. 7.1)
-cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto:
-se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. Es la forma más
-chiquita de un loop, y es invisible en los tests porque el test del 404 comprueba el status
-de `/no-existe` y nada más: nadie sigue el link.
+**Por qué la raíz renderiza una página y no una redirección.** `errors/error.twig` (cap. 7.1) cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto: se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. La ruta responde `200` con `home.twig` y no redirige. De paso es el health check más barato que existe y el test de humo más económico del proyecto (cap. 20.6).
 
-La ruta responde `200` con `home.twig`, la página de presentación del stack, y no redirige.
-El formulario de altas vive en `/tareas`, así que la raíz queda libre para mostrar de qué está
-hecha la app. De paso es el health check más barato que existe: `curl -sI http://localhost:8080/`
-devuelve `200` si el bootstrap, el pipeline y el router están vivos, sin tocar base de datos ni
-sesión. Es la primera request que conviene hacer cuando algo no levanta. Sin ella, "la app no
-abre" y "la app está rota" son el mismo síntoma.
+**`active` le dice al layout qué item del menú resaltar.** El shell (`layouts/app.twig`, cap. 15) pinta `menu-active` según esa variable. Solo la página completa la necesita — los parciales HTMX no llevan nav, así que las demás acciones ni la pasan.
 
-Es también el test de humo más económico que se puede dejar en el proyecto: comprobar que `/`
-responde `200` y que su body muestra el stack cubre el router entero en dos aserciones.
+### 9.1 Controlador base reutilizable
+
+Antes de `TaskController`, una decisión: el payload de respuesta (flash + CSRF) y el `render()` se iban a repetir en cada controlador futuro. En Laravel no se nota porque el framework te da `view()`, `View::share()` y view composers; acá esa maquinaria no existe, así que va la versión mínima: una clase base abstracta con hook.
+
+`app/Http/Controllers/Controller.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Support\Flash;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Csrf\Guard;
+use Slim\Views\Twig;
+
+/**
+ * Controlador base: toda respuesta HTML sale con los datos comunes (flash
+ * consumido + tokens CSRF). Cada controlador suma lo suyo por dos vías:
+ * viewDefaults() para lo que repite en todas sus acciones, $extra para lo
+ * puntual de una acción. Nada de payloads copiados entre controladores.
+ */
+abstract class Controller
+{
+    public function __construct(protected Twig $view, protected Guard $guard) {}
+
+    protected function render(Request $request, Response $response, string $template, array $extra = []): Response
+    {
+        return $this->view->render($response, $template, [
+            'flash_error' => Flash::get('error'),
+            ...$this->csrf($request),
+            ...$this->viewDefaults(),
+            ...$extra,
+        ]);
+    }
+
+    protected function viewDefaults(): array
+    {
+        return [];
+    }
+
+    protected function csrf(Request $request): array
+    {
+        $nameKey  = $this->guard->getTokenNameKey();
+        $valueKey = $this->guard->getTokenValueKey();
+
+        return [
+            'csrf_name_key'  => $nameKey,
+            'csrf_name'      => $request->getAttribute($nameKey),
+            'csrf_value_key' => $valueKey,
+            'csrf_value'     => $request->getAttribute($valueKey),
+        ];
+    }
+}
+```
+
+El orden del merge es el contrato: flash + CSRF, después defaults del controlador, después `$extra` de la acción. Lo puntual siempre gana a lo general. Y php-di autowirea el constructor heredado sin configuración: el próximo controlador nace con `extends Controller` y listo.
 
 `app/Http/Controllers/TaskController.php`:
 
@@ -745,12 +897,17 @@ use App\Support\Flash;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Slim\Csrf\Guard;
-use Slim\Views\Twig;
 
-class TaskController
+class TaskController extends Controller
 {
-    public function __construct(private Twig $view, private Guard $guard) {}
+    protected function viewDefaults(): array
+    {
+        // Solo lo que TODAS las acciones necesitan: la lista. 'active' no va
+        // acá porque solo lo usa la página completa (los parciales no tienen nav).
+        return [
+            'tasks' => Task::orderByDesc('id')->get(),
+        ];
+    }
 
     public function index(Request $request, Response $response): Response
     {
@@ -763,10 +920,8 @@ class TaskController
             ? 'tasks/_panel.twig'
             : 'tasks/index.twig';
 
-        return $this->view->render($response, $template, [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
+        return $this->render($request, $response, $template, [
+            'active' => 'tareas',
         ]);
     }
 
@@ -786,22 +941,14 @@ class TaskController
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
-        ]);
+        return $this->render($request, $response, 'tasks/_panel.twig');
     }
 
     public function destroy(Request $request, Response $response, array $args): Response
     {
         Task::destroy((int) $args['id']);
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => null,
-            ...$this->csrf($request),
-        ]);
+        return $this->render($request, $response, 'tasks/_panel.twig');
     }
 
     public function edit(Request $request, Response $response, array $args): Response
@@ -820,11 +967,9 @@ class TaskController
             $flash = Flash::get('error');
         }
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
+        return $this->render($request, $response, 'tasks/_panel.twig', [
             'editing_id'  => $task?->id,
             'flash_error' => $flash,
-            ...$this->csrf($request),
         ]);
     }
 
@@ -837,11 +982,8 @@ class TaskController
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->view->render($response, 'tasks/_panel.twig', [
-                'tasks'       => Task::orderByDesc('id')->get(),
-                'editing_id'  => null,
-                'flash_error' => Flash::get('error'),
-                ...$this->csrf($request),
+            return $this->render($request, $response, 'tasks/_panel.twig', [
+                'editing_id' => null,
             ]);
         }
 
@@ -853,62 +995,32 @@ class TaskController
 
         if ($validator->fails()) {
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-            // La fila sigue en modo formulario: si volviera a la lista, el
-            // usuario pierde el lugar que estaba editando junto con el error.
-            $editingId = $task->id;
-        } else {
-            $task->update(['title' => $data['title']]);
-            $editingId = null;
+            // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
+            // el input se repinta con task.title (guardado) y el usuario pierde
+            // lo que escribió justo cuando aparece el error.
+            return $this->render($request, $response, 'tasks/_panel.twig', [
+                'editing_id'    => $task->id,
+                'editing_title' => $data['title'] ?? '',
+            ]);
         }
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'editing_id'  => $editingId,
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
+        $task->update(['title' => $data['title']]);
+
+        return $this->render($request, $response, 'tasks/_panel.twig', [
+            'editing_id'    => null,
+            'editing_title' => null,
         ]);
-    }
-
-    private function csrf(Request $request): array
-    {
-        $nameKey  = $this->guard->getTokenNameKey();
-        $valueKey = $this->guard->getTokenValueKey();
-
-        return [
-            'csrf_name_key'  => $nameKey,
-            'csrf_name'      => $request->getAttribute($nameKey),
-            'csrf_value_key' => $valueKey,
-            'csrf_value'     => $request->getAttribute($valueKey),
-        ];
     }
 }
 ```
 
-**`index()` tiene dos respuestas y la elige el header `HX-Request`.** El botón "Cancelar"
-(del cap. 15) hace `hx-get="/tareas"` con `hx-target="#tareas-panel"` y `hx-swap="outerHTML"`:
-pide la misma URL que pide el navegador con F5, pero espera la región, no la página. Si el
-controlador devolviera `index.twig` — que extiende el layout —, htmx recibiría un
-`<!DOCTYPE html>`, se quedaría con el `<body>` y lo insertaría dentro del panel: dos
-`<h1>Mis tareas`, dos `id="alta-tarea"` (HTML inválido) y el padding del layout aplicado dos
-veces. Con el header, `index()` devuelve `tasks/_panel.twig`, la misma región que ya devuelven
-`store()`, `destroy()`, `edit()` y `update()`; sin el header, devuelve la página completa. Es
-la misma convención que ya usa `edit()`.
+Tres cosas que este controlador deja por escrito y que antes estaban implícitas:
 
-**Un id que no existe responde 200 con un flash, no 404.** `edit()` y `update()` buscan la fila
-con `Task::find()` antes de cualquier otra cosa. Si no existe, escriben
-`La tarea no existe o ya fue eliminada.` en el flash y devuelven el panel. Un 404 sería peor:
-`errors/error.twig` es una página completa y htmx la metería dentro de `#tareas-panel`, así que
-el usuario vería la página de error tragada por la lista en vez de un mensaje. De paso esto
-cierra un silencio anterior: `Task::find((int) $args['id'])?->update([...])` terminaba en el
-operador null-safe, devolvía `null` sin actualizar nada y la respuesta salía 200 sin flash y
-sin cambio — el usuario pulsaba "Guardar" y no pasaba nada.
+1. **`index()` tiene dos respuestas y la elige el header `HX-Request`.** Sin el branch, el botón "Cancelar" mete un `<html>` completo dentro del panel.
+2. **Un id que no existe responde 200 con un flash, no 404** (la página de error dentro del panel sería peor) **y nunca en silencio** (el `?->update()` mudo se fue).
+3. **En fallo de validación se conserva lo tipeado** (`editing_title`), no el valor guardado. Twig autoescapea, así que comillas o `<script>` tipeados salen neutrales.
 
-**Cuando la validación falla, la fila se queda en modo formulario.** `update()` devuelve
-`editing_id` con el id de la fila solo cuando el validator rechazó, y `null` cuando la
-actualización se completó. Con `null` también en el error, la fila saldría del modo formulario
-y el usuario perdería el lugar que estaba editando justo cuando aparece el mensaje. Aclaración
-honestamente: lo que se conserva es el modo, no el texto tipeado — el input se repinta con
-`task.title`, que es el valor guardado, porque `_list.twig` lee el modelo y no el request.
+Y una deliberada: cada acción repite `return $this->render($request, $response, 'tasks/_panel.twig', ...)` con el template a la vista. Como en Laravel repetís `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que lo esconda (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
 
 ## 10. Modelos Eloquent
 
@@ -935,7 +1047,7 @@ class Task extends Model
 
 ## 11. Migraciones con Phinx
 
-`phinx.php` (en la raíz del proyecto):
+`phinx.php` (en la raíz del proyecto). Ojo al `safeLoad()`: con `load()` un clon fresco sin `.env` revienta con "Unable to read any of the environment file(s)" antes de migrar:
 
 ```php
 <?php
@@ -943,7 +1055,7 @@ class Task extends Model
 declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
-Dotenv\Dotenv::createImmutable(__DIR__)->load();
+Dotenv\Dotenv::createImmutable(__DIR__)->safeLoad();
 
 return [
     'paths' => [
@@ -960,13 +1072,15 @@ return [
 ];
 ```
 
+> **Divergencia honesta:** Phinx migra siempre `database/database.sqlite` fijo, pero la app usa `DB_DATABASE` si está seteado. Si tu `.env` apunta a otro lado, el `migrate` escribe en un archivo y la app lee otro. Para el flujo normal (sin `DB_DATABASE`, default relativo) ambos usan el mismo archivo y no hay problema.
+
 Crear y correr una migración:
 
 ```bash
 vendor/bin/phinx create CreateTasksTable
 ```
 
-Completá el archivo generado en `database/migrations/`:
+Completá el archivo generado en `database/migrations/` (en el proyecto de referencia se llama `database/migrations/20260927235809_create_tasks_table.php` — el prefijo numérico lo pone Phinx con la fecha de creación, el tuyo va a diferir y está bien):
 
 ```php
 <?php
@@ -991,6 +1105,14 @@ final class CreateTasksTable extends AbstractMigration
 ```bash
 vendor/bin/phinx migrate
 # o: composer migrate
+```
+
+El equivalente a `migrate:fresh` de Laravel (con una sola migración, verificado ida y vuelta):
+
+```bash
+vendor/bin/phinx rollback -t 0   # baja todo a down
+vendor/bin/phinx status          # verifica: down
+vendor/bin/phinx migrate         # vuelve a up
 ```
 
 ## 12. Validación estilo Laravel sobre respect/validation
@@ -1086,11 +1208,6 @@ Sumá reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.
 > Lo que querés es el comportamiento de `required` de Laravel, y Laravel trimea
 > antes de decidir: un campo con solo espacios **no pasa**. Por eso `notEmpty()`.
 > Con `notOptional()` mandarías `"   "` a la base de datos como si fuera contenido.
->
-> (Nota vieja que circula por ahí: "notOptional solo rechaza null, así que un campo
-> en blanco pasaría". Eso era cierto antes; desde que `isUndefined()` incluye `''`
-> ya no lo es — el campo vacío lo rechaza también. La razón para preferir
-> `notEmpty()` es el trim, no el string vacío.)
 
 ## 13. CSRF en formularios Twig
 
@@ -1101,101 +1218,286 @@ Sumá reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.
 <input type="hidden" name="{{ csrf_value_key }}" value="{{ csrf_value }}">
 ```
 
-Se incluye en cualquier formulario con `{% include 'partials/_csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `TaskController::csrf()` arriba).
+Se incluye en cualquier formulario con `{% include 'partials/_csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `Controller::csrf()` arriba). Dos parciales hermanos viven al lado, documentados en el cap. 15: `_logo.twig` (marca) y `_icon.twig` (iconos compartidos sidebar/header).
 
-## 14. Frontend: Tailwind v4 + Alpine + HTMX (CDNs actuales)
+`public/index.php`:
 
-Ojo con esto: el ejemplo que traías (`cdn.tailwindcss.com`) apunta a la Play CDN **de Tailwind v3**, que ya quedó como legado. La CDN de navegador vigente para Tailwind v4 se sirve desde jsDelivr:
+```php
+<?php
 
-`resources/views/layouts/app.twig`:
+declare(strict_types=1);
+
+$app = require __DIR__ . '/../bootstrap/app.php';
+$app->run();
+```
+
+## 14. Frontend: assets vendorizados + SRI (nada de CDN en runtime)
+
+Cambio grande respecto a la primera versión de esta guía: **la app no carga nada de ningún CDN**. Los 4 assets viven en `public/assets/` (que SÍ va a git) y el layout los sirve locales con `integrity`. Sin internet la app funciona igual; con internet, ningún publish de un mantenedor te cambia el runtime sin deploy.
+
+> Por qué versiones pineadas con SRI, igual que antes: una URL flotante (`@4`, `@2`, `@3`) significa que el día que el mantenedor publique algo nuevo, tu app ejecuta código distinto sin que toques nada. `integrity` SHA-384 le dice al navegador: si un solo byte no coincide, **no lo ejecuta**.
+
+### 14.1 Descargar y verificar (solo al bumpear versiones)
+
+En un clon fresco NO hace falta: los assets ya vienen commiteados. Estos comandos son para cuando quieras actualizar una versión:
+
+```bash
+mkdir -p public/assets
+curl -sL "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js" -o public/assets/tailwind-browser-4.3.3.js
+curl -sL "https://unpkg.com/htmx.org@2.0.11/dist/htmx.min.js" -o public/assets/htmx-2.0.11.min.js
+curl -sL "https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js" -o public/assets/alpine-3.17.4.min.js
+curl -sL "https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css" -o public/assets/daisyui-5.7.46.css
+ls -la public/assets/
+```
+
+Verificá los hashes con PHP (a propósito sin `openssl`: en Termux PHP siempre está, el CLI de openssl no necesariamente):
+
+```bash
+php -r '$f=$argv[1]; echo "sha384-".base64_encode(hash_file("sha384",$f,true)),PHP_EOL;' public/assets/htmx-2.0.11.min.js
+```
+
+Tabla de versiones pineadas con sus SRI verificados (los bytes sirven idénticos desde jsDelivr/unpkg):
+
+| Asset | Versión | SRI |
+|---|---|---|
+| Tailwind browser | 4.3.3 | `sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB` |
+| htmx | 2.0.11 | `sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg` |
+| Alpine.js | 3.17.4 | `sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd` |
+| daisyUI | 5.7.46 | `sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill` |
+
+El costo es que bumpear versiones es manual. Es intencional: actualizar el runtime es tu decisión, no la de un CDN. Y acordate del `.gitattributes`: sin `public/assets/* binary`, un checkout en Windows reescribe los `.js` a CRLF y el SRI falla en silencio (cap. 5).
+
+### 14.2 daisyUI 5 as-is: reglas del juego
+
+daisyUI entra como **CSS precompilado**, igual que cualquier asset: clases listas (`btn`, `card`, `menu`, `alert`, `drawer`...) + 35 temas. Tres reglas que no se negocian en este stack:
+
+1. **Nada de utilities `dark:`**: el tema lo gobierna el atributo `data-theme` en `<html>` (`light`/`dark` por defecto, sin personalizar). Los colores semánticos (`bg-base-100`, `text-error`, `btn-primary`...) se adaptan solos.
+2. **Nada de JS de terceros**: el comportamiento es Alpine o nada. El JS de otras librerías bindea en `DOMContentLoaded` y no ve el contenido que HTMX trae por swap — es el mismo motivo por el que el toast CSRF es Alpine (cap. 15).
+3. **Nada de variantes `is-drawer-*`**: el ejemplo plegable de la doc de daisyUI usa `is-drawer-open:`/`is-drawer-close:`, y esas variantes **no existen en el CSS linkeado** (verificado: cero ocurrencias en `daisyui-5.7.46.css` — necesitan el compilador con daisyUI registrado como plugin). Con CSS linkeado serían clases muertas que *parecen* funcionar. El collapse de esta guía va con Alpine + utilities estándar, que el browser build sí compila al vuelo.
+
+Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" según su propia doc — para tu app personal en tu teléfono ese trade-off es razonable. Si algún día querés CSS estático compilado sin Node, existe el CLI standalone de Tailwind, aunque probablemente necesite la capa glibc de Termux (`pkg install glibc-repo glibc`).
+
+## 15. Shell de la app: sidebar, header, temas y footer
+
+`resources/views/layouts/app.twig` completo. Es el archivo que más creció: shell con sidebar plegable (overlay en móvil, icon-rail en desktop), header con breadcrumb + toggle de tema, toast CSRF, contenido y footer:
 
 ```twig
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
-    {# Versiones EXACTAS + SRI. Ver la nota de supply chain más abajo. #}
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"
-            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"
-            crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.11/dist/htmx.min.js"
-            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
-            crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js"
-            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"
-            crossorigin="anonymous"></script>
+    {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
+       después y se vería un flash del tema claro en cada recarga oscura. #}
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
+    {# Misma idea para el sidebar: si Alpine aplicara el plegado después del
+       primer paint, con transition-all activo se vería abrir y cerrarse en
+       cada recarga. Se deja la marca acá y el CSS de abajo pre-pinta. #}
+    <script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
 
-    {# x-cloak es obligatorio acá: Alpine carga con `defer`, así que entre el
-       parseo y el arranque hay unos ms donde el elemento abajo todavía tiene
-       `x-show` sin resolver. Sin esta regla se vería un rectángulo rojo vacío
-       en toda página. Si el CDN de Alpine no carga, el atributo queda puesto
-       para siempre y el aviso simplemente no aparece - que es exactamente el
-       comportamiento anterior, sin regresión visual. #}
-    <style>[x-cloak] { display: none !important; }</style>
+    {# daisyUI 5.7.46 vendorizado + SRI: offline, sin cambio de runtime sin deploy. #}
+    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css"
+          integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
+    <script src="/assets/tailwind-browser-4.3.3.js"
+            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
+    <script src="/assets/htmx-2.0.11.min.js"
+            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"></script>
+    <script defer src="/assets/alpine-3.17.4.min.js"
+            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
+
+    <style>
+        [x-cloak] { display: none !important; }
+        {# Pre-pintado del sidebar plegado (ver script de arriba): sin esto el
+           primer paint sale expandido y Alpine lo colapsa animado.
+           Solo desktop (min-width lg): en móvil el sidebar es overlay y este
+           estado no aplica. Los valores espejan las clases de Alpine (w-16,
+           labels ocultos) para que al iniciar no haya ningún cambio que animar. #}
+        @media (min-width: 1024px) {
+            html[data-sidebar-mini] #sidebar { width: 4rem; }
+            html[data-sidebar-mini] #sidebar .sidebar-head { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
+            html[data-sidebar-mini] #sidebar .sidebar-label { display: none; }
+            html[data-sidebar-mini] #sidebar-foot { display: none; }
+            html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
+        }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800">
-    {# RECEPCIÓN del HX-Trigger:{csrf} que devuelve el failureHandler de
-       slim/csrf (cap. 6). Este nodo es el receptor, y por eso vive en el
-       layout y NO en tasks/_panel.twig: htmx dispara el evento en cuanto
-       llega la respuesta 400, pero el panel es el elemento que ese mismo
-       swap reemplaza - si el listener estuviera ahí, llegaría a un nodo que
-       ya no está.
+<body class="bg-base-200 text-base-content">
+{# Shell de la app: sidebar plegable + header + contenido + footer.
+   El collapse lo gobierna Alpine con utilities estándar (w-16/w-64,
+   translate-x, hidden): el browser build las compila al vuelo, incluso
+   cuando Alpine las alterna. Deliberadamente NO se usa el drawer de
+   daisyUI: su ejemplo plegable depende de las variantes is-drawer-open: /
+   is-drawer-close:, que no existen en el CSS linkeado (verificado: cero
+   ocurrencias en daisyui-5.7.46.css) y quedarían como clases muertas.
+   El tema claro/oscuro lo gobierna data-theme: cero utilities dark:. #}
+<div x-data="shell()" class="flex min-h-screen">
+    {# Backdrop solo móvil: en desktop el sidebar empuja el contenido. #}
+    <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
+         class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-       Sin este bloque el header se emite al vacío: la sesión expira, el POST
-       devuelve 400, HTMX no hace swap (no es 2xx) y en pantalla NO pasa
-       nada. La tarea que intentabas crear o borrar desaparece sin ningún
-       error visible. Es el caso exacto de "test verde, producción rota": el
-        CsrfFlowTest verifica que el header salga, no que algo lo reciba. #}
-    {# htmx envuelve el string del header HX-Trigger en { value: "..." } y triggerEvent agrega elt; por eso se lee .value. #}
-    <div x-cloak
-         x-data="{ aviso: '' }"
-         @csrf.window="aviso = String($event.detail.value ?? ''); setTimeout(() => aviso = '', 6000)"
-         x-show="aviso"
-         class="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg bg-red-600 text-white px-4 py-3 shadow-lg"
-         role="alert"
-         aria-live="assertive">
-        <span x-text="aviso"></span>
-    </div>
+    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop. #}
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
+           :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
+           aria-label="Navegación principal">
+        <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
+            {% include 'partials/_logo.twig' %}
+            <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
+        </div>
+        <ul class="menu w-full grow gap-1 p-2">
+            <li>
+                <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio">
+                    {% include 'partials/_icon.twig' with { name: 'home' } %}
+                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
+                </a>
+            </li>
+            <li>
+                <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas">
+                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
+                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
+                </a>
+            </li>
+        </ul>
+        <div id="sidebar-foot" class="flex h-12 shrink-0 items-center border-t border-base-300 px-4 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">
+            Slim 4 · HTMX · Alpine · daisyUI
+        </div>
+    </aside>
 
-    <div class="max-w-2xl mx-auto p-6">
-        {# El flash NO se renderiza acá: vive en tasks/_panel.twig, que es la
-           región que HTMX reemplaza en los swaps parciales. Si lo pusiéramos en
-           el layout, en un full page load aparecería duplicado y en un swap no
-           aparecería nunca. #}
-        {% block content %}{% endblock %}
+    {# Columna de contenido. #}
+    <div class="flex min-w-0 flex-1 flex-col">
+        <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
+            {# Abrir/cerrar en móvil (hamburguesa <-> X). #}
+            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
+                <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            {# Plegar a iconos en desktop: un solo glyph que rota por CSS
+               pre-pintado. Ojo: rotate-180 de Tailwind v4 usa la propiedad
+               `rotate`, que SE SUMA al `transform` manual (180+180=360) — con
+               ambos el icono nunca cambiaba. Una sola fuente de verdad. #}
+            <button id="collapse-btn" class="btn btn-square btn-ghost hidden lg:inline-flex" @click="toggleMini()" :aria-label="sidebarMini ? 'Desplegar menú' : 'Plegar menú'">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+            </button>
+            {# Breadcrumb con el texto del menú: en Tareas, Inicio (link) / Tareas;
+               en Inicio, solo icono + texto. El logo vive en la sidebar. #}
+            <span class="flex flex-1 items-center gap-2 px-2 font-semibold">
+                {% if active is defined and active == 'tareas' %}
+                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
+                    <nav class="breadcrumbs" aria-label="Miga de pan">
+                        <ul>
+                            <li><a href="/">Inicio</a></li>
+                            <li aria-current="page">Tareas</li>
+                        </ul>
+                    </nav>
+                {% else %}
+                    {% include 'partials/_icon.twig' with { name: 'home' } %}
+                    <span>Inicio</span>
+                {% endif %}
+            </span>
+            {# Toggle claro/oscuro: swap de daisyUI + estado Alpine persistido. #}
+            <label class="swap swap-rotate btn btn-square btn-ghost">
+                <input type="checkbox" :checked="theme === 'dark'" @change="theme = $event.target.checked ? 'dark' : 'light'" aria-label="Cambiar entre tema claro y oscuro" />
+                <svg class="swap-off h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05A1,1,0,0,0,5,8.71l.71-.71A1,1,0,0,0,4.29,6.64Zm12,.71a1,1,0,0,0,1.41,0l.71-.71A1,1,0,1,0,18.36,5.64l-.71.71A1,1,0,0,0,17.66,7.76ZM19,11H20a1,1,0,0,0,0,2H19A1,1,0,0,0,19,11Zm-7,7a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V19A1,1,0,0,0,12,18Zm7.36-12.36a1,1,0,0,0,0,1.41l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,19.36,5.64ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
+                <svg class="swap-on h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73,8.15,8.15,0,0,1-8.14-8.1,8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/></svg>
+            </label>
+        </header>
+
+        {# RECEPCIÓN del HX-Trigger:{csrf} del failureHandler de slim/csrf.
+           Este nodo es el receptor, y por eso vive en el layout y NO en
+           tasks/_panel.twig: htmx dispara el evento en cuanto llega la
+           respuesta 400, pero el panel es el elemento que ese mismo swap
+           reemplaza — si el listener estuviera ahí, llegaría a un nodo que
+           ya no está. Sin este bloque el header se emite al vacío: 400, sin
+           swap, sin mensaje, tarea perdida. #}
+        {# htmx envuelve el string del header HX-Trigger en { value: "..." } y triggerEvent agrega elt; por eso se lee .value. #}
+        <div x-cloak
+             x-data="{ aviso: '' }"
+             @csrf.window="aviso = String($event.detail.value ?? ''); setTimeout(() => aviso = '', 6000)"
+             x-show="aviso"
+             class="alert alert-error fixed bottom-4 right-4 z-50 max-w-sm shadow-lg"
+             role="alert"
+             aria-live="assertive">
+            <span x-text="aviso"></span>
+        </div>
+
+        <main class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
+            {# El flash NO se renderiza acá: vive en tasks/_panel.twig, que es la
+               región que HTMX reemplaza en los swaps parciales. Si lo pusiéramos en
+               el layout, en un full page load aparecería duplicado y en un swap no
+               aparecería nunca. #}
+            {% block content %}{% endblock %}
+        </main>
+
+        {# Misma altura que el bloque inferior de la sidebar (h-12): así la
+           línea del footer y la de la sidebar quedan continuas. Si un bloque
+           mide distinto (p-3 vs p-4, xs vs sm), las líneas caen a distinta
+           altura aunque ambos terminen abajo. #}
+        <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
+            <aside>Mi App — Slim 4 · HTMX · Alpine.js · daisyUI</aside>
+        </footer>
     </div>
+</div>
+
+<script>
+function shell() {
+    return {
+        theme: document.documentElement.dataset.theme || 'light',
+        sidebarOpen: window.innerWidth >= 1024,
+        sidebarMini: document.documentElement.hasAttribute('data-sidebar-mini'),
+        init() {
+            this.$watch('theme', v => {
+                document.documentElement.dataset.theme = v;
+                localStorage.setItem('theme', v);
+            });
+            this.$watch('sidebarMini', v => {
+                localStorage.setItem('sidebarMini', v ? '1' : '0');
+                v ? document.documentElement.setAttribute('data-sidebar-mini', '')
+                  : document.documentElement.removeAttribute('data-sidebar-mini');
+            });
+        },
+        toggleMini() { this.sidebarMini = !this.sidebarMini; }
+    };
+}
+</script>
 </body>
 </html>
 ```
 
 > **Por qué `.value`.** `handleTriggerHeader()` de htmx 2.0.11 no entrega el string del header tal cual: lo envuelve en `{ value: "..." }` y `triggerEvent()` agrega además `detail.elt`. El listener recibe un objeto, así que convertir el detail completo a string imprime `[object Object]` en el aviso. Leer `detail.value` (con `?? ''` por si el evento llega sin payload) es lo que hace que el mensaje se vea.
 
-Como referencia, tanto la CDN de v3 como la de v4 siguen siendo "solo para desarrollo/prototipado" según la propia documentación de Tailwind — para tu caso (app personal corriendo en tu teléfono) ese trade-off es totalmente razonable, no hace falta resolverlo ahora. Si en el futuro querés purga real de clases sin depender de Node, existe el CLI standalone de Tailwind (binario nativo), aunque al estar compilado contra glibc probablemente necesites instalar la capa de compatibilidad de Termux (`pkg install glibc-repo glibc`) para poder correrlo — quedate con la CDN mientras tanto.
+### 15.1 Parciales de marca: logo e iconos
 
-### Por qué versiones pineadas con SRI
+Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mismo archivo, no dos copias que divergen):
 
-Las URLs originales eran rangos flotantes: `@tailwindcss/browser@4`, `htmx.org@2`, `alpinejs@3`. Eso significa que **el día que el mantenedor de cualquiera de los tres publique una versión nueva, tu app ejecuta código distinto sin que vos toques nada ni te des cuenta.** Con htmx es peor: el tag `next` ya está en la 4.x, así que la frontera entre "actualización" y "cambio de major" es una decisión de ellos, no tuya.
+`resources/views/partials/_logo.twig` (marca genérica sobre `primary`: se adapta a claro/oscuro por tokens, no por colores fijos):
 
-`integrity` con un hash SHA-384 le dice al navegador: si un solo byte del archivo no coincide, **no lo ejecuta**. Con `crossorigin="anonymous"` (obligatorio para SRI cross-origin, porque si no el navegador lo trata como opaco y la verificación falla siempre) cerrás el ataque de supply chain: nadie te mete código por la puerta de atrás en un CDN comprometido.
-
-Los tres hashes de arriba están **verificados**: los bytes que sirven jsDelivr y unpkg son idénticos a los archivos dentro del tarball publicado en npm. Cuando actualices una versión, regeneralos:
-
-```bash
-curl -sL "https://unpkg.com/htmx.org@NUEVA/dist/htmx.min.js" \
-  | openssl dgst -sha384 -binary | openssl base64 -A
-# -> prePendé "sha384-"
+```twig
+{# Logo genérico de la app: marca abstracta (capas) sobre fondo primary.
+   Usa tokens daisyUI, no colores fijos: se adapta solo a claro/oscuro.
+   `size` opcional para la caja exterior (el glifo escala adentro). #}
+<span class="inline-flex {{ size|default('h-8 w-8') }} shrink-0 items-center justify-center rounded-lg bg-primary text-primary-content" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+</span>
 ```
 
-El costo de esto es que vos tenés que bumpear las versiones a mano cuando querés actualizar. Es un costo real y es intencional: es tu decisión, no la de un CDN.
+`resources/views/partials/_icon.twig` (una sola fuente para sidebar y header):
 
-## 15. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
+```twig
+{# Iconos compartidos entre sidebar y header: una sola fuente para que ambos
+   muestren EL MISMO svg por ruta. `name`: home|tasks. `class` opcional. #}
+{% if name is defined and name == 'tasks' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+{% else %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+{% endif %}
+```
 
-La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack.
-El formulario de altas no está en esa página: vive en `resources/views/tasks/index.twig`,
-que es la pantalla a la que enlaza.
+## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
+
+La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `resources/views/tasks/index.twig`.
 
 `resources/views/home.twig`:
 
@@ -1205,53 +1507,39 @@ que es la pantalla a la que enlaza.
 {% block title %}Mi App{% endblock %}
 
 {% block content %}
-    <h1 class="text-2xl font-bold mb-4">Mi App</h1>
+    <div class="hero rounded-box border border-base-300 bg-base-100">
+        <div class="hero-content py-6 text-center">
+            <div class="max-w-xl">
+                <h1 class="text-3xl font-bold">Mi App</h1>
+                <p class="py-3 opacity-70">
+                    Listado de tareas con altas, edición y borrado, servido por un esqueleto
+                    PHP en capas. El formulario de altas está en la pantalla de tareas.
+                </p>
+                <a href="/tareas" class="btn btn-primary">Ir a tareas</a>
+            </div>
+        </div>
+    </div>
 
-    <p class="mb-6 text-slate-600">
-        Listado de tareas con altas, edición y borrado, servido por un esqueleto
-        PHP en capas. El formulario de altas está en la pantalla de tareas.
-    </p>
+    <h2 class="mb-3 mt-8 text-lg font-semibold">Stack</h2>
 
-    <h2 class="text-lg font-semibold mb-3">Stack</h2>
-
-    <ul class="space-y-2 mb-8">
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>PHP</span>
-            <span class="text-slate-500 text-sm">lenguaje</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Slim 4</span>
-            <span class="text-slate-500 text-sm">router y middleware</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Eloquent ORM</span>
-            <span class="text-slate-500 text-sm">modelos</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Twig</span>
-            <span class="text-slate-500 text-sm">plantillas</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>HTMX</span>
-            <span class="text-slate-500 text-sm">intercambios parciales</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Alpine.js</span>
-            <span class="text-slate-500 text-sm">estado en el cliente</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Tailwind CSS</span>
-            <span class="text-slate-500 text-sm">estilos</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>SQLite</span>
-            <span class="text-slate-500 text-sm">base de datos</span>
-        </li>
-    </ul>
-
-    <a href="/tareas" class="inline-block bg-slate-800 text-white px-4 py-2 rounded">
-        Ir a tareas
-    </a>
+    <div class="grid gap-2 sm:grid-cols-2">
+        {% for name, role in {
+            'PHP': 'lenguaje',
+            'Slim 4': 'router y middleware',
+            'Eloquent ORM': 'modelos',
+            'Twig': 'plantillas',
+            'HTMX': 'intercambios parciales',
+            'Alpine.js': 'estado en el cliente',
+            'Tailwind CSS': 'estilos',
+            'daisyUI': 'componentes',
+            'SQLite': 'base de datos'
+        } %}
+            <div class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-medium">{{ name }}</span>
+                <span class="badge badge-ghost">{{ role }}</span>
+            </div>
+        {% endfor %}
+    </div>
 {% endblock %}
 ```
 
@@ -1263,14 +1551,18 @@ que es la pantalla a la que enlaza.
 {% block title %}Tareas{% endblock %}
 
 {% block content %}
-    <h1 class="text-2xl font-bold mb-4">Mis tareas</h1>
+    <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
 
+    {# hx-on::after-request limpia el input tras cada alta: el form vive fuera de
+       #tareas-panel, así que el swap no lo toca y el texto quedaría pegado.
+       maxlength=120 alinea el browser con el max:120 del server. #}
     <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
-          class="flex gap-2 mb-6">
+          hx-on::after-request="this.reset()"
+          class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
-        <input type="text" name="title" placeholder="Nueva tarea" required
-               class="flex-1 border rounded px-3 py-2">
-        <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded">
+        <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"
+               class="input input-bordered join-item w-full">
+        <button type="submit" class="btn btn-primary join-item">
             Agregar
         </button>
     </form>
@@ -1284,7 +1576,9 @@ que es la pantalla a la que enlaza.
 ```twig
 <div id="tareas-panel">
     {% if flash_error %}
-        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">{{ flash_error }}</div>
+        <div class="alert alert-error mb-4" role="alert">
+            <span>{{ flash_error }}</span>
+        </div>
     {% endif %}
 
     <div id="lista-tareas">
@@ -1295,9 +1589,7 @@ que es la pantalla a la que enlaza.
 
 > **Por qué el panel y no la lista pelada.** El flash se escribe en la sesión durante el POST, pero `flash_error` se renderiza acá, no en el layout. Si el POST devolviera `_list.twig` y HTMX lo inyectara dentro de `#lista-tareas`, el mensaje se escribiría en la sesión y nunca se vería — y peor, `Flash::get('error')` en `index()` lo consumiría igual en el siguiente full page load, así que tampoco aparecería después. Devolviendo el panel completo con `hx-swap="outerHTML"`, el flash y la lista viajan en el mismo swap.
 >
-> **Un solo mecanismo de notificación, pero uno por ámbito.** Las validaciones de negocio (campo vacío, más de 120 caracteres) viajan por el servidor: `store()` escribe el flash en la sesión y el mensaje sale dentro del mismo swap, en el panel. No depende de JS. En cambio el fallo CSRF **no puede** usar ese camino, porque el POST se corta antes de llegar al controlador y HTMX no hace swap con un 400 - el mensaje viviría en la sesión y recién se vería en la siguiente carga completa, cuando el usuario ya ni se acuerda qué hizo mal.
->
-> Por eso ese caso concreto usa el header `HX-Trigger` del que hablábamos: el `failureHandler` del capítulo 6 lo emite y `layouts/app.twig` lo escucha desde Alpine. Si borrás el listener quedás con el fallo silencioso original: 400, sin swap, sin mensaje, tarea perdida. Los dos mecanismos no conviven en el mismo ámbito, así que no hay duplicación: uno maneja lo que el servidor sí alcanzó a procesar, el otro lo que ni siquiera llegó.
+> **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borrás el listener quedás con el fallo silencioso original.
 
 `resources/views/tasks/_list.twig`:
 
@@ -1305,39 +1597,43 @@ que es la pantalla a la que enlaza.
 <ul class="space-y-2">
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
-            <li class="border rounded p-3">
+            <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 <form hx-put="/tareas/{{ task.id }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
-                      class="flex gap-2 items-center">
+                      class="flex items-center gap-2">
                     {% include 'partials/_csrf.twig' %}
+                    {# En fallo de validación se repinta lo TIPEADO (editing_title),
+                       no el valor guardado: si no, el usuario pierde lo que
+                       escribió junto con el error. Twig autoescapea, así que
+                       comillas o <script> tipeados salen neutrales. #}
                     <input type="text"
                            name="title"
-                           value="{{ task.title }}"
+                           value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
                            required
                            maxlength="120"
-                           class="flex-1 border rounded px-3 py-2">
-                    <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded">
+                           class="input input-bordered input-sm w-full">
+                    <button type="submit" class="btn btn-primary btn-sm">
                         Guardar
                     </button>
                     <button type="button"
                             hx-get="/tareas"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
-                            class="text-slate-600 text-sm">
+                            class="btn btn-ghost btn-sm">
                         Cancelar
                     </button>
                 </form>
             </li>
         {% else %}
-            <li class="flex justify-between items-center border rounded p-3">
+            <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
                 <span>{{ task.title }}</span>
-                <div class="flex gap-3">
+                <div class="flex gap-1">
                     <button
                         hx-get="/tareas/{{ task.id }}/edit"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
-                        class="text-slate-600 text-sm">
+                        class="btn btn-ghost btn-sm">
                         Editar
                     </button>
                     <button
@@ -1346,79 +1642,34 @@ que es la pantalla a la que enlaza.
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-confirm="¿Borrar esta tarea?"
-                        class="text-red-600 text-sm">
+                        class="btn btn-ghost btn-sm text-error">
                         Eliminar
                     </button>
                 </div>
             </li>
         {% endif %}
     {% else %}
-        <li class="text-slate-400">No hay tareas todavía.</li>
+        <li class="opacity-60">No hay tareas todavía.</li>
     {% endfor %}
 </ul>
 ```
 
-> **`editing_id` gobierna la fila, no la lista.** `edit()` reenvía el panel completo con
-> `editing_id` en la fila a editar, y `update()` lo devuelve en el id de la fila cuando la
-> validación falla y en `null` cuando la actualización se completó, así que el mismo swap entra
-> y sale del modo formulario sin tocar el resto. La condición es
-> `editing_id is defined and editing_id == task.id`: `index.twig` incluye `_panel.twig` sin
-> declarar esa variable, y en Twig una variable indefinida no es un error, es un `null` en
-> silencio. La comparación con `task.id` es la que acota la fila: sin ella, cualquier
-> `editing_id` verdadero pintaría todas las filas como formulario.
+> **`editing_id` gobierna la fila, `editing_title` conserva lo tipeado.** Sin `editing_id` la lista no sabe cuál fila va en formulario; sin `editing_title`, en fallo de validación el input se repintaría con el valor guardado y el usuario perdería lo escrito junto con el error.
 >
-> **El form de edición lleva sus propios tokens.** El botón "Editar" está dentro de
-> `#tareas-panel`, la región que el swap reemplaza, pero el form de edición aparece y
-> desaparece con cada swap: no puede depender de los hidden de `#alta-tarea`, que queda fuera
-> del panel. Por eso el form incluye `partials/_csrf.twig` con los tokens que `edit()` y
-> `update()` pasan en cada render. Es el mismo motivo por el que `store()` y `destroy()`
-> también renderizan `...$this->csrf($request)`: si no, el form de la fila se pinta con los
-> campos CSRF vacíos y el primer guardado cae en el failure handler.
+> **El form de edición lleva sus propios tokens.** Aparece y desaparece con cada swap dentro del panel: no puede depender de los hidden de `#alta-tarea`, que queda fuera. Por eso incluye `partials/_csrf.twig` con los tokens de cada render.
 >
-> **`hx-put` manda el body como `application/x-www-form-urlencoded`**, que es el default de
-> htmx para verbos que no son GET, y `addBodyParsingMiddleware()` lo parsea igual que en un
-> POST. No hace falta `_METHOD` oculto: la ruta ya es `PUT`.
-
-> **`hx-headers` en el botón de eliminar: sin él, eliminar no borra nada.** `Guard` valida el
-> token también en `DELETE`, y el botón vive dentro de `#tareas-panel`, que está *fuera* del
-> `<form>` donde están los hidden del CSRF. Un `hx-delete` a secas manda un DELETE sin token,
-> cae en el failure handler y devuelve **400** (el click siempre lleva `HX-Request`, así que va
-> por el branch de HTMX, no por el redirect): la tarea sigue ahí y no ves ningún error.
+> **`hx-put` manda el body como `application/x-www-form-urlencoded`** (default de htmx para no-GET) y `addBodyParsingMiddleware()` lo parsea igual que un POST. No hace falta `_METHOD` oculto: la ruta ya es `PUT`.
 >
-> La solución sale de dónde mira `Guard` y de dónde manda htmx. En
-> `vendor/slim/csrf/src/Guard.php` el proceso es: leer `getParsedBody()` y, si los dos campos
-> están vacíos, leer los **headers** con el nombre de cada campo. El query string no figura en
-> ningún punto. Y htmx 2.0.11 trae por defecto `methodsThatUseUrlParams: ['get', 'delete']`,
-> así que los params que aportaría `hx-include` en un DELETE van al query string, no al body.
-> Medido sobre esta app, con el mismo token válido:
+> **`hx-headers` en el botón de eliminar: sin él, eliminar no borra nada.** `Guard` valida el token también en `DELETE`, y el botón vive fuera del `<form>` de los hidden. Un `hx-delete` a secas cae en el failure handler: **400**, tarea intacta, cero error visible. `Guard` solo mira `getParsedBody()` y headers (nunca query string), y htmx manda los params del DELETE al query string (`methodsThatUseUrlParams`) — por eso los tokens van en headers y **no** con `hx-include`. Medido:
 >
 > | Dónde van los tokens del DELETE | Resultado medido |
 > |---|---|
 > | query string (`?csrf_name=…&csrf_value=…`) | **400** + `HX-Trigger: {"csrf":"…"}` |
 > | headers `csrf_name` / `csrf_value` | **200**, la tarea desaparece |
-> | body urlencoded | **200**, la tarea desaparece |
 >
-> Por eso el botón lleva `hx-headers` con los dos tokens serializados a JSON y **no**
-> `hx-include`: el header viaja por el único camino que `Guard` lee cuando el body está vacío,
-> y de paso deja de acoplar el borrado al form de altas.
->
-> Los hidden siguen viviendo en el form y el form queda fuera del swap, así que se conservan
-> entre requests — eso es lo que hace que el token siga disponible después de cada alta y de
-> cada borrado. Si algún día se mueve el form adentro del panel, el token desaparece con cada
-> swap.
->
-> **`index()` también responde distinto para htmx.** El botón "Cancelar" pide `GET /tareas`
-> con `hx-target="#tareas-panel"`: si el servidor devolviera `index.twig`, que extiende el
-> layout, htmx se quedaría con el `<body>` y lo metería dentro del panel. `index()` revisa
-> `HX-Request` y devuelve `tasks/_panel.twig` en ese caso, la misma región que `edit()`. Es el
-> branch que cubre `PartialRenderTest`.
->
-> **Un id que no existe tampoco devuelve un 200 silencioso.** `edit()` y `update()` buscan la
-> fila con `Task::find()` y, si no existe, escriben `La tarea no existe o ya fue eliminada.` en
-> el flash y devuelven el panel. Nunca un 404: la página de error es un documento completo y
-> htmx la insertaría dentro de `#tareas-panel`.
+> **`index()` también responde distinto para htmx** (cap. 9): el botón "Cancelar" pide `GET /tareas` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
 
-`public/index.php`:
+`public/index.php` (ya mostrado en el cap. 13):
 
 ```php
 <?php
@@ -1429,27 +1680,35 @@ $app = require __DIR__ . '/../bootstrap/app.php';
 $app->run();
 ```
 
-## 16. Levantar el servidor y mantenerlo vivo
+## 17. Levantar el servidor y mantenerlo vivo
 
 ```bash
 composer serve
 # equivalente a: php -S 0.0.0.0:8080 -t public
 ```
 
-Abrí `http://localhost:8080/tareas` desde el navegador del teléfono.
+Flujo completo en un clon fresco (en este orden):
 
-### 16.1 Que no se te muera cuando apagás la pantalla
+```bash
+cp .env.example .env
+composer install:termux            # dependencias sin resolver en el teléfono
+composer dump-autoload -o
+composer migrate                   # crea el schema (phinx usa safeLoad: no pide .env)
+composer serve
+```
 
-Este es el detalle que casi nadie menciona y el que más te va a frustrar. Android suspende los procesos cuando la pantalla se apaga, y la app deja de responder sin error visible.
+Abrí `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
+
+### 17.1 Que no se te muera cuando apagás la pantalla
+
+Android suspende los procesos cuando la pantalla se apaga, y la app deja de responder sin error visible.
 
 ```bash
 pkg install termux-api
 termux-wake-lock
 ```
 
-`termux-wake-lock` le pide a Android que mantenga el CPU despierto. Es un proceso aparte: corre una vez, queda en background, y se corta solo cuando cerrás la sesión de Termux o hacés `termux-wake-unlock`.
-
-### 16.2 Que sobreviva cerrar la terminal
+### 17.2 Que sobreviva cerrar la terminal
 
 `php -S` corre en foreground: si cerrás la sesión de Termux, muere. Corrélo dentro de `tmux`:
 
@@ -1459,11 +1718,11 @@ tmux new -s app
 composer serve          # ctrl+b, d para desprender la terminal
 ```
 
-Volvés cuando quieras con `tmux attach -t app`. Es la diferencia entre tener la app disponible o tener que reencenderla cada vez.
+Volvés cuando quieras con `tmux attach -t app`.
 
-### 16.3 A quién le estás exponiendo el puerto
+### 17.3 A quién le estás exponiendo el puerto
 
-`0.0.0.0` significa **todas las interfaces**, incluyendo el wifi. Si el teléfono está en un wifi abierto o con gente que no conocés, tu app está abierta a esa red, y sin HTTPS encima.
+`0.0.0.0` significa **todas las interfaces**, incluyendo el wifi.
 
 | Quiero | Uso |
 |---|---|
@@ -1471,48 +1730,43 @@ Volvés cuando quieras con `tmux attach -t app`. Es la diferencia entre tener la
 | Desde la red local confiable | `php -S 0.0.0.0:8080 -t public` |
 | Desde una red que no controlo | Un túnel SSH, no `0.0.0.0` |
 
-Para el caso "red que no controlo", la opción honesta es un túnel SSH a una máquina tuya con TLS adelante, o `ngrok`/`cloudflared`. No es gratis, pero es la diferencia entre servir una app y publicarla.
+### 17.4 El server embebido y las requests paralelas de HTMX
 
-### 16.4 El server embebido y las requests paralelas de HTMX
-
-`php -S` es **single-threaded** por defecto: si tu página dispara dos `hx-get` al mismo tiempo, el segundo espera al primero. Para una app personal no suele importar, pero si lo vas a notar:
+`php -S` es **single-threaded** por defecto: si tu página dispara dos `hx-get` al mismo tiempo, el segundo espera al primero.
 
 ```bash
 PHP_CLI_SERVER_WORKERS=4 php -S 0.0.0.0:8080 -t public
 ```
 
-Con workers, dos requests concurrentes sobre la **misma sesión** se van a contendingear por el lock de archivo de PHP, que es lo que `session.use_strict_mode` no resuelve. El flag para eso es `session.lazy_write=1`: la sesión se escribe al cerrarse en vez de en cada `set()`, y el lock se toma menos tiempo. Configuralo en el `php.ini` (capítulo 17).
+Con workers, dos requests concurrentes sobre la **misma sesión** se contendian por el lock de archivo de PHP. El flag para eso es `session.lazy_write=1` en el `php.ini` (cap. 18.2).
 
-### 16.5 Comandos frecuentes
+### 17.5 Comandos frecuentes
 
 ```bash
 composer migrate                         # corre migraciones pendientes
 vendor/bin/phinx create NombreMigracion  # crea una nueva migración
+vendor/bin/phinx rollback -t 0           # baja todo (el "fresh", ver cap. 11)
+vendor/bin/phinx status                  # up/down por migración
 composer dump-autoload -o                # regenera el autoload tras agregar clases
+composer test                            # corre la suite (phpunit)
+composer check:termux                    # 32 o 64 bits, según PHP_INT_SIZE
 ```
 
-## 17. El capítulo que de verdad importa: 32 bits
+## 18. El capítulo que de verdad importa: 32 bits
 
-En `armv7l` el límite no es la CPU, es la **memoria**. Y casi siempre se manifests en Composer, no en tu app. Por eso este capítulo va antes de "notas finales": no es una nota, es el entorno de ejecución.
+En `armv7l` el límite no es la CPU, es la **memoria**. Y casi siempre se manifiesta en Composer, no en tu app.
 
-### 17.1 Composer es el problema, no tu app
+### 18.1 Composer es el problema, no tu app
 
-`COMPOSER_MEMORY_LIMIT=-1` (que aparece en muchos tutoriales, y también en el cap. 2) es **medio consejo**. Lo que hace es desactivar el límite interno de Composer, no el del sistema: en un proceso de 32 bits el techo sigue siendo el espacio de direcciones, y cuando lo pasás lo mata el OOM killer del kernel. Morís sin mensaje de error de PHP, que es la peor forma de morir.
+`COMPOSER_MEMORY_LIMIT=-1` (que aparece en muchos tutoriales) es **medio consejo**: desactiva el límite interno de Composer, no el del sistema. En un proceso de 32 bits el techo sigue siendo el espacio de direcciones, y cuando lo pasás te mata el OOM killer del kernel. Morís sin mensaje de error de PHP, que es la peor forma de morir.
 
 Lo que sí funciona, en este orden:
 
-1. **Resolver afuera y traer el resultado.** Es la solución real. Resolvé el `composer.lock` en una máquina de 64 bits y pasá `composer.lock` + `vendor/`. El teléfono nunca corre el solver.
-2. **`composer install`, nunca `composer update`.** Con el lock commiteado, `install` no resuelve: descarga. Es la razón por la que el `.gitignore` del capítulo 3 excluye `vendor/` pero **no** `composer.lock`.
-3. **Si necesitás resolver en el teléfono, poné un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas:
+1. **Resolver afuera y traer el resultado.** Resolvé el `composer.lock` en una máquina de 64 bits y pasá `composer.lock` + `vendor/`. El teléfono nunca corre el solver.
+2. **`composer install:termux`, nunca `composer update`.** Con el lock commiteado, `install` no resuelve: descarga. Es la razón por la que el `.gitignore` excluye `vendor/` pero **no** `composer.lock`.
+3. **Si necesitás resolver en el teléfono, poné un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas (el script `install:termux` ya trae las banderas que bajan el pico: `--prefer-dist --no-dev --no-scripts`).
 
-```bash
-export COMPOSER_MEMORY_LIMIT=1024M
-composer update --prefer-dist --no-dev --no-scripts
-```
-
-`--no-dev` y `--no-scripts` bajan bastante el consumo en la resolución: menos paquetes que considerar y menos plugins que cargar.
-
-### 17.2 OPcache: la mayor ganancia disponible
+### 18.2 OPcache: la mayor ganancia disponible
 
 En un ARM de 32 bits, recompilar los mismos archivos PHP en cada request es el costo dominante. OPcache lo elimina. Verificá dónde está tu `php.ini`:
 
@@ -1532,13 +1786,13 @@ opcache.validate_timestamps=1
 opcache.revalidate_freq=0
 
 ; Libera la sesión al cerrarse en vez de en cada escritura: menos lockeo
-; entre requests concurrentes de HTMX (ver 16.4)
+; entre requests concurrentes de HTMX (ver 17.4)
 session.lazy_write=1
 ```
 
 Si tu `php -m` no lista `Zend OPcache`, el paquete de Termux no lo trae compilado y esto no aplica.
 
-### 17.3 `memory_limit` de la app
+### 18.3 `memory_limit` de la app
 
 El default suele ser 128M, que con Eloquent y una consulta de cientos de filas se queda corto. Subilo a 256M y observá:
 
@@ -1546,83 +1800,58 @@ El default suele ser 128M, que con Eloquent y una consulta de cientos de filas s
 php -r "echo ini_get('memory_limit');"
 ```
 
-Si ves `Allowed memory size exhausted`, el culpable casi siempre es una consulta sin paginación: `Task::all()` o `get()` sobre una tabla que crece. En un teléfono eso se convierte en el OOM killer, y ahí sí morís sin stack trace.
+Si ves `Allowed memory size exhausted`, el culpable casi siempre es una consulta sin paginación sobre una tabla que crece. En un teléfono eso se convierte en el OOM killer, y ahí sí morís sin stack trace.
 
-### 17.4 Dónde viven las sesiones
+### 18.4 Dónde viven las sesiones
 
 ```bash
 php -i | grep -E 'session.save_path|session.gc_maxlifetime'
 ```
 
-El backend de archivos de PHP guarda las sesiones en un directorio del sistema. Si `save_path` apunta a algo que Android puede limpiar (típicamente un directorio temporal dentro del sandbox), **perdés todas las sesiones sin ningún error** — los usuarios simplemente aparecen deslogueados. Si ese es tu caso, setealo a un directorio que vos controles:
+El backend de archivos de PHP guarda las sesiones en un directorio del sistema. Si `save_path` apunta a algo que Android puede limpiar, **perdés todas las sesiones sin ningún error**. Si ese es tu caso, fijalo a un directorio que vos controles (el bootstrap ya crea `storage/sessions/` para eso; agregalo donde corresponda antes de `session_start()`). Y agregá `/storage/sessions/` al `.gitignore` (ya está).
 
-```php
-// en config/middleware.php, antes de session_start()
-ini_set('session.save_path', __DIR__ . '/../storage/sessions');
-```
+### 18.5 El techo de enteros
 
-Y agregá `/storage/sessions/` al `.gitignore`.
+Con PHP compilado a 32 bits, `PHP_INT_MAX` ronda los **2.147 mil millones** en vez de los ~9.2 trillones de 64 bits (`composer check:termux` te dice en cuál estás). Para una app con SQLite y autoincrement no es un problema. Si alguna vez manejás IDs muy grandes o timestamps crudos como enteros, es un techo duro a tener en cuenta.
 
-### 17.5 El techo de enteros
+### 18.6 SQLite en WAL
 
-Con PHP compilado a 32 bits, `PHP_INT_MAX` ronda los **2.147 mil millones** en vez de los ~9.2 trillones de 64 bits. Para una app con SQLite y autoincrement no es un problema. Si alguna vez manejás IDs muy grandes o timestamps crudos como enteros, es un techo duro a tener en cuenta.
+`PRAGMA journal_mode=WAL` (ya seteado en `config/container.php`) te da lecturas concurrentes sin bloquear escrituras — suficiente para el patrón típico de HTMX con muchos GET parciales y algún POST ocasional. Ojo que WAL deja archivos `-wal` y `-shm` al lado de la base: si alguna vez respaldás `database.sqlite` copiando solo ese archivo, el backup va a estar incompleto. Por eso el `.gitignore` los excluye por separado y nunca van al repo.
 
-### 17.6 SQLite en WAL
-
-`PRAGMA journal_mode=WAL` (ya seteado en `config/container.php`) te da lecturas concurrentes sin bloquear escrituras — suficiente para el patrón típico de HTMX con muchos GET parciales y algún POST ocasional. Ojo que WAL deja archivos `-wal` y `-shm` al lado de la base: si alguna vez respaldás `database.sqlite` copiando solo ese archivo, el backup va a estar incompleto.
-
-## 18. Antes de exponer la app fuera de tu teléfono
+## 19. Antes de exponer la app fuera de tu teléfono
 
 Checklist corto. La mayoría de estos defaults son seguros **mientras la app esté en `127.0.0.1` con `APP_DEBUG=true`**; dejan de serlo en cuanto la exponés.
 
 - [ ] `APP_DEBUG=false` en `.env`. Con `true`, Whoops muestra stack traces, rutas y variables de entorno a cualquiera que abra la URL.
 - [ ] `session_set_cookie_params()` con `httponly` y `samesite` (cap. 8). Con `secure => true` solo si efectivamente servís por HTTPS — si no, el navegador no manda la cookie y la app falla en silencio.
 - [ ] `127.0.0.1` en vez de `0.0.0.0`, salvo que sepas exactamente quién está en esa red.
-- [ ] `.env` fuera de git. `composer.lock` adentro.
+- [ ] `.env` fuera de git (viene de `.env.example`, nunca se commitea). `composer.lock` adentro.
 - [ ] HTTPS o un túnel. Sin TLS, el token CSRF y la cookie de sesión viajan en claro.
 - [ ] `session.use_strict_mode=1` activo (cap. 8).
-- [ ] `storage/logs/app.log` existe y lo mirás de vez en cuando. Con el error handler del capítulo 7, ahora los errores de producción sí quedan registrados; sin mirarlos, no sirve de nada.
-- [ ] `APP_DEBUG=false` también apaga Whoops, así que la respuesta 500 es un mensaje genérico: eso es correcto, no un bug.
+- [ ] `storage/logs/app.log` existe y lo mirás de vez en cuando. Con el error handler del capítulo 7, los errores de producción sí quedan registrados; sin mirarlos, no sirve de nada.
+- [ ] `APP_DEBUG=false` también apaga Whoops: la respuesta 500 es un mensaje genérico. Eso es correcto, no un bug.
 - [ ] `X-Content-Type-Options`, `X-Frame-Options` y `Referrer-Policy` presentes en las respuestas, incluidas las 404 y 500 (cap. 7.2).
-- [ ] Versiones de CDN pineadas con `integrity` SRI (cap. 14). Sin esto, un publish del mantenedor te cambia el runtime sin deploy.
+- [ ] Assets vendorizados pineados con `integrity` SRI (cap. 14). Sin esto, un publish del mantenedor te cambia el runtime sin deploy.
 
 ### Sobre Content-Security-Policy (y por qué no está)
 
-No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porque en este
-stack exacto una CSP estricta **no es alcanzable sin romper cosas que querés**. Esto es
-exactamente lo que cuesta al intentarlo:
+No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porque en este stack exacto una CSP estricta **no es alcanzable sin romper cosas que querés**. Esto es exactamente lo que cuesta al intentarlo:
 
 | Lo que exige CSP estricta | Lo que cuesta en este stack |
 |---|---|
-| `script-src` sin `'unsafe-eval'` | El build CDN de `alpinejs` usa declaraciones `Function`, que también violan la política. Hay que cambiar a `@alpinejs/csp`, que es un parser distinto: sin `Math`/`JSON`/`Date`, sin arrow functions, sin template literals, y `x-html` es error duro. |
-| Lo anterior + `hx-trigger="keyup[x.length>3]"` | Con `htmx.config.allowEval = false` el filtro **no revienta: pasa a `() => true`** y emite un evento que nadie escucha. Escribís el filtro, pasa CI, falla en producción en silencio. |
-| `style-src` sin `'unsafe-inline'` | `@tailwindcss/browser` inyecta `<style>` en runtime y **no soporta nonce** (ni setter, ni hash: el CSS cambia con cada clase descubierta). La única salida es compilar Tailwind a un CSS estático — el CLI que en Termux probablemente necesita `glibc`. |
+| `script-src` sin `'unsafe-eval'` | El build browser de Alpine usa declaraciones `Function`, que también violan la política. Hay que cambiar la forma de servir Alpine o relajar la directiva. |
+| `style-src` sin `'unsafe-inline'` | `@tailwindcss/browser` inyecta `<style>` en runtime y **no soporta nonce**. La única salida es compilar Tailwind a un CSS estático. |
 | Todo lo anterior, y encima | `frame-ancestors` sí lo vas a tener, pero recién adoptando la CSP entera. |
 
-Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste cero:
-`nosniff`, clickjacking y fuga de `Referer`. Y lo que de verdad cierra el agujero de
-supply chain —tres CDNs, uno con versión flotante— son los `integrity` del capítulo 14.
+Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste cero: `nosniff`, clickjacking y fuga de `Referer`. Y lo que cierra el agujero de supply chain son los `integrity` del capítulo 14 sobre assets vendorizados.
 
-**Cuándo reconsiderar CSP:** el día que la app sea alcanzable por alguien que no controlás
-**y** renderice input de usuario. Ahí XSS deja de ser teórico. Ese día el orden correcto es
-compilar Tailwind a CSS estático primero, y recién después adoptar CSP.
+**Cuándo reconsiderar CSP:** el día que la app sea alcanzable por alguien que no controlás **y** renderice input de usuario. Ahí XSS deja de ser teórico. Ese día el orden correcto es compilar Tailwind a CSS estático primero, y recién después adoptar CSP.
 
-## 19. Testing: testear el esqueleto, no la demo
+## 20. Testing: testear el esqueleto, no la demo
 
-Este es el capítulo que más se saltea una guía de framework, y es el que más cara sale
-omitir.
+**El reframe que lo ordena todo: testeá el esqueleto, no el ejemplo.** `TaskController` es descartable: lo vas a borrar el día que hagas tu app real. El pipeline de middlewares, el `Validator`, el `Flash`, la configuración de sesión, el `Guard` de CSRF y el contrato del panel HTMX se quedan para siempre. Los tests existen para proteger el *plumbing*, no para verificar que tu lista de tareas ande.
 
-**El reframe que lo ordena todo: testeá el esqueleto, no el ejemplo.** `TaskController`
-es descartable: lo vas a borrar el día que hagas tu app real. El pipeline de middlewares,
-el `Validator`, el `Flash`, la configuración de sesión y el `Guard` de CSRF se quedan
-para siempre. Los tests existen para proteger el *plumbing*, no para verificar que tu
-lista de tareas ande.
-
-### 19.1 Instalación
-
-```bash
-composer require --dev phpunit/phpunit
-```
+### 20.1 Instalación
 
 `phpunit.xml` en la raíz:
 
@@ -1724,29 +1953,21 @@ final class AppFactory
 }
 ```
 
-> **Un solo `require` de `bootstrap/app.php`, siempre.** Si lo pedís dos veces
-> (una desde `bootstrap.php` y otra desde cada test) construís dos containers, dos
-> Capsules y dos apps, y volvés al mismo problema. `AppFactory::make()` cachea.
->
-> Como el schema vive en memoria y se crea una sola vez, los tests que **escriben**
-> filas tienen que limpiar después de sí mismos: `Capsule::table('tasks')->truncate()`
-> en `tearDown()`, o un `truncate()` al principio de cada test que inserta. Si no,
-> dependés de la orden en que corre la suite, que es el tipo de roja aleatoria que
-> aprendés a ignorar.
+> **Un solo `require` de `bootstrap/app.php`, siempre.** `AppFactory::make()` cachea. Como el schema vive en memoria y se crea una sola vez, los tests que **escriben** filas tienen que limpiar después de sí mismos (`Task::query()->delete()` en `tearDown()`). Si no, dependés de la orden de ejecución.
 
-Agregá `/.phpunit.cache/` y `/tests/.phpunit.result.cache` al `.gitignore`.
+Agregá `/.phpunit.cache/` y `/tests/.phpunit.result.cache` al `.gitignore` (ya están).
 
 Correr:
 
 ```bash
 vendor/bin/phpunit
-composer test     # agregá "test": "phpunit" al section scripts del composer.json
+composer test
+# esperado: OK (38 tests, 94 assertions)
 ```
 
-### 19.2 El `Validator`, con tabla
+### 20.2 El `Validator`, con tabla
 
-Este es el test que más retorno da por línea, y el que habría atrapado el bug de
-`required` que arreglamos en el capítulo 12.
+Este es el test que más retorno da por línea, y el que habría atrapado el bug de `required` del capítulo 12.
 
 `tests/Support/ValidatorTest.php`:
 
@@ -1799,19 +2020,11 @@ final class ValidatorTest extends TestCase
 }
 ```
 
-Fijate en la quinta fila: `required` con `'   '` **sí falla**. `NotEmpty::validate()`
-trimea el string antes de chequear, así que solo espacios queda como `''` y no pasa.
+Fijate en la quinta fila: `required` con `'   '` **sí falla** — esa fila es la que separa `notEmpty()` de `notOptional()` y documenta la decisión de forma ejecutable.
 
-Esa fila está a propósito: es la que separa `notEmpty()` de `notOptional()`, que con
-`'   '` dejaría pasar y terminarías guardando un string de espacios en la base de
-datos. Si la regla de negocio no te importa eso, la fila es `false` y listo — pero
-antes de cambiarla, mirá qué guardaría realmente el campo. Los tests son la
-documentación ejecutable de esa decisión.
+### 20.3 El flash: consume-una-vez
 
-### 19.3 El flash: consume-una-vez y cross-request
-
-El contrato de `Flash::get()` es que **borra**. Si mañana alguien "optimiza" el `unset`,
-esta suite se da vuelta.
+El contrato de `Flash::get()` es que **borra**. Si mañana alguien "optimiza" el `unset`, esta suite se da vuelta.
 
 `tests/Support/FlashTest.php`:
 
@@ -1856,14 +2069,9 @@ final class FlashTest extends TestCase
 }
 ```
 
-### 19.4 El flujo CSRF de punta a punta
+### 20.4 El flujo CSRF de punta a punta
 
-Este es el test que justifica el capítulo entero. Ejercita, en una sola request real: el
-pipeline completo, que la sesión esté abierta **antes** que el `Guard`, el body parsing,
-Twig, routing, el controlador, Eloquent y el flash.
-
-Si alguien reordena `config/middleware.php` — el error más fácil de cometer y el más
-difícil de detectar — este test falla.
+Ejercita en una sola request real: el pipeline completo, la sesión abierta **antes** que el `Guard`, el body parsing, Twig, routing, el controlador, Eloquent y el flash. Si alguien reordena `config/middleware.php`, este test falla.
 
 `tests/Http/CsrfFlowTest.php`:
 
@@ -2011,7 +2219,7 @@ final class CsrfFlowTest extends TestCase
 
     public function test_el_listener_de_csrf_lee_el_valor_del_evento(): void
     {
-        // Regresión del bug 12: con `String($event.detail)` el toast mostraba
+        // Regresión: con `String($event.detail)` el toast mostraba
         // "[object Object]". El texto vive en `.value`, no en el objeto
         // entero, y gretear solo `@csrf.` pasaba con las dos variantes.
         $layout = file_get_contents(
@@ -2054,22 +2262,11 @@ final class CsrfFlowTest extends TestCase
 }
 ```
 
-### 19.4.1 Aislamiento: `$_SESSION` es global
+### 20.4.1 Aislamiento: `$_SESSION` es global
 
-Acá hay una trampa de la que hay que ser consciente. `FlashTest` hace `$_SESSION = []` en
-`setUp()`, y PHPUnit corre todos los tests en **un solo proceso**: esa línea borra la
-sesión que el `CsrfFlowTest` necesita. El orden de ejecución de las clases decide si tu
-suite es verde o roja, y eso es exactamente el tipo de test que entrenás a ignorar.
+`FlashTest` hace `$_SESSION = []` en `setUp()`, y PHPUnit corre todos los tests en **un solo proceso**: esa línea borra la sesión que otros tests necesitan. Dos salidas limpias: aislar por proceso (`processIsolation="true"` en `phpunit.xml`, más lento pero cada test tiene su propio `$_SESSION`) o guardar y restaurar en vez de pisar. No dejes el `$_SESSION = []` a secas sin el `tearDown()` que restaura: es el tipo de detalle que hace que un equipo odie los tests.
 
-Dos salidas limpias:
-
-- **Aislar por proceso** (lo correcto): en `phpunit.xml`, `<phpunit ... processIsolation="true">`. Más lento, pero cada test tiene su propio `$_SESSION`. En una app chica el costo es despreciable y te saca de cabeza el problema.
-- **Guardar y restaurar** en vez de pisar: en `setUp()`, `$this->previous = $_SESSION ?? null;` y en `tearDown()`, `$_SESSION = $this->previous;`.
-
-No dejes el `$_SESSION = []` a secas sin el `tearDown()` que restaura. Es el tipo de
-detalle que hace que un equipo odie los tests.
-
-### 19.5 Errores: el 404 tiene que seguir siendo 404
+### 20.5 Errores: el 404 tiene que seguir siendo 404
 
 `tests/Http/ErrorHandlingTest.php`:
 
@@ -2109,11 +2306,11 @@ final class ErrorHandlingTest extends TestCase
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
      * (medido) en vez de los ~507 bytes de errors/error.twig. En 32 bits ese
-     * pico de memoria se paga caro (cap. 17), y de paso dejás de mirar la
-     * página de error real porque todo 404 se ve igual de apocalyptic.
+     * pico de memoria se paga caro (cap. 18), y de paso dejás de mirar la
+     * página de error real porque todo 404 se ve igual de apocalíptico.
      *
-     * Este test corre con APP_DEBUG=true (lo que hay en .env), o sea que
-     * Whoops está construido: verifica que la rama correcta sea la elegida.
+     * Este test corre con APP_DEBUG=true (phpunit.xml), o sea que Whoops está
+     * construido: verifica que la rama correcta sea la elegida.
      */
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
@@ -2131,17 +2328,9 @@ final class ErrorHandlingTest extends TestCase
 }
 ```
 
-Ese segundo test existe por una razón concreta: el `SecurityHeadersMiddleware` tiene que
-ir **por fuera** del `ErrorMiddleware`. Si alguien lo mueve adentro, este test falla.
+Ese segundo test existe por una razón concreta: el `SecurityHeadersMiddleware` tiene que ir **por fuera** del `ErrorMiddleware`. Si alguien lo mueve adentro, este test falla. El tercero atrapa la regresión de Whoops (y ojo: en SAPI `cli` el PrettyPageHandler no renderiza, así que el `assertStringContainsString('Not found.')` es el que realmente muerde ahí, no el de Whoops).
 
-El tercero sí es el que atrapa la regresión de Whoops. Ojo con **cómo** falla, porque
-es contraintuitivo: en SAPI `cli`, `PrettyPageHandler` no renderiza, así que si vuelve
-el `if ($whoops !== null)` sin la condición de 5xx el body no mide 154 KB — mide **cero**.
-Por eso el test asserta que el HTML **contenga** `Not found.`, y no solo que no mentione
-Whoops: el `assertStringNotContainsString('Whoops', ...)` pasa solo en el camino trucho.
-El `assertLessThan` es el que te protege en el caso real, que es por HTTP.
-
-### 19.6 Routing: la raíz y el link que nadie testeaba
+### 20.6 Routing: la raíz y el link que nadie testeaba
 
 `tests/Http/RoutingTest.php`:
 
@@ -2213,23 +2402,11 @@ final class RoutingTest extends TestCase
 }
 ```
 
-ese segundo test es la lección del capítulo, y vale más que todos los demás juntos: **un link
-es un contrato**. La página de error promete que `/` existe, y durante toda la vida de esta
-guía `/` no existió. El 19.5 te dice que el 404 tiene que seguir siendo 404 y lo verifica;
-nadie se preguntó si la página que el 404 muestra es usable.
+**Un link es un contrato**: cuando tu app muestre una URL en pantalla, un test de que esa URL **responde** es más barato que cualquier test de que la pantalla se ve bien. Comprobá el destino, no el origen.
 
-Y el patrón es reutilizable: cuando tu app muestre una URL en pantalla, un test de que esa
-URL **responde** es más barato que cualquier test de que la pantalla se ve bien. Comprobá
-el destino, no el origen.
+### 20.7 Borrar y recargar el panel: lo que htmx espera recibir
 
-### 19.7 Borrar y recargar el panel: lo que htmx espera recibir
-
-Dos comportamientos que ningún otro test cubría. El primero es el bug que más duele: antes de
-escribir este bloque, `grep -r "delete" tests/` no devolvía **ningún** DELETE — el botón más
-usado de la pantalla no tenía un solo test, y la falla real (400 silencioso, la tarea queda
-donde estaba) estaba justo ahí.
-
-`tests/Http/DeleteTaskTest.php`:
+`tests/Http/DeleteTaskTest.php` (la D del CRUD; antes de este archivo, `grep -r "delete" tests/` no devolvía ningún DELETE — el botón más usado sin un solo test):
 
 ```php
 <?php
@@ -2330,12 +2507,9 @@ final class DeleteTaskTest extends TestCase
 }
 ```
 
-El segundo test no assertea lo deseado: assertea el bug, y hace falta. Si algún día `Guard`
-leyera el query string, o si el botón mandara los tokens por otro lado, este test pasaría con
-200 y habría que releerlo. Los dos juntos dejan escrito el contrato: los tokens del DELETE
-viajan en headers, y el query string no sirve.
+El segundo test no assertea lo deseado: assertea el bug. Si algún día `Guard` leyera el query string, este test daría 200 y habría que releerlo. Los dos juntos dejan escrito el contrato: los tokens del DELETE viajan en headers.
 
-`tests/Http/PartialRenderTest.php`:
+`tests/Http/PartialRenderTest.php` (qué recibe HTMX con `HX-Request` — protege el branch de `index()`):
 
 ```php
 <?php
@@ -2357,7 +2531,8 @@ use Tests\Support\AppFactory;
  * `hx-swap="outerHTML"`. Si el servidor devuelve `index.twig` (que extiende
  * el layout), HTMX recibe un documento completo, se queda con el `<body>` y lo
  * inserta dentro del panel: quedan dos `<h1>`, dos `id="alta-tarea"` y el
- * padding del layout dos veces.
+ * padding del layout dos veces. Con el shell daisyUI el daño sería peor
+ * (sidebar y header duplicados dentro del panel).
  */
 final class PartialRenderTest extends TestCase
 {
@@ -2406,20 +2581,9 @@ final class PartialRenderTest extends TestCase
 }
 ```
 
-El primer test es el control: sin `HX-Request`, `/tareas` sigue devolviendo la página completa
-con el form de altas. El segundo protege el branch de `index()` — si alguien simplifica el
-controlador y devuelve `index.twig` siempre, este test falla antes de que aparezca un `<h1>`
-duplicado en pantalla.
+### 20.8 Edición: la U del CRUD
 
-### 19.8 Edición: la U del CRUD que faltaba
-
-Antes de escribir la ruta, un grep sobre todo el proyecto devolvía **cero** coincidencias de
-`edit`, `update`, `put` y `patch`. La U del CRUD nunca se había implementado, así que no
-había nada que testear todavía. Este bloque acompaña la funcionalidad: cubre el render del
-form, la persistencia del PUT, la validación que rechaza, el id que no existe y el token
-ausente.
-
-`tests/Http/EditTaskTest.php`:
+`tests/Http/EditTaskTest.php` (cubre render del form, persistencia del PUT, validación que rechaza **conservando lo tipeado**, id inexistente y token ausente):
 
 ```php
 <?php
@@ -2528,10 +2692,33 @@ final class EditTaskTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
-        self::assertStringContainsString('bg-red-100', (string) $response->getBody(), 'El flash de error no se renderizó.');
+        self::assertStringContainsString('alert-error', (string) $response->getBody(), 'El flash de error no se renderizó.');
         // La fila se queda en modo formulario: si volviera a la lista, el
         // usuario pierde el lugar que estaba editando junto con el error.
         self::assertStringContainsString('hx-put=', (string) $response->getBody());
+    }
+
+    public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
+    {
+        $task = Task::create(['title' => 'Comprar pan']);
+        $token = $this->token();
+        $tipeado = str_repeat('b', 200);
+
+        $response = self::app()->handle(
+            self::request('PUT', '/tareas/' . $task->id, [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => $tipeado,
+            ])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
+        self::assertStringContainsString(
+            'value="' . $tipeado . '"',
+            (string) $response->getBody(),
+            'El input se repintó con el valor guardado y perdió lo tipeado.'
+        );
     }
 
     public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
@@ -2557,6 +2744,7 @@ final class EditTaskTest extends TestCase
     public function test_put_sin_token_devuelve_400_para_htmx(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
+        $token = $this->token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], htmx: true)
@@ -2604,50 +2792,30 @@ final class EditTaskTest extends TestCase
 }
 ```
 
-Cuatro cosas que estos tests dejan por escrito. Primero: `hx-put` manda el body como
-`application/x-www-form-urlencoded`, así que si `addBodyParsingMiddleware()` no lo parsea,
-`getParsedBody()` devuelve `null`, la validación revienta con un 500 y no con un mensaje.
-Segundo: los tokens del form de edición salen del mismo render que la fila, no del form de
-altas que queda fuera del panel. Tercero: un id inexistente no puede tumbar la página, pero
-tampoco puede responder en silencio — `edit()` y `update()` buscan la fila con `Task::find()` y,
-si no existe, devuelven el panel con `La tarea no existe o ya fue eliminada.` en el flash; nunca
-un 404, porque htmx metería la página de error dentro de `#tareas-panel`. Cuarto: cuando la
-validación falla, `update()` devuelve `editing_id` con el id de la fila, para que la fila no
-salga del modo formulario justo cuando aparece el mensaje.
+Notá el `alert-error` en el test del flash: el panel renderiza `alert alert-error` de daisyUI, y el test asserta esa clase (antes era `bg-red-100`). El contrato es el mismo ("el flash se renderiza"); el selector cambió con el rework visual. Y el test de `editing_title` deja por escrito que en fallo de validación el input conserva lo tipeado, no el valor guardado.
 
-### 19.9 Qué NO testear
+### 20.9 Qué NO testear
 
-- **Eloquent.** Es de Laravel. `Task::create()` inserta una fila: eso es un test de
-  SQLite, no tuyo.
+- **Eloquent.** Es de Laravel. `Task::create()` inserta una fila: eso es un test de SQLite, no tuyo.
 - **Twig.** Es de Twig. Un test de render de plantillas testea el motor de plantillas.
 - **Slim.** El framework ya tiene su propia suite.
+- **daisyUI.** Las clases (`btn`, `alert-error`) son del sistema: testear que existen es testear la librería. Lo que SÍ se testea es que tu HTML las mencione donde corresponde (flash) y que los contratos (panel, tokens, branch HX) sigan vivos bajo el shell nuevo.
 
-Y una regla de costo: **cada test que escribas tiene que pagar su mantenimiento**. Un
-test que asserta comportamiento trivial o que se rompe con cada refactor es peor que
-nada, porque entrenás a ignorar rojas. Si no te da miedo que falle, no lo escribas.
+Y una regla de costo: **cada test que escribas tiene que pagar su mantenimiento**. Un test que asserta comportamiento trivial o que se rompe con cada refactor es peor que nada, porque entrenás a ignorar rojas. Si no te da miedo que falle, no lo escribas.
 
-## 20. Troubleshooting: síntomas, no theory
-
-Este capítulo existe porque los capítulos 1 a 18 te dicen cómo **configurar** y ninguno
-te dice qué hacer cuando algo ya está mal. Es el hueco más grande que le quedaba a esta
-guía, y es el que más te va a costar la primera hora en el teléfono.
+## 21. Troubleshooting: síntomas, no theory
 
 Cada entrada lleva un tag que dice de dónde sale:
 
 | Tag | Significado |
 |---|---|
 | **[v]** | Verificado acá: lo corrí contra el proyecto de referencia de esta guía y te paso la salida real. |
-| **[t]** | **No verificado en dispositivo.** Es lo más probable en un teléfono real, pero nadie lo ejecutó todavía — ni yo, ni vos hasta que lo pruebes. Tratá la salida esperada como hipótesis, no como hecho. |
+| **[t]** | **No verificado en dispositivo.** Es lo más probable en un teléfono real, pero nadie lo ejecutó todavía. Tratá la salida esperada como hipótesis, no como hecho. |
 | **[d]** | Comportamiento documentado por el proyecto upstream. No lo probé yo. |
 
-Esa distinción es el punto del capítulo. El cap. 1 al 19 es casi todo **[v]** o **[d]**
-en la mitad PHP, y casi todo **[t]** en la mitad Termux. Saber cuál de las dos estás
-mirando es la diferencia entre debuggear y adivinar.
+### 21.1 La app no instala: `Unable to locate package`
 
-### 20.1 La app no instala: `Unable to locate package`
-
-**[t]** Es el primer riesgo real de la guía entera, y el único que puede invalidar el
-capítulo 16 para abajo. Toda la guía asume que `pkg` tiene paquetes `arm`.
+**[t]** Toda la guía asume que `pkg` tiene paquetes `arm`.
 
 ```bash
 uname -m                        # armv7l = 32-bit, aarch64 = 64-bit
@@ -2655,82 +2823,45 @@ pkg update
 pkg install php -y
 ```
 
-Si sigue sin encontrar el paquete, el problema no es tu proyecto: es el repo que estás
-apuntando. Cambialo y reintentá:
+Si sigue sin encontrar el paquete, cambiá de mirror y reintentá (`termux-change-repo`). Si ni así, no sigas con el cap. 2: sin PHP no hay Composer que valga.
 
-```bash
-termux-change-repo              # elegí un mirror distinto
-pkg update && pkg install php -y
-```
-
-Lo que **sí** es un hecho verificado: las releases de `termux-app` con feed público
-incluyen el APK de 32 bits (`armeabi-v7a`), en las variantes `apt-android-5` y
-`apt-android-7`. La variante de 32 bits **existe como artefacto**. Lo que no está
-verificado es que el repo de paquetes siga compilando para el arch `arm`, que es otra
-cosa: la declara `termux-packages/scripts/properties.sh`.
-
-Si llegaste hasta acá y falló, no sigas con el cap. 2 — no vas a poder instalar Composer
-sin PHP. Es el momento de decidir si el teléfono puede con esto o conviene 64-bit.
-
-### 20.2 PHP no trae SQLite
+### 21.2 PHP no trae SQLite
 
 ```bash
 php -m | grep -i sqlite
 # esperado: pdo_sqlite y sqlite3
 ```
 
-En Termux el paquete `php` normalmente los trae compilados adentro, así que un resultado
-vacío significa que no tenés el `php` de Termux. **[t]** Comprobá con `which php` que
-esté bajo `$PREFIX/bin` y no en otro lado del `PATH`.
+En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprobá con `which php` que esté bajo `$PREFIX/bin`.
 
-Sin `pdo_sqlite`, el contenedor de DI del cap. 6 revienta al hacer el `PRAGMA`, y como
-eso corre en `bootstrap/app.php` **antes** del error middleware, no vas a ver la página
-de error: vas a ver el stack trace crudo (ver 20.3).
+### 21.3 La base no se crea o apunta a otro lado
 
-### 20.3 `QueryException` envolviendo `SQLiteDatabaseDoesNotExistException`
+**[v]** La versión vieja de esta guía moría acá con `QueryException` cruda. Ahora el container tiene default relativo + autocreación + `RuntimeException` accionable (cap. 6): si ves ese mensaje, corré `pwd` en la raíz y corregí `DB_DATABASE`.
 
-**[v]** Es la causa número uno de "la app no arranca y ni siquiera muestra el error
-bonito", y el cap. 5 ya lo advierte: `DB_DATABASE` apunta a un path que no existe en
-**tu** teléfono.
+Dos casos que el mensaje no cubre, a saber:
+
+1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si `/tareas` dice `no such table: tasks` justo después de migrar, es esto: o borrá la variable (default relativo para ambos) o migrá consciente del path.
+2. **`no such table: tasks` en un clon fresco** significa que nunca corriste `composer migrate`. No es un bug: la base se autocrea vacía, el schema lo pone Phinx.
 
 ```bash
-ls -la ~/proyectos/mi-app/database/     # ¿existe el archivo?
+ls -la database/                # ¿existe el archivo? ¿cuánto pesa?
+vendor/bin/phinx status         # up o down
 ```
 
-El path del cap. 5 es `/data/data/com.termux/files/home/proyectos/mi-app/database/database.sqlite`.
-Es el sandbox de Termux, pero **cambia si clonaste el proyecto en otro lado**. Corré
-`pwd` en la raíz de tu proyecto y corregí la variable.
+### 21.4 Composer muere sin decir nada
 
-El detalle que confunde: el error sale del `PRAGMA` en `config/container.php`, que se
-ejecuta **dentro de `bootstrap/app.php`**, o sea antes de que exista el error middleware.
-Por eso ves la excepción cruda en vez de `errors/error.twig`. No es un bug del error
-handler: es que todavía no estaba instalado.
-
-### 20.4 Composer muere sin decir nada
-
-**[t]** El síntoma es el peor posible: `composer install` no imprime error de PHP, no
-deja stack trace, y tu shell vuelve. Moriste por el OOM killer del kernel.
+**[t]** `composer install` no imprime error de PHP y tu shell vuelve. OOM killer del kernel.
 
 ```bash
-composer install; echo "exit=$?"
+composer install:termux; echo "exit=$?"
 # exit=137 es la firma del OOM killer (128 + 9 = SIGKILL)
 ```
 
-La solución no es `-1`, es resolver afuera y traer `composer.lock` + `vendor/`. Está
-desarrollada en el cap. 17.1 y es el consejo más importante de la guía para 32 bits.
+La solución no es `-1`, es `install:termux` (cap. 18.1).
 
-Si preferís resolver en el teléfono, poné un límite **realista** y reportable:
+### 21.5 `Class "Respect\Validation\Validator" not found` o `V::create()` falla
 
-```bash
-export COMPOSER_MEMORY_LIMIT=1024M
-composer install --prefer-dist --no-dev --no-scripts
-```
-
-### 20.5 `Class "Respect\Validation\Validator" not found` o `V::create()` falla
-
-**[v]** Es el bug del cap. 4, y es el que más gente va a comer si arma el `composer.json`
-a mano. El síntoma aparece **en la primera request**, no en el `composer install`, que es
-lo que lo hace confuso.
+**[v]** Aparece **en la primera request**, no en el `composer install`:
 
 ```bash
 composer show respect/validation | head -2
@@ -2738,252 +2869,106 @@ composer show respect/validation | head -2
 # versions : * 3.x.x     <- 3.x, donde Validator pasó a ser interface
 ```
 
-La causa: agregaste las dependencias con `composer require respect/validation` sin el
-`^2.0`, y el instalador te trajo 3.x. Ahí `V::create()`, `assert()` y las excepciones
-anidadas que usa `app/Support/Validator.php` ya no existen. Corregí el `require` y
-`composer update respect/validation`.
+Causa: `composer require respect/validation` sin el `^2.0`. Corregí el `require` y `composer update respect/validation`.
 
-### 20.6 Página de error vacía (0 bytes)
+### 21.6 Página de error vacía (0 bytes)
 
-**[v]** El cap. 7 lo explica: `Twig::render()` escribe en el stream **sin rebobinar**, así
-que con el cursor al final `getContents()` devuelve `''`. El fix ya está aplicado en el
-cap. 7 (`$stream->rewind()`), pero lo vas a ver si tocaste esa parte o si tenés una copia
-vieja.
-
-Otro camino al mismo síntoma: `errors/error.twig` con un error de sintaxis. Esa plantilla
-está envuelta en `try/catch` y degrada a texto plano, así que **no** la toques a la
-ligera. Recordá que deliberadamente **no** extiende `layouts/app.twig` (cap. 7.1): si le
-agregás un `{% extends %}` y el layout es lo que está roto, entrás en loop.
-
-Para descartar la cache de plantillas:
+**[v]** `Twig::render()` escribe en el stream **sin rebobinar**: con el cursor al final, `getContents()` devuelve `''`. El fix (`$stream->rewind()`) ya está en el cap. 7, pero lo vas a ver si tocaste esa parte. Otro camino al mismo síntoma: `errors/error.twig` con error de sintaxis (degrada a texto plano a propósito). Para descartar la cache:
 
 ```bash
 rm -rf storage/cache/twig/*
 ```
 
-### 20.7 Un 404 que devuelve 500, o un 404 que pesa 154 KB
+### 21.7 Un 404 que devuelve 500, o un 404 que pesa 154 KB
 
-**[v]** Es el bug de Whoops, y son dos síntomas distintos con dos causas distintas:
-
-- **El 404 sale como 500** → `allowQuit(false)` y `sendHttpCode(false)` no están puestos
-  en `config/middleware.php`. Con los defaults, Whoops manda 500 para *toda* excepción,
-  incluido un 404, y sale del proceso con `exit(1)` — por lo que
-  `SecurityHeadersMiddleware` nunca corre y la página se sirve sin
-  `X-Content-Type-Options`. Los tests pasan igual, porque `PrettyPageHandler` no renderiza
-  en SAPI `cli`.
-- **El 404 pesa 154 KB** → Whoops también está atendiendo los 4xx. Medido: 154.490 bytes
-  con Whoops, 507 bytes sin él. Un 404 no es un defecto y no tiene stack trace que mirar;
-  por eso la rama de Whoops está acotada a `$status >= 500` en el cap. 7.
+**[v]** Bug de Whoops, dos síntomas: 404 como 500 (`allowQuit(false)`/`sendHttpCode(false)` ausentes) y 404 de 154 KB (Whoops atendiendo 4xx; la rama correcta es `$status >= 500`).
 
 ```bash
 curl -sI http://127.0.0.1:8080/no-existe | head -5
 # esperás HTTP/1.1 404 + X-Frame-Options: DENY + X-Content-Type-Options: nosniff
 ```
 
-### 20.8 La sesión no persiste: todo deslogueado o CSRF mismatch
+### 21.8 La sesión no persiste
 
-**[t]** Es el bug más silencioso del stack, porque **no da ningún error**. Después de
-cerrar la terminal notás que perdiste la sesión, o el POST de HTMX vuelve con
-`Token mismatch` sin que sepas por qué.
-
-Tres causas, en orden de probabilidad:
-
-1. **`session.save_path` murió.** Android puede limpiar un directorio temporal del
-   sandbox. Verificá y fijalo (cap. 17.4):
-
-   ```bash
-   php -i | grep -E 'session.save_path|session.use_strict_mode'
-   ```
-
-2. **`secure => true` sin HTTPS.** Si activaste la cookie como `secure` pero servís por
-   HTTP plano, el navegador **no** manda la cookie y la app falla en silencio. Para uso
-   en `127.0.0.1`, `secure` tiene que ser `false`. Es el ítem del cap. 18.
-
-3. **El directorio no existe.** `ini_set()` a un path inexistente no avisa: las sesiones
-   se pierden sin dejar rastro.
-
-   ```bash
-   mkdir -p storage/sessions
-   ```
-
-Para ver si el cookie se está mandando de verdad:
+**[t]** Sin error visible: deslogueos o CSRF mismatch. Tres causas en orden: `session.save_path` limpiado por Android (cap. 18.4), `secure => true` sin HTTPS (la cookie no viaja), directorio inexistente (el bootstrap ya crea `storage/sessions/`).
 
 ```bash
 curl -sI http://127.0.0.1:8080/tareas | grep -i set-cookie
 # esperado: mi_app_session=...; path=/; HttpOnly; SameSite=Lax
 ```
 
-Ojo: `HttpOnly` y `SameSite=Lax` tienen que estar. La ausencia de `HttpOnly` significa que
-el cap. 8 quedó a medio aplicar.
+### 21.9 El toast de CSRF no aparece
 
-### 20.9 El toast de CSRF no aparece en el navegador
-
-**[v]** Este se encuentra tarde y es el que más se escapa, porque el backend funciona
-perfecto: el `failureHandler` emite `HX-Trigger: {"csrf":"..."}` y el navegador lo ignora
-en silencio. El listener tiene que estar en el layout y en `document.body` o
-`document`, porque **HTMX no hace bubbling de eventos por default**.
+**[v]** El backend emite `HX-Trigger: {"csrf":"..."}` y el navegador lo ignora: el listener tiene que estar en el layout (el panel se reemplaza con cada swap).
 
 ```bash
 curl -sI -X POST http://127.0.0.1:8080/tareas | grep -i hx-trigger
-# el header tiene que estar en la respuesta del POST fallido
+curl -s http://127.0.0.1:8080/tareas | grep -c 'csrf.window'
+# esperado: 1 o más
 ```
 
-Si el header llega y el toast no, el problema es el listener o el CSS: `[x-cloak] {
-display: none !important; }` tiene que estar presente, o la vaca de Alpine parpadea en
-cada carga.
+### 21.10 La página se ve sin estilos o sin interactividad
 
-### 20.10 Alpine o Tailwind no hacen nada
+**Ya no es la red**: los assets están vendorizados (cap. 14), así que "el CDN no cargó" dejó de existir como causa. Quedan dos:
 
-**[t]** La página se ve sin estilos o los atributos `x-*` no hacen nada. Causa casi
-segura: **el CDN no cargó** o **el SRI no matchea**.
+1. **El archivo no se sirve**: `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/assets/daisyui-5.7.46.css` tiene que dar 200. Si da 404, `public/assets/` no viajó (revisá que no lo hayas metido al `.gitignore`).
+2. **El SRI no matchea**: el navegador rechaza el archivo entero y solo lo dice en la consola (`chrome://inspect` con el cable). Causa típica: CRLF tras un checkout en Windows — para eso está el `.gitattributes` (cap. 5). Verificá con el one-liner PHP del cap. 14.1.
 
-```bash
-curl -sI https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js | head -3
-# tiene que devolver 200
-```
+### 21.11 La app se muere cuando apagás la pantalla
 
-En orden:
+**[t]** Android suspende el proceso: `termux-wake-lock` (cap. 17.1). Si muere al **cerrar la terminal**, es `tmux` (cap. 17.2). Son dos muertes distintas.
 
-1. ¿Tenés internet? Un teléfono en datos móviles o en una red que bloquea jsdelivr deja
-   la página sin framework. Es la causa más subestimada.
-2. ¿El SRI matchea? Si el CDN devolvió algo distinto, el navegador **rechaza el script**
-   entero y solo lo dice en la consola. Para eso sirven los `integrity`: para fallar.
-3. ¿La consola muestra `Refused to execute script`? Eso es SRI.
+### 21.12 `Address already in use`
 
-Para debuggear en el móvil: `chrome://inspect` desde el desktop con el cable conectado.
+**[v]** Otro proceso tiene el puerto (`tmux ls`, `lsof -i :8080` o `ss -ltnp | grep 8080`). Matá el proceso viejo en vez de abrir un puerto nuevo cada vez.
 
-### 20.11 La app se muere cuando apagás la pantalla
+### 21.13 HTMX se cuelga o dos requests se pisan
 
-**[t]** Funciona, la refrescás, y a los dos minutos deja de responder. No es un crash:
-Android **suspende el proceso** cuando la pantalla se apaga.
+**[v]** `php -S` single-threaded: `PHP_CLI_SERVER_WORKERS=4` + `session.lazy_write=1` (caps. 17.4 y 18.2).
 
-```bash
-pkg install termux-api
-termux-wake-lock
-```
+### 21.14 Cómo leer el log cuando todo lo anterior falló
 
-Y si se muere cuando **cerrás la terminal** (que es distinto), es que `php -S` corre en
-foreground y va dentro de `tmux`. Ambos en los caps. 16.1 y 16.2.
-
-### 20.12 `Address already in use`
-
-**[v]** Otro proceso tiene el puerto. Es el error más tonto y el más frecuente cuando dejás
-el server en `tmux` y después querés levantarlo otra vez.
-
-```bash
-tmux ls                   # ¿ya tenés una sesión con el server corriendo?
-lsof -i :8080             # ¿quién lo tiene?
-```
-
-Matá el proceso viejo en vez de abrir un puerto nuevo. Terminar sirviendo en el 8091 para
-siempre, porque cada reinicio usa un puerto nuevo, es la forma más común de convertir esto
-en un proyecto que nadie puede levantar.
-
-### 20.13 HTMX se cuelga o dos requests se pisan
-
-**[v]** `php -S` es **single-threaded**: si tu página dispara dos `hx-get` al mismo tiempo,
-el segundo espera al primero. Con workers los tenés, pero entrás al problema siguiente:
-dos requests concurrentes sobre la **misma sesión** se contendian por el lock de archivo
-de PHP.
-
-```bash
-PHP_CLI_SERVER_WORKERS=4 php -S 0.0.0.0:8080 -t public
-```
-
-Y en `php.ini`, `session.lazy_write=1` para tomar el lock menos tiempo. Detalle en los
-caps. 16.4 y 17.2.
-
-### 20.14 Cómo leer el log cuando todo lo anterior falló
-
-**[v]** El error handler del cap. 7 loguea **5xx como `error` y 4xx como `info`**. Esa
-distinción es deliberada: un 404 no merece una línea de error, o cualquier URL que
-alguien pruebe te inunda el archivo.
+**[v]** El error handler loguea **5xx como `error` y 4xx como `info`** a propósito.
 
 ```bash
 tail -f storage/logs/app.log
+mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es esto
 ```
 
-Si el archivo no existe, el problema es que `storage/logs/` no existe o no es writable, y
-Monolog deja de escribir **sin avisar**:
+### 21.15 "No puede conectarse": `localhost` no es `127.0.0.1`
 
-```bash
-mkdir -p storage/logs storage/cache storage/sessions
-```
+**[v]** `php -S localhost:8080` puede quedar escuchando solo en IPv6 (`::1`) mientras el navegador pide `127.0.0.1`. **No uses `localhost` como bind**: `127.0.0.1` o `0.0.0.0`, que es lo que ya hace `composer serve`.
 
-### 20.15 "No puede conectarse": `localhost` no es `127.0.0.1`
+### 21.16 Clases `is-drawer-*` sin efecto
 
-**[v]** Síntoma: el servidor arranca e imprime `Development Server (http://localhost:8080)
-started`, pero el navegador dice **"No puede conectarse al servidor en 127.0.0.1:8080"**.
-No es firewall, no es que la app esté rota, y no es el puerto ocupado.
+**[v]** El ejemplo plegable de la doc de daisyUI usa `is-drawer-open:`/`is-drawer-close:`. Esas variantes **no existen en el CSS linkeado** (cero ocurrencias en `daisyui-5.7.46.css`; necesitan el compilador con daisyUI como plugin). Si las copiás, quedan como clases muertas que *parecen* funcionar. Por eso el collapse de esta guía es Alpine + utilities estándar (cap. 15).
 
-La causa es que `localhost` y `127.0.0.1` son direcciones **distintas** para el que escucha:
+### 21.17 El icono de plegado no cambia de dirección
 
-```bash
-# en Windows
-Resolve-DnsName localhost -Type A       # 127.0.0.1   IPv4
-Resolve-DnsName localhost -Type AAAA    # ::1         IPv6
-```
+**[v]** `rotate-180` de Tailwind v4 usa la propiedad CSS `rotate`, que **se suma** al `transform` manual (180+180=360): con ambos, el icono vuelve a `<<` siempre. Una sola fuente de verdad: la rotación sale del CSS pre-pintado (`data-sidebar-mini`), nunca de una clase Alpine a la vez.
 
-Y PHP se queda escuchando en **una sola** de ellas. Medido en esta máquina con el mismo
-PHP 8.5.10:
+### 21.18 Phinx se queja del `.env` o la tabla no existe
 
-| Comando | A la que queda escuchando | `127.0.0.1:8081` | `[::1]:8081` |
-|---|---|---|---|
-| `php -S localhost:8081` | `::1` (solo IPv6) | **000 — refused** | 200 |
-| `php -S 127.0.0.1:8081` | `::1`, `127.0.0.1` | 200 | 200 |
-| `php -S 0.0.0.0:8081` | `::1`, `127.0.0.1`, `0.0.0.0` | 200 | 200 |
+**[v]** `Unable to read any of the environment file(s)` en un clon sin `.env`: `phinx.php` ya usa `safeLoad()`. Y `no such table` = corré `composer migrate` (cap. 21.3).
 
-Si llamás por `localhost` te va a funcionar; si llamás por `127.0.0.1` no. Y el navegador
-muchas veces muestra una cosa y pide la otra: **`http://127.0.0.1:8080` y
-`http://localhost:8080` no son la misma URL**, y podés estar curado por una mientras la otra
-falla.
+### 21.19 Flash animado al recargar con el menú plegado
 
-Diagnóstico en una línea — mirá a qué IP está escuchando:
+**[v]** Alpine aplica el estado de `localStorage` post-paint con la transición activa: el sidebar se ve abrir y cerrarse. La fix es pre-pintar (script + CSS en `<head>`, cap. 15): misma receta que el flash del tema oscuro.
 
-```bash
-# Windows
-netstat -ano | findstr :8080
-# Linux / Termux
-ss -ltnp | grep 8080
-```
+## 22. Cómo verificar esta guía vos mismo
 
-Si dice `::1` y no `127.0.0.1` o `0.0.0.0`, ya tenés el diagnóstico.
+Todo lo que la guía afirma es reproducible. Los capítulos 4 a 20 son código y se **ejecutan**; los capítulos 1 a 3 y 17 a 19 son afirmaciones sobre tu teléfono y **no** se verifican desde afuera. Por eso este capítulo está partido en dos.
 
-**La solución es no usar `localhost` como argumento de bind.** Usá `127.0.0.1` para solo la
-máquina, o `0.0.0.0` para la red — que es exactamente lo que ya hace la guía:
-
-```bash
-composer serve                                  # -> php -S 0.0.0.0:8080 -t public
-php -S 127.0.0.1:8080 -t public                 # solo desde esta máquina
-```
-
-Este error es fácil de mal diagnosticar como firewall o como "la app no levanta", y lleva
-la gente a abrir puertos o a tocar el código cuando el problema entero es qué hostname se
-pasó como primer argumento.
-
-## 21. Cómo verificar esta guía vos mismo
-
-Este capítulo existe porque una guía de 21 capítulos que dice "confiá en mí" no vale
-casi nada. Todo lo que la guía afirma es reproducible y, en la mayoría de los casos, con
-cinco minutos de tu lado.
-
-La lógica es esta: los capítulos 4 a 19 son código, y el código se **ejecuta**. Los
-capítulos 1 a 3 y 16 a 18 son afirmaciones sobre tu teléfono, y esas **no** se pueden
-verificar desde afuera — solo corriendo en el dispositivo. Por eso este capítulo está
-partido en dos, y es honesto sobre cuál de las dos partes podés hacer hoy.
-
-### 21.1 Nivel A — cinco minutos, los chequeos que pagan
-
-Corré estos cinco. Cada uno cubre una clase de bug real que esta guía ya tuvo.
+### 22.1 Nivel A — cinco minutos, los chequeos que pagan
 
 ```bash
 # 1. Dependencias: 2.x o la app revienta en la primera request (cap. 4)
 composer show respect/validation | head -2
 # esperado: versions : * 2.5.0
 
-# 2. Suite completa: el esqueleto, no la demo (cap. 19)
+# 2. Suite completa: el esqueleto, no la demo (cap. 20)
 composer test
-# esperado: OK (37 tests, 89 assertions)
+# esperado: OK (38 tests, 94 assertions)
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &
@@ -3002,48 +2987,33 @@ curl -sI http://127.0.0.1:8080/tareas | grep -i set-cookie
 # esperado: mi_app_session=...; path=/; HttpOnly; SameSite=Lax
 ```
 
-Los cinco valores esperados son los reales del proyecto de referencia, medidos, no
-declarados. Si alguno no coincide, ese es tu bug y no hace falta seguir leyendo: es el
-primero.
-
-Un chequeo extra, también real, que verifica de un golpe la superficie del frontend:
+Chequeos extra del frontend vendorizado (cap. 14):
 
 ```bash
 curl -s http://127.0.0.1:8080/tareas | wc -c
-# esperado: 2273 con la base vacía; suma unos 870 bytes por fila y varía unos
-#           pocos bytes con cada token CSRF. Lo que no puede salir es 0.
+# esperado: ~10683 con la base vacía (varía unos bytes con cada token CSRF).
+# Lo que no puede salir es 0.
 curl -s http://127.0.0.1:8080/tareas | grep -c 'csrf.window'
 # esperado: 1 o más — el listener de CSRF tiene que estar en el layout
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/assets/daisyui-5.7.46.css
+# esperado: 200
+curl -s http://127.0.0.1:8080/ | wc -c
+# esperado: ~12678 (varía con los tokens)
 ```
 
-### 21.2 Nivel B — cuarenta y cinco minutos, el que de verdad importa
+### 22.2 Nivel B — cuarenta y cinco minutos, el que de verdad importa
 
-Acá está la prueba real, y no la puede hacer nadie que ya sepa qué viene después de cada
-paso. La guía se verificó contra un proyecto de referencia, y eso garantiza que el
-**código** de la guía es correcto. No garantiza que la guía no tenga un salto raro, un
-comando que haya que improvisar, o un detalle del cap. 3 que asumí sin que lo notaras.
-
-La forma de detectarlo es ser un lector ciego de tu propia guía:
+La guía se verificó contra un proyecto de referencia (el código es correcto), pero eso no garantiza que no haya un salto raro o un comando que haya que improvisar. Para detectarlo, sé un lector ciego de tu propia guía:
 
 ```bash
 mkdir -p ~/verificacion && cd ~/verificacion
 ```
 
-Después seguí los capítulos 1 a 19 **de corrido, sin abrir el proyecto de referencia ni
-esta conversación**. Anotá, en un archivo o en un papel, cada una de estas tres cosas:
+Seguí los capítulos 1 a 20 **de corrido, sin abrir el proyecto de referencia**. Anotá cada comando que tengas que improvisar (es el hueco), cada error que no esté en el capítulo 21 (sumalo) y cada paso que no entiendas sin contexto. Si no anotaste nada, la guía está completa.
 
-- **Cada comando que tengas que improvisar.** Ese es el hueco, sin rodeos.
-- **Cada error que no esté en el capítulo 20.** Sumalo a la tabla de 20.
-- **Cada paso que no entiendas sin contexto.** Un paso que necesitás que te expliquen es un
-  paso que le va a faltar a cualquiera.
+### 22.3 Nivel C — el script que usé para encontrar los huecos
 
-Si al terminar no anotaste nada, la guía está completa y me la podés dar de vuelta. Si
-anotaste algo, eso es un defecto de documentación mío, no tuyo.
-
-### 21.3 Nivel C — el script que usé para encontrar los huecos
-
-Si tocás la guía y querés saber si dejaste algo afuera, este script compara cada línea no
-trivial de tu proyecto contra el texto de la guía y te dice qué no está documentado.
+Compara cada línea no trivial de tu proyecto contra el texto de la guía y te dice qué no está documentado:
 
 ```bash
 G=guia-stack-php-termux.md
@@ -3055,60 +3025,49 @@ for f in $(find app config routes tests resources bootstrap -type f \
 done
 ```
 
-Dos detalles de este script que no son opcionales, porque sin ellos **no hace nada**:
+Dos detalles que no son opcionales: el `--` en `grep -qF --` (sin él, toda línea que empiece con `->` la interpreta como opción) y el descarte de comentarios a propósito (**el script no verifica comentarios, solo código**).
 
-- El `--` en `grep -qF --`. Sin él, toda línea que empiece con `->` (y en este proyecto
-  casi todas las líneas encadenadas) la interpreta grep como una opción y aborta: te
-  imprimía errores de uso y un recuento de líneas que no existían.
-- El `grep -vE '^\s*(//|\*|#|\{#)'` descarta comentarios a propósito. Consecuencia honesta:
-  **este script no verifica que los comentarios estén documentados.** Solo el código. Para
-  probar que detecta algo, metele una línea de código real que no esté en la guía, no un
-  comentario: un comentario falso no lo va a marcar y vas a creer que el script anda.
+Salida esperada: **nada**. Y el alcance honesto: el `find` cubre `app`, `config`, `routes`, `tests`, `resources` y `bootstrap` — `composer.json`, `.env`, `.gitignore` y `.gitattributes` están fuera del escaneo y se verifican a ojo contra los caps. 4 y 5. Los assets vendorizados (`.js`/`.css`) también están fuera: no se copian bytes a una guía, se verifican con el SRI del cap. 14.1.
 
-Salida esperada: **nada**.
-
-Y algo que conviene tener claro para no malinterpretar el resultado: el `find` cubre
-`app`, `config`, `routes`, `tests`, `resources` y `bootstrap`, y **nada más**. Entonces
-`composer.json` y `.env` no aparecen nunca, ni aunque los vacíes. No es que estén
-"cubiertos": es que están fuera del alcance del escaneo, y está bien que lo estén, porque
-los dos son archivos que la guía no te pide copiar textualmente:
-
-- `composer.json`: el `require` lo genera Composer. La guía da el fragmento y te dice que
-  lo merges con lo que ya tenés, no que lo reemplaces.
-- `.env`: el path de `DB_DATABASE` es específico de dónde clonaste el proyecto. La guía
-  documenta la variable y el motivo por el que hay que editarla, no tu path.
-
-Cualquier otra línea que aparezca es un hueco real.
-
-### 21.4 El chequeo de cinco segundos que sí depende de tu teléfono
-
-Este es el único que decide si la guía te sirve, y es el que no pude verificar yo:
+### 22.4 El chequeo de cinco segundos que sí depende de tu teléfono
 
 ```bash
-uname -m                        # armv7l = 32-bit. Si dice aarch64 la guía igual anda,
-                                # pero el cap. 17 deja de aplicar
+uname -m                        # armv7l = 32-bit
 pkg install php -y              # ¿existe php para tu arquitectura?
 php -m | grep -i sqlite         # pdo_sqlite y sqlite3 tienen que aparecer
 php -r "echo ini_get('memory_limit'), PHP_EOL;"
 ```
 
-Si `pkg install php` responde `Unable to locate package`, no sigas con el cap. 2: el
-problema no es la guía, es que el repo de paquetes de tu arquitectura no está. Volvé al
-20.1, que es donde eso se resuelve.
+Si `pkg install php` responde `Unable to locate package`, volvé al 21.1.
 
-### 21.5 Lo que esta guía NO puede verificar por vos
-
-Para que la confianza sea del tamaño correcto, esto queda abierto y no lo puedo cerrar
-desde acá:
+### 22.5 Lo que esta guía NO puede verificar por vos
 
 | No verificado | Por qué | Cómo lo cerrás |
 |---|---|---|
-| Que `pkg` tenga paquetes `arm` | Es estado de un repo ajeno y cambiante | 21.4, o 20.1 si falla |
-| Que funcione `termux-wake-lock` | Necesita Android suspendiendo el proceso | 20.11, en el teléfono |
-| Consumo real de RAM bajo OOM killer | Es el OOM killer del kernel, no PHP | Cap. 17.1, con `echo "exit=$?"` |
-| Que el CDN cargue en tu red | Depende de tu operador y tu red | 20.10 |
-| Que SQLite ande bien con WAL en Android | Ver 17.6: el backup tiene que llevar `-wal` y `-shm` | Cap. 17.6 |
+| Que `pkg` tenga paquetes `arm` | Estado de un repo ajeno y cambiante | 22.4, o 21.1 si falla |
+| Que funcione `termux-wake-lock` | Necesita Android suspendiendo el proceso | 21.11, en el teléfono |
+| Consumo real de RAM bajo OOM killer | Es el OOM killer del kernel, no PHP | Cap. 18.1, con `echo "exit=$?"` |
+| Que SQLite ande bien con WAL en Android | El backup tiene que llevar `-wal` y `-shm` | Cap. 18.6 |
+| Render visual del shell (sidebar, temas) | Sin ojo no hay verificación de diseño | Abrir `/` y `/tareas` en el teléfono, claro y oscuro |
 
-Todo lo demás — la lógica PHP, el pipeline, las sesiones, el CSRF, los tests, los headers
-de seguridad, el SRI — está verificado por ejecución, y el Nivel A lo reproduce en cinco
-minutos.
+Todo lo demás — lógica PHP, pipeline, sesiones, CSRF, tests, headers, SRI, contratos HTMX — está verificado por ejecución, y el Nivel A lo reproduce en cinco minutos.
+
+## 23. Archivos que existen pero NO se replican
+
+Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo que hay en el repo y por qué no tiene capítulo con código para copiar:
+
+| Archivo(s) | Por qué no se replica |
+|---|---|
+| `composer.lock`, `vendor/` | El lock se genera con `composer require` al seguir los caps. 4 y 20; `vendor/` se instala, nunca se escribe a mano. El lock SÍ viaja en git (cap. 18.1), vendor nunca. |
+| `.env` | Local y gitignored: se **genera** con `cp .env.example .env` (cap. 5), no se copia de esta guía. |
+| `database/database.sqlite` (+ `-wal`/`-shm`) | Lo crea la app sola (cap. 6) y el schema lo pone `composer migrate` (cap. 11). Nunca va a git. |
+| `storage/` | Lo crea el bootstrap (cap. 7). Nunca va a git. |
+| `odd/tasks/*.md` | Registros de trabajo del desarrollo (decisiones, evidencia, próximos pasos). Útiles para entender *por qué*, innecesarios para replicar el *qué*. |
+| `.phpunit.cache/` | Cache local de PHPUnit. |
+| `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
+
+
+
+
+
+
