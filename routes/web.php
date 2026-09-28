@@ -13,7 +13,7 @@ return function (App $app) {
     $twig = $app->getContainer()->get(Twig::class);
 
     $app->get('/', function ($request, $response) use ($twig) {
-        return $twig->render($response, 'home.twig');
+        return $twig->render($response, 'home.twig', ['active' => 'home']);
     });
 
     $app->group('/tareas', function ($group) {

@@ -9,12 +9,17 @@ use App\Support\Flash;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Slim\Csrf\Guard;
-use Slim\Views\Twig;
 
-class TaskController
+class TaskController extends Controller
 {
-    public function __construct(private Twig $view, private Guard $guard) {}
+    protected function viewDefaults(): array
+    {
+        // Solo lo que TODAS las acciones necesitan: la lista. 'active' no va
+        // acá porque solo lo usa la página completa (los parciales no tienen nav).
+        return [
+            'tasks' => Task::orderByDesc('id')->get(),
+        ];
+    }
 
     public function index(Request $request, Response $response): Response
     {
@@ -27,10 +32,8 @@ class TaskController
             ? 'tasks/_panel.twig'
             : 'tasks/index.twig';
 
-        return $this->view->render($response, $template, [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
+        return $this->render($request, $response, $template, [
+            'active' => 'tareas',
         ]);
     }
 
@@ -50,22 +53,14 @@ class TaskController
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
-        ]);
+        return $this->render($request, $response, 'tasks/_panel.twig');
     }
 
     public function destroy(Request $request, Response $response, array $args): Response
     {
         Task::destroy((int) $args['id']);
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'flash_error' => null,
-            ...$this->csrf($request),
-        ]);
+        return $this->render($request, $response, 'tasks/_panel.twig');
     }
 
     public function edit(Request $request, Response $response, array $args): Response
@@ -84,11 +79,9 @@ class TaskController
             $flash = Flash::get('error');
         }
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
+        return $this->render($request, $response, 'tasks/_panel.twig', [
             'editing_id'  => $task?->id,
             'flash_error' => $flash,
-            ...$this->csrf($request),
         ]);
     }
 
@@ -101,11 +94,8 @@ class TaskController
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->view->render($response, 'tasks/_panel.twig', [
-                'tasks'       => Task::orderByDesc('id')->get(),
-                'editing_id'  => null,
-                'flash_error' => Flash::get('error'),
-                ...$this->csrf($request),
+            return $this->render($request, $response, 'tasks/_panel.twig', [
+                'editing_id' => null,
             ]);
         }
 
@@ -117,32 +107,20 @@ class TaskController
 
         if ($validator->fails()) {
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-            // La fila sigue en modo formulario: si volviera a la lista, el
-            // usuario pierde el lugar que estaba editando junto con el error.
-            $editingId = $task->id;
-        } else {
-            $task->update(['title' => $data['title']]);
-            $editingId = null;
+            // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
+            // el input se repinta con task.title (guardado) y el usuario pierde
+            // lo que escribió justo cuando aparece el error.
+            return $this->render($request, $response, 'tasks/_panel.twig', [
+                'editing_id'    => $task->id,
+                'editing_title' => $data['title'] ?? '',
+            ]);
         }
 
-        return $this->view->render($response, 'tasks/_panel.twig', [
-            'tasks'       => Task::orderByDesc('id')->get(),
-            'editing_id'  => $editingId,
-            'flash_error' => Flash::get('error'),
-            ...$this->csrf($request),
+        $task->update(['title' => $data['title']]);
+
+        return $this->render($request, $response, 'tasks/_panel.twig', [
+            'editing_id'    => null,
+            'editing_title' => null,
         ]);
-    }
-
-    private function csrf(Request $request): array
-    {
-        $nameKey  = $this->guard->getTokenNameKey();
-        $valueKey = $this->guard->getTokenValueKey();
-
-        return [
-            'csrf_name_key'  => $nameKey,
-            'csrf_name'      => $request->getAttribute($nameKey),
-            'csrf_value_key' => $valueKey,
-            'csrf_value'     => $request->getAttribute($valueKey),
-        ];
     }
 }

@@ -1,39 +1,43 @@
 <ul class="space-y-2">
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
-            <li class="border rounded p-3">
+            <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 <form hx-put="/tareas/{{ task.id }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
-                      class="flex gap-2 items-center">
+                      class="flex items-center gap-2">
                     {% include 'partials/_csrf.twig' %}
+                    {# En fallo de validación se repinta lo TIPEADO (editing_title),
+                       no el valor guardado: si no, el usuario pierde lo que
+                       escribió junto con el error. Twig autoescapea, así que
+                       comillas o <script> tipeados salen neutrales. #}
                     <input type="text"
                            name="title"
-                           value="{{ task.title }}"
+                           value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
                            required
                            maxlength="120"
-                           class="flex-1 border rounded px-3 py-2">
-                    <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded">
+                           class="input input-bordered input-sm w-full">
+                    <button type="submit" class="btn btn-primary btn-sm">
                         Guardar
                     </button>
                     <button type="button"
                             hx-get="/tareas"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
-                            class="text-slate-600 text-sm">
+                            class="btn btn-ghost btn-sm">
                         Cancelar
                     </button>
                 </form>
             </li>
         {% else %}
-            <li class="flex justify-between items-center border rounded p-3">
+            <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
                 <span>{{ task.title }}</span>
-                <div class="flex gap-3">
+                <div class="flex gap-1">
                     <button
                         hx-get="/tareas/{{ task.id }}/edit"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
-                        class="text-slate-600 text-sm">
+                        class="btn btn-ghost btn-sm">
                         Editar
                     </button>
                     <button
@@ -42,13 +46,13 @@
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-confirm="¿Borrar esta tarea?"
-                        class="text-red-600 text-sm">
+                        class="btn btn-ghost btn-sm text-error">
                         Eliminar
                     </button>
                 </div>
             </li>
         {% endif %}
     {% else %}
-        <li class="text-slate-400">No hay tareas todavía.</li>
+        <li class="opacity-60">No hay tareas todavía.</li>
     {% endfor %}
 </ul>

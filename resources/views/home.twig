@@ -3,51 +3,37 @@
 {% block title %}Mi App{% endblock %}
 
 {% block content %}
-    <h1 class="text-2xl font-bold mb-4">Mi App</h1>
+    <div class="hero rounded-box border border-base-300 bg-base-100">
+        <div class="hero-content py-6 text-center">
+            <div class="max-w-xl">
+                <h1 class="text-3xl font-bold">Mi App</h1>
+                <p class="py-3 opacity-70">
+                    Listado de tareas con altas, edición y borrado, servido por un esqueleto
+                    PHP en capas. El formulario de altas está en la pantalla de tareas.
+                </p>
+                <a href="/tareas" class="btn btn-primary">Ir a tareas</a>
+            </div>
+        </div>
+    </div>
 
-    <p class="mb-6 text-slate-600">
-        Listado de tareas con altas, edición y borrado, servido por un esqueleto
-        PHP en capas. El formulario de altas está en la pantalla de tareas.
-    </p>
+    <h2 class="mb-3 mt-8 text-lg font-semibold">Stack</h2>
 
-    <h2 class="text-lg font-semibold mb-3">Stack</h2>
-
-    <ul class="space-y-2 mb-8">
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>PHP</span>
-            <span class="text-slate-500 text-sm">lenguaje</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Slim 4</span>
-            <span class="text-slate-500 text-sm">router y middleware</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Eloquent ORM</span>
-            <span class="text-slate-500 text-sm">modelos</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Twig</span>
-            <span class="text-slate-500 text-sm">plantillas</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>HTMX</span>
-            <span class="text-slate-500 text-sm">intercambios parciales</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Alpine.js</span>
-            <span class="text-slate-500 text-sm">estado en el cliente</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>Tailwind CSS</span>
-            <span class="text-slate-500 text-sm">estilos</span>
-        </li>
-        <li class="flex justify-between items-center border rounded p-3">
-            <span>SQLite</span>
-            <span class="text-slate-500 text-sm">base de datos</span>
-        </li>
-    </ul>
-
-    <a href="/tareas" class="inline-block bg-slate-800 text-white px-4 py-2 rounded">
-        Ir a tareas
-    </a>
+    <div class="grid gap-2 sm:grid-cols-2">
+        {% for name, role in {
+            'PHP': 'lenguaje',
+            'Slim 4': 'router y middleware',
+            'Eloquent ORM': 'modelos',
+            'Twig': 'plantillas',
+            'HTMX': 'intercambios parciales',
+            'Alpine.js': 'estado en el cliente',
+            'Tailwind CSS': 'estilos',
+            'daisyUI': 'componentes',
+            'SQLite': 'base de datos'
+        } %}
+            <div class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-medium">{{ name }}</span>
+                <span class="badge badge-ghost">{{ role }}</span>
+            </div>
+        {% endfor %}
+    </div>
 {% endblock %}

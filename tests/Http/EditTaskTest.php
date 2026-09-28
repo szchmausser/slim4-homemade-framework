@@ -104,10 +104,33 @@ final class EditTaskTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
-        self::assertStringContainsString('bg-red-100', (string) $response->getBody(), 'El flash de error no se renderizó.');
+        self::assertStringContainsString('alert-error', (string) $response->getBody(), 'El flash de error no se renderizó.');
         // La fila se queda en modo formulario: si volviera a la lista, el
         // usuario pierde el lugar que estaba editando junto con el error.
         self::assertStringContainsString('hx-put=', (string) $response->getBody());
+    }
+
+    public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
+    {
+        $task = Task::create(['title' => 'Comprar pan']);
+        $token = $this->token();
+        $tipeado = str_repeat('b', 200);
+
+        $response = self::app()->handle(
+            self::request('PUT', '/tareas/' . $task->id, [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => $tipeado,
+            ])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
+        self::assertStringContainsString(
+            'value="' . $tipeado . '"',
+            (string) $response->getBody(),
+            'El input se repintó con el valor guardado y perdió lo tipeado.'
+        );
     }
 
     public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void

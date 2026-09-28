@@ -3,18 +3,18 @@
 {% block title %}Tareas{% endblock %}
 
 {% block content %}
-    <h1 class="text-2xl font-bold mb-4">Mis tareas</h1>
+    <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
 
     {# hx-on::after-request limpia el input tras cada alta: el form vive fuera de
        #tareas-panel, así que el swap no lo toca y el texto quedaría pegado.
-       maxlength=120 alinea el browser con el max:120 del server (igual que el form de edición). #}
+       maxlength=120 alinea el browser con el max:120 del server. #}
     <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="this.reset()"
-          class="flex gap-2 mb-6">
+          class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
         <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"
-               class="flex-1 border rounded px-3 py-2">
-        <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded">
+               class="input input-bordered join-item w-full">
+        <button type="submit" class="btn btn-primary join-item">
             Agregar
         </button>
     </form>
