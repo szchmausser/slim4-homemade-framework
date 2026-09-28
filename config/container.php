@@ -32,6 +32,28 @@ return [
     },
 
     Capsule::class => function () {
+        // Default relativo al proyecto; .env solo lo overridea. Sin esto un
+        // clon fresco o un path absoluto de otro teléfono revienta en el
+        // PRAGMA antes del error middleware (ver 20.3): QueryException cruda.
+        $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+
+        if ($db !== ':memory:') {
+            $dir = dirname($db);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0777, true);
+            }
+            if (!file_exists($db) && !touch($db)) {
+                throw new \RuntimeException(
+                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                );
+            }
+            if (file_exists($db) && !is_writable($db)) {
+                throw new \RuntimeException(
+                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                );
+            }
+        }
+
         $capsule = new Capsule();
         $capsule->addConnection([
             'driver'   => 'sqlite',
