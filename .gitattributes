@@ -1,0 +1,4 @@
+# Evita que Git convierta LF->CRLF en assets vendorizados.
+# Si cambia un byte, el SRI del layout falla y la app queda sin JS sin error visible.
+public/assets/* binary
+*.min.js binary
