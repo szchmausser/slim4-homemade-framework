@@ -9,7 +9,17 @@ use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Slim\Factory\AppFactory;
 
-Dotenv::createImmutable(__DIR__ . '/..')->load();
+Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+// Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
+// fallan en silencio o con paths inexistentes. Se crean acá, antes del
+// container, para que el primer boot ya sea usable.
+foreach (['storage/logs', 'storage/cache/twig', 'storage/sessions', 'database'] as $dir) {
+    $path = __DIR__ . '/../' . $dir;
+    if (!is_dir($path)) {
+        mkdir($path, 0777, true);
+    }
+}
 
 $containerBuilder = new ContainerBuilder();
 $containerBuilder->addDefinitions(__DIR__ . '/../config/container.php');
