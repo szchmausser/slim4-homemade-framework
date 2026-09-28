@@ -57,7 +57,7 @@ return [
         $capsule = new Capsule();
         $capsule->addConnection([
             'driver'   => 'sqlite',
-            'database' => $_ENV['DB_DATABASE'],
+            'database' => $db,
             'prefix'   => '',
         ]);
         $capsule->setAsGlobal();
