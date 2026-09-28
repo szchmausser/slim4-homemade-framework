@@ -1,7 +1,12 @@
 /vendor/
-/database/database.sqlite
+/database/*.sqlite
+/database/*.sqlite-journal
+/database/*.sqlite-wal
+/database/*.sqlite-shm
 /storage/logs/*.log
 /storage/cache/
+/storage/sessions/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
 .env
+.atl/
