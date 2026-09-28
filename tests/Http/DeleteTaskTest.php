@@ -80,6 +80,18 @@ final class DeleteTaskTest extends TestCase
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
+    public function test_eliminar_pide_confirmacion_con_modal_y_sin_confirm_nativo(): void
+    {
+        $task = Task::create(['title' => 'Comprar pan']);
+
+        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
+
+        self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
+        self::assertStringContainsString('<dialog', $html);
+        self::assertStringContainsString('¿Borrar esta tarea?', $html);
+        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '"', $html);
+    }
+
     /**
      * Extrae los dos hidden que emite partials/_csrf.twig. El name real del
      * input es `csrf_name` / `csrf_value`: `csrf_name_key` es variable de Twig

@@ -41,15 +41,41 @@
                         Editar
                     </button>
                     <button
-                        hx-delete="/tareas/{{ task.id }}"
-                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
-                        hx-target="#tareas-panel"
-                        hx-swap="outerHTML"
-                        hx-confirm="¿Borrar esta tarea?"
-                        class="btn btn-ghost btn-sm text-error">
+                        class="btn btn-ghost btn-sm text-error"
+                        @click="$el.closest('li').querySelector('dialog').showModal()">
                         Eliminar
                     </button>
                 </div>
+
+            {# Confirmación con modal daisyUI en vez del confirm() nativo:
+               - <dialog> es nativo: sin JS de terceros, sin estado Alpine.
+               - Se abre por DOM (botón y dialog viven en la misma fila).
+               - Cancelar es form method=dialog y afuera es modal-backdrop.
+               - En éxito, el swap reemplaza #tareas-panel y el dialog sale
+                 del DOM: no hay nada que cerrar a mano.
+               - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
+            <dialog class="modal" aria-label="Confirmar borrado de {{ task.title }}">
+                <div class="modal-box">
+                    <h3 class="font-bold">¿Borrar esta tarea?</h3>
+                    <p class="py-3 opacity-70">{{ task.title }}</p>
+                    <div class="modal-action">
+                        <form method="dialog">
+                            <button class="btn btn-ghost">Cancelar</button>
+                        </form>
+                        <button
+                            hx-delete="/tareas/{{ task.id }}"
+                            hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
+                            hx-target="#tareas-panel"
+                            hx-swap="outerHTML"
+                            class="btn btn-error">
+                            Borrar
+                        </button>
+                    </div>
+                </div>
+                <form method="dialog" class="modal-backdrop">
+                    <button>Cerrar</button>
+                </form>
+            </dialog>
             </li>
         {% endif %}
     {% else %}

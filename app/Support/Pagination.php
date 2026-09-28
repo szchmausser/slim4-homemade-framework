@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 final class Pagination
 {
-    public const DEFAULT_PER_PAGE = 5;
+    public const DEFAULT_PER_PAGE = 10;
 
     /** @var int[] */
     public const ALLOWED_PER_PAGE = [10, 15, 25, 50];
