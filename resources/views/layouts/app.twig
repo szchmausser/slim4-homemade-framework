@@ -5,16 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
-    {# Versiones EXACTAS + SRI. Ver la nota de supply chain más abajo. #}
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"
-            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"
-            crossorigin="anonymous"></script>
-    <script src="https://unpkg.com/htmx.org@2.0.11/dist/htmx.min.js"
-            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
-            crossorigin="anonymous"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js"
-            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"
-            crossorigin="anonymous"></script>
+    {# Assets locales vendorizados (ver public/assets/): la app funciona offline.
+       Versiones EXACTAS + SRI conservado — hashes verificados contra los bytes
+       de jsDelivr/unpkg. Sin CDN no hay cambio de runtime sin deploy. #}
+    <script src="/assets/tailwind-browser-4.3.3.js"
+            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
+    <script src="/assets/htmx-2.0.11.min.js"
+            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"></script>
+    <script defer src="/assets/alpine-3.17.4.min.js"
+            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
 
     <style>[x-cloak] { display: none !important; }</style>
 </head>
