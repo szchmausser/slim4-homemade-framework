@@ -1,0 +1,53 @@
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Mi App{% endblock %}
+
+{% block content %}
+    <h1 class="text-2xl font-bold mb-4">Mi App</h1>
+
+    <p class="mb-6 text-slate-600">
+        Listado de tareas con altas, edición y borrado, servido por un esqueleto
+        PHP en capas. El formulario de altas está en la pantalla de tareas.
+    </p>
+
+    <h2 class="text-lg font-semibold mb-3">Stack</h2>
+
+    <ul class="space-y-2 mb-8">
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>PHP</span>
+            <span class="text-slate-500 text-sm">lenguaje</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>Slim 4</span>
+            <span class="text-slate-500 text-sm">router y middleware</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>Eloquent ORM</span>
+            <span class="text-slate-500 text-sm">modelos</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>Twig</span>
+            <span class="text-slate-500 text-sm">plantillas</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>HTMX</span>
+            <span class="text-slate-500 text-sm">intercambios parciales</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>Alpine.js</span>
+            <span class="text-slate-500 text-sm">estado en el cliente</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>Tailwind CSS</span>
+            <span class="text-slate-500 text-sm">estilos</span>
+        </li>
+        <li class="flex justify-between items-center border rounded p-3">
+            <span>SQLite</span>
+            <span class="text-slate-500 text-sm">base de datos</span>
+        </li>
+    </ul>
+
+    <a href="/tareas" class="inline-block bg-slate-800 text-white px-4 py-2 rounded">
+        Ir a tareas
+    </a>
+{% endblock %}

@@ -1,0 +1,54 @@
+<ul class="space-y-2">
+    {% for task in tasks %}
+        {% if editing_id is defined and editing_id == task.id %}
+            <li class="border rounded p-3">
+                <form hx-put="/tareas/{{ task.id }}"
+                      hx-target="#tareas-panel"
+                      hx-swap="outerHTML"
+                      class="flex gap-2 items-center">
+                    {% include 'partials/_csrf.twig' %}
+                    <input type="text"
+                           name="title"
+                           value="{{ task.title }}"
+                           required
+                           maxlength="120"
+                           class="flex-1 border rounded px-3 py-2">
+                    <button type="submit" class="bg-slate-800 text-white px-4 py-2 rounded">
+                        Guardar
+                    </button>
+                    <button type="button"
+                            hx-get="/tareas"
+                            hx-target="#tareas-panel"
+                            hx-swap="outerHTML"
+                            class="text-slate-600 text-sm">
+                        Cancelar
+                    </button>
+                </form>
+            </li>
+        {% else %}
+            <li class="flex justify-between items-center border rounded p-3">
+                <span>{{ task.title }}</span>
+                <div class="flex gap-3">
+                    <button
+                        hx-get="/tareas/{{ task.id }}/edit"
+                        hx-target="#tareas-panel"
+                        hx-swap="outerHTML"
+                        class="text-slate-600 text-sm">
+                        Editar
+                    </button>
+                    <button
+                        hx-delete="/tareas/{{ task.id }}"
+                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
+                        hx-target="#tareas-panel"
+                        hx-swap="outerHTML"
+                        hx-confirm="¿Borrar esta tarea?"
+                        class="text-red-600 text-sm">
+                        Eliminar
+                    </button>
+                </div>
+            </li>
+        {% endif %}
+    {% else %}
+        <li class="text-slate-400">No hay tareas todavía.</li>
+    {% endfor %}
+</ul>

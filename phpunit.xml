@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="tests/bootstrap.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true">
+    <testsuites>
+        <testsuite name="app">
+            <directory>tests</directory>
+        </testsuite>
+    </testsuites>
+
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+
+    <php>
+        <!-- force="true" + Dotenv::createImmutable() en bootstrap/app.php:
+             las variables de acá ganan, el .env real no las pisa. -->
+        <env name="APP_ENV"    value="testing" force="true"/>
+        <env name="APP_DEBUG"  value="true"    force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
+    </php>
+</phpunit>

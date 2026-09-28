@@ -1,0 +1,9 @@
+<div id="tareas-panel">
+    {% if flash_error %}
+        <div class="bg-red-100 text-red-700 p-3 rounded mb-4">{{ flash_error }}</div>
+    {% endif %}
+
+    <div id="lista-tareas">
+        {% include 'tasks/_list.twig' %}
+    </div>
+</div>

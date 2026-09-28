@@ -1,0 +1,33 @@
+{
+    "name": "tuusuario/mi-app",
+    "type": "project",
+    "require": {
+        "php": ">=8.2",
+        "slim/slim": "^4.15",
+        "slim/psr7": "^1.8",
+        "php-di/php-di": "^7.1",
+        "vlucas/phpdotenv": "^5.7",
+        "illuminate/database": "^13.33",
+        "twig/twig": "^3.30",
+        "slim/twig-view": "^3.4",
+        "slim/csrf": "^1.5",
+        "respect/validation": "^2.0",
+        "monolog/monolog": "^3.12"
+    },
+    "require-dev": {
+        "robmorgan/phinx": "^0.16.12",
+        "filp/whoops": "^2.18",
+        "phpunit/phpunit": "^13.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "serve": "php -S 0.0.0.0:8080 -t public",
+        "migrate": "phinx migrate",
+        "test": "phpunit"
+    }
+}

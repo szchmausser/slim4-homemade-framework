@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mi App{% endblock %}</title>
+
+    {# Versiones EXACTAS + SRI. Ver la nota de supply chain más abajo. #}
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"
+            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"
+            crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.11/dist/htmx.min.js"
+            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+            crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.17.4/dist/cdn.min.js"
+            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"
+            crossorigin="anonymous"></script>
+
+    <style>[x-cloak] { display: none !important; }</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+    {# htmx envuelve el string del header HX-Trigger en { value: "..." } y triggerEvent agrega elt; por eso se lee .value. #}
+    <div x-cloak
+         x-data="{ aviso: '' }"
+         @csrf.window="aviso = String($event.detail.value ?? ''); setTimeout(() => aviso = '', 6000)"
+         x-show="aviso"
+         class="fixed bottom-4 right-4 z-50 max-w-sm rounded-lg bg-red-600 text-white px-4 py-3 shadow-lg"
+         role="alert"
+         aria-live="assertive">
+        <span x-text="aviso"></span>
+    </div>
+
+    <div class="max-w-2xl mx-auto p-6">
+        {# El flash NO se renderiza acá: vive en tasks/_panel.twig, que es la
+           región que HTMX reemplaza en los swaps parciales. Si lo pusiéramos en
+           el layout, en un full page load aparecería duplicado y en un swap no
+           aparecería nunca. #}
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
