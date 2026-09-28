@@ -45,13 +45,26 @@ Usuario dijo "corrijamos los 3 puntos" — autoriza mutación local en esta feat
 - `ask-on-risk` (default). Forecast <400 authored, running count desde work-unit commits. Sin slicing previsto. Slices/PR boundaries se registran acá si el conteo supera.
 
 ## Tasks
-- [ ] T1 — composer-lowmem: scripts + doc flujo 32-bit (route: inline, 1 file)
-- [ ] T2 — db-path-resiliente: default relativo + autocreación + error accionable en container/bootstrap (route: inline, 1 file por commit)
-- [ ] T3 — assets-locales: descargar 3 JS a public/assets + layout a local con SRI (route: inline, assets via shell + 1 file edit)
-- [ ] T4 — verificación final: install + phpunit + smoke curl, cerrar doc (route: inline checks)
+- [x] T1 — composer-lowmem: scripts + doc flujo 32-bit (route: inline, 1 file) — commit 2bc63bd
+- [x] T2 — db-path-resiliente: default relativo + autocreación + error accionable en container/bootstrap/phinx (route: inline, 1 file por commit) — commits 0140afa, de79d59, 0483797, 6980c3f
+- [x] T3 — assets-locales: descargar 3 JS a public/assets + layout a local con SRI + .gitattributes binary (route: inline) — commits f95c905, 7e7cef0
+- [x] T4 — verificación final: install + phpunit + smoke curl, cerrar doc (route: inline checks)
 
 ## Progress
-- 2026-09-28: doc creado. Branch pendiente. T1 pendiente.
+- 2026-09-28: T1-T4 done en `feat/termux-hardening-fixes`. Pendiente: decisión push/PR del usuario.
+
+## Verification evidence
+- `vendor/bin/phpunit`: OK (37 tests, 89 assertions) — commits 0140afa..6980c3f, runner PHP 8.5.5
+- `curl -sI /no-existe`: 404 + nosniff/DENY/strict-origin-when-cross-origin + Set-Cookie HttpOnly SameSite=Lax
+- `curl -s /no-existe | wc -c`: 507 (igual guía)
+- `curl -s /tareas`: 200, 2066 bytes (guía decía 2273 con CDN; baja por srcs locales más cortos + sin crossorigin — esperado, no 0), `csrf.window` count 1, 3x `/assets/*` presentes, `/assets/htmx` 200 52182
+- `GET /`: 200
+- SRI local verificado: sha384 de los 3 assets coincide byte a byte con la guía
+- Bug propio atrapado por smoke: container calculaba `$db` pero usaba `$_ENV` directo (fix 0483797); phinx pedía `.env` (fix 6980c3f)
+- Running authored count: ~60 líneas + 3 assets generados (excluidos). Sin slicing (ask-on-risk, bajo 400).
+
+## Delivery
+- Estrategia: ask-on-risk, sin split. Branch `feat/termux-hardening-fixes` con 7 work-unit commits. Push/PR/merge = usuario.
 
 ## Verification evidence
 - (se anexa por task: comando + resultado observado + commit id)
