@@ -120,7 +120,7 @@ mi-app/
 │   └── middleware.php
 ├── database/
 │   ├── migrations/
-│   │   └── 20260927235809_create_tasks_table.php
+│   │   └── 001_create_tasks_table.php
 │   └── database.sqlite             # se autocrea; NO va a git
 ├── public/
 │   ├── assets/                     # vendorizado, SÍ va a git
@@ -1592,13 +1592,13 @@ return [
 
 > **Divergencia honesta:** Phinx migra siempre `database/database.sqlite` fijo, pero la app usa `DB_DATABASE` si está seteado. Si tu `.env` apunta a otro lado, el `migrate` escribe en un archivo y la app lee otro. Para el flujo normal (sin `DB_DATABASE`, default relativo) ambos usan el mismo archivo y no hay problema.
 
-Crear y correr una migración:
+Crear y correr una migración (SOLO si construís desde cero: si clonaste el repo, las 3 ya vienen — salteá directo al `migrate`. Crear de más acá es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
 
 ```bash
 vendor/bin/phinx create CreateTasksTable
 ```
 
-Completá el archivo generado en `database/migrations/` (en el proyecto de referencia se llama `database/migrations/20260927235809_create_tasks_table.php` — el prefijo numérico lo pone Phinx con la fecha de creación, el tuyo va a diferir y está bien):
+Completá el archivo generado en `database/migrations/` y renombralo a `001_create_tasks_table.php` (en 32 bits los timestamps de Phinx saturan el entero — regla en 11.1, vale desde la primera migración):
 
 ```php
 <?php
@@ -1640,9 +1640,23 @@ vendor/bin/phinx create CreateUsersTable
 vendor/bin/phinx create CreateRememberTokensTable
 ```
 
-Ojo: si los dos `create` caen en el mismo segundo, Phinx genera el MISMO prefijo de versión y el tracking se rompe. Renombrá uno a mano (la versión son los primeros 14 dígitos del nombre).
+### 11.1 Migraciones de auth y seed del admin
 
-`database/migrations/<timestamp>_create_users_table.php`:
+```bash
+vendor/bin/phinx create CreateUsersTable
+vendor/bin/phinx create CreateRememberTokensTable
+```
+
+> **Regla de 32 bits: renombrá SIEMPRE lo que genera `create`.** Phinx nombra `YYYYMMDDHHMMSS_algo.php` (14 dígitos, ~2×10¹³) y extrae la versión con `(int)` del prefijo (`Util.php:93`). En 64 bits entra; en 32 bits **satura a `PHP_INT_MAX` (2147483647)** con el warning `The float-string "2026..." is not representable as an int` — y TODAS tus migraciones colapsan a la misma versión: `Duplicate migration` garantizado aunque haya un solo archivo por timestamp. El patrón acepta cualquier dígito inicial (`/^\d+_.../`, sin validar fechas), así que usamos secuenciales de 3 dígitos (ordenan bien hasta 999):
+>
+> ```bash
+> mv database/migrations/20260928185619_create_users_table.php \
+>    database/migrations/002_create_users_table.php
+> ```
+>
+> Nuestras tres migraciones son `001_create_tasks_table.php`, `002_create_users_table.php` y `003_create_remember_tokens_table.php`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
+
+`database/migrations/002_create_users_table.php`:
 
 ```php
 <?php
@@ -1665,7 +1679,7 @@ final class CreateUsersTable extends AbstractMigration
 }
 ```
 
-`database/migrations/<timestamp>_create_remember_tokens_table.php` (posterior al de users):
+`database/migrations/003_create_remember_tokens_table.php` (posterior al de users):
 
 ```php
 <?php
@@ -4134,6 +4148,10 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 ### 21.22 Suite roja de golpe tras proteger una ruta
 
 **[v]** Protegés `/tareas` con `RequireAuth` y 12 tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
+
+### 21.23 `Duplicate migration` con versión `2147483647`
+
+**[v]** Si tu error dice `has the same version as "2147483647"` (precedido de warnings `The float-string "2026..." is not representable as an int, cast occurred ... Util.php on line 93`), **no tenés archivos duplicados**: tenés saturación de enteros de 32 bits. Phinx castea el prefijo `YYYYMMDDHHMMSS` a `int`; en `armv7l` todo prefijo moderno vale `PHP_INT_MAX`, así que las N migraciones son "la misma" para el tracker. La fix es versiones secuenciales (`001_`, `002_`...), que ya trae el repo (cap. 11.1): `git pull` + `composer migrate`. Si el duplicado es entre dos archivos con el MISMO prefijo creado por vos (dos `create` en el mismo segundo), renombrá a prefijo único respetando el orden — pero en 32 bits renombrá siempre, no solo en colisión.
 
 ## 22. Cómo verificar esta guía vos mismo
 

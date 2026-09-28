@@ -63,5 +63,5 @@ Diseño + implementación + verificación. Commit/push solo si lo pide.
 - Servicio RememberMe concentrado: el código security-critical vive en un archivo revisable.
 - `active` y demás contratos no se tocan.
 
-## 2026-09-28 (pm)
-- DatabaseSeeder + TaskSeeder + guía 11.2/17.5; suite 49/154 verde; sin commit.
+## 2026-09-28 (pm2)
+- Migraciones a versiones secuenciales 001/002/003 (timestamps saturan int32 → todas colapsaban a 2147483647 = "Duplicate migration" en Termux; Util.php:93 verificado). Ciclo rollback/migrate probado, suite verde, guía 11/21.23 actualizada. Sin commit.
