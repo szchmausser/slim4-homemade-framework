@@ -31,8 +31,26 @@
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                <span>{{ task.title }}</span>
+                <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                    {# Icono de estado: gris para pendiente, verde para completado #}
+                    {% if task.status == 'completado' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-success"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        <span class="text-xs opacity-60">Completada el {{ task.completed_at|date('d/m/Y H:i') }}</span>
+                    {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-base-400"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
+                        <span class="text-xs opacity-60">Pendiente</span>
+                    {% endif %}
+                    <span class="ml-1">{{ task.title }}</span>
+                </span>
                 <div class="flex gap-1">
+                    {# Botón para cambiar el estado: HTMX intercambia el panel completo #}
+                    <button
+                        hx-post="/tareas/{{ task.id }}/toggle"
+                        hx-target="#tareas-panel"
+                        hx-swap="outerHTML"
+                        class="btn btn-ghost btn-sm {{ task.status == 'completado' ? 'text-success' : '' }}">
+                        {{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}
+                    </button>
                     <button
                         hx-get="/tareas/{{ task.id }}/edit"
                         hx-target="#tareas-panel"

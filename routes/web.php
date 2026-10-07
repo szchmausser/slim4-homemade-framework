@@ -38,6 +38,7 @@ return function (App $app) {
         $group->get('', [TaskController::class, 'index']);
         $group->post('', [TaskController::class, 'store']);
         $group->get('/{id}/edit', [TaskController::class, 'edit']);
+        $group->post('/{id}/toggle', [TaskController::class, 'toggle']);
         $group->put('/{id}', [TaskController::class, 'update']);
         $group->delete('/{id}', [TaskController::class, 'destroy']);
     })->add(RequireAuthMiddleware::class);

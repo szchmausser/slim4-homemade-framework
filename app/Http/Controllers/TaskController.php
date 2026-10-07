@@ -138,4 +138,28 @@ class TaskController extends Controller
             'editing_title' => null,
         ]);
     }
+
+    /**
+     * Cambia el estado entre pendiente y completado, guardando la fecha
+     * de finalización cuando se marca como completada y limpiándola cuando
+     * se desactiva. El mismo panel vuelve entero con la lista actualizada.
+     */
+    public function toggle(Request $request, Response $response, array $args): Response
+    {
+        $task = Task::find((int) $args['id']);
+
+        if ($task === null) {
+            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+        }
+
+        if ($task->status === 'completado') {
+            $task->update(['status' => 'pendiente', 'completed_at' => null]);
+        } else {
+            $task->update(['status' => 'completado', 'completed_at' => now()]);
+        }
+
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+    }
 }
