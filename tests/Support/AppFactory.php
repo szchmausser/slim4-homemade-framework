@@ -43,6 +43,9 @@ final class AppFactory
             $table->increments('id');
             $table->string('title', 120);
             $table->boolean('done')->default(false);
+            // Espeja database/migrations/004_add_status_to_tasks_table.php
+            $table->string('status', 20)->default('pendiente');
+            $table->timestamp('completed_at')->nullable();
             $table->timestamps();
         });
 

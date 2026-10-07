@@ -48,6 +48,7 @@
                         hx-post="/tareas/{{ task.id }}/toggle"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
+                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                         class="btn btn-ghost btn-sm {{ task.status == 'completado' ? 'text-success' : '' }}">
                         {{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}
                     </button>

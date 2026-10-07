@@ -8,6 +8,7 @@ use App\Models\Task;
 use App\Support\Flash;
 use App\Support\Pagination;
 use App\Support\Validator;
+use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -157,7 +158,7 @@ class TaskController extends Controller
         if ($task->status === 'completado') {
             $task->update(['status' => 'pendiente', 'completed_at' => null]);
         } else {
-            $task->update(['status' => 'completado', 'completed_at' => now()]);
+            $task->update(['status' => 'completado', 'completed_at' => Carbon::now()]);
         }
 
         return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
