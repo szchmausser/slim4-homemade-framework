@@ -1,4 +1,9 @@
-# Tasks: Fix CSRF failure in task toggle (001)
+# Tareas: Fix de CSRF en el toggle de tareas
+
+> Requirements: `@.ai/sdd/specs/002-toggle-csrf-fix/requirements.md`
+> Design: `@.ai/sdd/specs/002-toggle-csrf-fix/design.md`
+> Status: Approved (completado)
+> Última actualización: 2026-10-18
 
 ## Tarea 001 — Fix toggle CSRF headers
 
@@ -8,8 +13,8 @@
 | Status | Ready |
 | Priority | Alta |
 | Due | Hoy |
-| Design | `.ai/sdd/design.md` |
-| Requirements | `.ai/sdd/requirements.md` |
+| Design | `.ai/sdd/specs/002-toggle-csrf-fix/design.md` |
+| Requirements | `.ai/sdd/specs/002-toggle-csrf-fix/requirements.md` |
 
 ### Archivos
 - `resources/views/tasks/_list.twig` (línea ~83)

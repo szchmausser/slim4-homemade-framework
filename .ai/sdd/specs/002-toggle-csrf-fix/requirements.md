@@ -1,4 +1,8 @@
-# Requirements: Fix CSRF failure in task toggle (001)
+# Requisitos: Fix de CSRF en el toggle de tareas
+
+> Spec: `.ai/sdd/specs/002-toggle-csrf-fix/`
+> Estado: Approved
+> Última actualización: 2026-10-18
 
 ## User Stories
 

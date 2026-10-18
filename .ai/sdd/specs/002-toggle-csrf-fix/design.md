@@ -1,4 +1,8 @@
-# Design: Fix CSRF failure in task toggle (001)
+# Diseño: Fix de CSRF en el toggle de tareas
+
+> Requirements: `@.ai/sdd/specs/002-toggle-csrf-fix/requirements.md`
+> Estado: Approved
+> Última actualización: 2026-10-18
 
 ## Architecture Decision
 No architecture change required. This is a UI/UX fix to correctly implement HTMX request headers.

@@ -1,38 +1,76 @@
-# Plan: Fix CSRF failure en toggle de tarea (001)
+# Plan: CRUD de Tareas (Ejemplo)
 
-## Atajos Rápidos
+> Status: Approved
 
-| Día | Actividad | Logrado |
-|-----|----------|---------|
-| 1 | Investigar el bug (HSRQ missing) | ✅ Sí 
-| 2 | Editar `resources/views/tasks/_list.twig` | 
-| 3 | Testear el fix | 
+## Vision
 
-## Dependencias
-- Ninguna (standalone)
+Proveer un ejemplo completo de CRUD en el framework Slim 4 para Termux, demostrando el ciclo completo de 8 pasos (migración, modelo, controlador, rutas, vistas, tests, seed, verificar) como guía para futuras entidades.
 
-## Riesgos / Notas
-- `persistentTokenMode: true` podría ser redundante si el token va en cada request.
-- Cambiar este flag podría afectar otros endpoints.
-- El toggle está implementado en este proyecto desde un principio, puede que sea el diseño intencional.
+## Steering Context
 
-## Tareas
+- Product: @.ai/steering/product.md
+- Tech Stack: @.ai/steering/tech-stack.md
+- Conventions: @.ai/steering/conventions.md
+- Principles: @.ai/steering/principles.md
 
-### Tarea 001: Añadir headers CSRF al botón toggle
-- ID: 001
-- Prioridad: Alta (bloquea la funcionalidad principal)
-- Dueño: Dev
-- Comienzo: Hoy
-- Fin: Hoy
-- Verificación: El usuario puede completar/descompletar tareas sin error CSRF
+## Personas
 
-#### Paso a paso
-1. Abrir `resources/views/tasks/_list.twig` línea 83
-2. Añadir `hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"` al botón `hx-post="/tareas/{{ task.id }}/toggle"`
-3. Guardar archivo
-4. Probar: completar una tarea desde la vista (esta vez sin el error "Sesión expirada")
+- **Desarrollador Termux:** Quiere un punto de partida rápido y confiable para crear CRUDs en su dispositivo sin toolchain de compilación.
 
-### Tarea 002 (Opcional): Asegurar que la variable CSP está disponible
-- Revisar si `csrf_name` y `csrf_value` son pasados al template `tasks/_panel.twig`
-- Si no, agregarlas en `Controller::render`
-- No necesario para este fix (el panel usa los mismos _csrf fields que delete)
+## MVP Boundary
+
+### Must Have
+
+- Entidad de ejemplo (Tareas) con migración, modelo, controlador, rutas, vistas, tests, seed y verificación.
+- Documentación clara del ciclo CRUD (como en el README).
+
+### Won't Have Yet
+
+- Autenticación avanzada.
+- API externa.
+- Integración con servicios externos.
+
+## Feature Map
+
+### Phase 1 — MVP (Must Have)
+
+| ID | Feature | Module | Description |
+|----|---------|--------|-------------|
+| F01 | CRUD de Tareas | app/ | Ejemplo completo de CRUD con migración, modelo, controlador, rutas, vistas, tests y seed. |
+
+### Phase 2 — Essentials (Should Have)
+
+| ID | Feature | Module | Description |
+|----|---------|--------|-------------|
+| F02 | Autenticación básica | app/Http/Middleware | Middleware de sesión y CSRF para rutas protegidas. |
+
+### Phase 3 — Nice to Have (Could Have)
+
+| ID | Feature | Module | Description |
+|----|---------|--------|-------------|
+| F03 | API JSON | app/Http/Controllers | Endpoint JSON para consumos externos. |
+
+## Dependencies
+
+```mermaid
+flowchart LR
+    F01[CRUD Tareas] --> F02[Autenticación]
+    F02 --> F03[API JSON]
+```
+
+## Risks
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Migraciones con timestamps saturan int32 | Medium | Renombrar migraciones a numeración secuencial (004, 005...) |
+| Tests flaky por entorno Termux | Medium | Asegurar que los tests usen body raw + URI absoluta |
+| Falta de ejemplos en documentación | High | Crear este ejemplo como referencia oficial |
+
+## Open Decisions (resueltas)
+
+- **Entidad de ejemplo:** Tareas (F01) — resuelta en `requirements.md` D-001.
+- **Autenticación en MVP:** sí, el grupo `/tareas` usa `RequireAuthMiddleware` — resuelta en `requirements.md` Q-002.
+
+## Next Step
+
+Crear requirements.md para la entidad Tareas y luego design.md, tasks.md, etc.

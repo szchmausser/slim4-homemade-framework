@@ -1,52 +1,44 @@
-# Conventions
+# Convenciones del Proyecto
 
-## HTMX Reglas
+## Estilo de Código
 
-- **Región única por acción**: Cada sección interactiva (formulario, panel, carrusel) vive en una región Twig que devuelve HTML completo.
-- **Sin redirecciones normales**: Las respuestas HTMX son siempre HTML (región) o `HX-Redirect` para acciones de carga completa.
-- **Actions**: `hx-on::{event}="handler()"` (ej: `hx-on::save="this.save()"`).
-- **Cancelación automática**: `hx-on::cancel="this.cancel()"` para limpiar estado tras error.
-- **Formularios**: Cada formulario incluye `hx-headers` (no `hx-include`) para DELETE, y `flash` tokens para mensajes.
+- **PSR-4:** Autoload `App\\` → `app/` y `Tests\\` → `tests/`.
+- **Nombres de archivo:** `StudlyCase` para clases, `snake_case` para migraciones (ej. `004_create_recetas_table.php`).
+- **Convención actual (del README):**
+  - Migraciones: **renombrar a secuencial** (`004_...`: los timestamps saturan int32).
+  - Controladores: extender `Controller` base, usar `viewDefaults()` lo repetido y `$extra` lo puntual.
+  - Vistas: la página extiende `layouts/app.twig`. Región única para HTMX partials.
+  - HTMX: `hx-headers` (no `hx-include`) para DELETE; `hx-on::after-request="this.reset()"` si form está fuera del swap.
+  - Flash: adentro del swap HTMX.
+  - Tokens CSRF: en cada form (el de edición lleva los suyos: vive dentro del swap).
+  - Paginación: `Pagination::paginate()` (nunca `get()` pelado) + partial `_pagination.twig` (params, sin hardcodear).
 
-## Data Theme
+## Patrones de Arquitectura
 
-- El tema oscuro/claro se controla mediante la clase `data-theme` en el `<head>`.
-- **Prohibido**: Utilizar utilidades `dark:` o `light:` en CSS (el tema se aplica globalmente).
-- **Prohibido**: JavaScript de UI de terceros (no jQuery, no React/Vue en runtime).
-- **Vendored**: Todos los assets (daisyUI, Alpine, Twig) están embebidos con SRI.
+- **Capas:** Controllers → Middleware → Models + Support helpers.
+- **Middleware pipeline:** Sesión, CSRF/headers/error (pipeline), RememberMe, RequireAuth.
+- **Modelos:** `$fillable` + `$hidden` si hay secrets. Seeder idempotente (tolerante a re-ejecución).
+- **Tests:** request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida. Al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).
 
-## Paginación
+## Reglas de Testing (que no se negocian)
 
-- Usar `App\Models\Pagination` con `Pagination::paginate($query, $perPage)`.
-- Pasar el objeto paginado a la vista como `pagination`.
-- Renderizar la barra de paginación con `partials/_pagination.twig`.
-- Nunca usar `get()` directamente en rutas; siempre paginar.
+- Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
+- Respuestas HTMX devuelven HTML de la región, never redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
+- `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
+- Clases daisyUI as-is; componentes compartidos a `partials/` con params.
+- Cada test: login inyectado si la ruta es protegida, tearDown que limpia, al menos 3 assertions (crea-OK, validación rechazo, id inexistente aviso).
 
-## Test Standards
+## Accesibilidad / Seguridad
 
-- **Request body crudo**: Simular POST/PUT con JSON o formulario real.
-- **TearDown**: Limpiar datos, resetear estado, cerrar conexiones.
-- **Login**: Inyectar usuario autenticado en rutas protegidas.
-- **Éxito**: Verificar código 200 (o 303 para navegación normal).
-- **Validación**: Probar casos de error (campos obligatorios faltantes, tipos incorrectos).
-- **Id inexistente**: Devolver 404 (nunca 500 ni 503 silenciosos).
+- **Claro/oscuro:** `data-theme` switch, sin utilities `dark:` en CSS.
+- **CSRF:** token en cada form, verificado por middleware Slim.
+- **HTMX:** `hx-headers` con token CSRF, `hx-on::after-request="this.reset()"` para resetear forms.
+- **Errores:** nunca 404 mudo ni 500 silencioso en tests.
 
-## Nomenclatura
+## Reglas de Workflow
 
-- **Modelos**: `App\Models\{Entity}` (ej: `Task`, `User`)
-- **Controladores**: `App\Http\Controllers\{ControllerName}` (ej: `TaskController`)
-- **Microservicios/Componentes**: `App\Support\{HelperName}` (ej: `RememberMe`, `Flash`)
-- **Rutas**: `Routes\web.php` con nombres descriptivos (ej: `taskIndex`, `taskCreate`)
-- **Migrations**: `database/migrations/{number}_{description}.php`
-- **Seeds**: `database/seeds/{entity}_seed.php`
-
-## Versionado de Migraciones
-
-- Secuenciales: `001_create_users_table`, `002_add_task_comments`, etc.
-- Renombrar secuencialmente para evitar conflictos en reinicio.
-- Usar `composer migrate` después de cada cambio.
-
-## Documentación
-
-- Todas las decisiones de diseño irán en `lp.md` (dominio) y `INDEX.md` (SDD).
-- Los artefactos generados aquí son referenciales y no se sobrescriben sin aprobación.
+- **Branch:** `main` estable, feature branches para nuevo CRUD.
+- **Commit:** mensajes claros, referencia a US/FR cuando aplica.
+- **Review:** Pull request con revisión de convenciones antes de merge.
+- **Verificación:** `composer test` debe quedar en verde antes de merge.
+- **Nuevos comandos:** agregar a `composer.json` scripts y documentar en README.

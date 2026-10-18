@@ -1,48 +1,54 @@
-# Producto
+# Producto: Slim 4 Homemade Framework
 
-## Slim 4 Homemade Framework
+## Producto Vision
 
-Un framework de capas para aplicaciones server-rendered en PHP (Slim 4) diseñado específicamente para ejecutarse en **Termux** (ARM 32-bit). 
+Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin necesidad de toolchain de compilación. Provee una base estructurada (Slim 4 + PHP-DI + Eloquent + Twig + HTMX + Alpine.js + daisyUI + SQLite) para apps server-rendered con testing y troubleshooting completos.
 
-### Características principales
+## Usuarios / Personas
 
-- **Arquitectura en capas**: Controllers → Middleware → Models (Eloquent/Capsule) → Support → Routes → Views (Twig)
-- **Sin toolchain de compilación**: Todo se ejecuta en Termux sin necesidad de PHP-FPM, Docker, etc.
-- **Base de datos SQLite**: Fácil de usar en dispositivos móviles
-- **HTMX + Alpine.js + daisyUI 5**: Interactividad reactiva ligera sin JavaScript pesado
-- **Phinx**: Migraciones y seeds gestionados desde la consola
-- **Respect/Validation**: Validación de entrada robusta
-- **Monolog**: Logging estructurado
+- **Desarrollador PHP:** Quiere un punto de partida rápido y mantenible, sin configuración compleja en Termux.
+- **Operador Termux:** Necesita que la app funcione en dispositivos ARM 32-bit sin dependencias de compilación.
+- **Dueño de Proyecto:** Busca 65 tests verdes, migraciones Phinx idempotentes y despliegues consistentes.
 
-### Estructura de carpetas
+## Propuesta de Valor
 
-```
-app/
-├── Http/
-│   ├── Controllers/   # Controladores (Auth, Task, etc.)
-│   └── Middleware/   # Middleware (Session, CSRF, RememberMe, Auth)
-├── Models/           # Modelos Eloquent (User, Task, RememberToken)
-├── Support/          # Helpers (Auth, Flash, Validator, Pagination, RememberMe)
-├── Routes/           # Definición de rutas (web.php)
-├── Config/           # Configuración (container.php, middleware.php)
-└── Database/         # Migraciones y Seeds
-```
+- **Arranque en 6 pasos:** `cp .env.example .env && composer install:termux && composer dump-autoload -o && composer migrate && ADMIN_EMAIL=... vendor/bin/phinx seed:run && composer serve`
+- **65 tests verdes** como señal de calidad garantizada.
+- **Estandarizado:** Cada CRUD sigue el patrón de 8 pasos (migración → modelo → controlador → rutas → vistas → tests → seed → verificar).
+- **Sin CDN en runtime:** Assets vendorizados con SRI en `public/assets/`.
 
-### Uso típico
+## Límites del Producto (Boundaries)
 
-1. **Migración** – Crear tabla con Phinx, renombrar secuencialmente, ejecutar `composer migrate`
-2. **Modelo** – Extender `App\Models\{Name}` con `$fillable`
-3. **Controlador** – Extender `Controller` con lógica de negocio
-4. **Ruta** – Registrar en `Routes/web.php` con `->add()`
-5. **Vista** – Extender `layouts/app.twig` con componentes reutilizables
-6. **Test** – Clonar el estilo de tests (request con body crudo + tearDown)
+### In Scope
 
-### Requisitos
+- Estructura de capas Slim 4 (Controllers, Middleware, Models, Support).
+- Integración Twig + HTMX + Alpine.js + daisyUI.
+- Migraciones y seeds con Phinx.
+- Testing con PHPUnit (unit + HTTP).
+- Comandos `composer` acotados (serve, migrate, test, db:backup, check:termux).
 
-- PHP ≥ 8.2
-- Slim 4 · PHP-DI · Eloquent (Capsule standalone) · Phinx · respect/validation · Twig · slim/csrf · monolog
-- Base de datos SQLite
+### Fuera de Scope
 
-### Enlace
+- Compilación nativa o toolchain de C/ASM.
+- Integración con CDN externo en producción.
+- Soporte para arquitecturas x86_64 fuera de Termux.
+- Framework PHP distinto a Slim 4.
 
-[Guía paso a paso: `docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md)
+## Métricas de Éxito
+
+- `composer test` → suite verde (65 tests).
+- `composer serve` → servidor respondiendo en `:8080`.
+- `composer check:termux` → detecta correctamente 32-bit PHP.
+- Migración fresh (`phinx rollback -t 0` + `composer migrate`) sin errores.
+
+## Glosario
+
+- **Slim 4:** Micro-framework PHP PSR-7.
+- **PHP-DI:** Inversión de control container.
+- **Eloquent:** ORM standalone (no Laravel).
+- **Phinx:** Migraciones y seeding.
+- **Twig:** Motor de plantillas.
+- **HTMX:** HTML sobre HTTP para interacciones.
+- **Alpine.js:** Minimal JS reactivity.
+- **daisyUI:** Componentes UI sobre Tailwind.
+- **SQLite:** Base de datos embutida.

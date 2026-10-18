@@ -1,44 +1,48 @@
-# Tech Stack
+# Stack Tecnológico
 
-## Frameworks y Librerías
+## Runtime / Plataforma
 
-| Capa | Tecnología | Versión / Notas |
-|------|------------|-----------------|
-| **Framework** | Slim 4 | ^4.15 (server-rendered, PSR-7 compliant) |
-| **DI Container** | PHP-DI | ^7.1 |
-| **ORM** | Eloquent (Capsule standalone) | ^4.x |
-| **Routing** | Slim Router | ^1.x |
-| **Validation** | respect/validation | ^2.0 |
-| **CSRF** | slim/csrf | ^1.5 |
-| **Frontend** | Twig | ^3.30 |
-| **HTTP Client** | Phinx | ^0.13 (migrations + seeds) |
-| **Testing** | PHPUnit | ^13+ |
-| **Logging** | Monolog | ^3.12 |
-| **Language** | PHP 8.2+ | ARM 32-bit compatible |
+- **PHP:** >= 8.2 (Termux ARM 32-bit detectado por `PHP_INT_SIZE === 4`).
+- **Sistema:** Termux en Android, sin toolchain de compilación.
+- **Administrador de paquetes:** Composer (`composer install:termux` / `composer install`).
 
-## Herramientas de Desarrollo
+## Frontend
 
-- **Composer** – Gestión de dependencias
-- **Phinx** – Migraciones y seeds
-- **PHPUnit** – Pruebas unitarias y de integración
-- **Termux** – Entorno de ejecución (ARM 32-bit)
+- **Framework:** Slim 4 (micro-framework PHP).
+- **Motor de plantillas:** Twig ^3.30 + slim/twig-view ^3.4.
+- **Estilizado:** daisyUI 5 (vendorizado, sobre Tailwind).
+- **Interactividad:** HTMX + Alpine.js (vendorizados en `public/assets/`).
+- **SRI:** Subresource Integrity en assets (ningún CDN en runtime).
 
-## Patrones Recomendados
+## Backend
 
-- **CRUD estándar**: Modelo → Controlador → Ruta → Vista (sin paginación directa en controlador)
-- **Paginación**: Usar `App\Models\Pagination` con `Pagination::paginate()`
-- **HTMX**: Una sola región por página que devuelve HTML de la sección modificada
-- **HTMX actions**: `hx-on::save="this.save()"`, `hx-on::update="this.update()"`, `hx-on::delete="this.delete()"`
-- **Dark/Light theme**: Controlado por `data-theme` (ninguna utility `dark:` o `light:` en CSS)
-- **Assets**: Vendorizados con SRI (ningún CDN en runtime)
+- **DI:** PHP-DI ^7.1.
+- **Base de datos:** illuminate/database ^13.33 (standalone Eloquent capable).
+- **Migraciones:** phinx ^0.13.
+- **Validación:** respect/validation ^2.0.
+- **Logs:** monolog/monolog ^3.12.
 
-## Limitaciones en Termux
+## Testing / Verificación
 
-- PHP 64-bit puede fallar con `int32` en SQLite; se recomienda PHP 32-bit
-- Memoria limitada: evitar cargas pesadas en el contenedor
-- Sin compilador de PHP, solo binario precompilado
+- **Lint/Typecheck:** Sin comando dedicado (revisar manual o `php -l`).
+- **Test:** PHPUnit ^13.3 (`vendor/bin/phpunit` o `composer test`).
+- **Build:** Ninguno (PHP interpretado).
+- **Comandos clave:**
+  - `composer serve` — servidor dev en `:8080`.
+  - `composer migrate` — `phinx migrate`.
+  - `composer test` — suite completa.
+  - `composer check:termux` — detección 32/64-bit.
 
-## Referencias
+## Restricciones
 
-- [Guía completa: `docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md)
-- [SDD Practical: `../_shared/references/sdd-practical.md`](../_shared/references/sdd-practical.md)
+- **Versiones bloqueadas** en composer.json (no usar `*` suelto en producción).
+- **Sin compilación** en el entorno Termux (solo `--prefer-dist`).
+- **Assets vendorizados** en `public/assets/` con SRI (no CDN en runtime).
+- **ARM 32-bit** como plataforma objetivo principal.
+
+## Decisiones Arquitectónicas
+
+- **Capas separadas:** `app/Http/Controllers/`, `app/Http/Middleware/`, `app/Models/`, `app/Support/`.
+- **PDO/SQLite** como driver de base de datos (via illuminate/database).
+- **Sesión + CSRF** manejados por middleware Slim built-in.
+- **Tests** con body raw + URI absoluta + login inyectado para rutas protegidas.

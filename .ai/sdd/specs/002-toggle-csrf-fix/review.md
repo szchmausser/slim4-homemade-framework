@@ -1,4 +1,9 @@
-# Review: Fix CSRF failure in task toggle (001)
+# Review: Fix de CSRF en el toggle de tareas
+
+> Requirements: `@.ai/sdd/specs/002-toggle-csrf-fix/requirements.md`
+> Design: `@.ai/sdd/specs/002-toggle-csrf-fix/design.md`
+> Estado: review:done
+> Última actualización: 2026-10-18
 
 ## Summary
 Fixed the false-positive CSRF error that appeared when toggling task completion status.
