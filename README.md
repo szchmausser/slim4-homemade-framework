@@ -6,6 +6,8 @@ Esqueleto PHP en capas para apps server-rendered, pensado para correr en Termux 
 
 **Guía completa paso a paso:** [`docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md) — instalación en Termux, cada archivo con código copiable, testing y troubleshooting.
 
+**Push a GitHub desde Termux:** [`docs/git-push-termux.md`](docs/git-push-termux.md) — por qué `pi`/scripts no comparten el `ssh-agent` y cómo resolverlo (`composer push`).
+
 ## Arranque rápido
 
 ```bash
@@ -15,7 +17,7 @@ composer dump-autoload -o
 composer migrate
 ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
 composer serve              # http://localhost:8080
-composer test               # suite verde: 65 tests
+composer test               # suite verde: 69 tests
 ```
 
 ## Comandos
@@ -29,6 +31,7 @@ composer test               # suite verde: 65 tests
 | `vendor/bin/phinx seed:run -s NombreSeed` | Un seed puntual |
 | `composer db:backup` | Backup timestamped a `storage/backups/` |
 | `composer test` | Suite completa |
+| `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | 32 o 64 bits |
 
 ## Receta: nuevo CRUD en N pasos

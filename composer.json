@@ -28,6 +28,7 @@
     "scripts": {
         "serve": "php -S 0.0.0.0:8080 -t public",
         "migrate": "phinx migrate",
+        "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "install:termux": "composer install --prefer-dist --no-scripts",
