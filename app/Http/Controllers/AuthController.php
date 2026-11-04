@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\Auth;
 use App\Support\Flash;
 use App\Support\RememberMe;
+use App\Support\Throttle;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -22,6 +23,9 @@ class AuthController extends Controller
      * por timing. Debe tener 60 caracteres o bcrypt lo rechaza al instante.
      */
     public const DUMMY_HASH = '$2y$12$hmGwg9QWNfE1u1JP/s90ReQugq9oOeSa4YlxVNYaQFX3/eCtS84G2';
+
+    /** Mismo mensaje para credenciales malas y para cuenta throttled. */
+    private const INVALID_CREDENTIALS = 'Credenciales inválidas.';
 
     public function show(Request $request, Response $response): Response
     {
@@ -55,6 +59,21 @@ class AuthController extends Controller
             ]);
         }
 
+        // IP del cliente para el throttling. En CLI/tests puede no venir.
+        $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? 'desconocida');
+
+        // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
+        // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
+        if (Throttle::tooMany($email, $ip)) {
+            Flash::set('error', self::INVALID_CREDENTIALS);
+
+            return $this->render($request, $response, 'auth/login.twig', [
+                'active'     => 'login',
+                'flash_info' => Flash::get('info'),
+                'email'      => $email,
+            ]);
+        }
+
         $user = User::query()->where('email', $email)->first();
 
         // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
@@ -63,8 +82,10 @@ class AuthController extends Controller
         $password = (string) ($data['password'] ?? '');
 
         if ($user === null || !password_verify($password, $hash)) {
+            Throttle::hit($email, $ip);
+
             // Genérico a propósito: nunca decir si falló el email o la clave.
-            Flash::set('error', 'Credenciales inválidas.');
+            Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
                 'active'     => 'login',
@@ -72,6 +93,9 @@ class AuthController extends Controller
                 'email'      => $email,
             ]);
         }
+
+        // Login válido: se perdona el historial de fallos de este email + IP.
+        Throttle::clear($email, $ip);
 
         // Rehash silencioso si cambió el algoritmo o el costo.
         if (password_needs_rehash($user->password_hash, PASSWORD_DEFAULT)) {
