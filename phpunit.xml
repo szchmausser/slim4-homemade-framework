@@ -20,9 +20,10 @@
 
     <php>
         <!-- force="true" + Dotenv::createImmutable() en bootstrap/app.php:
-             las variables de acá ganan, el .env real no las pisa. -->
+             las variables de acá ganan, el .env real no las pisa.
+             DB_DATABASE lo fija tests/bootstrap.php (SQLite temporal donde
+             corren las migraciones reales). -->
         <env name="APP_ENV"    value="testing" force="true"/>
         <env name="APP_DEBUG"  value="true"    force="true"/>
-        <env name="DB_DATABASE" value=":memory:" force="true"/>
     </php>
 </phpunit>
