@@ -106,6 +106,11 @@ Orden: **U1 → U2 → U3 → U4 → U5 → U6 → U7**
 
 ## Backlog (fuera de los goals)
 
+- **Advisories en dependencias dev** (detectados 2026-11-04 con `composer update --lock`):
+  `symfony/config` GHSA-5jff-8h8q-r5qx (XXE en `XmlUtils::parse`) y
+  `symfony/filesystem` GHSA-6prc-h956-hxjq (path escape), ambos traídos por Phinx.
+  No son de runtime; evaluar bump cuando Phinx lo permita. Si U6 agrega
+  `composer audit` a `composer verify`, resolverlos antes para no nacer en rojo.
 - `Vary: HX-Request` (solo relevante con caché compartida).
 - `hx-disabled-elt` / `hx-sync` (doble submit en red lenta).
 - bcrypt del validator de remember-me (~1.45 s una vez por sesión; opción:
