@@ -67,4 +67,14 @@ final class SchemaIntegrityTest extends TestCase
             'Al borrar el usuario, el CASCADE deberia limpiar sus remember_tokens.'
         );
     }
+
+    public function testTasksNoLongerCarryTheDeadDoneColumn(): void
+    {
+        $pdo = Capsule::connection()->getPdo();
+        $columns = $pdo->query("PRAGMA table_info('tasks')")->fetchAll(PDO::FETCH_COLUMN, 1);
+
+        self::assertContains('status', $columns);
+        self::assertContains('completed_at', $columns);
+        self::assertNotContains('done', $columns, 'tasks.done fue reemplazada por status (migracion 005).');
+    }
 }

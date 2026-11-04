@@ -8,10 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Task extends Model
 {
-    protected $fillable = ['title', 'done', 'status', 'completed_at'];
+    protected $fillable = ['title', 'status', 'completed_at'];
 
     protected $casts = [
-        'done'         => 'boolean',
         'completed_at' => 'datetime',
     ];
 }
