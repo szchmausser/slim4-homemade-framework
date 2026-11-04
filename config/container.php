@@ -61,6 +61,10 @@ return [
             'driver'   => 'sqlite',
             'database' => $db,
             'prefix'   => '',
+            // SQLite deja las FK apagadas por conexión. Sin este flag el
+            // ON DELETE CASCADE de remember_tokens nunca corre y el esquema
+            // miente: las migraciones declaran la FK pero la base la ignora.
+            'foreign_key_constraints' => true,
         ]);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();

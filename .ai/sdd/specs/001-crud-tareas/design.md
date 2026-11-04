@@ -59,7 +59,11 @@ CREATE TABLE tasks (
 ```
 
 - **Propiedad:** Los datos se almacenan en `database/*.sqlite` (configurado por `.env`).
-- **Modelo:** `Task` con `$fillable = ['title', 'done', 'status', 'completed_at']`.
+- **Modelo:** `Task` con `$fillable = ['title', 'status', 'completed_at']`.
+
+> **Addendum 2026-11-04 (PLAN-U2b):** la columna `done` se eliminó en la migración
+> `005_drop_done_from_tasks.php` (con backfill `done=1 → status=completado, completed_at`).
+> `status` es la única fuente de verdad. Se deja el registro original sin reescribir.
 - **Estado de la petición HTMX:** Cada swap mantiene `data-theme` sin recargar.
 
 ## 6. Contrato API / Integración

@@ -166,6 +166,9 @@ SO THAT la lista refleja el nuevo estado
 
 **Afecta:** design.md, tasks.md
 
+> **Addendum 2026-11-04 (PLAN-U2b):** `done` se eliminó (migración `005`); `status`
+> quedó como única fuente de verdad, con backfill de los datos de la v1.
+
 ## Preguntas
 
 ### Q-001: ¿Debe el CRUD incluir validación de campos?
