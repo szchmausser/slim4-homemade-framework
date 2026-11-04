@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use App\Http\Controllers\AuthController;
 use App\Models\RememberToken;
 use App\Models\User;
 use PHPUnit\Framework\TestCase;
@@ -51,6 +52,17 @@ final class AuthTest extends TestCase
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('type="password"', $html);
         self::assertStringContainsString('name="remember"', $html);
+    }
+
+    public function test_dummy_hash_es_un_bcrypt_valido_de_coste_12(): void
+    {
+        $info = password_get_info(AuthController::DUMMY_HASH);
+
+        self::assertSame('bcrypt', $info['algoName']);
+        self::assertSame(12, $info['options']['cost']);
+        self::assertSame(60, strlen(AuthController::DUMMY_HASH));
+        // El dummy nunca autentica, pero igual paga el coste de bcrypt.
+        self::assertFalse(password_verify('cualquier-clave', AuthController::DUMMY_HASH));
     }
 
     public function test_login_con_credenciales_malas_no_entra_ni_dice_cual_fallo(): void

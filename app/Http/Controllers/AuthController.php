@@ -14,6 +14,15 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 
 class AuthController extends Controller
 {
+    /**
+     * Hash bcrypt valido de una clave aleatoria, con el mismo coste que usa
+     * password_hash(PASSWORD_DEFAULT) en PHP >= 8.4. Cuando el email no existe
+     * se verifica contra este hash en vez de saltarse password_verify: un hash
+     * invalido (o de otro coste) tarda distinto y vuelve a enumerar cuentas
+     * por timing. Debe tener 60 caracteres o bcrypt lo rechaza al instante.
+     */
+    public const DUMMY_HASH = '$2y$12$hmGwg9QWNfE1u1JP/s90ReQugq9oOeSa4YlxVNYaQFX3/eCtS84G2';
+
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
@@ -50,8 +59,7 @@ class AuthController extends Controller
 
         // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
         // no delata si la cuenta existe o no (enumeración por timing).
-        $hash = $user?->password_hash
-            ?? '$2y$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+        $hash = $user?->password_hash ?? self::DUMMY_HASH;
         $password = (string) ($data['password'] ?? '');
 
         if ($user === null || !password_verify($password, $hash)) {
