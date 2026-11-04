@@ -159,7 +159,7 @@ mi-app/
 ## 4. Dependencias del backend
 
 ```bash
-composer init --name="tuusuario/mi-app" --type=project --require="php:>=8.2" --no-interaction
+composer init --name="tuusuario/mi-app" --type=project --require="php:>=8.4.1" --no-interaction
 
 composer require slim/slim slim/psr7
 composer require php-di/php-di
@@ -187,12 +187,12 @@ composer require --dev phpunit/phpunit
 > `rollback -t 0`, `status`) es idéntica entre ambas. Si upstream algún día quita
 > el requisito, se re-evalúa; mientras tanto, `^0.13` es techo, no pin.
 
-> **PHP ≥ 8.2 obligatorio, sin atajos.** Los pins actuales (`illuminate/database ^13.33`,
-> `phpunit/phpunit ^13.3` y el `"php": ">=8.2"` del `composer.json`) lo exigen los tres:
-> con un PHP menor no instala ni por clon (el lock falla el platform check) ni desde
-> cero. Verificá primero con `php -v` (cap. 22.4); si tu Termux trae uno viejo,
-> actualizá el paquete `php` antes de seguir. No hay fallback documentado porque
-> implicaría retroceder tres pins a la vez.
+> **PHP ≥ 8.4.1 obligatorio, sin atajos.** No lo fija un solo pin: `illuminate/database ^13.33`
+> exige `^8.3`, y `symfony/clock` y `symfony/translation` (dependencias de runtime de
+> Illuminate) más `phpunit/phpunit ^13.3` exigen `>=8.4.1`. Con un PHP menor no instala
+> ni por clon (el lock falla el platform check) ni desde cero. Verificá primero con
+> `php -v` (cap. 22.4); si tu Termux trae uno viejo, actualizá el paquete `php` antes de
+> seguir. No hay fallback documentado porque implicaría retroceder varios pins a la vez.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
 > corre limpio sobre PHP 8.5 (cero deprecations). Mientras no migres a 3.x
@@ -206,7 +206,7 @@ composer require --dev phpunit/phpunit
     "name": "tuusuario/mi-app",
     "type": "project",
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.4.1",
         "slim/slim": "^4.15",
         "slim/psr7": "^1.8",
         "php-di/php-di": "^7.1",

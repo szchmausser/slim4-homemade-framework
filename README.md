@@ -4,6 +4,8 @@ Esqueleto PHP en capas para apps server-rendered, pensado para correr en Termux 
 
 **Stack:** Slim 4 · PHP-DI · Eloquent (standalone) · Phinx · Twig · HTMX · Alpine.js · daisyUI 5 (vendorizado) · SQLite · respect/validation · Monolog.
 
+**Requisitos:** PHP >= 8.4.1 (`pkg install php` trae una versión vigente) y Composer 2. El piso no es capricho: el lock lo exige (`symfony/clock`, `symfony/translation` y PHPUnit piden `>=8.4.1`), y con un PHP menor el clon falla en el platform check antes de arrancar.
+
 **Guía completa paso a paso:** [`docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md) — instalación en Termux, cada archivo con código copiable, testing y troubleshooting.
 
 **Push a GitHub desde Termux:** [`docs/git-push-termux.md`](docs/git-push-termux.md) — por qué `pi`/scripts no comparten el `ssh-agent` y cómo resolverlo (`composer push`).

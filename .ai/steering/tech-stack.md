@@ -2,7 +2,7 @@
 
 ## Runtime / Plataforma
 
-- **PHP:** >= 8.2 (Termux ARM 32-bit detectado por `PHP_INT_SIZE === 4`).
+- **PHP:** >= 8.4.1 (Termux ARM 32-bit detectado por `PHP_INT_SIZE === 4`). El piso lo impone el lock: `symfony/clock` y `symfony/translation` exigen `>=8.4.1`, `illuminate/database ^13` exige `^8.3` y `phpunit ^13.3` exige `>=8.4.1`.
 - **Sistema:** Termux en Android, sin toolchain de compilación.
 - **Administrador de paquetes:** Composer (`composer install:termux` / `composer install`).
 
