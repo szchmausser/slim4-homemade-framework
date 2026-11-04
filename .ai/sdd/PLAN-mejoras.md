@@ -23,8 +23,12 @@ documentación que afirma cosas falsas.
   salida de `composer test` de ese commit. Un commit que rompe tests no se apila.
 - **Relacionado ≠ oportunista**: un problema no relacionado se reporta y queda como
   backlog; no se arregla en el momento.
-- **Verificación citada**: `goal_complete` con comando y resultado, no con "creo que anda".
-- **Costo acotado**: `/goal --tokens 150k` por unidad.
+- **Verificación citada**: la implementación termina con `composer test` verde y la salida pegada en el resumen; sin "creo que anda".
+- **Una unidad por ciclo de plan-mode**: `/plan` → `plan_mode_complete` → *Start fresh and implement*
+  (o *Implement here*) con **Plan reinjection = Through first implementation run**. Goal no participa
+  de este flujo (su coexistencia con plan-mode es solo exclusión mutua, no un handoff).
+- **Supervisión**: el plan aprobado se ejecuta en la sesión de implementación; al volver, se
+  verifica `git diff --stat`, `composer test` y que no haya archivos fuera de alcance, y se mergea.
 
 ## Unidades
 
@@ -39,6 +43,18 @@ Orden: **U1 → U2 → U3 → U4 → U5 → U6 → U7**
 | **U5** | Cookies `Secure` + HSTS por entorno | 1 | `tests/Http/SecurityHeadersTest.php` |
 | **U6** | CI + PHPStan + `composer verify` | 1 | `composer verify` local + CI |
 | **U7** | Sincronizar documentación (cifras, "64-bit", comentario CDN) | 1 | `scripts/docs-check.php` dentro de `composer verify` |
+
+### Estado
+
+| Unidad | Estado | Evidencia |
+|---|---|---|
+| U1 | ✅ hecho | `c5016cc` (merge `2e4f6e1`) — 72 tests |
+| U2 | ✅ hecho | `d75eaff` + `75b766e` (merge `02e8fb7`) — 77 tests |
+| U3 | ✅ hecho | `cc4f0ee` + `08db5ed` (merge `88650d0`) — 82 tests |
+| U4 | pendiente | backup + rotación de logs |
+| U5 | pendiente | Secure/HSTS |
+| U6 | pendiente | CI + PHPStan |
+| U7 | pendiente | docs sincronizadas |
 
 ### U1 — Piso real de PHP
 
@@ -127,21 +143,27 @@ Orden: **U1 → U2 → U3 → U4 → U5 → U6 → U7**
 - CSP ausente y `persistentTokenMode`: decisiones documentadas, no defectos.
 - 404 con mensaje de ruta, `mkdir 0777`, falta de progressive enhancement.
 
-## Plantilla de goal
+## Plantilla por unidad (plan-mode)
+
+En la TUI:
 
 ```text
-/goal --tokens 150k PLAN-U2 — Integridad de esquema
-
-Contexto: .ai/sdd/PLAN-mejoras.md (U2) + .ai/steering/*.
-Alcance permitido: config/container.php, tests/Support/AppFactory.php, tests/bootstrap.php,
-phpunit.xml, .gitignore, database/migrations/005_*.php, app/Models/Task.php, specs 001.
-Prohibido: otros archivos, dependencias nuevas, reformatear código ajeno.
-
-Commits (en orden, cada uno con tests verdes):
-  u2a  test(db): migraciones reales en tests y foreign_keys
-  u2b  refactor(db): eliminar columna muerta tasks.done (backfill done=1)
-
-Verificación: composer test (+ migración fresh sobre DB temporal).
-Cierre: goal_complete citando commits y salida de tests.
-Imprevisto no relacionado: anotarlo en el resumen, NO arreglarlo acá.
+/plan U4 — Operación del dispositivo: backup consistente y rotación de logs
 ```
+
+Después de aprobar el plan que devuelve el agente (`plan_mode_complete`), elegir
+**Start fresh and implement** y verificar que **Plan reinjection** esté en
+**Through first implementation run** (`/plan settings` si hace falta).
+
+El plan de cada unidad debe incluir, como mínimo:
+
+- alcance de archivos permitido y prohibiciones (deps, reformateos, DB real);
+- los commits esperados, en orden, cada uno con `composer test` verde;
+- tests de regresión concretos;
+- comando de verificación y formato del resumen final;
+- qué hacer ante un imprevisto no relacionado (reportarlo, no arreglarlo).
+
+> Nota de método: el handoff prescrito por `pi-plan-mode` es *Implement here* o
+> *Start fresh and implement*, con el plan exacto transferido y reinjectado. `pi-goal`
+> queda para trabajo autónomo que no nace de un plan aprobado (su `workflow:mutex:v1`
+> solo garantiza que no corran a la vez).
