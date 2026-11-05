@@ -27,9 +27,9 @@
 | T3 (Controlador) | Done | `app/Http/Controllers/TaskController.php` con index/store/update/destroy/edit/toggle |
 | T4 (Vistas) | Done | `resources/views/tasks/index.twig`, `_panel.twig`, `_list.twig` (región HTMX) |
 | T5 (Rutas) | Done | `routes/web.php` (líneas 37-45) con grupo `/tareas`, middleware `RequireAuthMiddleware`, rutas RESTful |
-| T6 (Tests) | Done | 66 tests verdes (PHPUnit 13.3.5); `tests/Http/EditTaskTest.php`, `DeleteTaskTest.php`, `AuthTest.php`, `PaginationFlowTest.php`, `PartialRenderTest.php`, `RoutingTest.php`, `CsrfFlowTest.php`, `ErrorHandlingTest.php` |
+| T6 (Tests) | Done | Suite verde (PHPUnit 13.3.5); `tests/Http/EditTaskTest.php`, `DeleteTaskTest.php`, `AuthTest.php`, `PaginationFlowTest.php`, `PartialRenderTest.php`, `RoutingTest.php`, `CsrfFlowTest.php`, `ErrorHandlingTest.php` |
 | T7 (Seed) | Done | `database/seeds/TaskSeeder.php` + `DemoTasksSeeder.php` orquestados por `DatabaseSeeder.php`; idempotentes |
-| T8 (Verificación) | Done | `composer test` → OK (66 tests, 204 assertions); `vendor/bin/phinx rollback -t 0` + `composer migrate` funciona; `curl` smoke pasa |
+| T8 (Verificación) | Done | `composer test` → suite verde (conteo en la salida); `vendor/bin/phinx rollback -t 0` + `composer migrate` funciona; `curl` smoke pasa |
 
 ## Diseño
 
@@ -52,12 +52,12 @@
 ```text
 Comando: vendor/bin/phpunit
 Exit code: 0
-Resumen: OK (66 tests, 204 assertions) — suite completa pasa.
+Resumen: suite completa pasa (conteo en la salida de composer test).
 Verdict: PASS
 
 Comando: composer check:termux
 Exit code: 0
-Resumen: Detecta correctamente PHP 8.5.1 (64-bit en entorno actual, compatible con 32-bit).
+Resumen: Detecta correctamente PHP 8.5.1; el runtime es 32-bit (`PHP_INT_SIZE=4`).
 Verdict: PASS
 
 Comando: vendor/bin/phinx rollback -t 0 && composer migrate

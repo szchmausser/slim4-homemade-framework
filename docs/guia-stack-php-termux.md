@@ -2040,7 +2040,7 @@ Verificá los hashes con PHP (a propósito sin `openssl`: en Termux PHP siempre 
 php -r '$f=$argv[1]; echo "sha384-".base64_encode(hash_file("sha384",$f,true)),PHP_EOL;' public/assets/htmx-2.0.11.min.js
 ```
 
-Tabla de versiones pineadas con sus SRI verificados (los bytes sirven idénticos desde jsDelivr/unpkg):
+Tabla de versiones pineadas con sus SRI verificados (los bytes sirven idénticos desde el origen de cada asset):
 
 | Asset | Versión | SRI |
 |---|---|---|
@@ -3065,7 +3065,7 @@ Correr:
 ```bash
 vendor/bin/phpunit
 composer test
-# esperado: OK (65 tests, 200 assertions)
+# esperado: OK (la cifra la imprime este comando)
 ```
 
 ### 20.2 El `Validator`, con tabla
@@ -4676,7 +4676,7 @@ composer show respect/validation | head -2
 
 # 2. Suite completa: el esqueleto, no la demo (cap. 20)
 composer test
-# esperado: OK (65 tests, 200 assertions)
+# esperado: OK (la cifra la imprime este comando)
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &

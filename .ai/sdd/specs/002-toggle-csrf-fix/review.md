@@ -18,7 +18,7 @@ The toggle button in `resources/views/tasks/_list.twig` used `hx-post` but was m
 
 ## Verification
 
-- **Test Suite**: 66 tests, 204 assertions — ✅ OK
+- **Test Suite**: suite verde (conteo en la salida de `composer test`) — ✅ OK
 - **Index check** (`grep`): `hx-headers` present in toggle button output — ✅ Confirmed
 - **Manual smoke test**: Server stopped after tests passed for safety
 

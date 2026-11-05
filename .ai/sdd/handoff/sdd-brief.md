@@ -86,7 +86,7 @@
 
 ```text
 Command: composer test
-Expected: OK (66 tests, 204 assertions)
+Expected: suite verde (el conteo lo imprime composer test)
 Command: composer check:termux
 Expected: Detección correcta de 32-bit PHP (o compatible)
 Command: vendor/bin/phinx rollback -t 0 && composer migrate

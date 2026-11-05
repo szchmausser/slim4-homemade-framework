@@ -180,7 +180,7 @@
 - `tests/Http/DeleteTaskTest.php` — crear
 
 #### Verificación
-- [x] `composer test` → 66 tests verdes, 204 assertions
+- [x] `composer test` → suite verde (conteo en la salida)
 
 ### T7: Crear seed (FR-001)
 
@@ -218,7 +218,7 @@
 - [x] `vendor/bin/phinx rollback -t 0` + `composer migrate` funciona
 
 #### Criterios de Aceptación
-- [x] `composer test` → suite verde (66 tests)
+- [x] `composer test` → suite verde
 - [x] `curl` smoke tests pasan
 
 #### Verificación

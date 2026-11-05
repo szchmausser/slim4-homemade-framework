@@ -51,7 +51,7 @@ Estas reglas gobiernan decisiones de diseño y coordinación en el proyecto. Se 
 
 **Rule:** Si un test fue escrito, debe mantenerse. El criterio: "si no te da miedo que falle, no lo escribas". Los tests deben cubrir: crea-OK, validación que rechaza, id inexistente que avisa.
 
-**Reason:** La base de tests (65 tests) es la señal de calidad del proyecto. Cada nuevo test incrementa la superficie de mantenimiento.
+**Reason:** La base de tests es la señal de calidad del proyecto. Cada nuevo test incrementa la superficie de mantenimiento.
 
 **Applies to:** PRD, SPEC, TASKS, EXEC, REVIEW
 
