@@ -51,8 +51,8 @@ Orden: **U1 → U2 → U3 → U4 → U5 → U6 → U7**
 | U1 | ✅ hecho | `c5016cc` (merge `2e4f6e1`) — 72 tests |
 | U2 | ✅ hecho | `d75eaff` + `75b766e` (merge `02e8fb7`) — 77 tests |
 | U3 | ✅ hecho | `cc4f0ee` + `08db5ed` (merge `88650d0`) — 82 tests |
-| U4 | pendiente | backup + rotación de logs |
-| U5 | pendiente | Secure/HSTS |
+| U4 | ✅ hecho | `3ff032b` + `e57ec71` (merge `7e7ff63`) — 87 tests |
+| U5 | ✅ hecho | `0d2740c` (merge `d79de81`) — 90 tests |
 | U6 | pendiente | CI + PHPStan |
 | U7 | pendiente | docs sincronizadas |
 
