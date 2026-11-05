@@ -21,7 +21,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
     {
         $response = $handler->handle($request);
 
-        return $response
+        $response = $response
             // El navegador deja de adivinar el tipo de contenido. Sin esto, un
             // archivo served como octet-stream que en realidad es HTML se
             // ejecuta. Es el mejor valor por byte de todo el set.
@@ -36,5 +36,17 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // a esos CDNs manda tu URL completa (con paths y query string)
             // en el header Referer.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
+        // flag que las cookies Secure: activarlo en dev local deja al navegador
+        // recordando un HTTPS que el server no habla.
+        if (filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $response = $response->withHeader(
+                'Strict-Transport-Security',
+                'max-age=31536000'
+            );
+        }
+
+        return $response;
     }
 }
