@@ -36,6 +36,16 @@ $manager->migrate($config->getDefaultEnvironment());
 
 Tests\Support\AppFactory::make();
 
+// La sesion se abre UNA vez, aca, y no en el primer request. En PHP >= 8.5
+// session_start() vuelve a dejar $_SESSION en [] (antes conservaba lo que el
+// llamador habia puesto), asi que los tests que siembran $_SESSION['user_id']
+// en setUp() llegaban a /tareas sin sesion: 303 a /login y cuerpo vacio, que
+// el helper de tokens reportaba como "no encontre el hidden csrf_name".
+// Abriendo la sesion antes, el middleware ve PHP_SESSION_ACTIVE y no la
+// reinicia, con lo cual los valores de cada setUp() sobreviven al request.
+session_name($_ENV['SESSION_NAME'] ?? 'mi_app_session');
+session_start();
+
 register_shutdown_function(static function () use ($db): void {
     foreach ([$db, $db . '-wal', $db . '-shm'] as $file) {
         if (is_file($file)) {
