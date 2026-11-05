@@ -2794,8 +2794,16 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            `sidebar-label` oculta el correo en el plegado pre-pintado, igual que
            las etiquetas del menu: plegado queda solo el icono, centrado. #}
         <div class="flex h-12 shrink-0 items-center gap-2 px-2">
-            <span class="sidebar-label min-w-0 flex-1 truncate text-xs opacity-70"
-                  :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
+            {# Disco con la inicial + dos lineas: nombre arriba y correo abajo.
+               `users` no tiene columna `name`, asi que el nombre se deriva de la
+               parte local del correo. Es una etiqueta de presentacion, no un
+               dato: el correo completo va debajo y es el que manda. #}
+            <span class="sidebar-label grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold uppercase text-primary-content"
+                  :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
+            <span class="sidebar-label min-w-0 flex-1" :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">
+                <span class="block truncate text-sm font-semibold leading-tight">{{ user_email|split('@')|first|capitalize }}</span>
+                <span class="block truncate text-xs leading-tight opacity-60">{{ user_email }}</span>
+            </span>
             <form method="post" action="{{ url('/logout') }}" class="shrink-0"
                   :class="sidebarMini && 'lg:mx-auto'">
                 {% include 'partials/_csrf.twig' %}
