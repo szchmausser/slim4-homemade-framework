@@ -2105,6 +2105,97 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #sidebar-foot { display: none; }
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
+
+        /* ── Avisos flotantes ────────────────────────────────────────────
+           Posición: en desktop el sidebar es `static`, así que un `fixed`
+           contra el viewport NO queda alineado con el contenido (lo que se ve
+           es la columna que arranca después del sidebar). El host replica la
+           geometría de la columna y el stack adentro repite el `max-w-6xl` y
+           el padding de <main>: el borde derecho de cada toast cae exacto
+           sobre el del <h1>, en el espacio que la fila del título deja libre.
+           En móvil no hay espacio a la derecha del título: va abajo, con 1rem
+           de margen, que es el patrón de teléfono y no tapa el h1. */
+        .toast-host {
+            position: fixed;
+            z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
+            inset-inline: 0;
+            bottom: 1rem;
+            padding-inline: 1rem;
+            pointer-events: none; /* el hueco alrededor no bloquea clicks */
+        }
+        .toast-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: .5rem;
+            width: 100%;
+            max-width: 72rem;     /* = max-w-6xl de <main> */
+            margin-inline: auto;
+        }
+        @media (min-width: 1024px) {
+            .toast-host {
+                inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
+                top: calc(4rem + 1.5rem);                  /* header h-16 + main lg:p-6 */
+                bottom: auto;
+                padding-inline: 0;
+                transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
+            }
+            html[data-sidebar-mini] .toast-host { inset-inline-start: 4rem; } /* plegado (w-16) */
+            .toast-stack { padding-inline: 1.5rem; }       /* = lg:p-6 de <main> */
+        }
+
+        /* Tarjeta propia en vez de `.alert` de daisyUI: el alert fija radio,
+           padding y sombra, y acá se busca acento lateral + barra de vida. El
+           color sale de los tokens del tema activo, así que el claro/oscuro
+           sigue sin una sola utility `dark:`. */
+        .toast-card {
+            --toast-accent: var(--color-info);
+            position: relative;
+            overflow: hidden;                        /* recorta acento y barra */
+            /* Borde completo acá y no con `border border-base-300` en el HTML:
+               el CSS del browser build se inyecta después de este <style>, y su
+               shorthand `border-width: 1px` pisaría el acento de 3px. */
+            border: 1px solid var(--color-base-300);
+            border-inline-start: 3px solid var(--toast-accent);
+            pointer-events: auto;                    /* sí se puede usar el botón cerrar */
+        }
+        .toast-card[data-type="success"] { --toast-accent: var(--color-success); }
+        .toast-card[data-type="error"]   { --toast-accent: var(--color-error); }
+        .toast-icon {
+            color: var(--toast-accent);
+            background: color-mix(in oklab, var(--toast-accent) 15%, transparent);
+        }
+
+        /* La barra ES el temporizador: al terminar la animación se retira el
+           toast (`@animationend`), sin setTimeout que pueda desincronizarse o
+           congelarse con la pestaña en segundo plano. Si querés otra duración,
+           se cambia este `5s` y nada más. `paused` al pasar el mouse: no te lo
+           borres mientras lo estás leyendo. */
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            width: 100%;
+            background: var(--toast-accent);
+            transform-origin: left center;
+            animation: toast-countdown 5s linear forwards;
+        }
+        .toast-card:hover .toast-progress { animation-play-state: paused; }
+        @keyframes toast-countdown {
+            from { transform: scaleX(1); }
+            to   { transform: scaleX(0); }
+        }
+        @keyframes toast-fade {
+            from { opacity: 1; }
+            to   { opacity: 0; }
+        }
+        /* Con "reducir movimiento" la barra no se mueve, pero la animación
+           sigue existiendo como fade: animationend es lo que retira el nodo,
+           y apagarla del todo dejaría el toast pegado para siempre. */
+        @media (prefers-reduced-motion: reduce) {
+            .toast-progress { animation-name: toast-fade; }
+        }
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
@@ -2189,22 +2280,53 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             </label>
         </header>
 
-        {# RECEPCIÓN del HX-Trigger:{csrf} del failureHandler de slim/csrf.
+        {# Avisos flotantes. Posición y estilos en el <style> del head: el host
+           replica la geometría de <main> para caer alineado con el <h1>.
+           Un componente, DOS canales:
+           - @toasts.window: evento `toasts` que emite HX-Trigger-After-Swap
+             desde Controller::render() en cada acción htmx (éxito, error de
+             validación, tarea inexistente).
+           - @csrf.window: HX-Trigger del failureHandler de slim/csrf. Ese
+             caso NO puede usar el canal de arriba: el request se corta con
+             400 y htmx no hace swap, así que no hay After-Swap.
            Este nodo es el receptor, y por eso vive en el layout y NO en
-           tasks/_panel.twig: htmx dispara el evento en cuanto llega la
-           respuesta 400, pero el panel es el elemento que ese mismo swap
-           reemplaza — si el listener estuviera ahí, llegaría a un nodo que
-           ya no está. Sin este bloque el header se emite al vacío: 400, sin
-           swap, sin mensaje, tarea perdida. #}
-        {# htmx envuelve el string del header HX-Trigger en { value: "..." } y triggerEvent agrega elt; por eso se lee .value. #}
-        <div x-cloak
-             x-data="{ aviso: '' }"
-             @csrf.window="aviso = String($event.detail.value ?? ''); setTimeout(() => aviso = '', 6000)"
-             x-show="aviso"
-             class="alert alert-error fixed bottom-4 right-4 z-50 max-w-sm shadow-lg"
-             role="alert"
-             aria-live="assertive">
-            <span x-text="aviso"></span>
+           tasks/_panel.twig: el panel es justo el elemento que el swap
+           reemplaza — un listener ahí llegaría a un nodo que ya no está.
+           Los items viven en un array de Alpine, no en el DOM, así que el
+           swap de #tareas-panel no los borra ni los duplica. #}
+        <div class="toast-host"
+             x-data="toastStack()"
+             @toasts.window="addAll($event.detail.items)"
+             @csrf.window="add({ message: String($event.detail.value ?? ''), type: 'error' })"
+             role="status"
+             aria-live="polite">
+            <div class="toast-stack">
+                <template x-for="t in items" :key="t.id">
+                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/95 p-3 pr-2 shadow-lg backdrop-blur"
+                         :data-type="t.type"
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 translate-x-4"
+                         x-transition:enter-end="opacity-100 translate-x-0"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 translate-x-0"
+                         x-transition:leave-end="opacity-0 translate-x-4">
+                        <span class="toast-icon grid h-7 w-7 shrink-0 place-items-center rounded-lg">
+                            <svg x-show="t.type === 'success'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            <svg x-show="t.type === 'error'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            <svg x-show="t.type === 'info'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        </span>
+                        <p class="min-w-0 flex-1 pt-0.5 text-sm font-semibold leading-snug" x-text="t.message"></p>
+                        <button type="button"
+                                class="btn btn-square btn-ghost btn-xs shrink-0 opacity-50 hover:opacity-100"
+                                @click="remove(t.id)"
+                                aria-label="Cerrar aviso"
+                                title="Cerrar aviso">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                        <span class="toast-progress" aria-hidden="true" @animationend="remove(t.id)"></span>
+                    </div>
+                </template>
+            </div>
         </div>
 
         <main class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
@@ -2245,12 +2367,48 @@ function shell() {
         toggleMini() { this.sidebarMini = !this.sidebarMini; }
     };
 }
+
+function toastStack() {
+    return {
+        items: [],
+        seq: 0,
+        max: 3,
+        add(item) {
+            if (!item || !item.message) return;
+            this.items.push({ id: ++this.seq, message: item.message, type: item.type || 'info' });
+            if (this.items.length > this.max) {
+                this.items.splice(0, this.items.length - this.max);
+            }
+        },
+        addAll(list) {
+            (Array.isArray(list) ? list : []).forEach(i => this.add(i));
+        },
+        remove(id) {
+            this.items = this.items.filter(i => i.id !== id);
+        }
+    };
+}
 </script>
 </body>
 </html>
 ```
 
-> **Por qué `.value`.** `handleTriggerHeader()` de htmx 2.0.11 no entrega el string del header tal cual: lo envuelve en `{ value: "..." }` y `triggerEvent()` agrega además `detail.elt`. El listener recibe un objeto, así que convertir el detail completo a string imprime `[object Object]` en el aviso. Leer `detail.value` (con `?? ''` por si el evento llega sin payload) es lo que hace que el mensaje se vea.
+> **Por qué `.value` y por qué `.items`.** `handleTriggerHeader()` de htmx 2.0.11 no entrega el payload tal cual salvo que sea un **objeto**: si el valor del header no es un objeto, lo envuelve en `{ value: ... }` y `triggerEvent()` agrega además `detail.elt`. Medido en `public/assets/htmx-2.0.11.min.js` (`function M(e){return t(e,"Object")}`). De ahí las dos formas del layout:
+>
+> | Payload del header | Lo que llega a `$event.detail` | Se lee |
+> |---|---|---|
+> | `{"csrf":"Token inválido"}` (string) | `{ value: "Token inválido" }` | `$event.detail.value` |
+> | `{"toasts":{"items":[…]}}` (objeto) | `{ items: […] }` | `$event.detail.items` |
+>
+> Convertir el detail completo a string imprime `[object Object]` en el aviso. Y un array suelto (`"toasts":[…]`) también se envolvería en `{value: …}`: por eso el payload es un objeto con `items` adentro.
+>
+> **Por qué `After-Swap` y no `HX-Trigger` a secas.** En un ARM de 32 bits el swap del panel puede tardar; con el evento temprano el toast de "Tarea creada" aparece mientras la lista vieja sigue en pantalla. `HX-Trigger-After-Swap` lo dispara cuando el DOM ya quedó actualizado.
+>
+> **Un aviso, un canal.** `Controller::render()` decide: si el request trae `HX-Request`, el flash viaja en el header y el HTML sale sin banner; si no, queda inline en `tasks/_panel.twig` (o en `auth/login.twig`), que es el caso de una navegación o de un formulario sin htmx. Si viajara por los dos lados, el mensaje se vería dos veces.
+>
+> **Alineación: el toast se cuelga de la columna de contenido, no del viewport.** Un `toast toast-end toast-top` de daisyUI es `position: fixed` contra la ventana, y en desktop lo que se ve es la columna que arranca **después** del sidebar: el toast quedaba pegado al borde de la pantalla, no al del `<h1>`. El host de arriba se corre `16rem` (o `4rem` si el sidebar está plegado — de ahí el selector `html[data-sidebar-mini]`, la misma marca que usa el pre-pintado) y el stack repite `max-w-6xl` + `p-4 lg:p-6` de `<main>`. Resultado: el borde derecho del toast cae exacto sobre el del título, y usa el hueco que la fila de título deja libre a la derecha. En móvil no hay hueco: el host va abajo, como cualquier toast de teléfono, para no tapar el `<h1>`.
+>
+> **La barra de vida es el timer.** `animationend` retira el toast, así que la barra que se ve es exactamente el tiempo que le queda. Con un `setTimeout` paralelo hay dos fuentes de verdad: la pestaña en segundo plano congela el timer (o no) y la barra sigue animando, y el mensaje se va con la barra a medio llenar. Un solo lugar (`5s` en `.toast-progress`) para cambiarlo.
 
 ### 15.1 Parciales de marca: logo e iconos
 
