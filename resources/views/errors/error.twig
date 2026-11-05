@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ code }} · Mi App</title>
 
+    {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
+       costaría un 404 extra. Son ~55 bytes. #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
     {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
        necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
        paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya

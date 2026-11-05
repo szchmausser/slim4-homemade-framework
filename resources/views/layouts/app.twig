@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
+    {# Favicon: el glifo de capas sobre el primario de daisyUI, en SVG plano
+       (sin build ni referencias externas). El <link> evita el 404 de
+       /favicon.ico que costaba un request fallido en cada visita. Va acá y no
+       en /assets porque el archivo vive en la raíz de public: la URL dice
+       dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
+       (~600 bytes). #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
     {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
        después y se vería un flash del tema claro en cada recarga oscura. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
@@ -334,14 +342,32 @@
         </main>
 
         {# Misma altura que el bloque inferior de la sidebar (h-12): así la
-           línea del footer y la de la sidebar quedan continuas. #}
+           línea del footer y la de la sidebar quedan continuas.
+           La marca sola: el stack vive en #sidebar-foot y no se repite acá.
+           Dos copias del mismo dato se desincronizan en cuanto alguien cambia
+           una, y el footer no necesita decir con qué está hecho. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Mi App — Slim 4 · HTMX · Alpine.js · daisyUI</aside>
+            <aside>Mi App</aside>
         </footer>
     </div>
 </div>
 
 <script>
+// R1 del sidebar: Alpine entra con `defer`, así que entre el parseo y su
+// arranque el sidebar fuera de pantalla de móvil todavía se alcanza con Tab.
+// `x-bind:inert` no puede tapar esa ventana: corre exactamente cuando Alpine
+// inicializa, que es lo que llega tarde. Se aplica acá, durante el parseo
+// (antes del script diferido), el mismo valor inicial que calcula shell():
+// sidebarOpen = window.innerWidth >= 1024. Alpine lo mantiene después.
+// Sólo móvil: en desktop el sidebar es una columna visible y `inert` la
+// dejaría muerta (sin foco ni clicks) hasta que Alpine la corrigiera.
+if (window.innerWidth < 1024) {
+    const el = document.getElementById('sidebar');
+    if (el) {
+        el.setAttribute('inert', '');
+    }
+}
+
 function shell() {
     return {
         theme: document.documentElement.dataset.theme || 'light',

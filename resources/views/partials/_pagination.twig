@@ -10,22 +10,32 @@
 {% if pagination.total > 0 %}
 <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-sm opacity-70">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} registros
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
     </p>
 
     <div class="flex flex-wrap items-center gap-2">
         {% if show_size|default(true) %}
-        <select class="select select-sm w-auto" name="per_page"
-                aria-label="Registros por página"
-                hx-get="{{ pagination.base_url }}"
-                hx-target="{{ target }}"
-                hx-swap="{{ swap|default('outerHTML') }}"
-                hx-trigger="change"
-                hx-include="this">
-            {% for size in [10, 15, 25, 50] %}
-                <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
-            {% endfor %}
-        </select>
+        {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
+           select sin depender de que el lector de pantalla lo anuncie, y el
+           nombre accesible queda idéntico para no anunciar dos cosas distintas.
+           No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta (~4.4:1
+           sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
+           El mismo tono del contador de arriba, con `opacity-70` sólo en el
+           texto, da ~6:1 y deja el select a tinta plena. #}
+        <label class="flex items-center gap-2">
+            <span class="text-sm opacity-70">Tareas por página</span>
+            <select class="select select-sm w-auto" name="per_page"
+                    aria-label="Tareas por página"
+                    hx-get="{{ pagination.base_url }}"
+                    hx-target="{{ target }}"
+                    hx-swap="{{ swap|default('outerHTML') }}"
+                    hx-trigger="change"
+                    hx-include="this">
+                {% for size in [10, 15, 25, 50] %}
+                    <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </label>
         {% endif %}
 
         <div class="join" role="navigation" aria-label="Paginación">

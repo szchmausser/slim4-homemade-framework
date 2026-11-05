@@ -5,8 +5,13 @@
 {% block content %}
     <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
 
-    {# hx-on::after-request limpia el input tras cada alta: el form vive fuera de
-       #tareas-panel, así que el swap no lo toca y el texto quedaría pegado.
+    {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
+       vive fuera de #tareas-panel, así que el swap no lo toca y el texto
+       quedaría pegado. `event.detail.successful` es false en un 400 de
+       validación, en un 5xx y cuando no hubo respuesta; ahí el texto tipeado es
+       justo lo que no se puede borrar, porque es lo único que el usuario tiene
+       para corregir. El server ya conserva el título en el camino de edición
+       (`editing_title`); esto es la otra mitad de la misma regla.
        maxlength=120 alinea el browser con el max:120 del server.
        hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
        emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
@@ -18,7 +23,7 @@
        no su submit. Acá el único <button> es el submit: el input no se
        deshabilita, así que el foco no se pierde mientras espera. #}
     <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
-          hx-on::after-request="this.reset()"
+          hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
