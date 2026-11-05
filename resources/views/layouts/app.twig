@@ -38,10 +38,10 @@
         /* Placeholder al 70 % de base-content. daisyUI y el preflight de
            Tailwind lo dejan al 50 %, que sobre base-100 claro mide 3.38:1 y
            queda bajo el piso de 4.5:1 del sistema; al 70 % mide 6.54:1 (la
-           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyendose como
+           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyéndose como
            texto de ejemplo. Se califica con el elemento (input/textarea)
            porque un `::placeholder` suelto pierde contra ese preflight, que
-           el browser build inyecta DESPUES de este <style>. */
+           el browser build inyecta DESPUÉS de este <style>. */
         input::placeholder,
         textarea::placeholder {
             color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
@@ -59,34 +59,34 @@
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
-        /* Tinta de los iconos de estado: el color semantico de daisyUI es un
+        /* Tinta de los iconos de estado: el color semántico de daisyUI es un
            FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
-           2.87:1, bajo el 3:1 que pide un objeto grafico. Estos tres valores
-           estan medidos contra los fondos reales de cada tema. */
+           2.87:1, bajo el 3:1 que pide un objeto gráfico. Estos tres valores
+           están medidos contra los fondos reales de cada tema. */
         :root {
             --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
             --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
             --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
         }
-        /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
-           reusan tal cual. No es cosmetico: los mismos ink claros sobre el
-           fondo oscuro dan 3.59 y 2.95:1 y fallarian. */
+        /* En oscuro los semánticos brillantes ya pasan (8.06 y 5.52:1) y se
+           reusan tal cual. No es cosmético: los mismos ink claros sobre el
+           fondo oscuro dan 3.59 y 2.95:1 y fallarían. */
         [data-theme="dark"] {
             --ink-success: var(--color-success);
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
             --ink-info:    var(--color-info);
-            /* Telon del modal: mas denso que el 40 % de daisyUI, que sobre una
-               pagina ya oscura casi no se distingue. */
+            /* Telón del modal: más denso que el 40 % de daisyUI, que sobre una
+               página ya oscura casi no se distingue. */
             --modal-scrim: oklch(0% 0 0/.6);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
 
-        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la pagina
-           activa como un bloque casi negro, mas pesado que cualquier otro
+        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
+           activa como un bloque casi negro, más pesado que cualquier otro
            elemento de la pantalla. Se cambia por un tinte suave del propio
            texto, que funciona igual en los dos temas y conserva el contraste
            (el color del texto sigue siendo base-content). */
@@ -95,13 +95,13 @@
             color: var(--color-base-content);
         }
 
-        /* Capa del modal de borrado en tema oscuro. El telon de daisyUI (40 %
-           negro) apenas se distingue sobre una pagina que ya es oscura, y la
-           sombra de `.modal-box` desaparece sobre base-200: el dialogo se
-           leia como parte del fondo. Se sube solo la densidad del telon
-           (`--modal-scrim`) y el box gana un hairline de tinta: la separacion
+        /* Capa del modal de borrado en tema oscuro. El telón de daisyUI (40 %
+           negro) apenas se distingue sobre una página que ya es oscura, y la
+           sombra de `.modal-box` desaparece sobre base-200: el diálogo se
+           leía como parte del fondo. Se sube solo la densidad del telón
+           (`--modal-scrim`) y el box gana un hairline de tinta: la separación
            pasa a venir del contraste y no de la sombra. En claro no se toca,
-           donde la sombra si funciona. */
+           donde la sombra sí funciona. */
         [data-theme="dark"] .modal[open] {
             background-color: var(--modal-scrim);
         }
@@ -109,10 +109,10 @@
             border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
         }
 
-        /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posicion y no
+        /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posición y no
            con `display`/`visibility`: un elemento con display:none no recibe el
-           foco de la primera tabulacion, que es justo lo que este enlace tiene
-           que hacer. `sr-only` de Tailwind haria lo mismo, pero depende de que
+           foco de la primera tabulación, que es justo lo que este enlace tiene
+           que hacer. `sr-only` de Tailwind haría lo mismo, pero depende de que
            el JIT lo compile; esto es determinista y no agrega una clase al
            guard. */
         .skip-link {
@@ -131,19 +131,19 @@
         }
 
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: abajo a la derecha del area de contenido. El host sigue
-           replicando la geometria de la columna (en desktop el sidebar es
-           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           Posición: abajo a la derecha del área de contenido. El host sigue
+           replicando la geometría de la columna (en desktop el sidebar es
+           `static`, así que un `fixed` contra el viewport no cae donde uno
            espera) y el stack adentro repite el `max-w-6xl` y el padding de
            <main>: el borde derecho de cada toast queda sobre el del contenido.
-           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
-           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           Anclado ABAJO y no arriba: pegado al título tapaba el formulario de
+           alta y su botón, que es justo lo que el usuario está por usar cuando
            llega el aviso.
            La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
-           encima del anterior y el bloque se expande hacia el titulo, nunca
+           encima del anterior y el bloque se expande hacia el título, nunca
            hacia el borde inferior de la pantalla. En móvil el mismo criterio,
            con 1rem de margen. */
-        /* En móvil tambien tiene que librar el footer (h-12). */
+        /* En móvil también tiene que librar el footer (h-12). */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
@@ -154,8 +154,8 @@
         }
         .toast-stack {
             display: flex;
-            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
-               hacia el titulo y el aviso recien llegado es el primero que se
+            /* El último del DOM es el más nuevo y queda arriba: la pila crece
+               hacia el título y el aviso recién llegado es el primero que se
                lee. El ancla inferior la da `bottom` en el host. */
             flex-direction: column-reverse;
             align-items: flex-end;
@@ -182,11 +182,11 @@
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
             /* El acento del aviso usa las mismas tintas que los iconos de fila.
-               Con los semanticos crudos el icono del toast daba 1.75:1
+               Con los semánticos crudos el icono del toast daba 1.75:1
                (success), 2.45:1 (error) y 2.10:1 (info) contra su propio
-               fondo: bajo el 3:1 de un objeto grafico. Eran dos sistemas de
-               tinta en el mismo archivo, y este era el que se habia quedado
-               atras. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
+               fondo: bajo el 3:1 de un objeto gráfico. Eran dos sistemas de
+               tinta en el mismo archivo, y este era el que se había quedado
+               atrás. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
             --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
@@ -557,7 +557,7 @@ function toastStack() {
  *
  * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
  * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
- *    publica en `clavePendiente` durante htmx:beforeRequest, ANTES del request.
+ *    publica en `pendingKey` durante htmx:beforeRequest, ANTES del request.
  * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
  *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
  * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
@@ -567,30 +567,30 @@ function toastStack() {
  * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
  *    página es navegación, y llevarse el foco ahí sería robarlo.
  */
-function restaurarFocoTrasSwap() {
+function restoreFocusAfterSwap() {
     // Una sola clave viva: la intención dura lo que dura el request.
-    let clavePendiente = null;
+    let pendingKey = null;
 
-    document.body.addEventListener('htmx:beforeRequest', (evento) => {
-        const elt = evento.detail && evento.detail.elt;
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+        const elt = event.detail && event.detail.elt;
         // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
         // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
         // dejaría su clave viva y el request siguiente la gastaría en el lugar
         // equivocado. `dataset` no existe si htmx dispara sobre un target que
         // no es un elemento (puede pasar), así que se lee con guarda.
-        clavePendiente = (elt && elt.dataset && elt.dataset.focusKey) || null;
+        pendingKey = (elt && elt.dataset && elt.dataset.focusKey) || null;
     });
 
     document.body.addEventListener('htmx:afterSettle', () => {
-        if (clavePendiente === null) {
+        if (pendingKey === null) {
             return;
         }
-        const clave = clavePendiente;
-        clavePendiente = null;
+        const key = pendingKey;
+        pendingKey = null;
 
-        const nuevo = document.querySelector(selectorPorClave(clave));
-        const destino = nuevo || document.getElementById('tareas-panel');
-        if (!destino) {
+        const found = document.querySelector(selectorForKey(key));
+        const focusTarget = found || document.getElementById('tareas-panel');
+        if (!focusTarget) {
             return;
         }
 
@@ -598,7 +598,7 @@ function restaurarFocoTrasSwap() {
         // foco en un nodo fuera de pantalla justo cuando el swap movió el
         // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
         // El default sólo scrollea si el destino no está a la vista.
-        destino.focus();
+        focusTarget.focus();
     });
 
     /**
@@ -607,17 +607,17 @@ function restaurarFocoTrasSwap() {
      * alguna vez la clave deja de ser numérica, y el fallback cubre los
      * navegadores que no exponen `CSS.escape`.
      */
-    function selectorPorClave(clave) {
-        const escapada = (window.CSS && typeof window.CSS.escape === 'function')
-            ? window.CSS.escape(clave)
-            : String(clave).replace(/["\\]/g, '\\$&');
-        return '[data-focus-key="' + escapada + '"]';
+    function selectorForKey(key) {
+        const escaped = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(key)
+            : String(key).replace(/["\\]/g, '\\$&');
+        return '[data-focus-key="' + escaped + '"]';
     }
 }
 
 // Los listeners van en document.body y no en el panel: el panel se reemplaza en
 // cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
-restaurarFocoTrasSwap();
+restoreFocusAfterSwap();
 
 /**
  * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
@@ -631,31 +631,31 @@ restaurarFocoTrasSwap();
  * acciones htmx exitosas: un solo componente de avisos, y este script no toca
  * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
  */
-function avisarFallosDeHtmx() {
-    const avisar = (mensaje) => window.dispatchEvent(new CustomEvent('toasts', {
-        detail: { items: [{ message: mensaje, type: 'error' }] }
+function notifyHtmxFailures() {
+    const notify = (message) => window.dispatchEvent(new CustomEvent('toasts', {
+        detail: { items: [{ message, type: 'error' }] }
     }));
 
-    document.body.addEventListener('htmx:responseError', (evento) => {
-        const estado = evento.detail && evento.detail.xhr ? evento.detail.xhr.status : 0;
+    document.body.addEventListener('htmx:responseError', (event) => {
+        const status = event.detail && event.detail.xhr ? event.detail.xhr.status : 0;
 
         // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
         // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
         // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
         // dice más ("Tu sesión expiró") porque sabe por qué falló.
-        if (estado === 400 || estado === 419) {
+        if (status === 400 || status === 419) {
             return;
         }
 
-        avisar('No se pudo completar la acción. Probá de nuevo.');
+        notify('No se pudo completar la acción. Probá de nuevo.');
     });
 
     document.body.addEventListener('htmx:sendError', () => {
-        avisar('No hay conexión con el servidor.');
+        notify('No hay conexión con el servidor.');
     });
 }
 
-avisarFallosDeHtmx();
+notifyHtmxFailures();
 </script>
 </body>
 </html>

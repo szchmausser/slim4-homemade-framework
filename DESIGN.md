@@ -61,6 +61,11 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - **URL**: el servidor emite `HX-Push-Url` con la página que efectivamente renderizó (no se pone `hx-push-url` en las plantillas, porque `Pagination` recorta la página y el atributo mentiría).
 - **En vuelo**: `hx-disabled-elt` en el formulario de alta y en el panel, para que un doble clic no duplique la mutación.
 - **Foco**: los controles llevan `data-focus-key`; un listener lo guarda en `htmx:beforeRequest` y lo restaura en `htmx:afterSettle`. Si la fila desapareció, el foco cae en `#tareas-panel` (`tabindex="-1"`).
+- **CSRF**: dos transportes, según el disparador. Dentro de un formulario, los campos ocultos de `partials/_csrf.twig`; un botón suelto que emite una mutación, `hx-headers` con el par serializado. Sin htmx el fallo deja flash de error y 303 al login; con htmx, 400 + `HX-Trigger`.
+
+## Nombres
+
+En los bloques `<script>` y en las expresiones de Alpine los identificadores van en inglés (`shell`, `toastStack`, `toggleMini`, `restoreFocusAfterSwap`, `pendingKey`, `open`) y los comentarios en español con acentos. Un mismo bloque no mezcla los dos idiomas.
 
 ## Accesibilidad (piso, no objetivo)
 

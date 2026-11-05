@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Support\Flash;
 use App\Support\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
@@ -151,9 +152,16 @@ return [
                         ]));
                 }
 
-                // Prefijado como todo redirect: un 303 a '/' desde /app deja
-                // al usuario en la raíz del dominio, que no es esta app.
-                return $response->withStatus(303)->withHeader('Location', Url::path('/'));
+                // Sin htmx no hay toast que escuchar, así que el aviso tiene
+                // que viajar en el flash y aparecer donde el usuario cae: el
+                // login, que es la vista que renderiza `flash_error`. Antes el
+                // redirect era a '/' y sin flash: el usuario perdía lo tipeado
+                // sin enterarse de por qué.
+                Flash::set('error', 'Tu sesión expiró. Volvé a iniciar sesión.');
+
+                // Prefijado como todo redirect: un 303 a '/login' desde /app
+                // deja al usuario en la raíz del dominio, que no es esta app.
+                return $response->withStatus(303)->withHeader('Location', Url::path('/login'));
             },
         );
     },

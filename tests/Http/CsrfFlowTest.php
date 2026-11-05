@@ -46,7 +46,7 @@ final class CsrfFlowTest extends HttpTestCase
         self::assertStringContainsString('Comprar pan', (string) $postResponse->getBody());
     }
 
-    public function test_post_con_token_invalido_redirige_al_inicio(): void
+    public function test_post_con_token_invalido_redirige_al_login(): void
     {
         $response = self::app()->handle(
             self::request('POST', '/tareas', [

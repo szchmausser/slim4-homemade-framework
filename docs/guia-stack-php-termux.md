@@ -349,6 +349,7 @@ declare(strict_types=1);
 use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Support\Flash;
 use App\Support\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
@@ -495,9 +496,16 @@ return [
                         ]));
                 }
 
-                // Prefijado como todo redirect: un 303 a '/' desde /app deja
-                // al usuario en la raíz del dominio, que no es esta app.
-                return $response->withStatus(303)->withHeader('Location', Url::path('/'));
+                // Sin htmx no hay toast que escuchar, así que el aviso tiene
+                // que viajar en el flash y aparecer donde el usuario cae: el
+                // login, que es la vista que renderiza `flash_error`. Antes el
+                // redirect era a '/' y sin flash: el usuario perdía lo tipeado
+                // sin enterarse de por qué.
+                Flash::set('error', 'Tu sesión expiró. Volvé a iniciar sesión.');
+
+                // Prefijado como todo redirect: un 303 a '/login' desde /app
+                // deja al usuario en la raíz del dominio, que no es esta app.
+                return $response->withStatus(303)->withHeader('Location', Url::path('/login'));
             },
         );
     },
@@ -2488,10 +2496,10 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         /* Placeholder al 70 % de base-content. daisyUI y el preflight de
            Tailwind lo dejan al 50 %, que sobre base-100 claro mide 3.38:1 y
            queda bajo el piso de 4.5:1 del sistema; al 70 % mide 6.54:1 (la
-           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyendose como
+           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyéndose como
            texto de ejemplo. Se califica con el elemento (input/textarea)
            porque un `::placeholder` suelto pierde contra ese preflight, que
-           el browser build inyecta DESPUES de este <style>. */
+           el browser build inyecta DESPUÉS de este <style>. */
         input::placeholder,
         textarea::placeholder {
             color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
@@ -2509,34 +2517,34 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
-        /* Tinta de los iconos de estado: el color semantico de daisyUI es un
+        /* Tinta de los iconos de estado: el color semántico de daisyUI es un
            FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
-           2.87:1, bajo el 3:1 que pide un objeto grafico. Estos tres valores
-           estan medidos contra los fondos reales de cada tema. */
+           2.87:1, bajo el 3:1 que pide un objeto gráfico. Estos tres valores
+           están medidos contra los fondos reales de cada tema. */
         :root {
             --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
             --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
             --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
         }
-        /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
-           reusan tal cual. No es cosmetico: los mismos ink claros sobre el
-           fondo oscuro dan 3.59 y 2.95:1 y fallarian. */
+        /* En oscuro los semánticos brillantes ya pasan (8.06 y 5.52:1) y se
+           reusan tal cual. No es cosmético: los mismos ink claros sobre el
+           fondo oscuro dan 3.59 y 2.95:1 y fallarían. */
         [data-theme="dark"] {
             --ink-success: var(--color-success);
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
             --ink-info:    var(--color-info);
-            /* Telon del modal: mas denso que el 40 % de daisyUI, que sobre una
-               pagina ya oscura casi no se distingue. */
+            /* Telón del modal: más denso que el 40 % de daisyUI, que sobre una
+               página ya oscura casi no se distingue. */
             --modal-scrim: oklch(0% 0 0/.6);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
 
-        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la pagina
-           activa como un bloque casi negro, mas pesado que cualquier otro
+        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
+           activa como un bloque casi negro, más pesado que cualquier otro
            elemento de la pantalla. Se cambia por un tinte suave del propio
            texto, que funciona igual en los dos temas y conserva el contraste
            (el color del texto sigue siendo base-content). */
@@ -2545,13 +2553,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             color: var(--color-base-content);
         }
 
-        /* Capa del modal de borrado en tema oscuro. El telon de daisyUI (40 %
-           negro) apenas se distingue sobre una pagina que ya es oscura, y la
-           sombra de `.modal-box` desaparece sobre base-200: el dialogo se
-           leia como parte del fondo. Se sube solo la densidad del telon
-           (`--modal-scrim`) y el box gana un hairline de tinta: la separacion
+        /* Capa del modal de borrado en tema oscuro. El telón de daisyUI (40 %
+           negro) apenas se distingue sobre una página que ya es oscura, y la
+           sombra de `.modal-box` desaparece sobre base-200: el diálogo se
+           leía como parte del fondo. Se sube solo la densidad del telón
+           (`--modal-scrim`) y el box gana un hairline de tinta: la separación
            pasa a venir del contraste y no de la sombra. En claro no se toca,
-           donde la sombra si funciona. */
+           donde la sombra sí funciona. */
         [data-theme="dark"] .modal[open] {
             background-color: var(--modal-scrim);
         }
@@ -2559,10 +2567,10 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
         }
 
-        /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posicion y no
+        /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posición y no
            con `display`/`visibility`: un elemento con display:none no recibe el
-           foco de la primera tabulacion, que es justo lo que este enlace tiene
-           que hacer. `sr-only` de Tailwind haria lo mismo, pero depende de que
+           foco de la primera tabulación, que es justo lo que este enlace tiene
+           que hacer. `sr-only` de Tailwind haría lo mismo, pero depende de que
            el JIT lo compile; esto es determinista y no agrega una clase al
            guard. */
         .skip-link {
@@ -2581,19 +2589,19 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         }
 
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: abajo a la derecha del area de contenido. El host sigue
-           replicando la geometria de la columna (en desktop el sidebar es
-           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           Posición: abajo a la derecha del área de contenido. El host sigue
+           replicando la geometría de la columna (en desktop el sidebar es
+           `static`, así que un `fixed` contra el viewport no cae donde uno
            espera) y el stack adentro repite el `max-w-6xl` y el padding de
            <main>: el borde derecho de cada toast queda sobre el del contenido.
-           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
-           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           Anclado ABAJO y no arriba: pegado al título tapaba el formulario de
+           alta y su botón, que es justo lo que el usuario está por usar cuando
            llega el aviso.
            La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
-           encima del anterior y el bloque se expande hacia el titulo, nunca
+           encima del anterior y el bloque se expande hacia el título, nunca
            hacia el borde inferior de la pantalla. En móvil el mismo criterio,
            con 1rem de margen. */
-        /* En móvil tambien tiene que librar el footer (h-12). */
+        /* En móvil también tiene que librar el footer (h-12). */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
@@ -2604,8 +2612,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         }
         .toast-stack {
             display: flex;
-            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
-               hacia el titulo y el aviso recien llegado es el primero que se
+            /* El último del DOM es el más nuevo y queda arriba: la pila crece
+               hacia el título y el aviso recién llegado es el primero que se
                lee. El ancla inferior la da `bottom` en el host. */
             flex-direction: column-reverse;
             align-items: flex-end;
@@ -2632,11 +2640,11 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
             /* El acento del aviso usa las mismas tintas que los iconos de fila.
-               Con los semanticos crudos el icono del toast daba 1.75:1
+               Con los semánticos crudos el icono del toast daba 1.75:1
                (success), 2.45:1 (error) y 2.10:1 (info) contra su propio
-               fondo: bajo el 3:1 de un objeto grafico. Eran dos sistemas de
-               tinta en el mismo archivo, y este era el que se habia quedado
-               atras. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
+               fondo: bajo el 3:1 de un objeto gráfico. Eran dos sistemas de
+               tinta en el mismo archivo, y este era el que se había quedado
+               atrás. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
             --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
@@ -3007,7 +3015,7 @@ function toastStack() {
  *
  * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
  * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
- *    publica en `clavePendiente` durante htmx:beforeRequest, ANTES del request.
+ *    publica en `pendingKey` durante htmx:beforeRequest, ANTES del request.
  * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
  *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
  * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
@@ -3017,30 +3025,30 @@ function toastStack() {
  * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
  *    página es navegación, y llevarse el foco ahí sería robarlo.
  */
-function restaurarFocoTrasSwap() {
+function restoreFocusAfterSwap() {
     // Una sola clave viva: la intención dura lo que dura el request.
-    let clavePendiente = null;
+    let pendingKey = null;
 
-    document.body.addEventListener('htmx:beforeRequest', (evento) => {
-        const elt = evento.detail && evento.detail.elt;
+    document.body.addEventListener('htmx:beforeRequest', (event) => {
+        const elt = event.detail && event.detail.elt;
         // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
         // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
         // dejaría su clave viva y el request siguiente la gastaría en el lugar
         // equivocado. `dataset` no existe si htmx dispara sobre un target que
         // no es un elemento (puede pasar), así que se lee con guarda.
-        clavePendiente = (elt && elt.dataset && elt.dataset.focusKey) || null;
+        pendingKey = (elt && elt.dataset && elt.dataset.focusKey) || null;
     });
 
     document.body.addEventListener('htmx:afterSettle', () => {
-        if (clavePendiente === null) {
+        if (pendingKey === null) {
             return;
         }
-        const clave = clavePendiente;
-        clavePendiente = null;
+        const key = pendingKey;
+        pendingKey = null;
 
-        const nuevo = document.querySelector(selectorPorClave(clave));
-        const destino = nuevo || document.getElementById('tareas-panel');
-        if (!destino) {
+        const found = document.querySelector(selectorForKey(key));
+        const focusTarget = found || document.getElementById('tareas-panel');
+        if (!focusTarget) {
             return;
         }
 
@@ -3048,7 +3056,7 @@ function restaurarFocoTrasSwap() {
         // foco en un nodo fuera de pantalla justo cuando el swap movió el
         // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
         // El default sólo scrollea si el destino no está a la vista.
-        destino.focus();
+        focusTarget.focus();
     });
 
     /**
@@ -3057,17 +3065,17 @@ function restaurarFocoTrasSwap() {
      * alguna vez la clave deja de ser numérica, y el fallback cubre los
      * navegadores que no exponen `CSS.escape`.
      */
-    function selectorPorClave(clave) {
-        const escapada = (window.CSS && typeof window.CSS.escape === 'function')
-            ? window.CSS.escape(clave)
-            : String(clave).replace(/["\\]/g, '\\$&');
-        return '[data-focus-key="' + escapada + '"]';
+    function selectorForKey(key) {
+        const escaped = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(key)
+            : String(key).replace(/["\\]/g, '\\$&');
+        return '[data-focus-key="' + escaped + '"]';
     }
 }
 
 // Los listeners van en document.body y no en el panel: el panel se reemplaza en
 // cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
-restaurarFocoTrasSwap();
+restoreFocusAfterSwap();
 
 /**
  * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
@@ -3081,31 +3089,31 @@ restaurarFocoTrasSwap();
  * acciones htmx exitosas: un solo componente de avisos, y este script no toca
  * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
  */
-function avisarFallosDeHtmx() {
-    const avisar = (mensaje) => window.dispatchEvent(new CustomEvent('toasts', {
-        detail: { items: [{ message: mensaje, type: 'error' }] }
+function notifyHtmxFailures() {
+    const notify = (message) => window.dispatchEvent(new CustomEvent('toasts', {
+        detail: { items: [{ message, type: 'error' }] }
     }));
 
-    document.body.addEventListener('htmx:responseError', (evento) => {
-        const estado = evento.detail && evento.detail.xhr ? evento.detail.xhr.status : 0;
+    document.body.addEventListener('htmx:responseError', (event) => {
+        const status = event.detail && event.detail.xhr ? event.detail.xhr.status : 0;
 
         // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
         // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
         // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
         // dice más ("Tu sesión expiró") porque sabe por qué falló.
-        if (estado === 400 || estado === 419) {
+        if (status === 400 || status === 419) {
             return;
         }
 
-        avisar('No se pudo completar la acción. Probá de nuevo.');
+        notify('No se pudo completar la acción. Probá de nuevo.');
     });
 
     document.body.addEventListener('htmx:sendError', () => {
-        avisar('No hay conexión con el servidor.');
+        notify('No hay conexión con el servidor.');
     });
 }
 
-avisarFallosDeHtmx();
+notifyHtmxFailures();
 </script>
 </body>
 </html>
@@ -3357,7 +3365,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 ```twig
 {# `tabindex="-1"`: marca el panel como destino de foco programático (no
-   entra en el orden de tabulación). Es el fallback de `restaurarFocoTrasSwap()`
+   entra en el orden de tabulación). Es el fallback de `restoreFocusAfterSwap()`
    en app.twig cuando la acción hizo desaparecer el control que la disparó:
    borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
    los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
@@ -3445,7 +3453,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
    esa MISMA clave en el markup recién intercambiado. La clave sale del id de
    la tarea, lo único estable entre un render y el siguiente: el índice de la
-   fila cambia en cuanto se borra una. Mecanismo en `restaurarFocoTrasSwap()`
+   fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
    del <script> de layouts/app.twig. #}
 <ul class="space-y-2">
     {% for task in tasks %}
@@ -3525,9 +3533,9 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        renglón (24px de alto). Sin esto, con `items-start` el
                        icono quedaría 2px por debajo del centro óptico. #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
-                          x-data="{ abierto: false }"
-                          @click.outside="abierto = false"
-                          @keydown.escape="abierto = false">
+                          x-data="{ open: false }"
+                          @click.outside="open = false"
+                          @keydown.escape="open = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
                            igual que un click, sin listeners de teclado a mano.
                            El anillo de foco va SIN color a propósito: daisyUI
@@ -3544,8 +3552,8 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                            centrado en el recuadro que agrega el padding. #}
                         <button type="button"
                                 class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
-                                @click="abierto = !abierto"
-                                :aria-expanded="abierto ? 'true' : 'false'"
+                                @click="open = !open"
+                                :aria-expanded="open ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">
                             {% if task.status == 'completado' %}
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -3560,7 +3568,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                            es la única forma de apuntarle sin depender de sus
                            atributos internos. #}
                         <span x-cloak
-                              x-show="abierto"
+                              x-show="open"
                               x-transition.opacity.duration.150ms
                               aria-hidden="true"
                               class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
@@ -3634,7 +3642,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
             <dialog class="modal" aria-label="Confirmar borrado de {{ task.title }}">
                 <div class="modal-box">
-                    <h3 class="font-bold">¿Borrar esta tarea?</h3>
+                    <h2 class="font-bold">¿Borrar esta tarea?</h2>
                     <p class="py-3 opacity-70">{{ task.title }}</p>
                     <div class="modal-action">
                         <form method="dialog">
@@ -3854,6 +3862,14 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    Las URLs son navegación real, pero htmx sigue interceptando el click cuando
    está cargado: el href es el fallback, no un segundo camino.
 
+   El control de tamaño tenía el problema inverso: sólo `hx-get` +
+   `hx-trigger="change"`, así que sin JS era una pieza muerta al lado de
+   enlaces que sí navegan. Ahora vive dentro de un `<form method="get">` que
+   envía nativo (`per_page` es su único campo) y el submit que lo dispara está
+   en un `<noscript>`: con JS manda htmx, como antes, y no aparece ningún
+   botón de más. El form no envuelve otro form: el partial entero vive dentro
+   de `#tareas-panel`.
+
    Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
    una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
    con la etiqueta y los controles— sin ritmo entre las piezas ni relación
@@ -3960,20 +3976,27 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            texto, da ~6:1 y deja el select a tinta plena.
            En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
            en móvil queda como tercera línea, debajo de los controles. #}
-        <label class="flex items-center gap-2 sm:order-first">
-            <span class="text-sm opacity-70">Tareas por página</span>
-            <select class="select select-sm w-auto" name="per_page"
-                    aria-label="Tareas por página"
-                    hx-get="{{ pagination.base_url }}"
-                    hx-target="{{ target }}"
-                    hx-swap="{{ swap|default('outerHTML') }}"
-                    hx-trigger="change"
-                    hx-include="this">
-                {% for size in pagination.allowed_per_page %}
-                    <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
-                {% endfor %}
-            </select>
-        </label>
+        {# `sm:order-first` pasa del label al form porque el form es ahora el
+           hijo del flex; el label conserva su fila y su `gap-2`. #}
+        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
+            <label class="flex items-center gap-2">
+                <span class="text-sm opacity-70">Tareas por página</span>
+                <select class="select select-sm w-auto" name="per_page"
+                        aria-label="Tareas por página"
+                        hx-get="{{ pagination.base_url }}"
+                        hx-target="{{ target }}"
+                        hx-swap="{{ swap|default('outerHTML') }}"
+                        hx-trigger="change"
+                        hx-include="this">
+                    {% for size in pagination.allowed_per_page %}
+                        <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <noscript>
+                <button type="submit" class="btn btn-sm">Aplicar</button>
+            </noscript>
+        </form>
         {% endif %}
     </div>
 </div>
@@ -4577,7 +4600,7 @@ final class CsrfFlowTest extends HttpTestCase
         self::assertStringContainsString('Comprar pan', (string) $postResponse->getBody());
     }
 
-    public function test_post_con_token_invalido_redirige_al_inicio(): void
+    public function test_post_con_token_invalido_redirige_al_login(): void
     {
         $response = self::app()->handle(
             self::request('POST', '/tareas', [

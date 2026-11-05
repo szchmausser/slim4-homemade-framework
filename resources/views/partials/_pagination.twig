@@ -8,6 +8,14 @@
    Las URLs son navegación real, pero htmx sigue interceptando el click cuando
    está cargado: el href es el fallback, no un segundo camino.
 
+   El control de tamaño tenía el problema inverso: sólo `hx-get` +
+   `hx-trigger="change"`, así que sin JS era una pieza muerta al lado de
+   enlaces que sí navegan. Ahora vive dentro de un `<form method="get">` que
+   envía nativo (`per_page` es su único campo) y el submit que lo dispara está
+   en un `<noscript>`: con JS manda htmx, como antes, y no aparece ningún
+   botón de más. El form no envuelve otro form: el partial entero vive dentro
+   de `#tareas-panel`.
+
    Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
    una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
    con la etiqueta y los controles— sin ritmo entre las piezas ni relación
@@ -114,20 +122,27 @@
            texto, da ~6:1 y deja el select a tinta plena.
            En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
            en móvil queda como tercera línea, debajo de los controles. #}
-        <label class="flex items-center gap-2 sm:order-first">
-            <span class="text-sm opacity-70">Tareas por página</span>
-            <select class="select select-sm w-auto" name="per_page"
-                    aria-label="Tareas por página"
-                    hx-get="{{ pagination.base_url }}"
-                    hx-target="{{ target }}"
-                    hx-swap="{{ swap|default('outerHTML') }}"
-                    hx-trigger="change"
-                    hx-include="this">
-                {% for size in pagination.allowed_per_page %}
-                    <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
-                {% endfor %}
-            </select>
-        </label>
+        {# `sm:order-first` pasa del label al form porque el form es ahora el
+           hijo del flex; el label conserva su fila y su `gap-2`. #}
+        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
+            <label class="flex items-center gap-2">
+                <span class="text-sm opacity-70">Tareas por página</span>
+                <select class="select select-sm w-auto" name="per_page"
+                        aria-label="Tareas por página"
+                        hx-get="{{ pagination.base_url }}"
+                        hx-target="{{ target }}"
+                        hx-swap="{{ swap|default('outerHTML') }}"
+                        hx-trigger="change"
+                        hx-include="this">
+                    {% for size in pagination.allowed_per_page %}
+                        <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <noscript>
+                <button type="submit" class="btn btn-sm">Aplicar</button>
+            </noscript>
+        </form>
         {% endif %}
     </div>
 </div>

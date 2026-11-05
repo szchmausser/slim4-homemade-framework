@@ -17,7 +17,7 @@
    clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
    esa MISMA clave en el markup recién intercambiado. La clave sale del id de
    la tarea, lo único estable entre un render y el siguiente: el índice de la
-   fila cambia en cuanto se borra una. Mecanismo en `restaurarFocoTrasSwap()`
+   fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
    del <script> de layouts/app.twig. #}
 <ul class="space-y-2">
     {% for task in tasks %}
@@ -97,9 +97,9 @@
                        renglón (24px de alto). Sin esto, con `items-start` el
                        icono quedaría 2px por debajo del centro óptico. #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
-                          x-data="{ abierto: false }"
-                          @click.outside="abierto = false"
-                          @keydown.escape="abierto = false">
+                          x-data="{ open: false }"
+                          @click.outside="open = false"
+                          @keydown.escape="open = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
                            igual que un click, sin listeners de teclado a mano.
                            El anillo de foco va SIN color a propósito: daisyUI
@@ -116,8 +116,8 @@
                            centrado en el recuadro que agrega el padding. #}
                         <button type="button"
                                 class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
-                                @click="abierto = !abierto"
-                                :aria-expanded="abierto ? 'true' : 'false'"
+                                @click="open = !open"
+                                :aria-expanded="open ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">
                             {% if task.status == 'completado' %}
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -132,7 +132,7 @@
                            es la única forma de apuntarle sin depender de sus
                            atributos internos. #}
                         <span x-cloak
-                              x-show="abierto"
+                              x-show="open"
                               x-transition.opacity.duration.150ms
                               aria-hidden="true"
                               class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
@@ -206,7 +206,7 @@
                - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
             <dialog class="modal" aria-label="Confirmar borrado de {{ task.title }}">
                 <div class="modal-box">
-                    <h3 class="font-bold">¿Borrar esta tarea?</h3>
+                    <h2 class="font-bold">¿Borrar esta tarea?</h2>
                     <p class="py-3 opacity-70">{{ task.title }}</p>
                     <div class="modal-action">
                         <form method="dialog">
