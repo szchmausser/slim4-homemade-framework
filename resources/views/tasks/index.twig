@@ -34,7 +34,7 @@
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
-        <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"
+        <input type="text" name="title" placeholder="Nueva tarea" aria-label="Nueva tarea" required maxlength="120"
                class="input join-item w-full">
         <button type="submit" class="btn btn-primary join-item">
             Agregar

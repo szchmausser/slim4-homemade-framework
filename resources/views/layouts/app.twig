@@ -53,6 +53,7 @@
             --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
             --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
+            --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
         }
         /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
            reusan tal cual. No es cosmetico: los mismos ink claros sobre el
@@ -61,6 +62,7 @@
             --ink-success: var(--color-success);
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+            --ink-info:    var(--color-info);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
@@ -148,7 +150,13 @@
            vida. El color sale de los tokens del tema activo, así que el
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
-            --toast-accent: var(--color-info);
+            /* El acento del aviso usa las mismas tintas que los iconos de fila.
+               Con los semanticos crudos el icono del toast daba 1.75:1
+               (success), 2.45:1 (error) y 2.10:1 (info) contra su propio
+               fondo: bajo el 3:1 de un objeto grafico. Eran dos sistemas de
+               tinta en el mismo archivo, y este era el que se habia quedado
+               atras. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
+            --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
             /* Borde completo acá y no con `border border-base-300` en el HTML:
@@ -159,8 +167,8 @@
             border-inline-start: 3px solid var(--toast-accent);
             pointer-events: auto;                    /* sí se puede usar el botón cerrar */
         }
-        .toast-card[data-type="success"] { --toast-accent: var(--color-success); }
-        .toast-card[data-type="error"]   { --toast-accent: var(--color-error); }
+        .toast-card[data-type="success"] { --toast-accent: var(--ink-success); }
+        .toast-card[data-type="error"]   { --toast-accent: var(--ink-error); }
         .toast-icon {
             color: var(--toast-accent);
             background: color-mix(in oklab, var(--toast-accent) 15%, transparent);
