@@ -1,7 +1,17 @@
 <div id="tareas-panel">
+    {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
+       htmx): ahí no hay evento que escuchar, así que el aviso va inline.
+       En las respuestas htmx estos dos banners llegan en null y el mensaje
+       viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
+       un aviso, un canal (ver Controller::render). #}
     {% if flash_error %}
         <div class="alert alert-error mb-4" role="alert">
             <span>{{ flash_error }}</span>
+        </div>
+    {% endif %}
+    {% if flash_success %}
+        <div class="alert alert-success mb-4" role="status">
+            <span>{{ flash_success }}</span>
         </div>
     {% endif %}
 

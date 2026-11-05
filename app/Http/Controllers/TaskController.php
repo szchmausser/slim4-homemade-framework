@@ -65,6 +65,7 @@ class TaskController extends Controller
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
         } else {
             Task::create(['title' => $data['title']]);
+            Flash::set('success', 'Tarea creada.');
         }
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
@@ -74,7 +75,14 @@ class TaskController extends Controller
 
     public function destroy(Request $request, Response $response, array $args): Response
     {
-        Task::destroy((int) $args['id']);
+        $deleted = Task::destroy((int) $args['id']);
+
+        // destroy() de un id inexistente no falla: devuelve 0. Sin este branch
+        // el toast diría "eliminada" sobre una fila que nunca existió.
+        Flash::set(
+            $deleted > 0 ? 'success' : 'error',
+            $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
+        );
 
         return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
@@ -88,16 +96,14 @@ class TaskController extends Controller
         // Un id que no existe no responde 404: htmx metería la página de
         // error dentro de #tareas-panel. Devolvemos el panel con un flash,
         // que es donde la app ya comunica todo lo que el usuario tiene que
-        // ver sin recargar.
-        $flash = null;
+        // ver sin recargar. El flash NO se consume acá: lo levanta render(),
+        // que decide si va inline o en el header de htmx.
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
-            $flash = Flash::get('error');
         }
 
         return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
-            'editing_id'  => $task?->id,
-            'flash_error' => $flash,
+            'editing_id' => $task?->id,
         ]);
     }
 
@@ -133,6 +139,7 @@ class TaskController extends Controller
         }
 
         $task->update(['title' => $data['title']]);
+        Flash::set('success', 'Tarea actualizada.');
 
         return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
             'editing_id'    => null,
@@ -157,8 +164,10 @@ class TaskController extends Controller
 
         if ($task->status === 'completado') {
             $task->update(['status' => 'pendiente', 'completed_at' => null]);
+            Flash::set('success', 'Tarea marcada como pendiente.');
         } else {
             $task->update(['status' => 'completado', 'completed_at' => Carbon::now()]);
+            Flash::set('success', 'Tarea completada.');
         }
 
         return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));

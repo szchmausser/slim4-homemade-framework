@@ -107,9 +107,22 @@ final class ToggleTaskTest extends TestCase
         );
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertStringContainsString(
+
+        // Con HX-Request el aviso va en el header (canal único: si viajara
+        // también en el HTML, se vería dos veces). El layout lo consume con
+        // @toasts.window y el payload es un objeto, así que el array de
+        // mensajes está en .items.
+        $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
+
+        self::assertSame(
             'La tarea no existe o ya fue eliminada.',
-            (string) $response->getBody()
+            $payload['toasts']['items'][0]['message'] ?? null
+        );
+        self::assertSame('error', $payload['toasts']['items'][0]['type'] ?? null);
+        self::assertStringNotContainsString(
+            'La tarea no existe o ya fue eliminada.',
+            (string) $response->getBody(),
+            'El aviso no puede ir en el header Y en el HTML.'
         );
     }
 

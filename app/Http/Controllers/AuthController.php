@@ -34,8 +34,7 @@ class AuthController extends Controller
         }
 
         return $this->render($request, $response, 'auth/login.twig', [
-            'active'     => 'login',
-            'flash_info' => Flash::get('info'),
+            'active' => 'login',
         ]);
     }
 
@@ -53,9 +52,8 @@ class AuthController extends Controller
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->render($request, $response, 'auth/login.twig', [
-                'active'     => 'login',
-                'flash_info' => Flash::get('info'),
-                'email'      => $email,
+                'active' => 'login',
+                'email'  => $email,
             ]);
         }
 
@@ -68,9 +66,8 @@ class AuthController extends Controller
             Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
-                'active'     => 'login',
-                'flash_info' => Flash::get('info'),
-                'email'      => $email,
+                'active' => 'login',
+                'email'  => $email,
             ]);
         }
 
@@ -88,9 +85,8 @@ class AuthController extends Controller
             Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
-                'active'     => 'login',
-                'flash_info' => Flash::get('info'),
-                'email'      => $email,
+                'active' => 'login',
+                'email'  => $email,
             ]);
         }
 
