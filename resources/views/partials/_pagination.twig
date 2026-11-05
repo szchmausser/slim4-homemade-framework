@@ -49,7 +49,13 @@
            decir, no se podía saber dónde se está parado. `btn-primary` la
            vuelve la única ficha con relleno de color pleno contra `base-100`,
            distinta de los enlaces (contorno, sin relleno) y de las flechas
-           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro.
+
+           La pagina actual es un `<span>` y no un `<button>`: no hace nada,
+           y un control enfocable que se anuncia como boton y no responde a
+           Enter es peor que texto. Conserva las mismas clases y
+           `aria-current="page"`, que es lo que la identifica como el lugar
+           donde se esta parado. Todo lo demas sigue siendo accionable. #}
         <nav class="join" aria-label="Paginación">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
@@ -74,7 +80,8 @@
                 {% if p is null %}
                     <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
                 {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</button>
+                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
+                    <span class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</span>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="join-item btn btn-sm btn-square btn-outline"

@@ -34,6 +34,19 @@
 
     <style>
         [x-cloak] { display: none !important; }
+
+        /* Placeholder al 70 % de base-content. daisyUI y el preflight de
+           Tailwind lo dejan al 50 %, que sobre base-100 claro mide 3.38:1 y
+           queda bajo el piso de 4.5:1 del sistema; al 70 % mide 6.54:1 (la
+           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyendose como
+           texto de ejemplo. Se califica con el elemento (input/textarea)
+           porque un `::placeholder` suelto pierde contra ese preflight, que
+           el browser build inyecta DESPUES de este <style>. */
+        input::placeholder,
+        textarea::placeholder {
+            color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+            opacity: 1;
+        }
         {# Pre-pintado del sidebar plegado (ver script de arriba): sin esto el
            primer paint sale expandido y Alpine lo colapsa animado.
            Solo desktop (min-width lg): en móvil el sidebar es overlay y este
@@ -64,6 +77,9 @@
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
             --ink-info:    var(--color-info);
+            /* Telon del modal: mas denso que el 40 % de daisyUI, que sobre una
+               pagina ya oscura casi no se distingue. */
+            --modal-scrim: oklch(0% 0 0/.6);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
@@ -77,6 +93,20 @@
         .menu .menu-active {
             background-color: color-mix(in oklab, var(--color-base-content) 12%, transparent);
             color: var(--color-base-content);
+        }
+
+        /* Capa del modal de borrado en tema oscuro. El telon de daisyUI (40 %
+           negro) apenas se distingue sobre una pagina que ya es oscura, y la
+           sombra de `.modal-box` desaparece sobre base-200: el dialogo se
+           leia como parte del fondo. Se sube solo la densidad del telon
+           (`--modal-scrim`) y el box gana un hairline de tinta: la separacion
+           pasa a venir del contraste y no de la sombra. En claro no se toca,
+           donde la sombra si funciona. */
+        [data-theme="dark"] .modal[open] {
+            background-color: var(--modal-scrim);
+        }
+        [data-theme="dark"] .modal-box {
+            border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
         }
 
         /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posicion y no
@@ -305,7 +335,12 @@
             </li>
         </ul>
         {% if user_id is defined and user_id %}
-        <div class="border-t border-base-300 p-2">
+        {# Misma altura que el footer (`h-12`): asi su border-t cae a la misma
+           distancia del borde inferior y las dos lineas se leen como una sola.
+           Con padding libre, el bloque medía 48px plegado (solo el boton) y ~60
+           desplegado (suma el p-1.5 de la fila), asi que la linea se cortaba
+           solo al desplegar el menu. #}
+        <div class="flex h-12 shrink-0 items-center border-t border-base-300 px-2">
             {# Fila de usuario: inicial en un disco, email y la salida como icono.
                Antes el email flotaba suelto arriba y "Salir" era un boton
                fantasma de ancho completo: dos pesos distintos para la misma
@@ -334,7 +369,11 @@
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
             {# Abrir/cerrar en móvil. #}
-            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
+            {# `aria-expanded` dice si el drawer esta abierto: la etiqueta sola
+               cambiaba de texto, pero un lector de pantalla no anuncia un
+               boton que abre o cierra nada. Es el mismo booleano que mueve el
+               drawer (y `inert`), asi que no puede desincronizarse. #}
+            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'" :aria-expanded="sidebarOpen ? 'true' : 'false'">
                 <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>

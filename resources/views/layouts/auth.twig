@@ -19,6 +19,20 @@
 
     {# Sin htmx ni Alpine a proposito: el login es un POST normal y no hay
        estado de cliente que gobernar. Son ~106 KB que esta pantalla no usa. #}
+
+    <style>
+        /* Placeholder al 70 % de base-content, igual que en layouts/app.twig:
+           daisyUI y el preflight de Tailwind lo pintan al 50 %, que sobre
+           base-100 claro mide 3.38:1, bajo el piso de 4.5:1 del sistema. Al
+           70 % mide 6.54:1 y sigue leyendose atenuado. El elemento en el
+           selector le gana al preflight del browser build, que se inyecta
+           despues de este <style>; un `::placeholder` solo perderia. */
+        input::placeholder,
+        textarea::placeholder {
+            color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+            opacity: 1;
+        }
+    </style>
 </head>
 <body class="bg-base-200 text-base-content">
     {# Layout de autenticacion, sin sidebar ni header. El shell de la app

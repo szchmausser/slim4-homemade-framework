@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,22 +9,52 @@
        costaría un 404 extra. Son ~55 bytes. #}
     <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
+    {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
+       de JS de esta página. Antes no estaba: un error salía siempre en claro
+       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
+       excepción del sistema. Sin el script, corregir `data-theme` después del
+       paint mostraría el flash que los otros layouts evitan. #}
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
+
     {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
        necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
        paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
        vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
        abajo quedan inertes, que es exactamente el defecto que esto arregla.
-       Sin JS no hay JIT de Tailwind, así que acá NO se usan utilidades
-       (`flex`, `p-6`, `text-6xl`): sólo nombres que el bundle define. #}
+       Sin el build de Tailwind no hay JIT: acá NO se usan utilidades
+       (`flex`, `p-6`, `text-6xl`), sólo nombres que el bundle define, y el
+       resto va como reglas en el <style> de abajo. #}
     <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
 
     <style>
         /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
            no carga: el preflight que saca el margen del body, el alto de
-           viewport y el centrado del texto. */
+           viewport y el centrado del texto. El fondo y la tinta del body ya
+           vienen de tokens en el `class` (bg-base-200/text-base-content, que
+           el bundle sí define) y siguen a `data-theme`: acá no hay un color
+           fijo que se quede en claro cuando el tema es oscuro. */
         body { margin: 0; }
         .error-main { min-height: 100dvh; }
+        /* El `hero-content` de daisyUI es una fila: acá la marca va ARRIBA de
+           la tarjeta, así que se apila. */
+        .error-main .hero-content { flex-direction: column; }
         .error-body { align-items: center; text-align: center; }
+
+        /* El título es el único `h1` de la página y usaba `card-title` (18 px,
+           600): se leía como encabezado de tarjeta, no como el título de la
+           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque acá
+           no hay JIT que compile la utilidad. */
+        .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+
+        /* Misma marca que layouts/auth.twig (partials/_logo.twig + "Mi App")
+           y linkeada a `/`, para que el error también sea el producto y no un
+           cartel suelto. Las utilidades del partial (h-8, rounded-lg,
+           bg-primary) no existen sin JIT, así que la caja se dibuja acá con
+           los mismos tokens; el `size` del include deja sólo esta clase. */
+        .error-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 1.125rem; font-weight: 700; }
+        .error-logo { display: inline-flex; align-items: center; justify-content: center; height: 2rem; width: 2rem; border-radius: .5rem;
+                      background-color: var(--color-primary); color: var(--color-primary-content); }
+        .error-logo svg { height: 1.25rem; width: 1.25rem; }
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
@@ -40,10 +70,14 @@
         : 'Algo salió mal de nuestro lado.'))) %}
     <main class="hero error-main">
         <div class="hero-content">
+            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
+                {% include 'partials/_logo.twig' with { size: 'error-logo' } %}
+                <span>Mi App</span>
+            </a>
             <div class="card card-border bg-base-100">
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
-                    <h1 class="card-title">{{ mensaje }}</h1>
+                    <h1 class="error-title">{{ mensaje }}</h1>
                     <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
                 </div>
             </div>

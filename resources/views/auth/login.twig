@@ -14,7 +14,10 @@
             </div>
         {% endif %}
         {% if flash_info is defined and flash_info %}
-            <div class="alert alert-info mb-4" role="alert">
+            {# `status` y no `alert`: la convencion del proyecto es error ->
+               alert, exito/info -> status (ver tasks/_panel.twig), y este
+               aviso no interrumpe nada. #}
+            <div class="alert alert-info mb-4" role="status">
                 <span>{{ flash_info }}</span>
             </div>
         {% endif %}

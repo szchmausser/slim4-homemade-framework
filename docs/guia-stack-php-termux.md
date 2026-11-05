@@ -702,7 +702,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
 
 ```twig
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -712,22 +712,52 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
        costaría un 404 extra. Son ~55 bytes. #}
     <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
+    {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
+       de JS de esta página. Antes no estaba: un error salía siempre en claro
+       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
+       excepción del sistema. Sin el script, corregir `data-theme` después del
+       paint mostraría el flash que los otros layouts evitan. #}
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
+
     {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
        necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
        paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
        vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
        abajo quedan inertes, que es exactamente el defecto que esto arregla.
-       Sin JS no hay JIT de Tailwind, así que acá NO se usan utilidades
-       (`flex`, `p-6`, `text-6xl`): sólo nombres que el bundle define. #}
+       Sin el build de Tailwind no hay JIT: acá NO se usan utilidades
+       (`flex`, `p-6`, `text-6xl`), sólo nombres que el bundle define, y el
+       resto va como reglas en el <style> de abajo. #}
     <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
 
     <style>
         /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
            no carga: el preflight que saca el margen del body, el alto de
-           viewport y el centrado del texto. */
+           viewport y el centrado del texto. El fondo y la tinta del body ya
+           vienen de tokens en el `class` (bg-base-200/text-base-content, que
+           el bundle sí define) y siguen a `data-theme`: acá no hay un color
+           fijo que se quede en claro cuando el tema es oscuro. */
         body { margin: 0; }
         .error-main { min-height: 100dvh; }
+        /* El `hero-content` de daisyUI es una fila: acá la marca va ARRIBA de
+           la tarjeta, así que se apila. */
+        .error-main .hero-content { flex-direction: column; }
         .error-body { align-items: center; text-align: center; }
+
+        /* El título es el único `h1` de la página y usaba `card-title` (18 px,
+           600): se leía como encabezado de tarjeta, no como el título de la
+           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque acá
+           no hay JIT que compile la utilidad. */
+        .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+
+        /* Misma marca que layouts/auth.twig (partials/_logo.twig + "Mi App")
+           y linkeada a `/`, para que el error también sea el producto y no un
+           cartel suelto. Las utilidades del partial (h-8, rounded-lg,
+           bg-primary) no existen sin JIT, así que la caja se dibuja acá con
+           los mismos tokens; el `size` del include deja sólo esta clase. */
+        .error-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 1.125rem; font-weight: 700; }
+        .error-logo { display: inline-flex; align-items: center; justify-content: center; height: 2rem; width: 2rem; border-radius: .5rem;
+                      background-color: var(--color-primary); color: var(--color-primary-content); }
+        .error-logo svg { height: 1.25rem; width: 1.25rem; }
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
@@ -743,10 +773,14 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
         : 'Algo salió mal de nuestro lado.'))) %}
     <main class="hero error-main">
         <div class="hero-content">
+            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
+                {% include 'partials/_logo.twig' with { size: 'error-logo' } %}
+                <span>Mi App</span>
+            </a>
             <div class="card card-border bg-base-100">
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
-                    <h1 class="card-title">{{ mensaje }}</h1>
+                    <h1 class="error-title">{{ mensaje }}</h1>
                     <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
                 </div>
             </div>
@@ -2450,6 +2484,19 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
     <style>
         [x-cloak] { display: none !important; }
+
+        /* Placeholder al 70 % de base-content. daisyUI y el preflight de
+           Tailwind lo dejan al 50 %, que sobre base-100 claro mide 3.38:1 y
+           queda bajo el piso de 4.5:1 del sistema; al 70 % mide 6.54:1 (la
+           misma cuenta de "Atenuar" en DESIGN.md) y sigue leyendose como
+           texto de ejemplo. Se califica con el elemento (input/textarea)
+           porque un `::placeholder` suelto pierde contra ese preflight, que
+           el browser build inyecta DESPUES de este <style>. */
+        input::placeholder,
+        textarea::placeholder {
+            color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+            opacity: 1;
+        }
         {# Pre-pintado del sidebar plegado (ver script de arriba): sin esto el
            primer paint sale expandido y Alpine lo colapsa animado.
            Solo desktop (min-width lg): en móvil el sidebar es overlay y este
@@ -2480,6 +2527,9 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
             --ink-info:    var(--color-info);
+            /* Telon del modal: mas denso que el 40 % de daisyUI, que sobre una
+               pagina ya oscura casi no se distingue. */
+            --modal-scrim: oklch(0% 0 0/.6);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
@@ -2493,6 +2543,20 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         .menu .menu-active {
             background-color: color-mix(in oklab, var(--color-base-content) 12%, transparent);
             color: var(--color-base-content);
+        }
+
+        /* Capa del modal de borrado en tema oscuro. El telon de daisyUI (40 %
+           negro) apenas se distingue sobre una pagina que ya es oscura, y la
+           sombra de `.modal-box` desaparece sobre base-200: el dialogo se
+           leia como parte del fondo. Se sube solo la densidad del telon
+           (`--modal-scrim`) y el box gana un hairline de tinta: la separacion
+           pasa a venir del contraste y no de la sombra. En claro no se toca,
+           donde la sombra si funciona. */
+        [data-theme="dark"] .modal[open] {
+            background-color: var(--modal-scrim);
+        }
+        [data-theme="dark"] .modal-box {
+            border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
         }
 
         /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posicion y no
@@ -2721,7 +2785,12 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             </li>
         </ul>
         {% if user_id is defined and user_id %}
-        <div class="border-t border-base-300 p-2">
+        {# Misma altura que el footer (`h-12`): asi su border-t cae a la misma
+           distancia del borde inferior y las dos lineas se leen como una sola.
+           Con padding libre, el bloque medía 48px plegado (solo el boton) y ~60
+           desplegado (suma el p-1.5 de la fila), asi que la linea se cortaba
+           solo al desplegar el menu. #}
+        <div class="flex h-12 shrink-0 items-center border-t border-base-300 px-2">
             {# Fila de usuario: inicial en un disco, email y la salida como icono.
                Antes el email flotaba suelto arriba y "Salir" era un boton
                fantasma de ancho completo: dos pesos distintos para la misma
@@ -2750,7 +2819,11 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
             {# Abrir/cerrar en móvil. #}
-            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
+            {# `aria-expanded` dice si el drawer esta abierto: la etiqueta sola
+               cambiaba de texto, pero un lector de pantalla no anuncia un
+               boton que abre o cierra nada. Es el mismo booleano que mueve el
+               drawer (y `inert`), asi que no puede desincronizarse. #}
+            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'" :aria-expanded="sidebarOpen ? 'true' : 'false'">
                 <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -3108,7 +3181,10 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
             </div>
         {% endif %}
         {% if flash_info is defined and flash_info %}
-            <div class="alert alert-info mb-4" role="alert">
+            {# `status` y no `alert`: la convencion del proyecto es error ->
+               alert, exito/info -> status (ver tasks/_panel.twig), y este
+               aviso no interrumpe nada. #}
+            <div class="alert alert-info mb-4" role="status">
                 <span>{{ flash_info }}</span>
             </div>
         {% endif %}
@@ -3819,7 +3895,13 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            decir, no se podía saber dónde se está parado. `btn-primary` la
            vuelve la única ficha con relleno de color pleno contra `base-100`,
            distinta de los enlaces (contorno, sin relleno) y de las flechas
-           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro.
+
+           La pagina actual es un `<span>` y no un `<button>`: no hace nada,
+           y un control enfocable que se anuncia como boton y no responde a
+           Enter es peor que texto. Conserva las mismas clases y
+           `aria-current="page"`, que es lo que la identifica como el lugar
+           donde se esta parado. Todo lo demas sigue siendo accionable. #}
         <nav class="join" aria-label="Paginación">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
@@ -3844,7 +3926,8 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 {% if p is null %}
                     <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
                 {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</button>
+                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
+                    <span class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</span>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="join-item btn btn-sm btn-square btn-outline"

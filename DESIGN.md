@@ -12,16 +12,17 @@ Sistema visual vigente. Describe lo que el código hace hoy; si hay divergencia,
 |---|---|---|
 | `layouts/app.twig` | shell de la app autenticada | sidebar plegable, header con breadcrumb y toggle de tema, host de avisos, `main` centrado, footer |
 | `layouts/auth.twig` | acceso | pre-pintado de tema, hoja + build de Tailwind, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
-| `errors/error.twig` | página de error | autónoma, sin `extends`, sin JS, < 4 KB, mensaje mapeado por código |
+| `errors/error.twig` | página de error | autónoma, sin `extends`, sólo el pre-pintado de tema, < 4 KB, mensaje mapeado por código |
 
-Un layout nuevo sólo se justifica si no puede ser una rama de estos tres. Hay dos layouts con `<head>` repetido: si aparece un tercero, extraer un partial.
+Un layout nuevo sólo se justifica si no puede ser una rama de estos tres. Hay dos layouts con el `<head>` repetido: si aparece un tercero, extraer un partial. La página de error no cuenta como tal: repite sólo el favicon y el pre-pintado, y su `<head>` es mínimo a propósito (sin build de Tailwind ni htmx/Alpine).
 
 ## Color
 
 - daisyUI 5 aporta los tokens: `--color-base-100/200/300/content`, `--color-primary/secondary/accent/neutral`, `--color-info/success/warning/error` y sus `*-content`.
-- Tema por `data-theme` en `<html>` (`light` / `dark`), aplicado **antes del primer paint** por un script inline en el `<head>`. **Prohibido `dark:`**: si aparece una utilidad `dark:` es un error de sistema, no una variante.
+- Tema por `data-theme` en `<html>` (`light` / `dark`), aplicado **antes del primer paint** por un script inline en el `<head>` de **los tres** layouts. La página de error era la excepción —no tenía el script, así que salía siempre en claro— y ya no lo es. **Prohibido `dark:`**: si aparece una utilidad `dark:` es un error de sistema, no una variante.
 - Los semánticos de daisyUI son **fondos**, no tintas. Para iconos existen tres tokens propios en el `<style>` del layout: `--ink-success` (4.77:1), `--ink-error` (5.37:1), `--ink-pending` (6.55:1) en claro, con reuso de los semánticos en oscuro. Se aplican con `.icon-success`, `.icon-error`, `.icon-pending`.
 - Sin hex ni `oklch()` sueltos en las plantillas. Si hace falta un valor nuevo, va como custom property en el `<style>`.
+- El placeholder de los campos se pinta al 70 % de `base-content`, no al 50 % de daisyUI (3.38:1 sobre base-100, bajo el piso): una regla sobre `input`/`textarea` en el `<style>` de `layouts/app.twig` y `layouts/auth.twig`, no una clase por campo.
 
 ## Tipografía
 
@@ -42,7 +43,7 @@ Atenuar se hace con `opacity-*` (medido: 60 % = 4.64:1, 70 % = 6.54:1, 80 % = 9.
 - Una sola columna, `max-w-6xl`, `p-4 lg:p-6`, centrada.
 - Tarjetas de fila: `rounded-box border border-base-300 bg-base-100 p-3`.
 - Cromo de altura fija: header `h-16`, footer `h-12`. Las líneas del footer y del sidebar son continuas.
-- Separadores con `border-base-300`; nunca sombras para delimitar estructura (las sombras son para capas flotantes: modal y avisos).
+- Separadores con `border-base-300`; nunca sombras para delimitar estructura (las sombras son para capas flotantes: modal y avisos). En oscuro el modal de borrado suma un borde de tinta y un telón más denso (`--modal-scrim`), porque ahí la sombra no se ve.
 
 ## Componentes
 
@@ -88,4 +89,4 @@ Vendorizados con SRI, servidos desde `public/assets/`. `php -S` no comprime; en 
 - Utilidades `dark:`.
 - Colores fuera de los tokens.
 - Clases de daisyUI que no existan en el bundle vendorizado.
-- JS nuevo fuera de los dos bloques inline existentes (`layouts/app.twig`) y del `x-data` de Alpine.
+- JS nuevo fuera de los bloques inline existentes: los **tres** de `layouts/app.twig` (los dos de pre-pintado del `<head>` y el del final del `<body>`), el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, y el `x-data` de Alpine.
