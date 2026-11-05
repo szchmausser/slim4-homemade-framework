@@ -32,15 +32,48 @@
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
                 <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
-                    {# Icono de estado: gris para pendiente, verde para completado #}
-                    {% if task.status == 'completado' %}
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-success"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        <span class="text-xs opacity-60">Completada el {{ task.completed_at|date('d/m/Y H:i') }}</span>
-                    {% else %}
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0 text-base-400"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
-                        <span class="text-xs opacity-60">Pendiente</span>
-                    {% endif %}
-                    <span class="ml-1">{{ task.title }}</span>
+                    {# Icono de estado: tenue para pendiente, verde para completado.
+                       (`text-base-400` no existe en daisyUI 5: era una clase muerta y
+                       el icono salía a full contraste, más pesado que el verde.)
+                       El estado NO se escribe al lado del título ("Pendiente" /
+                       "Completada el ..."): en móvil ese texto le robaba ancho al
+                       título y el dato sólo interesa cuando lo buscás. Ahora el
+                       icono es el disparador de un tooltip por click.
+                       Por qué no `title=` nativo: en táctil no existe el hover y
+                       en desktop aparecería solo al pasar el mouse encima del
+                       icono, no al pedirlo. `aria-label` lleva el texto completo
+                       (lector de pantalla) y el tooltip es puramente visual:
+                       `aria-hidden` + `pointer-events-none` (nunca se queda con
+                       el click que debería cerrarlo). #}
+                    {% set estado_texto = task.status == 'completado'
+                        ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
+                        : 'Pendiente' %}
+                    <span class="relative inline-flex shrink-0"
+                          x-data="{ abierto: false }"
+                          @click.outside="abierto = false"
+                          @keydown.escape="abierto = false">
+                        {# Es un <button> de verdad: focus + Enter/Space lo abren
+                           igual que un click, sin listeners de teclado a mano. #}
+                        <button type="button"
+                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                @click="abierto = !abierto"
+                                :aria-expanded="abierto ? 'true' : 'false'"
+                                aria-label="{{ estado_texto }}">
+                            {% if task.status == 'completado' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-base-content/40" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
+                            {% endif %}
+                        </button>
+                        <span x-cloak
+                              x-show="abierto"
+                              x-transition.opacity.duration.150ms
+                              aria-hidden="true"
+                              class="pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
+                            {{ estado_texto }}
+                        </span>
+                    </span>
+                    <span>{{ task.title }}</span>
                 </span>
                 {# Acciones como ICONOS. Con texto, tres botones ("Completar"
                    + "Editar" + "Eliminar") se comían media fila y en móvil

@@ -65,6 +65,10 @@ final class ToggleTaskTest extends TestCase
         self::assertNotNull($updated->completed_at, 'Falta completed_at al completar.');
 
         $html = (string) $response->getBody();
+        // El estado ya no se escribe al lado del título: viaja en el tooltip del
+        // icono (aria-label + nodo con role visual). El assert sigue siendo el
+        // mismo dato, ahora en su nuevo lugar.
+        self::assertStringContainsString('aria-label="Completada el ', $html, 'El icono no describe el estado nuevo.');
         self::assertStringContainsString('Completada el', $html, 'El panel no pinta el estado nuevo.');
         self::assertStringContainsString('Desmarcar', $html, 'El botón no cambió de etiqueta.');
     }
@@ -92,6 +96,7 @@ final class ToggleTaskTest extends TestCase
         self::assertNull($updated->completed_at, 'completed_at no se limpió.');
 
         self::assertStringContainsString('Pendiente', (string) $response->getBody());
+        self::assertStringNotContainsString('aria-label="Completada el', (string) $response->getBody(), 'Quedó el estado viejo en el icono.');
     }
 
     public function test_toggle_con_id_inexistente_avisa_en_el_panel_sin_500(): void
