@@ -2,10 +2,16 @@
 
 declare(strict_types=1);
 
-// Backup timestamped de SQLite + sidecars WAL (-wal/-shm/-journal) si existen.
+// Backup consistente de SQLite con VACUUM INTO.
 // Uso: composer db:backup
-// Destino: storage/backups/YYYYMMDD-HHMMSS/ (gitignored: son datos reales).
-// Hacelo con la app quieta: en caliente la copia puede ir a medias (WAL).
+// Destino: storage/backups/YYYYMMDD-HHMMSS.sqlite (gitignored: son datos reales).
+//
+// VACUUM INTO hace una lectura transaccional y escribe un archivo nuevo: la
+// copia sale consistente aunque la app esté escribiendo, sin copiar -wal/-shm/
+// -journal en caliente.
+//
+// Retención: KEEP (env, default 10) conserva los últimos archivos .sqlite.
+// Los directorios de backups viejos no se tocan.
 
 require __DIR__ . '/../vendor/autoload.php';
 
@@ -13,24 +19,58 @@ Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
 $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
 
-if ($db === ':memory:' || !file_exists($db)) {
+if ($db === ':memory:' || !is_file($db)) {
     fwrite(STDERR, "No hay base para respaldar en '{$db}'.\n");
     exit(1);
 }
 
 $storage = __DIR__ . '/../storage';
-if (!is_dir($storage)) {
-    mkdir($storage, 0777, true);
+if (!is_dir($storage) && !mkdir($storage, 0777, true) && !is_dir($storage)) {
+    fwrite(STDERR, "No se pudo crear '{$storage}'.\n");
+    exit(1);
 }
-$dest = realpath($storage) . '/backups/' . date('Ymd-His');
-mkdir($dest, 0777, true);
 
-$n = 0;
-foreach ([$db, $db . '-wal', $db . '-shm', $db . '-journal'] as $file) {
-    if (file_exists($file)) {
-        copy($file, $dest . '/' . basename($file));
-        $n++;
+$backupDir = $storage . '/backups';
+if (!is_dir($backupDir) && !mkdir($backupDir, 0777, true) && !is_dir($backupDir)) {
+    fwrite(STDERR, "No se pudo crear '{$backupDir}'.\n");
+    exit(1);
+}
+$backupDir = realpath($backupDir);
+
+$base = $backupDir . '/' . date('Ymd-His');
+$dest = $base . '.sqlite';
+for ($suffix = 2; file_exists($dest); $suffix++) {
+    $dest = $base . '-' . $suffix . '.sqlite';
+}
+
+try {
+    $pdo = new PDO('sqlite:' . $db, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    ]);
+    // SQLite no admite parámetros en VACUUM INTO: se escapa la ruta como
+    // literal SQL duplicando las comillas simples.
+    $target = str_replace("'", "''", $dest);
+    $pdo->exec("VACUUM INTO '{$target}'");
+} catch (PDOException $e) {
+    if (file_exists($dest)) {
+        @unlink($dest);
+    }
+    fwrite(STDERR, "Falló el backup de '{$db}': {$e->getMessage()}\n");
+    exit(1);
+}
+
+$keep = max(1, (int) ($_ENV['KEEP'] ?? 10));
+$backups = [];
+foreach (glob($backupDir . '/*.sqlite') ?: [] as $file) {
+    if (is_file($file) && preg_match('/^\d{8}-\d{6}(?:-\d+)?\.sqlite$/', basename($file))) {
+        $backups[] = $file;
     }
 }
+// strnatcmp ordena timestamps y sufijos (-2, -3, ... -10) como números.
+usort($backups, static fn (string $a, string $b): int => strnatcmp(basename($b), basename($a)));
+foreach (array_slice($backups, $keep) as $old) {
+    @unlink($old);
+}
 
-echo "Backup en {$dest} ({$n} archivos)." . PHP_EOL;
+$size = filesize($dest);
+echo "Backup en {$dest} ({$size} bytes)." . PHP_EOL;
