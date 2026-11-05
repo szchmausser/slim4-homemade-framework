@@ -89,7 +89,9 @@ final class DeleteTaskTest extends TestCase
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
-        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '"', $html);
+        // El query string de posicion lo fija tests/Http/ListStateContractTest;
+        // aca solo importa que el borrado apunte al recurso correcto.
+        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
     }
 
     /**

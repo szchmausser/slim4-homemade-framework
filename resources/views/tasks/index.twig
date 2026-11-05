@@ -7,9 +7,19 @@
 
     {# hx-on::after-request limpia el input tras cada alta: el form vive fuera de
        #tareas-panel, así que el swap no lo toca y el texto quedaría pegado.
-       maxlength=120 alinea el browser con el max:120 del server. #}
+       maxlength=120 alinea el browser con el max:120 del server.
+       hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
+       emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
+       la única señal de que el request salió. El selector viaja con el id
+       porque htmx resuelve un selector CSS pelado contra el documento entero
+       (querySelectorAll sobre el root), no contra el form: `button` a secas
+       apagaría también las filas, el header y el sidebar. `find button` queda
+       atado a qué elemento toma htmx como disparador y `this` apagaría el form,
+       no su submit. Acá el único <button> es el submit: el input no se
+       deshabilita, así que el foco no se pierde mientras espera. #}
     <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="this.reset()"
+          hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
         <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"

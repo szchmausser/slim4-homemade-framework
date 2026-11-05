@@ -1,8 +1,18 @@
+{# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
+   de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
+   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
+   cuatro URLs la usan tal cual, así no pueden divergir entre sí.
+   Se imprime con `|raw` para que el `&` salga literal, igual que en
+   partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
+   puerta de escape: la cadena sale de dos enteros de App\Support\Pagination,
+   nunca de texto del usuario. Dentro del atributo es válido, porque
+   `&per_page` no forma una referencia de carácter (no termina en `;`). #}
+{% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
 <ul class="space-y-2">
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <form hx-put="/tareas/{{ task.id }}"
+                <form hx-put="/tareas/{{ task.id }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex items-center gap-2">
@@ -20,8 +30,9 @@
                     <button type="submit" class="btn btn-primary btn-sm">
                         Guardar
                     </button>
+                    {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     <button type="button"
-                            hx-get="/tareas"
+                            hx-get="/tareas?{{ posicion|raw }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
                             class="btn btn-ghost btn-sm">
@@ -87,9 +98,10 @@
                    iconos de estado de arriba): cero requests y heredan
                    currentColor, así que el tema claro/oscuro es gratis. #}
                 <div class="flex shrink-0 gap-1">
-                    {# Botón para cambiar el estado: HTMX intercambia el panel completo #}
+                    {# Botón para cambiar el estado: HTMX intercambia el panel completo.
+                       `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
                     <button
-                        hx-post="/tareas/{{ task.id }}/toggle"
+                        hx-post="/tareas/{{ task.id }}/toggle?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
@@ -105,7 +117,7 @@
                         {% endif %}
                     </button>
                     <button
-                        hx-get="/tareas/{{ task.id }}/edit"
+                        hx-get="/tareas/{{ task.id }}/edit?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         class="btn btn-square btn-ghost btn-sm"
@@ -140,7 +152,7 @@
                             <button class="btn btn-ghost">Cancelar</button>
                         </form>
                         <button
-                            hx-delete="/tareas/{{ task.id }}"
+                            hx-delete="/tareas/{{ task.id }}?{{ posicion|raw }}"
                             hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"

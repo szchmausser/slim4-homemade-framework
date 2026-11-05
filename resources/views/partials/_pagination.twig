@@ -1,7 +1,12 @@
 {# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
    (ver Pagination::paginate) y target (selector hx-target). Opcionales: swap
    (default outerHTML) y show_size (default true). Sin ids ni rutas propias:
-   todo sale de los params, así sirve en cualquier ruta sin cambios. #}
+   todo sale de los params, así sirve en cualquier ruta sin cambios.
+   Cada <a> lleva `href` ADEMÁS de `hx-get`, y ambos reciben la MISMA URL: un
+   <a> sin href no tiene rol de enlace ni entra en el orden de tabulación, así
+   que con teclado o lector de pantalla las páginas 2+ eran inalcanzables.
+   Las URLs son navegación real, pero htmx sigue interceptando el click cuando
+   está cargado: el href es el fallback, no un segundo camino. #}
 {% if pagination.total > 0 %}
 <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-sm opacity-70">
@@ -24,9 +29,19 @@
         {% endif %}
 
         <div class="join" role="navigation" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de App\Support\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="join-item btn btn-sm"
-                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page - 1 }}&per_page={{ pagination.per_page }}"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    aria-label="Página anterior">«</a>
             {% else %}
@@ -39,16 +54,20 @@
                 {% elseif p == pagination.current_page %}
                     <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
                 {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="join-item btn btn-sm"
-                       hx-get="{{ pagination.base_url }}?page={{ p }}&per_page={{ pagination.per_page }}"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                        aria-label="Página {{ p }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="join-item btn btn-sm"
-                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page + 1 }}&per_page={{ pagination.per_page }}"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    aria-label="Página siguiente">»</a>
             {% else %}

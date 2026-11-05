@@ -60,7 +60,9 @@ final class EditTaskTest extends TestCase
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '"', $html);
+        // El query string de posicion lo fija tests/Http/ListStateContractTest;
+        // aca solo importa que el guardado apunte al recurso correcto.
+        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('Cancelar', $html);

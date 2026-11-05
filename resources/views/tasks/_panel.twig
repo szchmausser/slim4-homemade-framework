@@ -1,4 +1,29 @@
-<div id="tareas-panel">
+<div id="tareas-panel" hx-disabled-elt="#tareas-panel button">
+    {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
+       deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
+       subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin
+       repetirlo en cada fila. Sin esto, un doble click en cualquiera de ellos
+       dispara dos veces la misma mutación (dos DELETE, dos toggles que se
+       anulan) y en hardware lento no hay ninguna señal de que algo esté pasando.
+       Por qué selector pelado y con el id adentro:
+       - `find button` se resuelve contra el elemento que DISPARA (el botón de la
+         fila), que no tiene botones adentro: htmx avisaría "returned no matches"
+         por consola y no apagaría nada.
+       - `this` apagaría el <div> (ahí `disabled` no hace nada) y dejaría vivos
+         justo los botones.
+       - Un selector pelado lo resuelve htmx con document.querySelectorAll, no
+         contra el div: el prefijo #tareas-panel es lo que lo acota al panel.
+       Alcance: sólo <button>, ningún otro descendiente. Los <a> de la paginación
+       quedan vivos a propósito: `disabled` no existe para un enlace y daisyUI
+       (.btn[disabled]) igual lo pintaría apagado, dejando algo que parece muerto
+       y sigue clickeable. El <select> de per_page tampoco entra: cambiar de
+       página o de tamaño es navegación, no una mutación que se pueda duplicar.
+       A los que ya venían deshabilitados (paginación en el borde) no los toca:
+       htmx sólo agrega el atributo si no estaba y sólo lo quita si lo puso él.
+       Efecto lateral asumido: durante el DELETE también queda apagado el
+       Cancelar/Cerrar del modal de confirmación. htmx los reactiva al terminar
+       (incluso si el request falla) y Esc cierra el <dialog> nativo igual, así
+       que no hay encierro. La señal visual la da daisyUI: no hace falta CSS. #}
     {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
        htmx): ahí no hay evento que escuchar, así que el aviso va inline.
        En las respuestas htmx estos dos banners llegan en null y el mensaje
