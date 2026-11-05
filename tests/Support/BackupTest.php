@@ -49,7 +49,14 @@ final class BackupTest extends TestCase
         $files = glob($this->root . '/storage/backups/*.sqlite') ?: [];
         self::assertCount(1, $files, 'tiene que quedar un único archivo .sqlite');
 
-        self::assertStringContainsString($files[0], $stdout);
+        // El aviso imprime la ruta tal como la resolvio el sistema: en Windows
+        // mezcla \ y /. Se compara normalizado porque lo que importa es que
+        // nombre el archivo que escribio, no con que separador lo escribio.
+        self::assertStringContainsString(
+            str_replace('\\', '/', $files[0]),
+            str_replace('\\', '/', $stdout),
+            'el aviso tiene que nombrar el archivo de backup creado'
+        );
         self::assertMatchesRegularExpression('/\(\d+ bytes\)/', $stdout);
 
         $copy = new PDO('sqlite:' . $files[0]);
