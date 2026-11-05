@@ -38,6 +38,15 @@
         </label>
         {% endif %}
 
+        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
+           mismo fondo que la página y un borde de ~1.1:1, así que los números
+           se leían como texto suelto; `btn-outline` les da un contorno que
+           existe en los dos temas. La página actual era `btn-active` (un gris
+           pálido de relleno): indistinguible de una flecha deshabilitada, es
+           decir, no se podía saber dónde se está parado. `btn-primary` la
+           vuelve la única ficha con relleno de color pleno contra `base-100`,
+           distinta de los enlaces (contorno, sin relleno) y de las flechas
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
         <div class="join" role="navigation" aria-label="Paginación">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
@@ -49,7 +58,7 @@
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm"
+                <a class="join-item btn btn-sm btn-outline"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
@@ -62,10 +71,10 @@
                 {% if p is null %}
                     <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
                 {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
+                    <button class="join-item btn btn-sm btn-primary" aria-current="page">{{ p }}</button>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm"
+                    <a class="join-item btn btn-sm btn-outline"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
@@ -75,7 +84,7 @@
 
             {% if pagination.current_page < pagination.last_page %}
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm"
+                <a class="join-item btn btn-sm btn-outline"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"

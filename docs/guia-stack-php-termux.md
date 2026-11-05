@@ -2469,6 +2469,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
             --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
+            --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
         }
         /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
            reusan tal cual. No es cosmetico: los mismos ink claros sobre el
@@ -2477,6 +2478,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             --ink-success: var(--color-success);
             --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+            --ink-info:    var(--color-info);
         }
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
@@ -2564,7 +2566,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            vida. El color sale de los tokens del tema activo, así que el
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
-            --toast-accent: var(--color-info);
+            /* El acento del aviso usa las mismas tintas que los iconos de fila.
+               Con los semanticos crudos el icono del toast daba 1.75:1
+               (success), 2.45:1 (error) y 2.10:1 (info) contra su propio
+               fondo: bajo el 3:1 de un objeto grafico. Eran dos sistemas de
+               tinta en el mismo archivo, y este era el que se habia quedado
+               atras. Con las tintas: 3.89 / 4.26 / ~4.9:1. */
+            --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
             /* Borde completo acá y no con `border border-base-300` en el HTML:
@@ -2575,8 +2583,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             border-inline-start: 3px solid var(--toast-accent);
             pointer-events: auto;                    /* sí se puede usar el botón cerrar */
         }
-        .toast-card[data-type="success"] { --toast-accent: var(--color-success); }
-        .toast-card[data-type="error"]   { --toast-accent: var(--color-error); }
+        .toast-card[data-type="success"] { --toast-accent: var(--ink-success); }
+        .toast-card[data-type="error"]   { --toast-accent: var(--ink-error); }
         .toast-icon {
             color: var(--toast-accent);
             background: color-mix(in oklab, var(--toast-accent) 15%, transparent);
@@ -2640,8 +2648,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
    daisyUI: su ejemplo plegable depende de las variantes is-drawer-open: /
    is-drawer-close:, que no existen en el CSS linkeado (verificado: cero
    ocurrencias en daisyui-5.7.46.css) y quedarían como clases muertas.
-   El tema claro/oscuro lo gobierna data-theme: cero utilities dark:. #}
-<div x-data="shell()" class="flex min-h-screen">
+   El tema claro/oscuro lo gobierna data-theme: cero utilities dark:.
+   `Escape` cierra el drawer SOLO por debajo de lg: en desktop el sidebar no
+   es un overlay (`sidebarOpen` arranca en true) y apagarlo ahi lo dejaria con
+   `inert` —enlaces y «Salir» muertos— por una tecla apretada para cerrar un
+   tooltip o un modal. La guarda es la misma condicion con la que shell()
+   inicializa el estado. #}
+<div x-data="shell()" @keydown.escape.window="window.innerWidth < 1024 && (sidebarOpen = false)" class="flex min-h-screen">
     {# Backdrop solo móvil: en desktop el sidebar empuja el contenido. #}
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
@@ -2651,19 +2664,47 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
        enlaces del orden de tabulación: una clase con `visibility` u `opacity`
        los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
        layout por la animación de translate-x. En desktop `sidebarOpen`
-       arranca en true, así que ahí nunca queda inerte. #}
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
+       arranca en true, así que ahí nunca queda inerte.
+       En desktop es CROMO FIJO, no una columna que se estira con el
+       documento: `lg:sticky lg:top-0 lg:h-dvh` la sujeta al borde superior y
+       al alto de la ventana. Con `lg:static` y una lista larga, el bloque de
+       usuario y «Salir» quedaban al final del scroll —fuera de la pantalla,
+       había que bajar hasta el pie para salir— y el carril quedaba vacío a la
+       vista. `lg:bottom-auto` neutraliza el inset inferior que fija
+       `inset-y-0`, que en sticky sujetaría las dos puntas; en móvil sigue
+       `fixed` + `inset-y-0` + translate, sin cambios. El ancho lo gobierna el
+       plegado (w-64/w-16 y el pre-pintado del <style>), que no se toca. #}
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
            x-bind:inert="!sidebarOpen"
            aria-label="Navegación principal">
         <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
             {% include 'partials/_logo.twig' %}
             <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
+            {# Cerrar el drawer en móvil. Sin esto no había salida visible: la
+               hamburguesa vive en el header (z-20) y el panel abierto la tapa
+               (z-40), así que en un teléfono el único cierre era acertar el
+               backdrop. `lg:hidden`: en desktop el sidebar no es un overlay y
+               no hay nada que cerrar. `ml-auto` lo empuja al extremo sin
+               tocar el logo ni la etiqueta, que el plegado pre-pintado ya
+               oculta con `.sidebar-label`. #}
+            <button type="button"
+                    class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
+                    @click="sidebarOpen = false"
+                    aria-label="Cerrar menú"
+                    title="Cerrar menú">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
         </div>
-        <ul class="menu w-full grow gap-1 p-2">
+        {# `overflow-y-auto` sobre el `grow`: con el sidebar de alto fijo, un
+           menú largo scrollea DENTRO del panel en vez de empujar el bloque de
+           usuario (y «Salir») fuera de la pantalla. Como el <ul> pasa a ser un
+           contenedor de scroll, su min-height automático vale 0: no hace falta
+           un `min-h-0` al lado. #}
+        <ul class="menu w-full grow gap-1 overflow-y-auto p-2">
             <li>
                 <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
+                   title="Inicio"
                    aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
@@ -2671,7 +2712,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             </li>
             <li>
                 <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
+                   title="Tareas"
                    aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
@@ -3219,7 +3260,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
-        <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"
+        <input type="text" name="title" placeholder="Nueva tarea" aria-label="Nueva tarea" required maxlength="120"
                class="input join-item w-full">
         <button type="submit" class="btn btn-primary join-item">
             Agregar
@@ -3373,7 +3414,13 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                {# `items-start` y no `items-center`: el disparador de estado se
+                   alinea con la PRIMERA línea del título. Centrado contra el
+                   bloque, en un título de cinco renglones caía sobre el
+                   tercero y dejaba de leerse como parte del título. El
+                   desplazamiento óptico (`-mt-0.5` en el disparador) conserva
+                   el aspecto centrado cuando el título ocupa un solo renglón. #}
+                <span class="flex items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
                     {# Icono de estado: verde para completado, gris para pendiente.
                        Ambos salen de `--ink-*` (ver el <style> del layout), no de
                        `text-success` ni `text-base-content/40`: los semanticos de
@@ -3392,7 +3439,10 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     {% set estado_texto = task.status == 'completado'
                         ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
                         : 'Pendiente' %}
-                    <span class="relative inline-flex shrink-0"
+                    {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
+                       renglón (24px de alto). Sin esto, con `items-start` el
+                       icono quedaría 2px por debajo del centro óptico. #}
+                    <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ abierto: false }"
                           @click.outside="abierto = false"
                           @keydown.escape="abierto = false">
@@ -3404,9 +3454,14 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                            lo compilaba nadie y el anillo salía por defecto. Con
                            `outline-2` + `outline-offset-2` (utilidades planas de
                            Tailwind, que el browser build sí resuelve) el color
-                           cae en `currentColor`, que contrasta en los dos temas. #}
+                           cae en `currentColor`, que contrasta en los dos temas.
+                           Área de toque: el único recuadro era el svg de 20px,
+                           bajo el mínimo de 24×24 (WCAG 2.5.8). El `p-1` lleva
+                           el control a 28×28 sin agrandar el icono, y el
+                           `flex/items-center/justify-center` lo mantiene
+                           centrado en el recuadro que agrega el padding. #}
                         <button type="button"
-                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+                                class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="abierto = !abierto"
                                 :aria-expanded="abierto ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">
@@ -3741,6 +3796,15 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
         </label>
         {% endif %}
 
+        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
+           mismo fondo que la página y un borde de ~1.1:1, así que los números
+           se leían como texto suelto; `btn-outline` les da un contorno que
+           existe en los dos temas. La página actual era `btn-active` (un gris
+           pálido de relleno): indistinguible de una flecha deshabilitada, es
+           decir, no se podía saber dónde se está parado. `btn-primary` la
+           vuelve la única ficha con relleno de color pleno contra `base-100`,
+           distinta de los enlaces (contorno, sin relleno) y de las flechas
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
         <div class="join" role="navigation" aria-label="Paginación">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
@@ -3752,7 +3816,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm"
+                <a class="join-item btn btn-sm btn-outline"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
@@ -3765,10 +3829,10 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 {% if p is null %}
                     <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
                 {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
+                    <button class="join-item btn btn-sm btn-primary" aria-current="page">{{ p }}</button>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm"
+                    <a class="join-item btn btn-sm btn-outline"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
@@ -3778,7 +3842,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 
             {% if pagination.current_page < pagination.last_page %}
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm"
+                <a class="join-item btn btn-sm btn-outline"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"

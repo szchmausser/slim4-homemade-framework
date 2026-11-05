@@ -68,7 +68,13 @@
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                {# `items-start` y no `items-center`: el disparador de estado se
+                   alinea con la PRIMERA línea del título. Centrado contra el
+                   bloque, en un título de cinco renglones caía sobre el
+                   tercero y dejaba de leerse como parte del título. El
+                   desplazamiento óptico (`-mt-0.5` en el disparador) conserva
+                   el aspecto centrado cuando el título ocupa un solo renglón. #}
+                <span class="flex items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
                     {# Icono de estado: verde para completado, gris para pendiente.
                        Ambos salen de `--ink-*` (ver el <style> del layout), no de
                        `text-success` ni `text-base-content/40`: los semanticos de
@@ -87,7 +93,10 @@
                     {% set estado_texto = task.status == 'completado'
                         ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
                         : 'Pendiente' %}
-                    <span class="relative inline-flex shrink-0"
+                    {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
+                       renglón (24px de alto). Sin esto, con `items-start` el
+                       icono quedaría 2px por debajo del centro óptico. #}
+                    <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ abierto: false }"
                           @click.outside="abierto = false"
                           @keydown.escape="abierto = false">
@@ -99,9 +108,14 @@
                            lo compilaba nadie y el anillo salía por defecto. Con
                            `outline-2` + `outline-offset-2` (utilidades planas de
                            Tailwind, que el browser build sí resuelve) el color
-                           cae en `currentColor`, que contrasta en los dos temas. #}
+                           cae en `currentColor`, que contrasta en los dos temas.
+                           Área de toque: el único recuadro era el svg de 20px,
+                           bajo el mínimo de 24×24 (WCAG 2.5.8). El `p-1` lleva
+                           el control a 28×28 sin agrandar el icono, y el
+                           `flex/items-center/justify-center` lo mantiene
+                           centrado en el recuadro que agrega el padding. #}
                         <button type="button"
-                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
+                                class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="abierto = !abierto"
                                 :aria-expanded="abierto ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">

@@ -232,8 +232,13 @@
    daisyUI: su ejemplo plegable depende de las variantes is-drawer-open: /
    is-drawer-close:, que no existen en el CSS linkeado (verificado: cero
    ocurrencias en daisyui-5.7.46.css) y quedarían como clases muertas.
-   El tema claro/oscuro lo gobierna data-theme: cero utilities dark:. #}
-<div x-data="shell()" class="flex min-h-screen">
+   El tema claro/oscuro lo gobierna data-theme: cero utilities dark:.
+   `Escape` cierra el drawer SOLO por debajo de lg: en desktop el sidebar no
+   es un overlay (`sidebarOpen` arranca en true) y apagarlo ahi lo dejaria con
+   `inert` —enlaces y «Salir» muertos— por una tecla apretada para cerrar un
+   tooltip o un modal. La guarda es la misma condicion con la que shell()
+   inicializa el estado. #}
+<div x-data="shell()" @keydown.escape.window="window.innerWidth < 1024 && (sidebarOpen = false)" class="flex min-h-screen">
     {# Backdrop solo móvil: en desktop el sidebar empuja el contenido. #}
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
@@ -243,19 +248,47 @@
        enlaces del orden de tabulación: una clase con `visibility` u `opacity`
        los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
        layout por la animación de translate-x. En desktop `sidebarOpen`
-       arranca en true, así que ahí nunca queda inerte. #}
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
+       arranca en true, así que ahí nunca queda inerte.
+       En desktop es CROMO FIJO, no una columna que se estira con el
+       documento: `lg:sticky lg:top-0 lg:h-dvh` la sujeta al borde superior y
+       al alto de la ventana. Con `lg:static` y una lista larga, el bloque de
+       usuario y «Salir» quedaban al final del scroll —fuera de la pantalla,
+       había que bajar hasta el pie para salir— y el carril quedaba vacío a la
+       vista. `lg:bottom-auto` neutraliza el inset inferior que fija
+       `inset-y-0`, que en sticky sujetaría las dos puntas; en móvil sigue
+       `fixed` + `inset-y-0` + translate, sin cambios. El ancho lo gobierna el
+       plegado (w-64/w-16 y el pre-pintado del <style>), que no se toca. #}
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
            x-bind:inert="!sidebarOpen"
            aria-label="Navegación principal">
         <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
             {% include 'partials/_logo.twig' %}
             <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
+            {# Cerrar el drawer en móvil. Sin esto no había salida visible: la
+               hamburguesa vive en el header (z-20) y el panel abierto la tapa
+               (z-40), así que en un teléfono el único cierre era acertar el
+               backdrop. `lg:hidden`: en desktop el sidebar no es un overlay y
+               no hay nada que cerrar. `ml-auto` lo empuja al extremo sin
+               tocar el logo ni la etiqueta, que el plegado pre-pintado ya
+               oculta con `.sidebar-label`. #}
+            <button type="button"
+                    class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
+                    @click="sidebarOpen = false"
+                    aria-label="Cerrar menú"
+                    title="Cerrar menú">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
         </div>
-        <ul class="menu w-full grow gap-1 p-2">
+        {# `overflow-y-auto` sobre el `grow`: con el sidebar de alto fijo, un
+           menú largo scrollea DENTRO del panel en vez de empujar el bloque de
+           usuario (y «Salir») fuera de la pantalla. Como el <ul> pasa a ser un
+           contenedor de scroll, su min-height automático vale 0: no hace falta
+           un `min-h-0` al lado. #}
+        <ul class="menu w-full grow gap-1 overflow-y-auto p-2">
             <li>
                 <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
+                   title="Inicio"
                    aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
@@ -263,7 +296,7 @@
             </li>
             <li>
                 <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
+                   title="Tareas"
                    aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
