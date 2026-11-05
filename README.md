@@ -33,8 +33,14 @@ composer test               # suite verde: 69 tests
 | `vendor/bin/phinx seed:run -s NombreSeed` | Un seed puntual |
 | `composer db:backup` | Backup consistente (`.sqlite`) en `storage/backups/`, retención `KEEP` |
 | `composer test` | Suite completa |
+| `composer verify` | Lint + PHPStan + suite + migración fresh sobre DB temporal |
+| `composer lint` | `php -l` sobre `app/` y `tests/` |
+| `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
+| `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | 32 o 64 bits |
+
+`composer verify` incluye PHPStan. El phar dev-only (~30 MB) se descarga una vez en `storage/cache/`; para trabajar offline: `PHPSTAN_PHAR=/ruta/al/phpstan.phar composer phpstan`.
 
 ## Receta: nuevo CRUD en N pasos
 
@@ -67,5 +73,6 @@ bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
 database/migrations/ database/seeds/  Schema versionado + datos
 public/assets/  Frontend vendorizado con SRI
 tests/  Suite (unit + HTTP)
-scripts/  Herramientas CLI (backup)
+scripts/  Herramientas CLI (backup, lint, verificación)
+.github/workflows/  CI (PHP 8.4/8.5 + composer verify)
 ```

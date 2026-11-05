@@ -31,6 +31,15 @@
         "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
+        "lint": "@php scripts/lint.php",
+        "phpstan": "@php scripts/phpstan.php",
+        "migrate:fresh": "@php scripts/migrate-fresh.php",
+        "verify": [
+            "@lint",
+            "@phpstan",
+            "@test",
+            "@migrate:fresh"
+        ],
         "install:termux": "composer install --prefer-dist --no-scripts",
         "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
     },
