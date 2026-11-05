@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use PHPUnit\Framework\TestCase;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * El router, y sobre todo la ruta raiz.
@@ -16,22 +14,18 @@ use Tests\Support\AppFactory;
  * de la página de error era, él mismo, un link muerto. Ningún test lo detectó
  * porque todos asserteaban el status de `/no-existe` y nadie seguía el link.
  */
-final class RoutingTest extends TestCase
+final class RoutingTest extends HttpTestCase
 {
     public function test_la_raiz_responde_y_no_un_404(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $response = self::app()->handle(self::request('GET', '/'));
 
         self::assertSame(200, $response->getStatusCode());
     }
 
     public function test_la_raiz_presenta_el_stack_y_enlaza_a_tareas(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $response = self::app()->handle(self::request('GET', '/'));
 
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();
@@ -44,19 +38,15 @@ final class RoutingTest extends TestCase
     {
         // Si este test falla, volvio el bug: la pagina de error enlaza a una
         // ruta que no existe y el usuario queda atrapado en un 404.
-        $app = AppFactory::make();
+        $app = self::app();
 
-        $error = $app->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $error = $app->handle(self::request('GET', '/no-existe'));
         $error->getBody()->rewind();
         $html = $error->getBody()->getContents();
 
         self::assertStringContainsString('href="/"', $html, 'La pagina de error deberia ofrecer volver al inicio.');
 
-        $target = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $target = $app->handle(self::request('GET', '/'));
 
         // assertSame(200), no assertNotSame(404): un 500 también pasa
         // "distinto de 404" y dejaba el link muerto cubierto por un test verde.

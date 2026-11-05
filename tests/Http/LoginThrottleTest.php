@@ -7,13 +7,10 @@ namespace Tests\Http;
 use App\Models\User;
 use App\Support\Throttle;
 use Illuminate\Database\Capsule\Manager as Capsule;
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
 use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Throttling del login: 5 fallos / 15 min por email + IP. El mensaje y el
@@ -23,7 +20,7 @@ use Tests\Support\AppFactory;
  * Corre contra las migraciones reales (login_attempts viene de la 006) y
  * limpia la tabla en setUp/tearDown: la suite comparte proceso y base.
  */
-final class LoginThrottleTest extends TestCase
+final class LoginThrottleTest extends HttpTestCase
 {
     private const EMAIL = 'yo@ejemplo.com';
 
@@ -39,15 +36,14 @@ final class LoginThrottleTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id']);
         Capsule::table('login_attempts')->delete();
-        User::query()->delete();
+        parent::tearDown();
     }
 
     public function test_cinco_fallos_bloquean_el_sexto_aun_con_la_clave_correcta(): void
     {
         $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         for ($i = 0; $i < Throttle::MAX_ATTEMPTS; $i++) {
             $response = $this->post('clave-errada', $token);
@@ -77,7 +73,7 @@ final class LoginThrottleTest extends TestCase
     public function test_el_login_exitoso_limpia_el_contador(): void
     {
         $user = $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         for ($i = 0; $i < 4; $i++) {
             $this->post('clave-errada', $token);
@@ -106,7 +102,7 @@ final class LoginThrottleTest extends TestCase
     public function test_la_ventana_expira_a_los_quince_minutos(): void
     {
         $user = $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         for ($i = 0; $i < Throttle::MAX_ATTEMPTS; $i++) {
             $this->post('clave-errada', $token);
@@ -131,7 +127,7 @@ final class LoginThrottleTest extends TestCase
     {
         $this->createUser();
         $otro = $this->createUser('otro@ejemplo.com', 'otra-clave');
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         for ($i = 0; $i < Throttle::MAX_ATTEMPTS; $i++) {
             $this->post('clave-errada', $token);
@@ -169,48 +165,17 @@ final class LoginThrottleTest extends TestCase
         string $email = self::EMAIL,
         string $ip = self::IP
     ): ResponseInterface {
-        return self::app()->handle(
-            self::request('POST', '/login', [
+        // Este request no sale del base a proposito: el throttle cuenta por
+        // email + IP, y la IP viaja en REMOTE_ADDR, un server param que ningun
+        // otro test necesita. Es la unica excepcion al scaffolding compartido.
+        $request = (new ServerRequestFactory())
+            ->createServerRequest('POST', 'http://localhost/login', ['REMOTE_ADDR' => $ip])
+            ->withBody((new StreamFactory())->createStream(http_build_query([
                 'email'    => $email,
                 'password' => $password,
-            ] + $token, $ip)
-        );
-    }
+            ] + $token)))
+            ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
 
-    private static function app(): App
-    {
-        return AppFactory::make();
-    }
-
-    /** Token CSRF fresco de la pagina de login. */
-    private function csrf(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name en /login');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value en /login');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function request(
-        string $method,
-        string $path,
-        array $body = [],
-        string $ip = self::IP
-    ): ServerRequestInterface {
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path, ['REMOTE_ADDR' => $ip]);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        return $request;
+        return self::app()->handle($request);
     }
 }

@@ -4,26 +4,20 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use PHPUnit\Framework\TestCase;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
-final class ErrorHandlingTest extends TestCase
+final class ErrorHandlingTest extends HttpTestCase
 {
     public function test_ruta_inexistente_devuelve_404_y_no_500(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         self::assertSame(404, $response->getStatusCode());
     }
 
     public function test_las_paginas_de_error_tambien_llevan_security_headers(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         self::assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         self::assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
@@ -46,9 +40,7 @@ final class ErrorHandlingTest extends TestCase
      */
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();

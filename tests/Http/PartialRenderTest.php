@@ -5,14 +5,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Qué recibe htmx y qué recibe el navegador en la misma ruta.
@@ -28,35 +21,18 @@ use Tests\Support\AppFactory;
  * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
  * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
  */
-final class PartialRenderTest extends TestCase
+final class PartialRenderTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en un SQLite compartido: si no limpiás, la suite
-        // depende del orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_get_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $response = self::app()->handle(
-            self::request(false)
+            self::request('GET', '/tareas')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -70,7 +46,7 @@ final class PartialRenderTest extends TestCase
     public function test_get_con_hx_request_devuelve_solo_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request(true)
+            self::request('GET', '/tareas', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -91,10 +67,10 @@ final class PartialRenderTest extends TestCase
      */
     public function test_post_sin_hx_request_devuelve_la_pagina_completa(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(false, 'POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -115,14 +91,14 @@ final class PartialRenderTest extends TestCase
      */
     public function test_post_con_hx_request_devuelve_solo_el_panel(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(true, 'POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
-            ])
+            ], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -136,10 +112,10 @@ final class PartialRenderTest extends TestCase
     public function test_delete_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(false, 'DELETE', '/tareas/' . $task->id, [
+            self::request('DELETE', '/tareas/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
             ])
@@ -164,49 +140,5 @@ final class PartialRenderTest extends TestCase
         self::assertStringContainsString('<html', $html, 'La mutación devolvió un fragmento, no una página.');
         self::assertStringContainsString('rel="stylesheet"', $html, 'Sin la hoja de estilos la página se ve sin CSS.');
         self::assertStringContainsString('/assets/daisyui-5.7.46.css', $html);
-    }
-
-    /**
-     * @return array{csrf_name: string, csrf_value: string}
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle(self::request(false))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    /**
-     * @param array<string, string> $body
-     */
-    private static function request(
-        bool $htmx,
-        string $method = 'GET',
-        string $path = '/tareas',
-        array $body = []
-    ): ServerRequestInterface {
-        // URI absoluta, igual que en el resto de la suite: con path-only el
-        // host queda vacío y Slim se porta distinto en los casos borde.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            // Body crudo con su Content-Type: así pasa por el Body Parsing
-            // Middleware igual que en producción. withParsedBody() saltearía
-            // justo la capa que rompen los cambios de orden del pipeline.
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }

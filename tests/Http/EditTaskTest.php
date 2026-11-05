@@ -5,13 +5,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * La U de CRUD: la edición es inline en la fila.
@@ -23,29 +17,12 @@ use Tests\Support\AppFactory;
  * El PUT llega como `application/x-www-form-urlencoded` (el default de htmx
  * para verbos no-GET) y lo parsea `addBodyParsingMiddleware()`.
  */
-final class EditTaskTest extends TestCase
+final class EditTaskTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en memoria y se crea una sola vez: si no limpiás,
-        // la suite depende de la orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_get_edit_renderiza_el_formulario_de_la_fila(): void
@@ -86,7 +63,7 @@ final class EditTaskTest extends TestCase
     public function test_put_con_token_valido_actualiza_la_tarea(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, [
@@ -106,7 +83,7 @@ final class EditTaskTest extends TestCase
     public function test_put_sin_titulo_no_actualiza_y_muestra_el_flash(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, [
@@ -127,7 +104,7 @@ final class EditTaskTest extends TestCase
     public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
         $tipeado = str_repeat('b', 200);
 
         $response = self::app()->handle(
@@ -149,7 +126,7 @@ final class EditTaskTest extends TestCase
 
     public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/999999', [
@@ -172,46 +149,10 @@ final class EditTaskTest extends TestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], htmx: true)
+            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title);
-    }
-
-    /**
-     * Extrae los dos hidden que emite partials/_csrf.twig. El name real del
-     * input es `csrf_name` / `csrf_value`: `csrf_name_key` es variable de Twig
-     * y no aparece en el HTML renderizado.
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function request(string $method, string $path, array $body = [], bool $htmx = false): ServerRequestInterface
-    {
-        // URI absoluta y body crudo con su Content-Type, para que pase por el
-        // Body Parsing Middleware igual que en producción.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }

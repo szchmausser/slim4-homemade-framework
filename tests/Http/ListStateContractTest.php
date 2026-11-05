@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Contrato de estado de la lista: toda URL que dispara una mutacion lleva la
@@ -25,25 +20,15 @@ use Tests\Support\AppFactory;
  * Los ids no se hardcodean: la PK sigue incrementando entre tests, asi que se
  * afirma sobre la forma de la URL, no sobre un id concreto.
  */
-final class ListStateContractTest extends TestCase
+final class ListStateContractTest extends HttpTestCase
 {
     protected function setUp(): void
     {
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'contrato@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
+        self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
             Task::create(['title' => sprintf('Tarea %02d', $i)]);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
     }
 
     /**
@@ -294,34 +279,5 @@ final class ListStateContractTest extends TestCase
     private static function page(string $path): string
     {
         return (string) self::app()->handle(self::request('GET', $path))->getBody();
-    }
-
-    /**
-     * Tokens frescos scrapeados de GET /tareas (mismo patron que DeleteTaskTest
-     * y ToggleTaskTest). El Guard corre en persistentTokenMode, asi que el
-     * mismo par sirve para varias peticiones del test.
-     */
-    private static function token(): array
-    {
-        $html = self::page('/tareas');
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontre el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontre el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        return (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
     }
 }

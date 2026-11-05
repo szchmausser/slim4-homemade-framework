@@ -5,12 +5,8 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
 use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * S13: la app servida bajo un prefijo de ruta (`APP_BASE_PATH=/app`).
@@ -24,7 +20,7 @@ use Tests\Support\AppFactory;
  * el prefijo, la respuesta trae las URLs prefijadas, las que no lo llevan no
  * existen, y los redirects no sacan al navegador del prefijo.
  */
-final class BasePathTest extends TestCase
+final class BasePathTest extends HttpTestCase
 {
     /** Dos letras alcanzan y hacen el marcador legible en los asserts. */
     private const PREFIJO = '/app';
@@ -41,9 +37,7 @@ final class BasePathTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id']);
-        Task::query()->delete();
-        User::query()->delete();
+        parent::tearDown();
 
         // El resto de la suite asume la app en la raíz: se deja el proceso como
         // estaba, con una app nueva que se armara al próximo make().
@@ -53,7 +47,7 @@ final class BasePathTest extends TestCase
 
     public function test_el_listado_responde_bajo_el_prefijo_y_ninguna_url_queda_en_la_raiz(): void
     {
-        $this->autenticar();
+        self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/app/tareas'));
 
@@ -80,7 +74,7 @@ final class BasePathTest extends TestCase
 
     public function test_sin_el_prefijo_la_ruta_no_existe(): void
     {
-        $this->autenticar();
+        self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/tareas'));
 
@@ -104,7 +98,7 @@ final class BasePathTest extends TestCase
 
     public function test_la_paginacion_y_la_url_empujada_llevan_el_prefijo(): void
     {
-        $this->autenticar();
+        self::loginAs();
 
         // 11 filas: con 10 por página existe una página 2, y sin eso la
         // paginación no emite ningún <a href> (son botones apagados).
@@ -125,7 +119,7 @@ final class BasePathTest extends TestCase
         $task = Task::orderByDesc('id')->first();
         self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
 
-        $token = self::token();
+        $token = self::token('/app/tareas');
 
         $response = self::app()->handle(
             self::request('POST', sprintf('/app/tareas/%d/toggle?page=1&per_page=10', $task->id))
@@ -158,14 +152,14 @@ final class BasePathTest extends TestCase
         self::assertSame('/app/login', $htmx->getHeaderLine('HX-Redirect'));
 
         // Ya logueado, /login no muestra el formulario: manda al listado.
-        $this->autenticar();
+        self::loginAs();
 
         $yaAdentro = self::app()->handle(self::request('GET', '/app/login'));
         self::assertSame(303, $yaAdentro->getStatusCode());
         self::assertSame('/app/tareas', $yaAdentro->getHeaderLine('Location'));
 
         // Y salir vuelve al login, igual que entrar.
-        $token = self::token();
+        $token = self::token('/app/tareas');
 
         $salida = self::app()->handle(
             self::request('POST', '/app/logout')
@@ -177,34 +171,6 @@ final class BasePathTest extends TestCase
         self::assertSame('/app/login', $salida->getHeaderLine('Location'));
     }
 
-    private function autenticar(): void
-    {
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'prefijo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    /**
-     * Token CSRF de la página protegida, scrapeado como en AuthTest: el Guard
-     * corre en persistentTokenMode, así que el par sirve para las DOS
-     * peticiones del test (toggle y salir, en tests distintos).
-     *
-     * @return array{csrf_name: string, csrf_value: string}
-     */
-    private static function token(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/app/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
     /**
      * Prefijo para las DOS fuentes que lee el helper: `$_ENV` (Dotenv y
      * tests/bootstrap.php) y el entorno inline. `''` es "sin prefijo", así que
@@ -214,15 +180,5 @@ final class BasePathTest extends TestCase
     {
         $_ENV['APP_BASE_PATH'] = $valor;
         putenv('APP_BASE_PATH=' . $valor);
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        return (new ServerRequestFactory())->createServerRequest($method, 'http://localhost' . $path);
     }
 }

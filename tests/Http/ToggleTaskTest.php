@@ -5,12 +5,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * El toggle era la ÚNICA acción HTMX sin cobertura de tests, y ahí se coló
@@ -19,40 +14,26 @@ use Tests\Support\AppFactory;
  * swapea: sin toast, sin cambio, falla muda. Acá se cubren las dos ramas
  * del toggle y el id inexistente.
  */
-final class ToggleTaskTest extends TestCase
+final class ToggleTaskTest extends HttpTestCase
 {
     protected function setUp(): void
     {
-        // Arranque de sesión ANTES de setear user_id: en el primer request de
-        // un proceso fresco, session_start() pisa $_SESSION y el login manual
-        // se pierde (mismo trampa que DeleteTaskTest aislado). Un GET público
-        // arranca la sesión; recién ahí se inyecta el usuario.
-        self::app()->handle($this->request('GET', '/login'));
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'toggle@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        //
+        // Acá había un GET /login previo: en un proceso fresco session_start()
+        // pisaba $_SESSION y el login manual se perdía. tests/bootstrap.php ya
+        // abre la sesión centralmente, así que ese request quedó muerto y se
+        // fue con la duplicación.
+        self::loginAs();
     }
 
     public function test_toggle_de_pendiente_a_completado_guarda_fecha_y_lo_pinta(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas/' . $task->id . '/toggle')
+            self::request('POST', '/tareas/' . $task->id . '/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -80,10 +61,10 @@ final class ToggleTaskTest extends TestCase
             'status'       => 'completado',
             'completed_at' => '2026-01-01 10:00:00',
         ]);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas/' . $task->id . '/toggle')
+            self::request('POST', '/tareas/' . $task->id . '/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -102,10 +83,10 @@ final class ToggleTaskTest extends TestCase
     public function test_toggle_con_id_inexistente_avisa_en_el_panel_sin_500(): void
     {
         Task::create(['title' => 'Única']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas/999999/toggle')
+            self::request('POST', '/tareas/999999/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -129,27 +110,5 @@ final class ToggleTaskTest extends TestCase
             (string) $response->getBody(),
             'El aviso no puede ir en el header Y en el HTML.'
         );
-    }
-
-    /**
-     * Tokens frescos scrapeados de GET /tareas (mismo patrón que DeleteTaskTest).
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        return (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
     }
 }

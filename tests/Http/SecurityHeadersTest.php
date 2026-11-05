@@ -7,13 +7,8 @@ namespace Tests\Http;
 use App\Http\Middleware\SessionMiddleware;
 use App\Models\RememberToken;
 use App\Models\User;
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * U5: el despliegue por HTTPS se activa con SESSION_SECURE=true.
@@ -22,7 +17,7 @@ use Tests\Support\AppFactory;
  * sesión la emite PHP fuera del PSR-7, así que se verifica contra
  * session_get_cookie_params() cerrando la sesión compartida antes del request.
  */
-final class SecurityHeadersTest extends TestCase
+final class SecurityHeadersTest extends HttpTestCase
 {
     private const HSTS = 'max-age=31536000';
 
@@ -37,9 +32,10 @@ final class SecurityHeadersTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id'], $_COOKIE['remember']);
+        // Los tokens cuelgan del usuario por FK: se van antes que el usuario.
         RememberToken::query()->delete();
-        User::query()->delete();
+        unset($_COOKIE['remember']);
+        parent::tearDown();
         $_ENV = $this->env;
 
         // La sesión nativa del proceso sigue viva: devolvé sus params al
@@ -74,7 +70,7 @@ final class SecurityHeadersTest extends TestCase
                 'email'    => 'security@ejemplo.com',
                 'password' => 'secreto123',
                 'remember' => '1',
-            ] + $this->csrf())
+            ] + self::token('/login'))
         );
 
         self::assertSame(303, $login->getStatusCode());
@@ -112,7 +108,7 @@ final class SecurityHeadersTest extends TestCase
         $_ENV['SESSION_SECURE'] = 'true';
 
         $user = $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $login = self::app()->handle(
             self::request('POST', '/login', [
@@ -130,7 +126,7 @@ final class SecurityHeadersTest extends TestCase
         // Rotación: sin sesión, la cookie presentada se cambia por otra Secure.
         $_SESSION = [];
         $rotated = self::app()->handle(
-            self::request('GET', '/tareas', [], ['remember' => $pair])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $rotated->getStatusCode());
@@ -139,17 +135,12 @@ final class SecurityHeadersTest extends TestCase
 
         // Borrado: logout quema el token y manda una cookie Secure con Max-Age=0.
         $logout = self::app()->handle(
-            self::request('POST', '/logout', $this->csrfFrom((string) $rotated->getBody()))
+            self::request('POST', '/logout', self::scrapeToken((string) $rotated->getBody()))
         );
 
         self::assertSame(303, $logout->getStatusCode());
         self::assertStringContainsString('Max-Age=0', $this->rememberRaw($logout));
         self::assertStringContainsString('; Secure', $this->rememberRaw($logout));
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
     }
 
     private function createUser(): User
@@ -158,23 +149,6 @@ final class SecurityHeadersTest extends TestCase
             'email'         => 'security@ejemplo.com',
             'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
         ]);
-    }
-
-    /** Token CSRF fresco de la página de login. */
-    private function csrf(): array
-    {
-        return $this->csrfFrom((string) self::app()->handle(self::request('GET', '/login'))->getBody());
-    }
-
-    private function csrfFrom(string $html): array
-    {
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $name);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $value);
-
-        self::assertArrayHasKey(1, $name, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $value, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $name[1], 'csrf_value' => $value[1]];
     }
 
     private function rememberPair(ResponseInterface $response): string
@@ -191,42 +165,5 @@ final class SecurityHeadersTest extends TestCase
         }
 
         return '';
-    }
-
-    /**
-     * @param array<string, string> $body
-     * @param array<string, string> $cookies
-     */
-    private static function request(
-        string $method,
-        string $path,
-        array $body = [],
-        array $cookies = []
-    ): ServerRequestInterface {
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        if ($cookies !== []) {
-            $pairs = [];
-            foreach ($cookies as $key => $value) {
-                $pairs[] = $key . '=' . $value;
-            }
-            $request = $request->withHeader('Cookie', implode('; ', $pairs));
-        }
-
-        // El middleware lee la cookie remember de $_COOKIE, no del request PSR-7.
-        if (isset($cookies['remember'])) {
-            $_COOKIE['remember'] = $cookies['remember'];
-        } else {
-            unset($_COOKIE['remember']);
-        }
-
-        return $request;
     }
 }

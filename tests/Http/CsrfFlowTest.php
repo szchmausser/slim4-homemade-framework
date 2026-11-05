@@ -4,60 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
-final class CsrfFlowTest extends TestCase
+final class CsrfFlowTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
         // La capa de auth en sí se testea en AuthTest, no acá.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en memoria y se crea una sola vez: si no limpiás,
-        // la suite depende de la orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
-    }
-
-    /**
-     * Extrae los dos hidden que emite partials/_csrf.twig.
-     *
-     * Ojo con una trampa: `csrf_name_key` es una variable de Twig, NO aparece
-     * en el HTML renderizado. El template es
-     *   <input name="{{ csrf_name_key }}" value="{{ csrf_name }}">
-     * y `getTokenNameKey()` devuelve justo el string literal 'csrf_name'. Así
-     * que el name real del input es `csrf_name`, y buscar "csrf_name_key" en
-     * el HTML no matchea nunca.
-     */
-    private function scrapeToken(string $html): array
-    {
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
+        self::loginAs();
     }
 
     public function test_get_renderiza_el_formulario_con_token(): void
@@ -111,7 +66,7 @@ final class CsrfFlowTest extends TestCase
     public function test_post_htmx_con_token_invalido_devuelve_400_y_hx_trigger(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', ['title' => 'x'], htmx: true)
+            self::request('POST', '/tareas', ['title' => 'x'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
@@ -168,30 +123,5 @@ final class CsrfFlowTest extends TestCase
             'El listener de CSRF tiene que leer $event.detail.value: con $event.detail el aviso dice [object Object].'
         );
         self::assertStringContainsString('@csrf.window=', $layout);
-    }
-
-    private static function request(string $method, string $path, array $body = [], bool $htmx = false): ServerRequestInterface
-    {
-        // URI absoluta: con path-only el host queda vacío y Slim se porta
-        // distinto en los casos borde. En producción siempre hay host.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            // Deliberadamente NO usamos withParsedBody(): mandamos el body crudo
-            // con su Content-Type para que pase por el Body Parsing Middleware
-            // igual que en producción. Si inyectás el array ya parseado, el test
-            // deja de cubrir el body parsing — que es justo lo que rompen los
-            // cambios de orden en el pipeline.
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        // Solo lo seteamos cuando corresponde: detectarlo con getHeaderLine()
-        // hace que un header presente con valor vacío cuente como "no HTMX".
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }

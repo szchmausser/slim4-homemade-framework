@@ -5,43 +5,23 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
  * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
  * paginar nada: por eso se siembran 12.
  */
-final class PaginationFlowTest extends TestCase
+final class PaginationFlowTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth).
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
+        self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
             Task::create(['title' => sprintf('Tarea %02d', $i)]);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
     }
 
     public function test_pagina_dos_trae_las_mas_viejas_y_contadores(): void
@@ -86,11 +66,5 @@ final class PaginationFlowTest extends TestCase
 
         self::assertStringContainsString('hx-get="/tareas?page=1&per_page=10"', $html);
         self::assertStringContainsString('hx-target="#tareas-panel"', $html);
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        return (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
     }
 }

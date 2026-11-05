@@ -5,14 +5,8 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Avisos después de una acción CRUD: qué canal usa cada tipo de request.
@@ -28,41 +22,24 @@ use Tests\Support\AppFactory;
  * reemplaza el stack del layout por un alert suelto, esto falla antes de que
  * el usuario guarde una tarea y no vea nada.
  */
-final class ToastFlowTest extends TestCase
+final class ToastFlowTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en un SQLite compartido: si no limpiás, la suite
-        // depende del orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_crear_con_htmx_manda_el_aviso_en_el_header_y_no_en_el_html(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
-            ], htmx: true)
+            ], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -79,10 +56,10 @@ final class ToastFlowTest extends TestCase
 
     public function test_crear_sin_htmx_deja_el_aviso_inline_y_sin_header(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -103,14 +80,14 @@ final class ToastFlowTest extends TestCase
 
     public function test_la_validacion_fallida_llega_como_toast_de_error(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => '',
-            ], htmx: true)
+            ], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -125,13 +102,10 @@ final class ToastFlowTest extends TestCase
     public function test_completar_manda_el_toast_con_el_estado_nuevo(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('POST', '/tareas/' . $task->id . '/toggle', [], htmx: true, headers: [
-                'csrf_name'  => $token['csrf_name'],
-                'csrf_value' => $token['csrf_value'],
-            ])
+            self::request('POST', '/tareas/' . $task->id . '/toggle', [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -145,13 +119,10 @@ final class ToastFlowTest extends TestCase
     public function test_eliminar_manda_toast_de_exito(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('DELETE', '/tareas/' . $task->id, [], htmx: true, headers: [
-                'csrf_name'  => $token['csrf_name'],
-                'csrf_value' => $token['csrf_value'],
-            ])
+            self::request('DELETE', '/tareas/' . $task->id, [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -164,13 +135,10 @@ final class ToastFlowTest extends TestCase
 
     public function test_eliminar_un_id_inexistente_avisa_error_en_vez_de_mentir(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('DELETE', '/tareas/999999', [], htmx: true, headers: [
-                'csrf_name'  => $token['csrf_name'],
-                'csrf_value' => $token['csrf_value'],
-            ])
+            self::request('DELETE', '/tareas/999999', [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -182,7 +150,7 @@ final class ToastFlowTest extends TestCase
 
     public function test_una_navegacion_htmx_sin_accion_no_emite_toasts(): void
     {
-        $response = self::app()->handle($this->request('GET', '/tareas', [], htmx: true));
+        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('', $response->getHeaderLine('HX-Trigger-After-Swap'), 'Sin flash no hay evento.');
@@ -240,60 +208,5 @@ final class ToastFlowTest extends TestCase
         self::assertNotSame([], $items, 'El evento toasts llegó sin items.');
 
         return $items;
-    }
-
-    /**
-     * Extrae los hidden de partials/_csrf.twig. Los tokens se piden con un GET
-     * sin HX-Request: ese render deja además banners inline vacíos, así que
-     * scrapear acá no depende del canal de avisos.
-     *
-     * @return array{csrf_name: string, csrf_value: string}
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    /**
-     * @param array<string, string> $body
-     * @param array<string, string> $headers
-     */
-    private function request(
-        string $method,
-        string $path,
-        array $body = [],
-        bool $htmx = false,
-        array $headers = []
-    ): ServerRequestInterface {
-        // URI absoluta, igual que en el resto de la suite: con path-only el
-        // host queda vacío y Slim se porta distinto en los casos borde.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            // Body crudo con su Content-Type: así pasa por el Body Parsing
-            // Middleware igual que en producción. withParsedBody() saltearía
-            // justo la capa que rompen los cambios de orden del pipeline.
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        foreach ($headers as $name => $value) {
-            $request = $request->withHeader($name, $value);
-        }
-
-        // Solo se setea cuando corresponde: un header presente con valor vacío
-        // cuenta como "no HTMX" en el resto de la app, pero hasHeader() no
-        // distingue, así que acá no se agrega nunca vacío.
-        return $htmx ? $request->withHeader('HX-Request', 'true') : $request;
     }
 }

@@ -7,13 +7,8 @@ namespace Tests\Http;
 use App\Http\Controllers\AuthController;
 use App\Models\RememberToken;
 use App\Models\User;
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Auth v1: login/logout + remember-me + puerta de /tareas.
@@ -22,7 +17,7 @@ use Tests\Support\AppFactory;
  * test parte de sesión limpia y deja las tablas vacías. La cookie remember se
  * pasa a mano por header: el cliente de tests no guarda cookies solo.
  */
-final class AuthTest extends TestCase
+final class AuthTest extends HttpTestCase
 {
     protected function setUp(): void
     {
@@ -31,14 +26,9 @@ final class AuthTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id']);
+        // Los tokens cuelgan del usuario por FK: se van antes que el usuario.
         RememberToken::query()->delete();
-        User::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        parent::tearDown();
     }
 
     public function test_login_muestra_el_formulario(): void
@@ -68,7 +58,7 @@ final class AuthTest extends TestCase
     public function test_login_con_credenciales_malas_no_entra_ni_dice_cual_fallo(): void
     {
         $this->createUser('yo@ejemplo.com', 'secreto123');
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         foreach ([
             ['email' => 'otro@ejemplo.com', 'password' => 'secreto123'], // email inexistente
@@ -105,7 +95,7 @@ final class AuthTest extends TestCase
     public function test_login_valido_redirige_y_abre_sesion(): void
     {
         $user = $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -122,7 +112,7 @@ final class AuthTest extends TestCase
     public function test_login_con_remember_emite_cookie_y_guarda_solo_el_hash(): void
     {
         $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -152,7 +142,7 @@ final class AuthTest extends TestCase
         // Request nueva sin sesión pero con la cookie.
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => $pair])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -175,7 +165,7 @@ final class AuthTest extends TestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => $selector . ':' . str_repeat('0', 64)])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -197,7 +187,7 @@ final class AuthTest extends TestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => 'expiretest1234567890abcd:' . $validator])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -215,7 +205,7 @@ final class AuthTest extends TestCase
 
     public function test_ruta_protegida_htmx_devuelve_hx_redirect(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas', [], true));
+        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
 
         // 200 + HX-Redirect (no 303): un redirect rompería el swap de HTMX.
         self::assertSame(200, $response->getStatusCode());
@@ -227,7 +217,7 @@ final class AuthTest extends TestCase
         $user = $this->createUser();
         // El token de logout se scrapea ANTES de entrar: logueado, GET /login
         // redirige a /tareas y ya no hay form.
-        $token = $this->csrf();
+        $token = self::token('/login');
         $this->loginWithRemember($user);
 
         $response = self::app()->handle(
@@ -243,8 +233,7 @@ final class AuthTest extends TestCase
 
     public function test_login_estando_logueado_redirige_a_tareas(): void
     {
-        $user = $this->createUser();
-        $_SESSION['user_id'] = $user->id;
+        self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/login'));
 
@@ -260,24 +249,10 @@ final class AuthTest extends TestCase
         ]);
     }
 
-    /** Token CSRF fresco de la página de login. */
-    private function csrf(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name en /login');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value en /login');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
     /** Login con remember y devuelve el par crudo de la cookie emitida. */
     private function loginWithRemember(User $user): string
     {
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -310,42 +285,5 @@ final class AuthTest extends TestCase
         }
 
         return '';
-    }
-
-    private static function request(
-        string $method,
-        string $path,
-        array $body = [],
-        bool $htmx = false,
-        array $cookies = []
-    ): ServerRequestInterface {
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        if ($cookies !== []) {
-            $pairs = [];
-            foreach ($cookies as $k => $v) {
-                $pairs[] = $k . '=' . $v;
-            }
-            $request = $request->withHeader('Cookie', implode('; ', $pairs));
-        }
-
-        // La cookie remember llega por header: hay que poblar $_COOKIE a mano,
-        // el ServerRequest no lo hace solo.
-        if (isset($cookies['remember'])) {
-            $_COOKIE['remember'] = $cookies['remember'];
-        } else {
-            unset($_COOKIE['remember']);
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }
