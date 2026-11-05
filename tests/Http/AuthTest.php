@@ -86,6 +86,22 @@ final class AuthTest extends TestCase
         self::assertArrayNotHasKey('user_id', $_SESSION);
     }
 
+    /**
+     * El login no es una pantalla de la app: dentro del shell ofrecia
+     * navegacion a /tareas, que sin sesion redirige de vuelta a este mismo
+     * formulario. Era una puerta que no lleva a ningun lado, y ademas mostraba
+     * el header, el toggle de tema y el footer de una app a la que todavia no
+     * se entro. Vive en layouts/auth.twig, no en layouts/app.twig.
+     */
+    public function test_el_login_no_se_renderiza_dentro_del_shell(): void
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
+
+        self::assertStringContainsString('action="/login"', $html);
+        self::assertStringNotContainsString('id="sidebar"', $html);
+        self::assertStringNotContainsString('href="/tareas"', $html);
+    }
+
     public function test_login_valido_redirige_y_abre_sesion(): void
     {
         $user = $this->createUser();

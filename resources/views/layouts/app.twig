@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
+    {# Favicon: el glifo de capas sobre el primario de daisyUI, en SVG plano
+       (sin build ni referencias externas). El <link> evita el 404 de
+       /favicon.ico que costaba un request fallido en cada visita. Va acá y no
+       en /assets porque el archivo vive en la raíz de public: la URL dice
+       dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
+       (~600 bytes). #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
     {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
        después y se vería un flash del tema claro en cada recarga oscura. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
@@ -34,30 +42,68 @@
             html[data-sidebar-mini] #sidebar { width: 4rem; }
             html[data-sidebar-mini] #sidebar .sidebar-head { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
             html[data-sidebar-mini] #sidebar .sidebar-label { display: none; }
-            html[data-sidebar-mini] #sidebar-foot { display: none; }
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
+        /* Tinta de los iconos de estado: el color semantico de daisyUI es un
+           FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
+           2.87:1, bajo el 3:1 que pide un objeto grafico. Estos tres valores
+           estan medidos contra los fondos reales de cada tema. */
+        :root {
+            --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
+            --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
+            --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
+        }
+        /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
+           reusan tal cual. No es cosmetico: los mismos ink claros sobre el
+           fondo oscuro dan 3.59 y 2.95:1 y fallarian. */
+        [data-theme="dark"] {
+            --ink-success: var(--color-success);
+            --ink-error:   var(--color-error);
+            --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+        }
+        .icon-success { color: var(--ink-success); }
+        .icon-error   { color: var(--ink-error); }
+        .icon-pending { color: var(--ink-pending); }
+
+        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la pagina
+           activa como un bloque casi negro, mas pesado que cualquier otro
+           elemento de la pantalla. Se cambia por un tinte suave del propio
+           texto, que funciona igual en los dos temas y conserva el contraste
+           (el color del texto sigue siendo base-content). */
+        .menu .menu-active {
+            background-color: color-mix(in oklab, var(--color-base-content) 12%, transparent);
+            color: var(--color-base-content);
+        }
+
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: en desktop el sidebar es `static`, así que un `fixed`
-           contra el viewport NO queda alineado con el contenido (lo que se ve
-           es la columna que arranca después del sidebar). El host replica la
-           geometría de la columna y el stack adentro repite el `max-w-6xl` y
-           el padding de <main>: el borde derecho de cada toast cae exacto
-           sobre el del <h1>, en el espacio que la fila del título deja libre.
-           En móvil no hay espacio a la derecha del título: va abajo, con 1rem
-           de margen, que es el patrón de teléfono y no tapa el h1. */
+           Posición: abajo a la derecha del area de contenido. El host sigue
+           replicando la geometria de la columna (en desktop el sidebar es
+           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           espera) y el stack adentro repite el `max-w-6xl` y el padding de
+           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
+           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           llega el aviso.
+           La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
+           encima del anterior y el bloque se expande hacia el titulo, nunca
+           hacia el borde inferior de la pantalla. En móvil el mismo criterio,
+           con 1rem de margen. */
+        /* En móvil tambien tiene que librar el footer (h-12). */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
             inset-inline: 0;
-            bottom: 1rem;
+            bottom: 3.5rem;       /* = footer h-12 + 8px */
             padding-inline: 1rem;
             pointer-events: none; /* el hueco alrededor no bloquea clicks */
         }
         .toast-stack {
             display: flex;
-            flex-direction: column;
+            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
+               hacia el titulo y el aviso recien llegado es el primero que se
+               lee. El ancla inferior la da `bottom` en el host. */
+            flex-direction: column-reverse;
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
@@ -67,8 +113,8 @@
         @media (min-width: 1024px) {
             .toast-host {
                 inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
-                top: calc(4rem + 1.5rem);                  /* header h-16 + main lg:p-6 */
-                bottom: auto;
+                top: auto;
+                bottom: 4rem;                              /* = footer h-12 + 16px */
                 padding-inline: 0;
                 transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
             }
@@ -128,6 +174,20 @@
            y apagarla del todo dejaría el toast pegado para siempre. */
         @media (prefers-reduced-motion: reduce) {
             .toast-progress { animation-name: toast-fade; }
+
+            /* S10: el resto de las transiciones también se apaga. Es una regla
+               por ELEMENTO y con `!important` porque los `x-transition` de
+               Alpine se aplican como clases e inline SOBRE el nodo que se
+               mueve: un selector normal perdería contra el inline, y apuntar
+               a Alpine ("anulá las transiciones") no es algo que su API
+               exponga. `transition` no toca `animation`, así que la barra del
+               toast sigue corriendo como fade (regla de arriba). */
+            #sidebar,        /* plegado (w-64/w-16) y entrada del overlay móvil */
+            .toast-host,     /* acompaña el plegado del sidebar */
+            .toast-card,     /* x-transition enter/leave del toast */
+            .tooltip-estado { /* x-transition.opacity del tooltip de estado */
+                transition: none !important;
+            }
         }
     </style>
 </head>
@@ -145,9 +205,15 @@
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop. #}
+    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop.
+       `inert` (atributo, no una clase CSS) es lo que saca de verdad los
+       enlaces del orden de tabulación: una clase con `visibility` u `opacity`
+       los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
+       layout por la animación de translate-x. En desktop `sidebarOpen`
+       arranca en true, así que ahí nunca queda inerte. #}
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
+           x-bind:inert="!sidebarOpen"
            aria-label="Navegación principal">
         <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
             {% include 'partials/_logo.twig' %}
@@ -156,14 +222,16 @@
         <ul class="menu w-full grow gap-1 p-2">
             <li>
                 <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
+                   aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
                 </a>
             </li>
             <li>
                 <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
+                   aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
                 </a>
@@ -171,19 +239,28 @@
         </ul>
         {% if user_id is defined and user_id %}
         <div class="border-t border-base-300 p-2">
-            <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
-            <form method="post" action="/logout">
-                {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
-                </button>
-            </form>
+            {# Fila de usuario: inicial en un disco, email y la salida como icono.
+               Antes el email flotaba suelto arriba y "Salir" era un boton
+               fantasma de ancho completo: dos pesos distintos para la misma
+               zona, y ninguno de los dos se leia como una unidad.
+               `sidebar-label` en el disco y en el email hace que el plegado
+               pre-pintado del CSS los oculte igual que las etiquetas del menu:
+               plegado queda solo el boton, centrado. #}
+            <div class="flex items-center gap-2 rounded-box bg-base-200 p-1.5"
+                 :class="sidebarMini && 'lg:justify-center lg:bg-transparent lg:p-0'">
+                <span class="sidebar-label grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold uppercase text-primary-content"
+                      :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
+                <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
+                      :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
+                <form method="post" action="/logout" class="shrink-0">
+                    {% include 'partials/_csrf.twig' %}
+                    <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </form>
+            </div>
         </div>
         {% endif %}
-        <div id="sidebar-foot" class="flex h-12 shrink-0 items-center border-t border-base-300 px-4 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">
-            Slim 4 · HTMX · Alpine · daisyUI
-        </div>
     </aside>
 
     {# Columna de contenido. #}
@@ -251,7 +328,13 @@
              aria-live="polite">
             <div class="toast-stack">
                 <template x-for="t in items" :key="t.id">
-                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/95 p-3 pr-2 shadow-lg backdrop-blur"
+                    {# `bg-base-100/90` y no `/95`: el bundle precompila los pasos
+                       de opacidad de `bg-*` solo en decenas, así que `/95` no
+                       existía y la tarjeta quedaba sin fondo: el texto flotaba
+                       sobre la página. El JIT del navegador tampoco puede
+                       generarlo, porque `base-100` es un token de daisyUI y no
+                       está en la paleta que conoce. #}
+                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/90 p-3 pr-2 shadow-lg backdrop-blur"
                          :data-type="t.type"
                          x-transition:enter="transition ease-out duration-200"
                          x-transition:enter-start="opacity-0 translate-x-4"
@@ -284,15 +367,32 @@
             {% block content %}{% endblock %}
         </main>
 
-        {# Misma altura que el bloque inferior de la sidebar (h-12): así la
-           línea del footer y la de la sidebar quedan continuas. #}
+        {# El stack vive aca y no en la sidebar: el pie de la columna de
+           contenido es el lugar estable para esa linea (no cambia con el
+           plegado) y la marca ya esta en la cabecera del sidebar. Una sola
+           copia del dato, en un lugar que no depende del estado del menu. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Mi App — Slim 4 · HTMX · Alpine.js · daisyUI</aside>
+            <aside>Slim 4 · HTMX · Alpine · daisyUI</aside>
         </footer>
     </div>
 </div>
 
 <script>
+// R1 del sidebar: Alpine entra con `defer`, así que entre el parseo y su
+// arranque el sidebar fuera de pantalla de móvil todavía se alcanza con Tab.
+// `x-bind:inert` no puede tapar esa ventana: corre exactamente cuando Alpine
+// inicializa, que es lo que llega tarde. Se aplica acá, durante el parseo
+// (antes del script diferido), el mismo valor inicial que calcula shell():
+// sidebarOpen = window.innerWidth >= 1024. Alpine lo mantiene después.
+// Sólo móvil: en desktop el sidebar es una columna visible y `inert` la
+// dejaría muerta (sin foco ni clicks) hasta que Alpine la corrigiera.
+if (window.innerWidth < 1024) {
+    const el = document.getElementById('sidebar');
+    if (el) {
+        el.setAttribute('inert', '');
+    }
+}
+
 function shell() {
     return {
         theme: document.documentElement.dataset.theme || 'light',
@@ -341,6 +441,115 @@ function toastStack() {
         }
     };
 }
+
+/**
+ * Foco después de un swap (S4). Toda acción de fila reemplaza #tareas-panel
+ * entero (`hx-swap="outerHTML"`), así que el nodo que tenía el foco se va con
+ * el swap y `document.activeElement` cae en <body>: la Tab siguiente arranca
+ * en el sidebar y después de cada toggle, edición o borrado hay que recorrer
+ * la página completa otra vez.
+ *
+ * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
+ * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
+ *    publica en `clavePendiente` durante htmx:beforeRequest, ANTES del request.
+ * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
+ *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
+ * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
+ *    cancelar salieron del modo edición y esos botones ya no están), el foco
+ *    va al panel, que tiene `tabindex="-1"`. Sigue en la zona de la fila, no
+ *    en el shell, que es lo que pide S4.
+ * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
+ *    página es navegación, y llevarse el foco ahí sería robarlo.
+ */
+function restaurarFocoTrasSwap() {
+    // Una sola clave viva: la intención dura lo que dura el request.
+    let clavePendiente = null;
+
+    document.body.addEventListener('htmx:beforeRequest', (evento) => {
+        const elt = evento.detail && evento.detail.elt;
+        // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
+        // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
+        // dejaría su clave viva y el request siguiente la gastaría en el lugar
+        // equivocado. `dataset` no existe si htmx dispara sobre un target que
+        // no es un elemento (puede pasar), así que se lee con guarda.
+        clavePendiente = (elt && elt.dataset && elt.dataset.focusKey) || null;
+    });
+
+    document.body.addEventListener('htmx:afterSettle', () => {
+        if (clavePendiente === null) {
+            return;
+        }
+        const clave = clavePendiente;
+        clavePendiente = null;
+
+        const nuevo = document.querySelector(selectorPorClave(clave));
+        const destino = nuevo || document.getElementById('tareas-panel');
+        if (!destino) {
+            return;
+        }
+
+        // `focus()` sin opciones a propósito: `preventScroll: true` dejaría el
+        // foco en un nodo fuera de pantalla justo cuando el swap movió el
+        // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
+        // El default sólo scrollea si el destino no está a la vista.
+        destino.focus();
+    });
+
+    /**
+     * La clave la arma Twig con el id de la tarea (un entero), pero el selector
+     * no depende de eso: `CSS.escape` neutraliza comillas o backslashes si
+     * alguna vez la clave deja de ser numérica, y el fallback cubre los
+     * navegadores que no exponen `CSS.escape`.
+     */
+    function selectorPorClave(clave) {
+        const escapada = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(clave)
+            : String(clave).replace(/["\\]/g, '\\$&');
+        return '[data-focus-key="' + escapada + '"]';
+    }
+}
+
+// Los listeners van en document.body y no en el panel: el panel se reemplaza en
+// cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
+restaurarFocoTrasSwap();
+
+/**
+ * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
+ * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
+ * usuario ve una acción que "no hizo nada" y la repite.
+ *
+ * - `htmx:responseError`: el servidor contestó 4xx/5xx.
+ * - `htmx:sendError`: no hubo respuesta (sin red, DNS, servidor caído).
+ *
+ * Se usa el MISMO evento `toasts` que ya emite Controller::render() para las
+ * acciones htmx exitosas: un solo componente de avisos, y este script no toca
+ * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
+ */
+function avisarFallosDeHtmx() {
+    const avisar = (mensaje) => window.dispatchEvent(new CustomEvent('toasts', {
+        detail: { items: [{ message: mensaje, type: 'error' }] }
+    }));
+
+    document.body.addEventListener('htmx:responseError', (evento) => {
+        const estado = evento.detail && evento.detail.xhr ? evento.detail.xhr.status : 0;
+
+        // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
+        // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
+        // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
+        // dice más ("Tu sesión expiró") porque sabe por qué falló.
+        if (estado === 400 || estado === 419) {
+            return;
+        }
+
+        avisar('No se pudo completar la acción. Probá de nuevo.');
+    });
+
+    document.body.addEventListener('htmx:sendError', () => {
+        avisar('No hay conexión con el servidor.');
+    });
+}
+
+avisarFallosDeHtmx();
 </script>
 </body>
 </html>

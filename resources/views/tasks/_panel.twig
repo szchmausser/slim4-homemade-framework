@@ -1,4 +1,38 @@
-<div id="tareas-panel">
+{# `tabindex="-1"`: marca el panel como destino de foco programático (no
+   entra en el orden de tabulación). Es el fallback de `restaurarFocoTrasSwap()`
+   en app.twig cuando la acción hizo desaparecer el control que la disparó:
+   borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
+   los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
+   no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
+   `class="focus:outline-none"`: el panel no es un control, así que el anillo
+   de foco alrededor de toda la región no informa nada y sí ensucia la
+   pantalla. Va SOLO acá; los controles conservan su anillo. #}
+<div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
+    {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
+       deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
+       subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin
+       repetirlo en cada fila. Sin esto, un doble click en cualquiera de ellos
+       dispara dos veces la misma mutación (dos DELETE, dos toggles que se
+       anulan) y en hardware lento no hay ninguna señal de que algo esté pasando.
+       Por qué selector pelado y con el id adentro:
+       - `find button` se resuelve contra el elemento que DISPARA (el botón de la
+         fila), que no tiene botones adentro: htmx avisaría "returned no matches"
+         por consola y no apagaría nada.
+       - `this` apagaría el <div> (ahí `disabled` no hace nada) y dejaría vivos
+         justo los botones.
+       - Un selector pelado lo resuelve htmx con document.querySelectorAll, no
+         contra el div: el prefijo #tareas-panel es lo que lo acota al panel.
+       Alcance: sólo <button>, ningún otro descendiente. Los <a> de la paginación
+       quedan vivos a propósito: `disabled` no existe para un enlace y daisyUI
+       (.btn[disabled]) igual lo pintaría apagado, dejando algo que parece muerto
+       y sigue clickeable. El <select> de per_page tampoco entra: cambiar de
+       página o de tamaño es navegación, no una mutación que se pueda duplicar.
+       A los que ya venían deshabilitados (paginación en el borde) no los toca:
+       htmx sólo agrega el atributo si no estaba y sólo lo quita si lo puso él.
+       Efecto lateral asumido: durante el DELETE también queda apagado el
+       Cancelar/Cerrar del modal de confirmación. htmx los reactiva al terminar
+       (incluso si el request falla) y Esc cierra el <dialog> nativo igual, así
+       que no hay encierro. La señal visual la da daisyUI: no hace falta CSS. #}
     {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
        htmx): ahí no hay evento que escuchar, así que el aviso va inline.
        En las respuestas htmx estos dos banners llegan en null y el mensaje

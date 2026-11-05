@@ -55,7 +55,7 @@ final class PaginationFlowTest extends TestCase
         // Orden desc por id: la 1 y la 2 caen en la página 2, la 12 queda en la 1.
         self::assertStringContainsString('Tarea 01', $html);
         self::assertStringNotContainsString('Tarea 12', $html);
-        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 tareas', $html);
     }
 
     public function test_per_page_grande_mete_todo_en_una(): void
@@ -66,7 +66,7 @@ final class PaginationFlowTest extends TestCase
 
         self::assertStringContainsString('Tarea 01', $html);
         self::assertStringContainsString('Tarea 12', $html);
-        self::assertStringContainsString('Mostrando 1 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 1 al 12 de 12 tareas', $html);
     }
 
     public function test_per_page_invalido_cae_al_default(): void
@@ -75,7 +75,7 @@ final class PaginationFlowTest extends TestCase
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 tareas', $html);
     }
 
     public function test_los_links_apuntan_al_panel_y_conservan_el_tamano(): void

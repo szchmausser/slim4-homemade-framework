@@ -40,10 +40,12 @@ final class PaginationTest extends TestCase
         return [
             'una sola'            => [1, 1, [1]],
             'pocas sin ellipsis'  => [1, 5, [1, 2, 3, 4, 5]],
-            'inicio con ellipsis' => [1, 10, [1, 2, 3, null, 10]],
-            'medio con dos'       => [5, 10, [1, null, 3, 4, 5, 6, 7, null, 10]],
-            'final con una'       => [9, 10, [1, null, 7, 8, 9, 10]],
-            'última exacta'       => [10, 10, [1, null, 8, 9, 10]],
+            'inicio con ellipsis' => [1, 10, [1, null, 10]],
+            'medio con dos'       => [5, 10, [1, null, 5, null, 10]],
+            'final con una'       => [9, 10, [1, null, 9, 10]],
+            'última exacta'       => [10, 10, [1, null, 10]],
+            'vecina del inicio'   => [2, 10, [1, 2, null, 10]],
+            'seis paginas, medio' => [3, 6, [1, null, 3, null, 6]],
         ];
     }
 
@@ -51,6 +53,26 @@ final class PaginationTest extends TestCase
     public function test_ventana(int $current, int $last, array $expected): void
     {
         self::assertSame($expected, Pagination::window($current, $last));
+    }
+
+    /**
+     * R7: un punto de decisión no muestra más de cuatro opciones visibles, así
+     * que la ventana tiene que entrar en cinco entradas contando el «…».
+     * Se barre todo el espacio que la paginación real puede producir en vez de
+     * un caso suelto: el techo es la regla, no el ejemplo.
+     */
+    public function test_la_ventana_nunca_pasa_de_cinco_entradas(): void
+    {
+        foreach (range(1, 12) as $last) {
+            foreach (range(1, $last) as $current) {
+                $pages = Pagination::window($current, $last);
+                $caso = sprintf('ventana de %d en %d', $current, $last);
+
+                self::assertLessThanOrEqual(5, count($pages), $caso);
+                self::assertSame(1, $pages[0], $caso . ': empieza en la primera');
+                self::assertSame($last, $pages[array_key_last($pages)], $caso . ': termina en la última');
+            }
+        }
     }
 
     public function test_pagina_intermedia_trae_su_slice_y_contadores(): void

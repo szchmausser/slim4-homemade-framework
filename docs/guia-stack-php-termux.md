@@ -687,14 +687,52 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ code }}</title>
+    <title>{{ code }} · Mi App</title>
+
+    {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
+       costaría un 404 extra. Son ~55 bytes. #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+    {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
+       necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
+       paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
+       vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
+       abajo quedan inertes, que es exactamente el defecto que esto arregla.
+       Sin JS no hay JIT de Tailwind, así que acá NO se usan utilidades
+       (`flex`, `p-6`, `text-6xl`): sólo nombres que el bundle define. #}
+    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css">
+
+    <style>
+        /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
+           no carga: el preflight que saca el margen del body, el alto de
+           viewport y el centrado del texto. */
+        body { margin: 0; }
+        .error-main { min-height: 100dvh; }
+        .error-body { align-items: center; text-align: center; }
+    </style>
 </head>
-<body class="bg-slate-50 text-slate-800">
-    <div class="max-w-2xl mx-auto p-6 text-center py-20">
-        <p class="text-6xl font-bold text-slate-300">{{ code }}</p>
-        <p class="mt-4 text-slate-600">{{ message }}</p>
-        <a href="/" class="inline-block mt-6 text-slate-800 underline">Volver al inicio</a>
-    </div>
+<body class="bg-base-200 text-base-content">
+    {# El mensaje se deduce del código y NO se imprime el `message` que manda
+       config/middleware.php: viene del vendor, en inglés ("Not found."), y
+       puede arrastrar detalles internos de la excepción. El código queda a la
+       vista para que soporte lo pueda pedir; un código desconocido cae al
+       texto genérico, no a "sin mensaje". #}
+    {% set mensaje = code == 404 ? 'No encontramos esa página.'
+        : (code == 403 ? 'No tienes permiso para ver esto.'
+        : (code == 405 ? 'Ese método no está permitido.'
+        : (code == 419 or code == 400 ? 'La petición no es válida.'
+        : 'Algo salió mal de nuestro lado.'))) %}
+    <main class="hero error-main">
+        <div class="hero-content">
+            <div class="card card-border bg-base-100">
+                <div class="card-body error-body">
+                    <span class="badge badge-neutral">Error {{ code }}</span>
+                    <h1 class="card-title">{{ mensaje }}</h1>
+                    <a href="/" class="btn btn-primary btn-block">Volver al inicio</a>
+                </div>
+            </div>
+        </div>
+    </main>
 </body>
 </html>
 ```
@@ -1400,18 +1438,62 @@ class TaskController extends Controller
 
     public function index(Request $request, Response $response): Response
     {
-        // "Cancelar" apunta a /tareas con hx-target="#tareas-panel". Si
-        // devolvemos index.twig (que extiende el layout) HTMX recibe un
-        // <html> completo, se queda con el <body> y lo inserta dentro del
-        // panel: dos <h1>, dos #alta-tarea y padding doble. Con HX-Request
-        // devolvemos solo la región, igual que hace edit().
-        $template = $request->hasHeader('HX-Request')
-            ? 'tasks/_panel.twig'
-            : 'tasks/index.twig';
+        return $this->respond($request, $response);
+    }
 
-        return $this->render($request, $response, $template, $this->pageData($request) + [
-            'active' => 'tareas',
-        ]);
+    /**
+     * Toda acción de esta ruta responde por acá, y el template lo elige el
+     * request, no la acción.
+     *
+     * Con `HX-Request` va sólo la región: "Cancelar" apunta a /tareas con
+     * hx-target="#tareas-panel", y si htmx recibiera index.twig (que extiende
+     * el layout) se quedaría con el <body> y lo insertaría dentro del panel:
+     * dos <h1>, dos #alta-tarea y el padding del layout dos veces.
+     *
+     * Sin `HX-Request` va la página entera: un form con JS apagado, una URL
+     * abierta a mano o un curl son un navegador pidiendo un documento. La
+     * mutación ocurre igual, pero el fragmento llega sin <head>, sin hoja de
+     * estilos y sin shell, así que una acción exitosa se ve rota (S9).
+     *
+     * `active => 'tareas'` lo lee el layout (menú y miga de pan) y lo ignoran
+     * los parciales, así que puede viajar en las dos formas.
+     */
+    private function respond(Request $request, Response $response, array $extra = []): Response
+    {
+        // El orden del merge importa: `pageData()` primero, así un $extra no
+        // puede pisar `tasks`/`pagination` (ni el header de abajo).
+        $data = $this->pageData($request) + $extra + ['active' => 'tareas'];
+
+        $response = $this->render(
+            $request,
+            $response,
+            $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
+            $data
+        );
+
+        if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
+            return $response;
+        }
+
+        // La posición de la lista viaja en la URL (S11) desde el HEADER, no
+        // desde un `hx-push-url="/tareas?page=2"` en la plantilla:
+        // Pagination::paginate() clampea la página pedida al rango válido, así
+        // que borrar la última fila de la página 2 hace que el server
+        // renderice la 1. Una URL fija en el markup empujaría una posición que
+        // contradice el contenido que acaba de llegar; sólo el server que
+        // renderizó sabe qué página mostró. htmx 2.0.11 lee el header antes que
+        // el atributo (verificado en el vendor: `HX-Push-Url` gana sobre
+        // `hx-push-url`). Se empuja la URL canónica de la vista y no la de la
+        // acción: /tareas/5/toggle sólo acepta POST y recargarla sería un 404.
+        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
+        $pagination = $data['pagination'];
+
+        return $response->withHeader('HX-Push-Url', sprintf(
+            '%s?page=%d&per_page=%d',
+            $pagination['base_url'],
+            $pagination['current_page'],
+            $pagination['per_page']
+        ));
     }
 
     public function store(Request $request, Response $response): Response
@@ -1431,7 +1513,7 @@ class TaskController extends Controller
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
-        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+        return $this->respond($request, $response);
     }
 
     public function destroy(Request $request, Response $response, array $args): Response
@@ -1445,7 +1527,7 @@ class TaskController extends Controller
             $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
         );
 
-        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+        return $this->respond($request, $response);
     }
 
     public function edit(Request $request, Response $response, array $args): Response
@@ -1463,7 +1545,7 @@ class TaskController extends Controller
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
         }
 
-        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
+        return $this->respond($request, $response, [
             'editing_id' => $task?->id,
         ]);
     }
@@ -1477,7 +1559,7 @@ class TaskController extends Controller
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
+            return $this->respond($request, $response, [
                 'editing_id' => null,
             ]);
         }
@@ -1493,7 +1575,7 @@ class TaskController extends Controller
             // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
             // el input se repinta con task.title (guardado) y el usuario pierde
             // lo que escribió justo cuando aparece el error.
-            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
+            return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
                 'editing_title' => $data['title'] ?? '',
             ]);
@@ -1502,7 +1584,7 @@ class TaskController extends Controller
         $task->update(['title' => $data['title']]);
         Flash::set('success', 'Tarea actualizada.');
 
-        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
+        return $this->respond($request, $response, [
             'editing_id'    => null,
             'editing_title' => null,
         ]);
@@ -1520,7 +1602,7 @@ class TaskController extends Controller
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+            return $this->respond($request, $response);
         }
 
         if ($task->status === 'completado') {
@@ -1531,7 +1613,7 @@ class TaskController extends Controller
             Flash::set('success', 'Tarea completada.');
         }
 
-        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+        return $this->respond($request, $response);
     }
 }
 ```
@@ -2314,6 +2396,14 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
+    {# Favicon: el glifo de capas sobre el primario de daisyUI, en SVG plano
+       (sin build ni referencias externas). El <link> evita el 404 de
+       /favicon.ico que costaba un request fallido en cada visita. Va acá y no
+       en /assets porque el archivo vive en la raíz de public: la URL dice
+       dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
+       (~600 bytes). #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
     {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
        después y se vería un flash del tema claro en cada recarga oscura. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
@@ -2343,30 +2433,68 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #sidebar { width: 4rem; }
             html[data-sidebar-mini] #sidebar .sidebar-head { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
             html[data-sidebar-mini] #sidebar .sidebar-label { display: none; }
-            html[data-sidebar-mini] #sidebar-foot { display: none; }
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
+        /* Tinta de los iconos de estado: el color semantico de daisyUI es un
+           FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
+           2.87:1, bajo el 3:1 que pide un objeto grafico. Estos tres valores
+           estan medidos contra los fondos reales de cada tema. */
+        :root {
+            --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
+            --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
+            --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
+        }
+        /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
+           reusan tal cual. No es cosmetico: los mismos ink claros sobre el
+           fondo oscuro dan 3.59 y 2.95:1 y fallarian. */
+        [data-theme="dark"] {
+            --ink-success: var(--color-success);
+            --ink-error:   var(--color-error);
+            --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+        }
+        .icon-success { color: var(--ink-success); }
+        .icon-error   { color: var(--ink-error); }
+        .icon-pending { color: var(--ink-pending); }
+
+        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la pagina
+           activa como un bloque casi negro, mas pesado que cualquier otro
+           elemento de la pantalla. Se cambia por un tinte suave del propio
+           texto, que funciona igual en los dos temas y conserva el contraste
+           (el color del texto sigue siendo base-content). */
+        .menu .menu-active {
+            background-color: color-mix(in oklab, var(--color-base-content) 12%, transparent);
+            color: var(--color-base-content);
+        }
+
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: en desktop el sidebar es `static`, así que un `fixed`
-           contra el viewport NO queda alineado con el contenido (lo que se ve
-           es la columna que arranca después del sidebar). El host replica la
-           geometría de la columna y el stack adentro repite el `max-w-6xl` y
-           el padding de <main>: el borde derecho de cada toast cae exacto
-           sobre el del <h1>, en el espacio que la fila del título deja libre.
-           En móvil no hay espacio a la derecha del título: va abajo, con 1rem
-           de margen, que es el patrón de teléfono y no tapa el h1. */
+           Posición: abajo a la derecha del area de contenido. El host sigue
+           replicando la geometria de la columna (en desktop el sidebar es
+           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           espera) y el stack adentro repite el `max-w-6xl` y el padding de
+           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
+           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           llega el aviso.
+           La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
+           encima del anterior y el bloque se expande hacia el titulo, nunca
+           hacia el borde inferior de la pantalla. En móvil el mismo criterio,
+           con 1rem de margen. */
+        /* En móvil tambien tiene que librar el footer (h-12). */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
             inset-inline: 0;
-            bottom: 1rem;
+            bottom: 3.5rem;       /* = footer h-12 + 8px */
             padding-inline: 1rem;
             pointer-events: none; /* el hueco alrededor no bloquea clicks */
         }
         .toast-stack {
             display: flex;
-            flex-direction: column;
+            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
+               hacia el titulo y el aviso recien llegado es el primero que se
+               lee. El ancla inferior la da `bottom` en el host. */
+            flex-direction: column-reverse;
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
@@ -2376,8 +2504,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         @media (min-width: 1024px) {
             .toast-host {
                 inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
-                top: calc(4rem + 1.5rem);                  /* header h-16 + main lg:p-6 */
-                bottom: auto;
+                top: auto;
+                bottom: 4rem;                              /* = footer h-12 + 16px */
                 padding-inline: 0;
                 transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
             }
@@ -2437,6 +2565,20 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            y apagarla del todo dejaría el toast pegado para siempre. */
         @media (prefers-reduced-motion: reduce) {
             .toast-progress { animation-name: toast-fade; }
+
+            /* S10: el resto de las transiciones también se apaga. Es una regla
+               por ELEMENTO y con `!important` porque los `x-transition` de
+               Alpine se aplican como clases e inline SOBRE el nodo que se
+               mueve: un selector normal perdería contra el inline, y apuntar
+               a Alpine ("anulá las transiciones") no es algo que su API
+               exponga. `transition` no toca `animation`, así que la barra del
+               toast sigue corriendo como fade (regla de arriba). */
+            #sidebar,        /* plegado (w-64/w-16) y entrada del overlay móvil */
+            .toast-host,     /* acompaña el plegado del sidebar */
+            .toast-card,     /* x-transition enter/leave del toast */
+            .tooltip-estado { /* x-transition.opacity del tooltip de estado */
+                transition: none !important;
+            }
         }
     </style>
 </head>
@@ -2454,9 +2596,15 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop. #}
+    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop.
+       `inert` (atributo, no una clase CSS) es lo que saca de verdad los
+       enlaces del orden de tabulación: una clase con `visibility` u `opacity`
+       los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
+       layout por la animación de translate-x. En desktop `sidebarOpen`
+       arranca en true, así que ahí nunca queda inerte. #}
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
+           x-bind:inert="!sidebarOpen"
            aria-label="Navegación principal">
         <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
             {% include 'partials/_logo.twig' %}
@@ -2465,14 +2613,16 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         <ul class="menu w-full grow gap-1 p-2">
             <li>
                 <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
+                   aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
                 </a>
             </li>
             <li>
                 <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
+                   aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
                 </a>
@@ -2480,19 +2630,28 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         </ul>
         {% if user_id is defined and user_id %}
         <div class="border-t border-base-300 p-2">
-            <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
-            <form method="post" action="/logout">
-                {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
-                </button>
-            </form>
+            {# Fila de usuario: inicial en un disco, email y la salida como icono.
+               Antes el email flotaba suelto arriba y "Salir" era un boton
+               fantasma de ancho completo: dos pesos distintos para la misma
+               zona, y ninguno de los dos se leia como una unidad.
+               `sidebar-label` en el disco y en el email hace que el plegado
+               pre-pintado del CSS los oculte igual que las etiquetas del menu:
+               plegado queda solo el boton, centrado. #}
+            <div class="flex items-center gap-2 rounded-box bg-base-200 p-1.5"
+                 :class="sidebarMini && 'lg:justify-center lg:bg-transparent lg:p-0'">
+                <span class="sidebar-label grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold uppercase text-primary-content"
+                      :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
+                <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
+                      :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
+                <form method="post" action="/logout" class="shrink-0">
+                    {% include 'partials/_csrf.twig' %}
+                    <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </form>
+            </div>
         </div>
         {% endif %}
-        <div id="sidebar-foot" class="flex h-12 shrink-0 items-center border-t border-base-300 px-4 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">
-            Slim 4 · HTMX · Alpine · daisyUI
-        </div>
     </aside>
 
     {# Columna de contenido. #}
@@ -2560,7 +2719,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
              aria-live="polite">
             <div class="toast-stack">
                 <template x-for="t in items" :key="t.id">
-                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/95 p-3 pr-2 shadow-lg backdrop-blur"
+                    {# `bg-base-100/90` y no `/95`: el bundle precompila los pasos
+                       de opacidad de `bg-*` solo en decenas, así que `/95` no
+                       existía y la tarjeta quedaba sin fondo: el texto flotaba
+                       sobre la página. El JIT del navegador tampoco puede
+                       generarlo, porque `base-100` es un token de daisyUI y no
+                       está en la paleta que conoce. #}
+                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/90 p-3 pr-2 shadow-lg backdrop-blur"
                          :data-type="t.type"
                          x-transition:enter="transition ease-out duration-200"
                          x-transition:enter-start="opacity-0 translate-x-4"
@@ -2593,15 +2758,32 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             {% block content %}{% endblock %}
         </main>
 
-        {# Misma altura que el bloque inferior de la sidebar (h-12): así la
-           línea del footer y la de la sidebar quedan continuas. #}
+        {# El stack vive aca y no en la sidebar: el pie de la columna de
+           contenido es el lugar estable para esa linea (no cambia con el
+           plegado) y la marca ya esta en la cabecera del sidebar. Una sola
+           copia del dato, en un lugar que no depende del estado del menu. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Mi App — Slim 4 · HTMX · Alpine.js · daisyUI</aside>
+            <aside>Slim 4 · HTMX · Alpine · daisyUI</aside>
         </footer>
     </div>
 </div>
 
 <script>
+// R1 del sidebar: Alpine entra con `defer`, así que entre el parseo y su
+// arranque el sidebar fuera de pantalla de móvil todavía se alcanza con Tab.
+// `x-bind:inert` no puede tapar esa ventana: corre exactamente cuando Alpine
+// inicializa, que es lo que llega tarde. Se aplica acá, durante el parseo
+// (antes del script diferido), el mismo valor inicial que calcula shell():
+// sidebarOpen = window.innerWidth >= 1024. Alpine lo mantiene después.
+// Sólo móvil: en desktop el sidebar es una columna visible y `inert` la
+// dejaría muerta (sin foco ni clicks) hasta que Alpine la corrigiera.
+if (window.innerWidth < 1024) {
+    const el = document.getElementById('sidebar');
+    if (el) {
+        el.setAttribute('inert', '');
+    }
+}
+
 function shell() {
     return {
         theme: document.documentElement.dataset.theme || 'light',
@@ -2650,6 +2832,115 @@ function toastStack() {
         }
     };
 }
+
+/**
+ * Foco después de un swap (S4). Toda acción de fila reemplaza #tareas-panel
+ * entero (`hx-swap="outerHTML"`), así que el nodo que tenía el foco se va con
+ * el swap y `document.activeElement` cae en <body>: la Tab siguiente arranca
+ * en el sidebar y después de cada toggle, edición o borrado hay que recorrer
+ * la página completa otra vez.
+ *
+ * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
+ * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
+ *    publica en `clavePendiente` durante htmx:beforeRequest, ANTES del request.
+ * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
+ *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
+ * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
+ *    cancelar salieron del modo edición y esos botones ya no están), el foco
+ *    va al panel, que tiene `tabindex="-1"`. Sigue en la zona de la fila, no
+ *    en el shell, que es lo que pide S4.
+ * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
+ *    página es navegación, y llevarse el foco ahí sería robarlo.
+ */
+function restaurarFocoTrasSwap() {
+    // Una sola clave viva: la intención dura lo que dura el request.
+    let clavePendiente = null;
+
+    document.body.addEventListener('htmx:beforeRequest', (evento) => {
+        const elt = evento.detail && evento.detail.elt;
+        // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
+        // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
+        // dejaría su clave viva y el request siguiente la gastaría en el lugar
+        // equivocado. `dataset` no existe si htmx dispara sobre un target que
+        // no es un elemento (puede pasar), así que se lee con guarda.
+        clavePendiente = (elt && elt.dataset && elt.dataset.focusKey) || null;
+    });
+
+    document.body.addEventListener('htmx:afterSettle', () => {
+        if (clavePendiente === null) {
+            return;
+        }
+        const clave = clavePendiente;
+        clavePendiente = null;
+
+        const nuevo = document.querySelector(selectorPorClave(clave));
+        const destino = nuevo || document.getElementById('tareas-panel');
+        if (!destino) {
+            return;
+        }
+
+        // `focus()` sin opciones a propósito: `preventScroll: true` dejaría el
+        // foco en un nodo fuera de pantalla justo cuando el swap movió el
+        // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
+        // El default sólo scrollea si el destino no está a la vista.
+        destino.focus();
+    });
+
+    /**
+     * La clave la arma Twig con el id de la tarea (un entero), pero el selector
+     * no depende de eso: `CSS.escape` neutraliza comillas o backslashes si
+     * alguna vez la clave deja de ser numérica, y el fallback cubre los
+     * navegadores que no exponen `CSS.escape`.
+     */
+    function selectorPorClave(clave) {
+        const escapada = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(clave)
+            : String(clave).replace(/["\\]/g, '\\$&');
+        return '[data-focus-key="' + escapada + '"]';
+    }
+}
+
+// Los listeners van en document.body y no en el panel: el panel se reemplaza en
+// cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
+restaurarFocoTrasSwap();
+
+/**
+ * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
+ * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
+ * usuario ve una acción que "no hizo nada" y la repite.
+ *
+ * - `htmx:responseError`: el servidor contestó 4xx/5xx.
+ * - `htmx:sendError`: no hubo respuesta (sin red, DNS, servidor caído).
+ *
+ * Se usa el MISMO evento `toasts` que ya emite Controller::render() para las
+ * acciones htmx exitosas: un solo componente de avisos, y este script no toca
+ * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
+ */
+function avisarFallosDeHtmx() {
+    const avisar = (mensaje) => window.dispatchEvent(new CustomEvent('toasts', {
+        detail: { items: [{ message: mensaje, type: 'error' }] }
+    }));
+
+    document.body.addEventListener('htmx:responseError', (evento) => {
+        const estado = evento.detail && evento.detail.xhr ? evento.detail.xhr.status : 0;
+
+        // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
+        // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
+        // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
+        // dice más ("Tu sesión expiró") porque sabe por qué falló.
+        if (estado === 400 || estado === 419) {
+            return;
+        }
+
+        avisar('No se pudo completar la acción. Probá de nuevo.');
+    });
+
+    document.body.addEventListener('htmx:sendError', () => {
+        avisar('No hay conexión con el servidor.');
+    });
+}
+
+avisarFallosDeHtmx();
 </script>
 </body>
 </html>
@@ -2692,10 +2983,15 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {# Iconos compartidos entre sidebar y header: una sola fuente para que ambos
    muestren EL MISMO svg por ruta. `name`: home|tasks. `class` opcional. #}
-{% if name is defined and name == 'tasks' %}
+{% if name is defined and name == 'home' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+{% elseif name is defined and name == 'tasks' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
 {% else %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+{# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
+   un icono equivocado que parece válido es peor que un hueco: el typo se lee
+   como un icono correcto y nadie lo revisa. Sin fallback, el nombre mal
+   escrito se ve visiblemente mal y se arregla. #}
 {% endif %}
 ```
 
@@ -2704,13 +3000,15 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 `resources/views/auth/login.twig` (form normal, sin HTMX: el login navega de verdad con 303):
 
 ```twig
-{% extends 'layouts/app.twig' %}
+{% extends 'layouts/auth.twig' %}
 
 {% block title %}Acceder{% endblock %}
 
 {% block content %}
-    <div class="mx-auto max-w-sm">
-        <h1 class="mb-4 text-2xl font-bold">Acceder</h1>
+    {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
+       card aprovecha el ancho en movil en vez de quedar flotando. #}
+    <div class="w-full max-w-sm">
+        <h1 class="mb-4 text-center text-2xl font-bold">Acceder</h1>
 
         {% if flash_error %}
             <div class="alert alert-error mb-4" role="alert">
@@ -2727,22 +3025,34 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
         <form method="post" action="/login" class="card border border-base-300 bg-base-100">
             <div class="card-body gap-3">
                 {% include 'partials/_csrf.twig' %}
-                <label class="form-control">
-                    <span class="label"><span class="label-text">Email</span></span>
-                    <input type="email" name="email" required autocomplete="username"
+                {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
+                   los wrappers de la v4 (`form-control` y `label-text`), que la
+                   5 eliminó. El fieldset ya trae el grid vertical con su gap
+                   entre la etiqueta y el input, que era lo único que aportaba
+                   `form-control`.
+                   La etiqueta es un <label for> y NO un <legend>: el legend
+                   nombra al grupo, no al control, así que los inputs se
+                   quedaban sin nombre accesible. `.fieldset-legend` es un
+                   selector de clase (no `legend.fieldset-legend`), así que el
+                   formato es el mismo. #}
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend" for="login-email">Email</label>
+                    <input id="login-email" type="email" name="email" required autocomplete="username"
                            value="{{ email|default('') }}"
                            placeholder="vos@ejemplo.com"
-                           class="input input-bordered w-full">
-                </label>
-                <label class="form-control">
-                    <span class="label"><span class="label-text">Clave</span></span>
-                    <input type="password" name="password" required autocomplete="current-password"
+                           class="input w-full">
+                </fieldset>
+                <fieldset class="fieldset">
+                    <label class="fieldset-legend" for="login-password">Clave</label>
+                    <input id="login-password" type="password" name="password" required autocomplete="current-password"
                            placeholder="••••••••"
-                           class="input input-bordered w-full">
-                </label>
+                           class="input w-full">
+                </fieldset>
                 <label class="label cursor-pointer justify-start gap-2">
                     <input type="checkbox" name="remember" value="1" class="checkbox">
-                    <span class="label-text">Recordarme 30 días</span>
+                    {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
+                       el formato de la fila lo da el `label` de afuera. #}
+                    <span>Recordarme 30 días</span>
                 </label>
                 <button type="submit" class="btn btn-primary w-full">
                     Entrar
@@ -2830,15 +3140,37 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% block content %}
     <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
 
-    {# hx-on::after-request limpia el input tras cada alta: el form vive fuera de
-       #tareas-panel, así que el swap no lo toca y el texto quedaría pegado.
-       maxlength=120 alinea el browser con el max:120 del server. #}
-    <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
-          hx-on::after-request="this.reset()"
+    {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
+       vive fuera de #tareas-panel, así que el swap no lo toca y el texto
+       quedaría pegado. `event.detail.successful` es false en un 400 de
+       validación, en un 5xx y cuando no hubo respuesta; ahí el texto tipeado es
+       justo lo que no se puede borrar, porque es lo único que el usuario tiene
+       para corregir. El server ya conserva el título en el camino de edición
+       (`editing_title`); esto es la otra mitad de la misma regla.
+       maxlength=120 alinea el browser con el max:120 del server.
+       hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
+       emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
+       la única señal de que el request salió. El selector viaja con el id
+       porque htmx resuelve un selector CSS pelado contra el documento entero
+       (querySelectorAll sobre el root), no contra el form: `button` a secas
+       apagaría también las filas, el header y el sidebar. `find button` queda
+       atado a qué elemento toma htmx como disparador y `this` apagaría el form,
+       no su submit. Acá el único <button> es el submit: el input no se
+       deshabilita, así que el foco no se pierde mientras espera.
+       La posición viaja en la URL del form: el alta no manda page/per_page en
+       el cuerpo, así que sin esto crear desde "25 por página" devuelve la
+       lista en 10 y el usuario pierde su elección sin haberla tocado. La
+       página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
+       siempre en el contexto de index.twig (sólo lo renderiza
+       TaskController::respond, que siempre pasa pageData). #}
+    <form id="alta-tarea" hx-post="/tareas?page=1&per_page={{ pagination.per_page }}"
+          hx-target="#tareas-panel" hx-swap="outerHTML"
+          hx-on::after-request="if (event.detail.successful) this.reset()"
+          hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
         <input type="text" name="title" placeholder="Nueva tarea" required maxlength="120"
-               class="input input-bordered join-item w-full">
+               class="input join-item w-full">
         <button type="submit" class="btn btn-primary join-item">
             Agregar
         </button>
@@ -2851,7 +3183,41 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 `resources/views/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
 
 ```twig
-<div id="tareas-panel">
+{# `tabindex="-1"`: marca el panel como destino de foco programático (no
+   entra en el orden de tabulación). Es el fallback de `restaurarFocoTrasSwap()`
+   en app.twig cuando la acción hizo desaparecer el control que la disparó:
+   borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
+   los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
+   no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
+   `class="focus:outline-none"`: el panel no es un control, así que el anillo
+   de foco alrededor de toda la región no informa nada y sí ensucia la
+   pantalla. Va SOLO acá; los controles conservan su anillo. #}
+<div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
+    {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
+       deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
+       subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin
+       repetirlo en cada fila. Sin esto, un doble click en cualquiera de ellos
+       dispara dos veces la misma mutación (dos DELETE, dos toggles que se
+       anulan) y en hardware lento no hay ninguna señal de que algo esté pasando.
+       Por qué selector pelado y con el id adentro:
+       - `find button` se resuelve contra el elemento que DISPARA (el botón de la
+         fila), que no tiene botones adentro: htmx avisaría "returned no matches"
+         por consola y no apagaría nada.
+       - `this` apagaría el <div> (ahí `disabled` no hace nada) y dejaría vivos
+         justo los botones.
+       - Un selector pelado lo resuelve htmx con document.querySelectorAll, no
+         contra el div: el prefijo #tareas-panel es lo que lo acota al panel.
+       Alcance: sólo <button>, ningún otro descendiente. Los <a> de la paginación
+       quedan vivos a propósito: `disabled` no existe para un enlace y daisyUI
+       (.btn[disabled]) igual lo pintaría apagado, dejando algo que parece muerto
+       y sigue clickeable. El <select> de per_page tampoco entra: cambiar de
+       página o de tamaño es navegación, no una mutación que se pueda duplicar.
+       A los que ya venían deshabilitados (paginación en el borde) no los toca:
+       htmx sólo agrega el atributo si no estaba y sólo lo quita si lo puso él.
+       Efecto lateral asumido: durante el DELETE también queda apagado el
+       Cancelar/Cerrar del modal de confirmación. htmx los reactiva al terminar
+       (incluso si el request falla) y Esc cierra el <dialog> nativo igual, así
+       que no hay encierro. La señal visual la da daisyUI: no hace falta CSS. #}
     {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
        htmx): ahí no hay evento que escuchar, así que el aviso va inline.
        En las respuestas htmx estos dos banners llegan en null y el mensaje
@@ -2887,11 +3253,29 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 `resources/views/tasks/_list.twig`:
 
 ```twig
+{# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
+   de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
+   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
+   cuatro URLs la usan tal cual, así no pueden divergir entre sí.
+   Se imprime con `|raw` para que el `&` salga literal, igual que en
+   partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
+   puerta de escape: la cadena sale de dos enteros de App\Support\Pagination,
+   nunca de texto del usuario. Dentro del atributo es válido, porque
+   `&per_page` no forma una referencia de carácter (no termina en `;`). #}
+{% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
+{# `data-focus-key` en cada control de acción: el swap de #tareas-panel
+   (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
+   no tiene cómo saber a dónde devolverlo. El control que dispara publica su
+   clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
+   esa MISMA clave en el markup recién intercambiado. La clave sale del id de
+   la tarea, lo único estable entre un render y el siguiente: el índice de la
+   fila cambia en cuanto se borra una. Mecanismo en `restaurarFocoTrasSwap()`
+   del <script> de layouts/app.twig. #}
 <ul class="space-y-2">
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <form hx-put="/tareas/{{ task.id }}"
+                <form hx-put="/tareas/{{ task.id }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex items-center gap-2">
@@ -2900,19 +3284,35 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        no el valor guardado: si no, el usuario pierde lo que
                        escribió junto con el error. Twig autoescapea, así que
                        comillas o <script> tipeados salen neutrales. #}
+                    {# Nombre accesible: un input sin label, sin aria-label y sin
+                       placeholder se anuncia solo como "campo de texto", sin
+                       decir de qué. NO se usa el título de la tarea como
+                       nombre: ya está en `value`, y nombrar el campo con su
+                       propio contenido hace que el lector lo anuncie dos
+                       veces (nombre + valor). #}
                     <input type="text"
                            name="title"
+                           aria-label="Título de la tarea"
+                           {# Misma clave que el boton de editar: al entrar en modo
+                              edicion ese boton desaparece y este input toma su
+                              lugar, asi que el foco del swap aterriza en el
+                              campo y no en el panel. #}
+                           data-focus-key="edit-{{ task.id }}"
                            value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
                            required
                            maxlength="120"
-                           class="input input-bordered input-sm w-full">
-                    <button type="submit" class="btn btn-primary btn-sm">
+                           class="input input-sm w-full">
+                    <button type="submit"
+                            class="btn btn-primary btn-sm"
+                            data-focus-key="save-{{ task.id }}">
                         Guardar
                     </button>
+                    {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     <button type="button"
-                            hx-get="/tareas"
+                            hx-get="/tareas?{{ posicion|raw }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
+                            data-focus-key="cancel-{{ task.id }}"
                             class="btn btn-ghost btn-sm">
                         Cancelar
                     </button>
@@ -2921,9 +3321,11 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
                 <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
-                    {# Icono de estado: tenue para pendiente, verde para completado.
-                       (`text-base-400` no existe en daisyUI 5: era una clase muerta y
-                       el icono salía a full contraste, más pesado que el verde.)
+                    {# Icono de estado: verde para completado, gris para pendiente.
+                       Ambos salen de `--ink-*` (ver el <style> del layout), no de
+                       `text-success` ni `text-base-content/40`: los semanticos de
+                       daisyUI son FONDOS y como tinta daban 1.96:1 y 2.53:1,
+                       bajo el 3:1 que pide un objeto grafico.
                        El estado NO se escribe al lado del título ("Pendiente" /
                        "Completada el ..."): en móvil ese texto le robaba ancho al
                        título y el dato sólo interesa cuando lo buscás. Ahora el
@@ -2942,23 +3344,36 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                           @click.outside="abierto = false"
                           @keydown.escape="abierto = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
-                           igual que un click, sin listeners de teclado a mano. #}
+                           igual que un click, sin listeners de teclado a mano.
+                           El anillo de foco va SIN color a propósito: daisyUI
+                           5.7.46 no trae `outline-<color>` y `primary` no está
+                           en la paleta de Tailwind, así que `outline-primary` no
+                           lo compilaba nadie y el anillo salía por defecto. Con
+                           `outline-2` + `outline-offset-2` (utilidades planas de
+                           Tailwind, que el browser build sí resuelve) el color
+                           cae en `currentColor`, que contrasta en los dos temas. #}
                         <button type="button"
-                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="abierto = !abierto"
                                 :aria-expanded="abierto ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">
                             {% if task.status == 'completado' %}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                             {% else %}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-base-content/40" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-pending" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
                             {% endif %}
                         </button>
+                        {# `tooltip-estado`: gancho para apagar el x-transition en
+                           "reducir movimiento". El override vive en el
+                           <style> del layout porque Alpine aplica la
+                           transición sobre el nodo, y una clase de proyecto
+                           es la única forma de apuntarle sin depender de sus
+                           atributos internos. #}
                         <span x-cloak
                               x-show="abierto"
                               x-transition.opacity.duration.150ms
                               aria-hidden="true"
-                              class="pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
+                              class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
                             {{ estado_texto }}
                         </span>
                     </span>
@@ -2976,13 +3391,15 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                    iconos de estado de arriba): cero requests y heredan
                    currentColor, así que el tema claro/oscuro es gratis. #}
                 <div class="flex shrink-0 gap-1">
-                    {# Botón para cambiar el estado: HTMX intercambia el panel completo #}
+                    {# Botón para cambiar el estado: HTMX intercambia el panel completo.
+                       `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
                     <button
-                        hx-post="/tareas/{{ task.id }}/toggle"
+                        hx-post="/tareas/{{ task.id }}/toggle?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
-                        class="btn btn-square btn-ghost btn-sm {{ task.status == 'completado' ? 'text-success' : '' }}"
+                        data-focus-key="toggle-{{ task.id }}"
+                        class="btn btn-square btn-ghost btn-sm size-9 {{ task.status == 'completado' ? 'icon-success' : '' }}"
                         aria-label="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}"
                         title="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}">
                         {% if task.status == 'completado' %}
@@ -2994,19 +3411,21 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         {% endif %}
                     </button>
                     <button
-                        hx-get="/tareas/{{ task.id }}/edit"
+                        hx-get="/tareas/{{ task.id }}/edit?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
-                        class="btn btn-square btn-ghost btn-sm"
+                        data-focus-key="edit-{{ task.id }}"
+                        class="btn btn-square btn-ghost btn-sm size-9"
                         aria-label="Editar"
                         title="Editar">
                         {# Lápiz #}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
                     </button>
                     <button
-                        class="btn btn-square btn-ghost btn-sm text-error"
+                        class="btn btn-square btn-ghost btn-sm size-9 icon-error"
                         aria-label="Eliminar"
                         title="Eliminar"
+                        data-focus-key="delete-{{ task.id }}"
                         @click="$el.closest('li').querySelector('dialog').showModal()">
                         {# Papelera #}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -3029,10 +3448,19 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             <button class="btn btn-ghost">Cancelar</button>
                         </form>
                         <button
-                            hx-delete="/tareas/{{ task.id }}"
+                            hx-delete="/tareas/{{ task.id }}?{{ posicion|raw }}"
                             hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
+                            {# La MISMA clave que el botón de arriba, y por la
+                               misma razón: este es el botón que dispara el
+                               DELETE, así que es el que tiene que publicarla
+                               en htmx:beforeRequest. El de arriba solo abre el
+                               modal (no hace ningún request) y conserva la
+                               clave por simetría. Como la fila desaparece en
+                               el swap, esa clave no va a existir en el DOM
+                               nuevo y el layout enfoca el panel. #}
+                            data-focus-key="delete-{{ task.id }}"
                             class="btn btn-error">
                             Borrar
                         </button>
@@ -3151,30 +3579,39 @@ final class Pagination
     }
 
     /**
-     * Ventana de páginas estilo Laravel: primera, última y actual±2.
-     * null = ellipsis ("…"). Los números no pueden repetirse por construcción
-     * (el rango va de 2 a last-1), así que no se deduplica: array_unique con
-     * comparación laxa borraría un ellipsis doble, que es válido.
+     * Ventana de páginas con techo de CINCO entradas: primera, actual y
+     * última, más un ellipsis (null = "…") en cada salto. Con last <= 5
+     * entran todas y no hay nada que saltear.
+     *
+     * Los vecinos de la actual NO se muestran a propósito: llegar a la
+     * anterior/siguiente lo cubren las flechas « », que están siempre. La
+     * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
+     * opciones visibles que aguanta un punto de decisión (R7).
+     *
+     * La deduplicación sale de las guardas, no de array_unique: current == 1
+     * o current == last no repiten el número porque el `if` que lo agrega lo
+     * excluye. array_unique con comparación laxa borraría además un ellipsis
+     * doble, que es válido cuando current está lejos de los dos extremos.
      *
      * @return array<int|null>
      */
     public static function window(int $current, int $last): array
     {
-        if ($last <= 7) {
+        if ($last <= 5) {
             return range(1, $last);
         }
 
         $pages = [1];
 
-        if ($current > 4) {
+        if ($current > 2) {
             $pages[] = null;
         }
 
-        foreach (range(max(2, $current - 2), min($last - 1, $current + 2)) as $p) {
-            $pages[] = $p;
+        if ($current > 1 && $current < $last) {
+            $pages[] = $current;
         }
 
-        if ($current < $last - 3) {
+        if ($current < $last - 1) {
             $pages[] = null;
         }
 
@@ -3214,32 +3651,57 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 {# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
    (ver Pagination::paginate) y target (selector hx-target). Opcionales: swap
    (default outerHTML) y show_size (default true). Sin ids ni rutas propias:
-   todo sale de los params, así sirve en cualquier ruta sin cambios. #}
+   todo sale de los params, así sirve en cualquier ruta sin cambios.
+   Cada <a> lleva `href` ADEMÁS de `hx-get`, y ambos reciben la MISMA URL: un
+   <a> sin href no tiene rol de enlace ni entra en el orden de tabulación, así
+   que con teclado o lector de pantalla las páginas 2+ eran inalcanzables.
+   Las URLs son navegación real, pero htmx sigue interceptando el click cuando
+   está cargado: el href es el fallback, no un segundo camino. #}
 {% if pagination.total > 0 %}
 <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-sm opacity-70">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} registros
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
     </p>
 
     <div class="flex flex-wrap items-center gap-2">
         {% if show_size|default(true) %}
-        <select class="select select-bordered select-sm w-auto" name="per_page"
-                aria-label="Registros por página"
-                hx-get="{{ pagination.base_url }}"
-                hx-target="{{ target }}"
-                hx-swap="{{ swap|default('outerHTML') }}"
-                hx-trigger="change"
-                hx-include="this">
-            {% for size in [10, 15, 25, 50] %}
-                <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
-            {% endfor %}
-        </select>
+        {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
+           select sin depender de que el lector de pantalla lo anuncie, y el
+           nombre accesible queda idéntico para no anunciar dos cosas distintas.
+           No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta (~4.4:1
+           sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
+           El mismo tono del contador de arriba, con `opacity-70` sólo en el
+           texto, da ~6:1 y deja el select a tinta plena. #}
+        <label class="flex items-center gap-2">
+            <span class="text-sm opacity-70">Tareas por página</span>
+            <select class="select select-sm w-auto" name="per_page"
+                    aria-label="Tareas por página"
+                    hx-get="{{ pagination.base_url }}"
+                    hx-target="{{ target }}"
+                    hx-swap="{{ swap|default('outerHTML') }}"
+                    hx-trigger="change"
+                    hx-include="this">
+                {% for size in [10, 15, 25, 50] %}
+                    <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
+                {% endfor %}
+            </select>
+        </label>
         {% endif %}
 
         <div class="join" role="navigation" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de App\Support\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="join-item btn btn-sm"
-                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page - 1 }}&per_page={{ pagination.per_page }}"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    aria-label="Página anterior">«</a>
             {% else %}
@@ -3252,16 +3714,20 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 {% elseif p == pagination.current_page %}
                     <button class="join-item btn btn-sm btn-active" aria-current="page">{{ p }}</button>
                 {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="join-item btn btn-sm"
-                       hx-get="{{ pagination.base_url }}?page={{ p }}&per_page={{ pagination.per_page }}"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                        aria-label="Página {{ p }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
             {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="join-item btn btn-sm"
-                   hx-get="{{ pagination.base_url }}?page={{ pagination.current_page + 1 }}&per_page={{ pagination.per_page }}"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    aria-label="Página siguiente">»</a>
             {% else %}
@@ -4051,9 +4517,14 @@ final class ErrorHandlingTest extends TestCase
     /**
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
-     * (medido) en vez de los ~507 bytes de errors/error.twig. En 32 bits ese
+     * (medido) en vez del ~1 KB de errors/error.twig. En 32 bits ese
      * pico de memoria se paga caro (cap. 17), y de paso dejás de mirar la
      * página de error real porque todo 404 se ve igual de apocalyptic.
+     *
+     * También fija el contrato de S7: el mensaje sale en español (no el
+     * "Not found." en inglés que manda el vendor) y la página carga el bundle
+     * de daisyUI; sin ese <link> todas sus clases son inertes y el código de
+     * estado vuelve a verse como texto plano.
      *
      * Este test corre con APP_DEBUG=true (lo que hay en .env), o sea que
      * Whoops está construido: verifica que la rama correcta sea la elegida.
@@ -4068,7 +4539,8 @@ final class ErrorHandlingTest extends TestCase
         $html = $response->getBody()->getContents();
 
         self::assertStringNotContainsString('Whoops', $html);
-        self::assertStringContainsString('Not found.', $html);
+        self::assertStringContainsString('No encontramos esa página.', $html);
+        self::assertStringContainsString('/assets/daisyui-5.7.46.css', $html);
         self::assertLessThan(4096, strlen($html), 'El 404 deberia pesar bytes, no cientos de KB.');
     }
 }
@@ -4246,7 +4718,9 @@ final class DeleteTaskTest extends TestCase
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
-        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '"', $html);
+        // El query string de posicion lo fija tests/Http/ListStateContractTest;
+        // aca solo importa que el borrado apunte al recurso correcto.
+        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
     }
 
     /**
@@ -4288,22 +4762,29 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use App\Models\Task;
 use App\Models\User;
 
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
 use Slim\Psr7\Factory\ServerRequestFactory;
+use Slim\Psr7\Factory\StreamFactory;
 use Tests\Support\AppFactory;
 
 /**
- * Qué recibe HTMX cuando pide `/tareas` con `HX-Request`.
+ * Qué recibe htmx y qué recibe el navegador en la misma ruta.
  *
- * El botón "Cancelar" apunta a `/tareas` con `hx-target="#tareas-panel"` y
- * `hx-swap="outerHTML"`. Si el servidor devuelve `index.twig` (que extiende
- * el layout), HTMX recibe un documento completo, se queda con el `<body>` y lo
- * inserta dentro del panel: quedan dos `<h1>`, dos `id="alta-tarea"` y el
- * padding del layout dos veces.
+ * Con `HX-Request` la respuesta tiene que ser el panel y nada más: el botón
+ * "Cancelar" apunta a `/tareas` con `hx-target="#tareas-panel"` y
+ * `hx-swap="outerHTML"`, así que si el servidor devuelve `index.twig` (que
+ * extiende el layout) htmx recibe un documento completo, se queda con el
+ * `<body>` y lo inserta dentro del panel: quedan dos `<h1>`, dos
+ * `id="alta-tarea"` y el padding del layout dos veces.
+ *
+ * Sin `HX-Request` es un navegador pidiendo una página (form con JS apagado,
+ * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
+ * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
  */
 final class PartialRenderTest extends TestCase
 {
@@ -4318,8 +4799,11 @@ final class PartialRenderTest extends TestCase
 
     protected function tearDown(): void
     {
+        // El schema vive en un SQLite compartido: si no limpiás, la suite
+        // depende del orden de ejecución.
         unset($_SESSION['user_id']);
         User::query()->delete();
+        Task::query()->delete();
     }
 
     private static function app(): App
@@ -4355,10 +4839,129 @@ final class PartialRenderTest extends TestCase
         self::assertStringContainsString('id="tareas-panel"', $html);
     }
 
-    private static function request(bool $htmx): ServerRequestInterface
+    /**
+     * S9: una mutación invocada SIN htmx (form normal con JS apagado, URL
+     * directa, un curl) no puede devolver `tasks/_panel.twig`. Ese fragmento
+     * viaja sin `<head>`, sin hoja de estilos y sin shell: el navegador lo
+     * pinta como texto plano y la acción, aunque haya funcionado, parece
+     * rota. El contrato es el mismo que ya cumple `index()`: la región para
+     * htmx, la página entera para todo lo demás.
+     */
+    public function test_post_sin_hx_request_devuelve_la_pagina_completa(): void
     {
+        $token = $this->token();
+
+        $response = self::app()->handle(
+            self::request(false, 'POST', '/tareas', [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => 'Comprar pan',
+            ])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(1, Task::count(), 'La tarea no se creó: la respuesta no es la que se está probando.');
+
+        $this->assertDocumentoCompleto((string) $response->getBody());
+    }
+
+    /**
+     * El par del test de arriba: la rama de htmx no cambió. Sin esto, un
+     * `respond()` que devolviera siempre la página entera rompería cada swap
+     * (el `<body>` entero dentro del panel) y la suite de toasts no lo vería:
+     * ella mira los avisos, no la forma del documento.
+     */
+    public function test_post_con_hx_request_devuelve_solo_el_panel(): void
+    {
+        $token = $this->token();
+
+        $response = self::app()->handle(
+            self::request(true, 'POST', '/tareas', [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => 'Comprar pan',
+            ])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringNotContainsString('<!DOCTYPE html>', $html, 'Un <html> completo dentro del panel duplica la página.');
+        self::assertStringContainsString('id="tareas-panel"', $html);
+    }
+
+    public function test_delete_sin_hx_request_devuelve_la_pagina_completa(): void
+    {
+        $task = Task::create(['title' => 'Comprar pan']);
+        $token = $this->token();
+
+        $response = self::app()->handle(
+            self::request(false, 'DELETE', '/tareas/' . $task->id, [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+            ])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertNull(Task::find($task->id), 'La tarea no se borró: la respuesta no es la que se está probando.');
+
+        $this->assertDocumentoCompleto((string) $response->getBody());
+    }
+
+    /**
+     * Lo que hace que el navegador pueda pintar la respuesta por su cuenta.
+     * El link de la hoja de estilos es el assert que de verdad separa una
+     * página de un fragmento: `<!DOCTYPE html>` podría venir de un `_panel`
+     * mal armado, pero sin `<link rel="stylesheet">` la página sigue sin
+     * estilos y el bug de S9 continúa.
+     */
+    private function assertDocumentoCompleto(string $html): void
+    {
+        self::assertStringContainsString('<!DOCTYPE html>', $html, 'Sin doctype el navegador queda en modo quirks.');
+        self::assertStringContainsString('<html', $html, 'La mutación devolvió un fragmento, no una página.');
+        self::assertStringContainsString('rel="stylesheet"', $html, 'Sin la hoja de estilos la página se ve sin CSS.');
+        self::assertStringContainsString('/assets/daisyui-5.7.46.css', $html);
+    }
+
+    /**
+     * @return array{csrf_name: string, csrf_value: string}
+     */
+    private function token(): array
+    {
+        $html = (string) self::app()->handle(self::request(false))->getBody();
+
+        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
+        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
+
+        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
+        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
+
+        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
+    }
+
+    /**
+     * @param array<string, string> $body
+     */
+    private static function request(
+        bool $htmx,
+        string $method = 'GET',
+        string $path = '/tareas',
+        array $body = []
+    ): ServerRequestInterface {
+        // URI absoluta, igual que en el resto de la suite: con path-only el
+        // host queda vacío y Slim se porta distinto en los casos borde.
         $request = (new ServerRequestFactory())
-            ->createServerRequest('GET', 'http://localhost/tareas');
+            ->createServerRequest($method, 'http://localhost' . $path);
+
+        if ($body !== []) {
+            // Body crudo con su Content-Type: así pasa por el Body Parsing
+            // Middleware igual que en producción. withParsedBody() saltearía
+            // justo la capa que rompen los cambios de orden del pipeline.
+            $request = $request
+                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
+                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
+        }
 
         return $htmx
             ? $request->withHeader('HX-Request', 'true')
@@ -4434,7 +5037,9 @@ final class EditTaskTest extends TestCase
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '"', $html);
+        // El query string de posicion lo fija tests/Http/ListStateContractTest;
+        // aca solo importa que el guardado apunte al recurso correcto.
+        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('Cancelar', $html);
@@ -4682,6 +5287,22 @@ final class AuthTest extends TestCase
         }
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    /**
+     * El login no es una pantalla de la app: dentro del shell ofrecia
+     * navegacion a /tareas, que sin sesion redirige de vuelta a este mismo
+     * formulario. Era una puerta que no lleva a ningun lado, y ademas mostraba
+     * el header, el toggle de tema y el footer de una app a la que todavia no
+     * se entro. Vive en layouts/auth.twig, no en layouts/app.twig.
+     */
+    public function test_el_login_no_se_renderiza_dentro_del_shell(): void
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
+
+        self::assertStringContainsString('action="/login"', $html);
+        self::assertStringNotContainsString('id="sidebar"', $html);
+        self::assertStringNotContainsString('href="/tareas"', $html);
     }
 
     public function test_login_valido_redirige_y_abre_sesion(): void
@@ -4985,10 +5606,12 @@ final class PaginationTest extends TestCase
         return [
             'una sola'            => [1, 1, [1]],
             'pocas sin ellipsis'  => [1, 5, [1, 2, 3, 4, 5]],
-            'inicio con ellipsis' => [1, 10, [1, 2, 3, null, 10]],
-            'medio con dos'       => [5, 10, [1, null, 3, 4, 5, 6, 7, null, 10]],
-            'final con una'       => [9, 10, [1, null, 7, 8, 9, 10]],
-            'última exacta'       => [10, 10, [1, null, 8, 9, 10]],
+            'inicio con ellipsis' => [1, 10, [1, null, 10]],
+            'medio con dos'       => [5, 10, [1, null, 5, null, 10]],
+            'final con una'       => [9, 10, [1, null, 9, 10]],
+            'última exacta'       => [10, 10, [1, null, 10]],
+            'vecina del inicio'   => [2, 10, [1, 2, null, 10]],
+            'seis paginas, medio' => [3, 6, [1, null, 3, null, 6]],
         ];
     }
 
@@ -4996,6 +5619,26 @@ final class PaginationTest extends TestCase
     public function test_ventana(int $current, int $last, array $expected): void
     {
         self::assertSame($expected, Pagination::window($current, $last));
+    }
+
+    /**
+     * R7: un punto de decisión no muestra más de cuatro opciones visibles, así
+     * que la ventana tiene que entrar en cinco entradas contando el «…».
+     * Se barre todo el espacio que la paginación real puede producir en vez de
+     * un caso suelto: el techo es la regla, no el ejemplo.
+     */
+    public function test_la_ventana_nunca_pasa_de_cinco_entradas(): void
+    {
+        foreach (range(1, 12) as $last) {
+            foreach (range(1, $last) as $current) {
+                $pages = Pagination::window($current, $last);
+                $caso = sprintf('ventana de %d en %d', $current, $last);
+
+                self::assertLessThanOrEqual(5, count($pages), $caso);
+                self::assertSame(1, $pages[0], $caso . ': empieza en la primera');
+                self::assertSame($last, $pages[array_key_last($pages)], $caso . ': termina en la última');
+            }
+        }
     }
 
     public function test_pagina_intermedia_trae_su_slice_y_contadores(): void
@@ -5131,7 +5774,7 @@ final class PaginationFlowTest extends TestCase
         // Orden desc por id: la 1 y la 2 caen en la página 2, la 12 queda en la 1.
         self::assertStringContainsString('Tarea 01', $html);
         self::assertStringNotContainsString('Tarea 12', $html);
-        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 tareas', $html);
     }
 
     public function test_per_page_grande_mete_todo_en_una(): void
@@ -5142,7 +5785,7 @@ final class PaginationFlowTest extends TestCase
 
         self::assertStringContainsString('Tarea 01', $html);
         self::assertStringContainsString('Tarea 12', $html);
-        self::assertStringContainsString('Mostrando 1 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 1 al 12 de 12 tareas', $html);
     }
 
     public function test_per_page_invalido_cae_al_default(): void
@@ -5151,7 +5794,7 @@ final class PaginationFlowTest extends TestCase
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('Mostrando 11 al 12 de 12 registros', $html);
+        self::assertStringContainsString('Mostrando 11 al 12 de 12 tareas', $html);
     }
 
     public function test_los_links_apuntan_al_panel_y_conservan_el_tamano(): void
