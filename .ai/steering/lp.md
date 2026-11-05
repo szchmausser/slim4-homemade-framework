@@ -19,7 +19,7 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 1. **Separación de capas**: Cada capa tiene una responsabilidad única y no mezcla preocupaciones.
 2. **HTMX-first**: Las interacciones UI se manejan con HTMX, no con AJAX/JSON polling.
 3. **SQLite-native**: Todas las operaciones de base de datos usan SQLite (embedded, no servidor externo).
-4. **Termux-compatible**: Evitar características de PHP 64-bit (int64, caches globales pesados).
+4. **Termux-compatible**: Evitar características que asuman 64 bits (int64, caches globales pesados).
 5. **Single Responsibility**: Cada controlador, modelo y middleware cumple una función clara.
 
 ## Arquitectura Detallada

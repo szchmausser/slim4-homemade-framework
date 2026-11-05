@@ -26,7 +26,7 @@
 4. Guardar
 
 ### Verificación
-- `composer test` debe pasar (suite 65 tests)
+- `composer test` debe pasar (suite completa)
 - Manual: completar una tarea pendiente → estado cambia a "completado" sin toast error
 - Manual: desmarcar una completada → estado vuelve a "pendiente" sin toast error
 

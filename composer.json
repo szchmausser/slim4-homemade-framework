@@ -32,10 +32,12 @@
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "lint": "@php scripts/lint.php",
+        "docs:check": "@php scripts/docs-check.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
         "verify": [
             "@lint",
+            "@docs:check",
             "@phpstan",
             "@test",
             "@migrate:fresh"

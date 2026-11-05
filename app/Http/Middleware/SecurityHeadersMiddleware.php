@@ -32,9 +32,9 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // dentro de una CSP, pero eso implicaría adoptar CSP entera.
             ->withHeader('X-Frame-Options', 'DENY')
 
-            // La app carga recursos de jsdelivr y unpkg. Sin esto, cada request
-            // a esos CDNs manda tu URL completa (con paths y query string)
-            // en el header Referer.
+            // Los assets son locales con SRI, pero la app puede enlazar a
+            // sitios externos. Sin esto, cada salida manda tu URL completa
+            // (con paths y query string) en el header Referer.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
         // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
