@@ -2433,7 +2433,6 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #sidebar { width: 4rem; }
             html[data-sidebar-mini] #sidebar .sidebar-head { justify-content: center; padding-left: .5rem; padding-right: .5rem; }
             html[data-sidebar-mini] #sidebar .sidebar-label { display: none; }
-            html[data-sidebar-mini] #sidebar-foot { display: none; }
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
@@ -2458,6 +2457,16 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
 
+        /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la pagina
+           activa como un bloque casi negro, mas pesado que cualquier otro
+           elemento de la pantalla. Se cambia por un tinte suave del propio
+           texto, que funciona igual en los dos temas y conserva el contraste
+           (el color del texto sigue siendo base-content). */
+        .menu .menu-active {
+            background-color: color-mix(in oklab, var(--color-base-content) 12%, transparent);
+            color: var(--color-base-content);
+        }
+
         /* ── Avisos flotantes ────────────────────────────────────────────
            Posición: abajo a la derecha del area de contenido. El host sigue
            replicando la geometria de la columna (en desktop el sidebar es
@@ -2471,11 +2480,12 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            encima del anterior y el bloque se expande hacia el titulo, nunca
            hacia el borde inferior de la pantalla. En móvil el mismo criterio,
            con 1rem de margen. */
+        /* En móvil tambien tiene que librar el footer (h-12). */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
             inset-inline: 0;
-            bottom: 1rem;
+            bottom: 3.5rem;       /* = footer h-12 + 8px */
             padding-inline: 1rem;
             pointer-events: none; /* el hueco alrededor no bloquea clicks */
         }
@@ -2495,7 +2505,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             .toast-host {
                 inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
                 top: auto;
-                bottom: 1.5rem;                            /* = lg:p-6 de <main> */
+                bottom: 4rem;                              /* = footer h-12 + 16px */
                 padding-inline: 0;
                 transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
             }
@@ -2620,19 +2630,28 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         </ul>
         {% if user_id is defined and user_id %}
         <div class="border-t border-base-300 p-2">
-            <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
-            <form method="post" action="/logout">
-                {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir" aria-label="Salir">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
-                </button>
-            </form>
+            {# Fila de usuario: inicial en un disco, email y la salida como icono.
+               Antes el email flotaba suelto arriba y "Salir" era un boton
+               fantasma de ancho completo: dos pesos distintos para la misma
+               zona, y ninguno de los dos se leia como una unidad.
+               `sidebar-label` en el disco y en el email hace que el plegado
+               pre-pintado del CSS los oculte igual que las etiquetas del menu:
+               plegado queda solo el boton, centrado. #}
+            <div class="flex items-center gap-2 rounded-box bg-base-200 p-1.5"
+                 :class="sidebarMini && 'lg:justify-center lg:bg-transparent lg:p-0'">
+                <span class="sidebar-label grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold uppercase text-primary-content"
+                      :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
+                <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
+                      :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
+                <form method="post" action="/logout" class="shrink-0">
+                    {% include 'partials/_csrf.twig' %}
+                    <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </form>
+            </div>
         </div>
         {% endif %}
-        <div id="sidebar-foot" class="flex h-12 shrink-0 items-center border-t border-base-300 px-4 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">
-            Slim 4 · HTMX · Alpine · daisyUI
-        </div>
     </aside>
 
     {# Columna de contenido. #}
@@ -2739,13 +2758,12 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             {% block content %}{% endblock %}
         </main>
 
-        {# Misma altura que el bloque inferior de la sidebar (h-12): así la
-           línea del footer y la de la sidebar quedan continuas.
-           La marca sola: el stack vive en #sidebar-foot y no se repite acá.
-           Dos copias del mismo dato se desincronizan en cuanto alguien cambia
-           una, y el footer no necesita decir con qué está hecho. #}
+        {# El stack vive aca y no en la sidebar: el pie de la columna de
+           contenido es el lugar estable para esa linea (no cambia con el
+           plegado) y la marca ya esta en la cabecera del sidebar. Una sola
+           copia del dato, en un lugar que no depende del estado del menu. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Mi App</aside>
+            <aside>Slim 4 · HTMX · Alpine · daisyUI</aside>
         </footer>
     </div>
 </div>
@@ -2990,7 +3008,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
     {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
        card aprovecha el ancho en movil en vez de quedar flotando. #}
     <div class="w-full max-w-sm">
-        <h1 class="mb-4 text-2xl font-bold">Acceder</h1>
+        <h1 class="mb-4 text-center text-2xl font-bold">Acceder</h1>
 
         {% if flash_error %}
             <div class="alert alert-error mb-4" role="alert">
@@ -3381,7 +3399,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                         data-focus-key="toggle-{{ task.id }}"
-                        class="btn btn-square btn-ghost btn-sm {{ task.status == 'completado' ? 'icon-success' : '' }}"
+                        class="btn btn-square btn-ghost btn-sm size-9 {{ task.status == 'completado' ? 'icon-success' : '' }}"
                         aria-label="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}"
                         title="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}">
                         {% if task.status == 'completado' %}
@@ -3397,14 +3415,14 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         data-focus-key="edit-{{ task.id }}"
-                        class="btn btn-square btn-ghost btn-sm"
+                        class="btn btn-square btn-ghost btn-sm size-9"
                         aria-label="Editar"
                         title="Editar">
                         {# Lápiz #}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
                     </button>
                     <button
-                        class="btn btn-square btn-ghost btn-sm icon-error"
+                        class="btn btn-square btn-ghost btn-sm size-9 icon-error"
                         aria-label="Eliminar"
                         title="Eliminar"
                         data-focus-key="delete-{{ task.id }}"
