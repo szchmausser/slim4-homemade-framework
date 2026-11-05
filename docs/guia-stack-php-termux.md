@@ -2443,7 +2443,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
             integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
     <script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
-            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"></script>
+            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+            defer></script>
     <script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
             integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
 
@@ -3254,7 +3255,12 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
        página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
        siempre en el contexto de index.twig (sólo lo renderiza
        TaskController::respond, que siempre pasa pageData). #}
+    {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
+       submit y usa su atributo, pero sin JS el formulario tiene que poder
+       enviarse solo. Antes solo existia hx-post, asi que un submit nativo hacia
+       GET a la URL actual, recargaba y no creaba nada, sin avisar. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
+          method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"
@@ -3420,7 +3426,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                    tercero y dejaba de leerse como parte del título. El
                    desplazamiento óptico (`-mt-0.5` en el disparador) conserva
                    el aspecto centrado cuando el título ocupa un solo renglón. #}
-                <span class="flex items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                <span class="flex min-w-0 items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
                     {# Icono de estado: verde para completado, gris para pendiente.
                        Ambos salen de `--ink-*` (ver el <style> del layout), no de
                        `text-success` ni `text-base-content/40`: los semanticos de
@@ -3485,7 +3491,10 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             {{ estado_texto }}
                         </span>
                     </span>
-                    <span>{{ task.title }}</span>
+                    {# min-w-0 + break-words: un titulo de 120 caracteres sin
+                       espacios es un solo token; sin esto el flex no puede
+                       achicar la fila y a 320px produce scroll horizontal. #}
+                    <span class="min-w-0 break-words">{{ task.title }}</span>
                 </span>
                 {# Acciones como ICONOS. Con texto, tres botones ("Completar"
                    + "Editar" + "Eliminar") se comían media fila y en móvil

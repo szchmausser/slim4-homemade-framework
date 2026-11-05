@@ -28,7 +28,12 @@
        página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
        siempre en el contexto de index.twig (sólo lo renderiza
        TaskController::respond, que siempre pasa pageData). #}
+    {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
+       submit y usa su atributo, pero sin JS el formulario tiene que poder
+       enviarse solo. Antes solo existia hx-post, asi que un submit nativo hacia
+       GET a la URL actual, recargaba y no creaba nada, sin avisar. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
+          method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"

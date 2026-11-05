@@ -74,7 +74,7 @@
                    tercero y dejaba de leerse como parte del título. El
                    desplazamiento óptico (`-mt-0.5` en el disparador) conserva
                    el aspecto centrado cuando el título ocupa un solo renglón. #}
-                <span class="flex items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                <span class="flex min-w-0 items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
                     {# Icono de estado: verde para completado, gris para pendiente.
                        Ambos salen de `--ink-*` (ver el <style> del layout), no de
                        `text-success` ni `text-base-content/40`: los semanticos de
@@ -139,7 +139,10 @@
                             {{ estado_texto }}
                         </span>
                     </span>
-                    <span>{{ task.title }}</span>
+                    {# min-w-0 + break-words: un titulo de 120 caracteres sin
+                       espacios es un solo token; sin esto el flex no puede
+                       achicar la fila y a 320px produce scroll horizontal. #}
+                    <span class="min-w-0 break-words">{{ task.title }}</span>
                 </span>
                 {# Acciones como ICONOS. Con texto, tres botones ("Completar"
                    + "Editar" + "Eliminar") se comían media fila y en móvil
