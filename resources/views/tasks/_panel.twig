@@ -1,4 +1,13 @@
-<div id="tareas-panel" hx-disabled-elt="#tareas-panel button">
+{# `tabindex="-1"`: marca el panel como destino de foco programático (no
+   entra en el orden de tabulación). Es el fallback de `restaurarFocoTrasSwap()`
+   en app.twig cuando la acción hizo desaparecer el control que la disparó:
+   borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
+   los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
+   no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
+   `class="focus:outline-none"`: el panel no es un control, así que el anillo
+   de foco alrededor de toda la región no informa nada y sí ensucia la
+   pantalla. Va SOLO acá; los controles conservan su anillo. #}
+<div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
     {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
        deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
        subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin

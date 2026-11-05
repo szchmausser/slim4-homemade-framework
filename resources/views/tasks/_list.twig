@@ -8,6 +8,14 @@
    nunca de texto del usuario. Dentro del atributo es válido, porque
    `&per_page` no forma una referencia de carácter (no termina en `;`). #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
+{# `data-focus-key` en cada control de acción: el swap de #tareas-panel
+   (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
+   no tiene cómo saber a dónde devolverlo. El control que dispara publica su
+   clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
+   esa MISMA clave en el markup recién intercambiado. La clave sale del id de
+   la tarea, lo único estable entre un render y el siguiente: el índice de la
+   fila cambia en cuanto se borra una. Mecanismo en `restaurarFocoTrasSwap()`
+   del <script> de layouts/app.twig. #}
 <ul class="space-y-2">
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
@@ -21,13 +29,27 @@
                        no el valor guardado: si no, el usuario pierde lo que
                        escribió junto con el error. Twig autoescapea, así que
                        comillas o <script> tipeados salen neutrales. #}
+                    {# Nombre accesible: un input sin label, sin aria-label y sin
+                       placeholder se anuncia solo como "campo de texto", sin
+                       decir de qué. NO se usa el título de la tarea como
+                       nombre: ya está en `value`, y nombrar el campo con su
+                       propio contenido hace que el lector lo anuncie dos
+                       veces (nombre + valor). #}
                     <input type="text"
                            name="title"
+                           aria-label="Título de la tarea"
+                           {# Misma clave que el boton de editar: al entrar en modo
+                              edicion ese boton desaparece y este input toma su
+                              lugar, asi que el foco del swap aterriza en el
+                              campo y no en el panel. #}
+                           data-focus-key="edit-{{ task.id }}"
                            value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
                            required
                            maxlength="120"
                            class="input input-sm w-full">
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="submit"
+                            class="btn btn-primary btn-sm"
+                            data-focus-key="save-{{ task.id }}">
                         Guardar
                     </button>
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
@@ -35,6 +57,7 @@
                             hx-get="/tareas?{{ posicion|raw }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
+                            data-focus-key="cancel-{{ task.id }}"
                             class="btn btn-ghost btn-sm">
                         Cancelar
                     </button>
@@ -114,6 +137,7 @@
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
+                        data-focus-key="toggle-{{ task.id }}"
                         class="btn btn-square btn-ghost btn-sm {{ task.status == 'completado' ? 'icon-success' : '' }}"
                         aria-label="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}"
                         title="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}">
@@ -129,6 +153,7 @@
                         hx-get="/tareas/{{ task.id }}/edit?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
+                        data-focus-key="edit-{{ task.id }}"
                         class="btn btn-square btn-ghost btn-sm"
                         aria-label="Editar"
                         title="Editar">
@@ -139,6 +164,7 @@
                         class="btn btn-square btn-ghost btn-sm icon-error"
                         aria-label="Eliminar"
                         title="Eliminar"
+                        data-focus-key="delete-{{ task.id }}"
                         @click="$el.closest('li').querySelector('dialog').showModal()">
                         {# Papelera #}
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -165,6 +191,15 @@
                             hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
+                            {# La MISMA clave que el botón de arriba, y por la
+                               misma razón: este es el botón que dispara el
+                               DELETE, así que es el que tiene que publicarla
+                               en htmx:beforeRequest. El de arriba solo abre el
+                               modal (no hace ningún request) y conserva la
+                               clave por simetría. Como la fila desaparece en
+                               el swap, esa clave no va a existir en el DOM
+                               nuevo y el layout enfoca el panel. #}
+                            data-focus-key="delete-{{ task.id }}"
                             class="btn btn-error">
                             Borrar
                         </button>

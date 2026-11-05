@@ -376,6 +376,77 @@ function toastStack() {
         }
     };
 }
+
+/**
+ * Foco después de un swap (S4). Toda acción de fila reemplaza #tareas-panel
+ * entero (`hx-swap="outerHTML"`), así que el nodo que tenía el foco se va con
+ * el swap y `document.activeElement` cae en <body>: la Tab siguiente arranca
+ * en el sidebar y después de cada toggle, edición o borrado hay que recorrer
+ * la página completa otra vez.
+ *
+ * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
+ * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
+ *    publica en `clavePendiente` durante htmx:beforeRequest, ANTES del request.
+ * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
+ *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
+ * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
+ *    cancelar salieron del modo edición y esos botones ya no están), el foco
+ *    va al panel, que tiene `tabindex="-1"`. Sigue en la zona de la fila, no
+ *    en el shell, que es lo que pide S4.
+ * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
+ *    página es navegación, y llevarse el foco ahí sería robarlo.
+ */
+function restaurarFocoTrasSwap() {
+    // Una sola clave viva: la intención dura lo que dura el request.
+    let clavePendiente = null;
+
+    document.body.addEventListener('htmx:beforeRequest', (evento) => {
+        const elt = evento.detail && evento.detail.elt;
+        // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
+        // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
+        // dejaría su clave viva y el request siguiente la gastaría en el lugar
+        // equivocado. `dataset` no existe si htmx dispara sobre un target que
+        // no es un elemento (puede pasar), así que se lee con guarda.
+        clavePendiente = (elt && elt.dataset && elt.dataset.focusKey) || null;
+    });
+
+    document.body.addEventListener('htmx:afterSettle', () => {
+        if (clavePendiente === null) {
+            return;
+        }
+        const clave = clavePendiente;
+        clavePendiente = null;
+
+        const nuevo = document.querySelector(selectorPorClave(clave));
+        const destino = nuevo || document.getElementById('tareas-panel');
+        if (!destino) {
+            return;
+        }
+
+        // `focus()` sin opciones a propósito: `preventScroll: true` dejaría el
+        // foco en un nodo fuera de pantalla justo cuando el swap movió el
+        // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
+        // El default sólo scrollea si el destino no está a la vista.
+        destino.focus();
+    });
+
+    /**
+     * La clave la arma Twig con el id de la tarea (un entero), pero el selector
+     * no depende de eso: `CSS.escape` neutraliza comillas o backslashes si
+     * alguna vez la clave deja de ser numérica, y el fallback cubre los
+     * navegadores que no exponen `CSS.escape`.
+     */
+    function selectorPorClave(clave) {
+        const escapada = (window.CSS && typeof window.CSS.escape === 'function')
+            ? window.CSS.escape(clave)
+            : String(clave).replace(/["\\]/g, '\\$&');
+        return '[data-focus-key="' + escapada + '"]';
+    }
+}
+
+// Los listeners van en document.body y no en el panel: el panel se reemplaza en
+// cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
+restaurarFocoTrasSwap();
 </script>
 </body>
 </html>
