@@ -335,32 +335,24 @@
             </li>
         </ul>
         {% if user_id is defined and user_id %}
-        {# Misma altura que el footer (`h-12`): asi su border-t cae a la misma
-           distancia del borde inferior y las dos lineas se leen como una sola.
-           Con padding libre, el bloque medía 48px plegado (solo el boton) y ~60
-           desplegado (suma el p-1.5 de la fila), asi que la linea se cortaba
-           solo al desplegar el menu. #}
-        <div class="flex h-12 shrink-0 items-center border-t border-base-300 px-2">
-            {# Fila de usuario: inicial en un disco, email y la salida como icono.
-               Antes el email flotaba suelto arriba y "Salir" era un boton
-               fantasma de ancho completo: dos pesos distintos para la misma
-               zona, y ninguno de los dos se leia como una unidad.
-               `sidebar-label` en el disco y en el email hace que el plegado
-               pre-pintado del CSS los oculte igual que las etiquetas del menu:
-               plegado queda solo el boton, centrado. #}
-            <div class="flex items-center gap-2 rounded-box bg-base-200 p-1.5"
-                 :class="sidebarMini && 'lg:justify-center lg:bg-transparent lg:p-0'">
-                <span class="sidebar-label grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold uppercase text-primary-content"
-                      :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
-                <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
-                      :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
-                <form method="post" action="{{ url('/logout') }}" class="shrink-0">
-                    {% include 'partials/_csrf.twig' %}
-                    <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-                    </button>
-                </form>
-            </div>
+        {# Fila de usuario sin caja: el correo a la izquierda ocupando el ancho y
+           la salida como icono a la derecha. Con fondo y borde propio el bloque
+           se leia como un boton de ancho parcial metido dentro del sidebar, y
+           el borde no separaba de nada que lo necesitara. El unico fondo que
+           queda es el del hover del icono: eso es lo que lo hace descubrible
+           sin dibujar una caja permanente.
+           `sidebar-label` oculta el correo en el plegado pre-pintado, igual que
+           las etiquetas del menu: plegado queda solo el icono, centrado. #}
+        <div class="flex h-12 shrink-0 items-center gap-2 px-2">
+            <span class="sidebar-label min-w-0 flex-1 truncate text-xs opacity-70"
+                  :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
+            <form method="post" action="{{ url('/logout') }}" class="shrink-0"
+                  :class="sidebarMini && 'lg:mx-auto'">
+                {% include 'partials/_csrf.twig' %}
+                <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                </button>
+            </form>
         </div>
         {% endif %}
     </aside>
