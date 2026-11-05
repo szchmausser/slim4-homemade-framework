@@ -169,7 +169,7 @@ flowchart TD
 - HTTP/Feature: `tests/Http/EditTaskTest.php`, `DeleteTaskTest.php`, `PaginationFlowTest.php`, `CsrfFlowTest.php`, `RoutingTest.php`, `PartialRenderTest.php`, `ErrorHandlingTest.php`
 - Integration smoke: `curl -X GET http://localhost:8080/tareas`
 - Build/lint: `composer test`
-- Manual: `composer serve` + navegar `/tareas`, crear, editar, completar y borrar una tarea
+- Manual: `php -S 0.0.0.0:8080 -t public` + navegar `/tareas`, crear, editar, completar y borrar una tarea
 
 ## 16. FAQ de Implementación
 

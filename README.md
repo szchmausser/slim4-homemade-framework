@@ -18,7 +18,7 @@ composer install:termux     # en 64-bit: composer install
 composer dump-autoload -o
 composer migrate
 ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
-composer serve              # http://localhost:8080
+php -S 0.0.0.0:8080 -t public   # http://localhost:8080 (no `composer serve`, ver abajo)
 composer test               # suite completa (el conteo lo imprime el comando)
 ```
 
@@ -26,7 +26,7 @@ composer test               # suite completa (el conteo lo imprime el comando)
 
 | Comando | Para qué |
 |---|---|
-| `composer serve` | Servidor dev en `:8080` |
+| `php -S 0.0.0.0:8080 -t public` | Servidor dev en `:8080` (`composer serve` retirado, ver abajo) |
 | `composer migrate` | Migraciones pendientes |
 | `vendor/bin/phinx rollback -t 0` | Baja todo (el "fresh") |
 | `vendor/bin/phinx seed:run -s DatabaseSeeder` | Admin + demo en orden |
@@ -35,13 +35,32 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer test` | Suite completa |
 | `composer verify` | Lint + docs-check + PHPStan + suite + migración fresh sobre DB temporal |
 | `composer lint` | `php -l` sobre `app/` y `tests/` |
-| `composer docs:check` | Falla si reaparecen cifras hardcodeadas o claims de CDN/64-bit |
+| `composer docs:check` | Falla si reaparecen cifras hardcodeadas o claims de CDN/64-bit, o si una copia de archivo de la guía no coincide con el repo |
+| `composer docs:sync` | Reescribe las copias de archivos de la guía desde el repo (`docs-check` es el que verifica) |
 | `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
 | `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | 32 o 64 bits |
 
 `composer verify` incluye PHPStan y docs-check. El phar dev-only (~30 MB) se descarga una vez en `storage/cache/`; para trabajar offline: `PHPSTAN_PHAR=/ruta/al/phpstan.phar composer phpstan`.
+
+La guía copia archivos enteros del repo. Esas copias **no se editan a mano**: `composer docs:check` compara cada bloque que declara un archivo contra el archivo real y falla si difieren; `composer docs:sync` las reescribe. Un fragmento se marca `excerpt` en el fence y queda afuera del control. Si cambiás una vista o un test que la guía copia, corré `composer docs:sync` antes de cerrar el cambio.
+
+### El servidor va directo, no por Composer
+
+**No uses `composer serve`.** Composer no es un runner de procesos de larga vida: ejecuta cada script como subproceso con un `process-timeout` de 300 s (valor por defecto) y, al vencer, mata el servidor con:
+
+```
+The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds
+```
+
+El `php -S` estaba perfecto; lo bajó Composer. Por eso el servidor de desarrollo se levanta sin intermediario:
+
+```bash
+php -S 0.0.0.0:8080 -t public
+```
+
+`composer serve` quedó como guarda (`scripts/serve.php`): aborta con el mensaje de arriba en vez de morir a los 5 minutos. Si necesitás el servidor vivo sin cerrar la terminal, `tmux` + `termux-wake-lock` (guía, caps. 17.1 y 17.2).
 
 ## Receta: nuevo CRUD en N pasos
 

@@ -6,6 +6,8 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 >
 > Nota sobre daisyUI: se usa **as-is**, temas claro/oscuro por defecto, sin personalizar. Nada de `dark:` utilities (el tema lo gobierna `data-theme`), nada de JS de terceros, nada de variantes `is-drawer-*` (no existen en el CSS linkeado — verificado, capítulo 14).
 
+> **Las copias de archivos que hay en esta guía están verificadas, no mantenidas a mano.** Cada bloque que declara un archivo del repo (`resources/views/tasks/_list.twig`, por ejemplo) es una copia literal de ese archivo: `composer docs:check` falla si difieren y `composer docs:sync` las reescribe desde el repo. Un fragmento (un método suelto, tres líneas de un array) se marca `excerpt` en el info string y queda fuera del control. El motivo es medido: la primera vez que se comparó, **27 de 56 copias estaban viejas** (una vista tenía tres features de atraso).
+
 ## Índice
 1. Preparar Termux
 2. Instalar Composer
@@ -230,10 +232,23 @@ composer require --dev phpunit/phpunit
         }
     },
     "scripts": {
-        "serve": "php -S 0.0.0.0:8080 -t public",
+        "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
+        "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
+        "lint": "@php scripts/lint.php",
+        "docs:check": "@php scripts/docs-check.php",
+        "docs:sync": "@php scripts/docs-sync.php",
+        "phpstan": "@php scripts/phpstan.php",
+        "migrate:fresh": "@php scripts/migrate-fresh.php",
+        "verify": [
+            "@lint",
+            "@docs:check",
+            "@phpstan",
+            "@test",
+            "@migrate:fresh"
+        ],
         "install:termux": "composer install --prefer-dist --no-scripts",
         "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
     },
@@ -331,9 +346,11 @@ Sin esto, un checkout en Windows reescribe los `.js` a CRLF, el hash `integrity`
 
 declare(strict_types=1);
 
+use App\Http\Middleware\RememberMeMiddleware;
+use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use Illuminate\Database\Capsule\Manager as Capsule;
-use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface;
@@ -351,8 +368,11 @@ return [
 
     LoggerInterface::class => function () {
         $logger = new Logger('app');
-        $logger->pushHandler(new StreamHandler(
+        // RotatingFileHandler escribe app-YYYY-MM-DD.log y conserva
+        // LOG_MAX_FILES (default 14). Un StreamHandler único crecía sin límite.
+        $logger->pushHandler(new RotatingFileHandler(
             __DIR__ . '/../storage/logs/app.log',
+            (int) ($_ENV['LOG_MAX_FILES'] ?? 14),
             filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)
                 ? Level::Debug
                 : Level::Warning
@@ -363,7 +383,7 @@ return [
     Capsule::class => function () {
         // Default relativo al proyecto; .env solo lo overridea. Sin esto un
         // clon fresco o un path absoluto de otro teléfono revienta en el
-        // PRAGMA antes del error middleware (ver 21.3): QueryException cruda.
+        // PRAGMA antes del error middleware (ver 20.3): QueryException cruda.
         $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
 
         if ($db !== ':memory:') {
@@ -373,12 +393,12 @@ return [
             }
             if (!file_exists($db) && !touch($db)) {
                 throw new \RuntimeException(
-                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/21.3)."
+                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
             if (file_exists($db) && !is_writable($db)) {
                 throw new \RuntimeException(
-                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/21.3)."
+                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
         }
@@ -388,6 +408,10 @@ return [
             'driver'   => 'sqlite',
             'database' => $db,
             'prefix'   => '',
+            // SQLite deja las FK apagadas por conexión. Sin este flag el
+            // ON DELETE CASCADE de remember_tokens nunca corre y el esquema
+            // miente: las migraciones declaran la FK pero la base la ignora.
+            'foreign_key_constraints' => true,
         ]);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
@@ -467,6 +491,9 @@ return [
     },
 
     SecurityHeadersMiddleware::class => \DI\autowire(SecurityHeadersMiddleware::class),
+
+    RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
+    RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ];
 ```
 
@@ -522,6 +549,7 @@ return $app;
 
 declare(strict_types=1);
 
+use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use App\Http\Middleware\SessionMiddleware;
 use Psr\Log\LoggerInterface;
@@ -546,6 +574,10 @@ return function (App $app) {
 
     // 3ro: resuelve la ruta solicitada
     $app->addRoutingMiddleware();
+
+    // Entre sesión y routing: resume remember-me con la sesión ya abierta.
+    // En orden de ejecución corre justo después de SessionMiddleware.
+    $app->add(RememberMeMiddleware::class);
 
     // 2do: arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);
@@ -600,13 +632,6 @@ return function (App $app) {
                 ? $logger->error($exception->getMessage(), $context)
                 : $logger->info($exception->getMessage(), $context);
 
-            // Whoops solo para 5xx. Un 404 o un 405 no son defectos: son la
-            // respuesta correcta a una URL que no existe, y no tienen stack
-            // trace que valga la pena. Medido: `curl -s http://localhost:8080/
-            // no-existe` devuelve 154.490 bytes con Whoops y 507 bytes sin él.
-            // Son ~150 KB por request de HTML de debugger, un pico de memoria
-            // que en 32 bits (cap. 18) se paga caro, y además entrenás a
-            // ignorar la página de error real, que queda en errors/error.twig.
             if ($whoops !== null && $status >= 500) {
                 ob_start();
                 $whoops->handleException($exception);
@@ -696,10 +721,9 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 /**
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser + daisyUI vendorizados) una CSP estricta
- * no es alcanzable sin abandonar varias cosas; el capítulo 19 tiene el costo
- * exacto y el momento en que conviene. Lo que sí va acá es lo que suma sin
- * romper nada.
+ * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
+ * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
+ * momento en que conviene. Lo que sí va acá es lo que suma sin romper nada.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
@@ -707,7 +731,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
     {
         $response = $handler->handle($request);
 
-        return $response
+        $response = $response
             // El navegador deja de adivinar el tipo de contenido. Sin esto, un
             // archivo served como octet-stream que en realidad es HTML se
             // ejecuta. Es el mejor valor por byte de todo el set.
@@ -718,10 +742,22 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // dentro de una CSP, pero eso implicaría adoptar CSP entera.
             ->withHeader('X-Frame-Options', 'DENY')
 
-            // Sin esto, cada request a un CDN manda tu URL completa (con paths
-            // y query string) en el header Referer. Con assets vendorizados el
-            // riesgo es menor, pero el header sale gratis.
+            // Los assets son locales con SRI, pero la app puede enlazar a
+            // sitios externos. Sin esto, cada salida manda tu URL completa
+            // (con paths y query string) en el header Referer.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
+        // flag que las cookies Secure: activarlo en dev local deja al navegador
+        // recordando un HTTPS que el server no habla.
+        if (filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            $response = $response->withHeader(
+                'Strict-Transport-Security',
+                'max-age=31536000'
+            );
+        }
+
+        return $response;
     }
 }
 ```
@@ -732,9 +768,9 @@ El orden importa: `addErrorMiddleware` es el que *genera* las respuestas 404/500
 
 ### 7.3 Middlewares de auth: dónde van y por qué ahí
 
-Dos middlewares más, con posiciones distintas por motivos distintos. En `config/container.php`:
+Dos middlewares más, con posiciones distintas por motivos distintos. En `config/container.php` (fragmento: las dos líneas que importan):
 
-```php
+```php excerpt
 RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
 RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ```
@@ -756,7 +792,7 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 /**
  * Resume la sesión desde la cookie remember-me, si hay una y no hay sesión.
- * Corre globalmente justo después de SessionMiddleware (ver abajo).
+ * Corre globalmente justo después de SessionMiddleware (ver config/middleware.php).
  * La rotación/limpieza viaja en ESTA misma respuesta: aplicada en otro lado,
  * el token nuevo nunca llegaría al navegador.
  */
@@ -779,7 +815,7 @@ final class RememberMeMiddleware implements MiddlewareInterface
 
 En `config/middleware.php`, entre routing y sesión (en ejecución corre justo después de `SessionMiddleware`, con la sesión ya abierta y antes de resolver la ruta):
 
-```php
+```php excerpt
     // 3ro: resuelve la ruta solicitada
     $app->addRoutingMiddleware();
 
@@ -859,21 +895,32 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 class SessionMiddleware implements MiddlewareInterface
 {
+    /**
+     * Parámetros de la cookie de sesión. Públicos para que el test verifique
+     * Secure sin depender de abrir/cerrar la sesión nativa del proceso.
+     *
+     * @return array{lifetime: int, path: string, httponly: bool, samesite: string, secure: bool}
+     */
+    public static function cookieParams(): array
+    {
+        return [
+            'lifetime' => 0,     // 0 = cookie de sesión, expira al cerrar el navegador
+            'path'     => '/',
+            'httponly' => true,  // inaccesible desde document.cookie
+            'samesite' => 'Lax', // capa extra; el token CSRF sigue siendo la defensa real
+            'secure'   => filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
+    }
+
     public function process(Request $request, Handler $handler): Response
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_name($_ENV['SESSION_NAME'] ?? 'mi_app_session');
 
-            // Sin esto PHP aplica sus propios defaults: cookie accesible desde
-            // JavaScript y sin SameSite. En un dispositivo propio la diferencia
-            // parece chica; el día que la app escuche en la red, no lo es.
-            session_set_cookie_params([
-                'lifetime' => 0,      // 0 = cookie de sesión, expira al cerrar el navegador
-                'path'     => '/',
-                'httponly' => true,   // inaccesible desde document.cookie
-                'samesite' => 'Lax',  // capa extra; el token CSRF sigue siendo la defensa real
-                'secure'   => false,  // poné true SOLO si servís por HTTPS (ver capítulo 19)
-            ]);
+            // SESSION_SECURE=true es para cuando la app se sirve por HTTPS
+            // (directo o detrás de un proxy TLS). En dev local queda false:
+            // una cookie Secure no viaja por HTTP y la sesión no persiste.
+            session_set_cookie_params(self::cookieParams());
 
             // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
             ini_set('session.use_strict_mode', '1');
@@ -998,8 +1045,8 @@ use App\Models\User;
  * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
  * - Selector conocido + validator que NO matchea: posible robo → se queman
  *   TODOS los tokens del usuario y se borra la cookie.
- * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `secure`
- *   queda en false por el mismo motivo (solo HTTPS real): ver cap. 19.
+ * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `Secure`
+ *   se activa con SESSION_SECURE=true (HTTPS real): ver cap. 19.
  */
 final class RememberMe
 {
@@ -1029,11 +1076,16 @@ final class RememberMe
     /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
+        $secure = filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            ? '; Secure'
+            : '';
+
         if ($clear) {
-            return self::COOKIE . '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+            return self::COOKIE . '=; Path=/' . $secure . '; HttpOnly; SameSite=Lax; Max-Age=0';
         }
 
-        return self::COOKIE . '=' . $pair . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' . self::TTL;
+        return self::COOKIE . '=' . $pair . '; Path=/' . $secure
+            . '; HttpOnly; SameSite=Lax; Max-Age=' . self::TTL;
     }
 
     /**
@@ -1166,6 +1218,7 @@ return function (App $app) {
         $group->get('', [TaskController::class, 'index']);
         $group->post('', [TaskController::class, 'store']);
         $group->get('/{id}/edit', [TaskController::class, 'edit']);
+        $group->post('/{id}/toggle', [TaskController::class, 'toggle']);
         $group->put('/{id}', [TaskController::class, 'update']);
         $group->delete('/{id}', [TaskController::class, 'destroy']);
     })->add(RequireAuthMiddleware::class);
@@ -1191,6 +1244,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Support\Auth;
+use App\Support\CsrfTokens;
 use App\Support\Flash;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -1205,16 +1260,86 @@ use Slim\Views\Twig;
  */
 abstract class Controller
 {
+    /**
+     * Orden en que se muestran los avisos cuando una acción deja más de uno
+     * (ej.: falla la validación y además había un info pendiente).
+     */
+    private const FLASH_ORDER = ['error', 'success', 'info'];
+
     public function __construct(protected Twig $view, protected Guard $guard) {}
 
     protected function render(Request $request, Response $response, string $template, array $extra = []): Response
     {
+        // user_* en cada render (los parciales lo ignoran): una PK indexada
+        // cuando hay sesión, nada cuando no la hay. Lo usa el bloque de
+        // usuario/salir del layout.
+        $user = Auth::user();
+
+        // ÚNICO consumidor del flash. Antes cada controlador hacía además su
+        // propio Flash::get('info') para pasarlo a la plantilla: el que llegaba
+        // primero se llevaba el mensaje y el otro recibía null, así que el
+        // aviso se perdía sin error. Si se suma un tipo nuevo, va acá.
+        $flash = [];
+        foreach (self::FLASH_ORDER as $type) {
+            $flash[$type] = Flash::get($type);
+        }
+
+        // Un aviso, un canal, elegido por el request:
+        // - htmx: el aviso viaja en `HX-Trigger-After-Swap` y el HTML sale sin
+        //   el banner. Si viajara por los dos lados, se vería dos veces.
+        // - página completa: banner inline (login, redirect de RequireAuth)
+        //   porque ahí no hay evento de htmx que escuchar.
+        if ($request->hasHeader('HX-Request')) {
+            $response = $this->withToasts($response, $flash);
+            $flash = ['error' => null, 'success' => null, 'info' => null];
+        }
+
         return $this->view->render($response, $template, [
-            'flash_error' => Flash::get('error'),
+            'flash_error'   => $flash['error'],
+            'flash_success' => $flash['success'],
+            'flash_info'    => $flash['info'],
+            'user_id'       => $user?->id,
+            'user_email'    => $user?->email,
             ...$this->csrf($request),
             ...$this->viewDefaults(),
             ...$extra,
         ]);
+    }
+
+    /**
+     * Emite los avisos de una acción htmx como evento `toasts`.
+     *
+     * - `After-Swap` y no `HX-Trigger` a secas: en un ARM de 32 bits el swap
+     *   puede tardar y con el evento temprano el toast aparecería antes que la
+     *   lista nueva.
+     * - El payload es un OBJETO: htmx entrega `detail` tal cual solo cuando el
+     *   valor del header es un objeto; un array lo envuelve en `{value: [...]}`
+     *   (verificado en public/assets/htmx-2.0.11.min.js, handleTriggerHeader).
+     *   Por eso el layout lee `$event.detail.items` y no `.value`.
+     * - JSON_UNESCAPED_UNICODE: los mensajes van en castellano; escapados a
+     *   `\u00xx` el header crece al doble sin ganar nada. El SUBSTITUTE es la
+     *   red: un mensaje con bytes inválidos no puede tumbar la respuesta con un
+     *   TypeError de withHeader(false).
+     *
+     * @param array<string, string|null> $flash
+     */
+    private function withToasts(Response $response, array $flash): Response
+    {
+        $items = [];
+        foreach (self::FLASH_ORDER as $type) {
+            if ($flash[$type] !== null && $flash[$type] !== '') {
+                $items[] = ['message' => $flash[$type], 'type' => $type];
+            }
+        }
+
+        if ($items === []) {
+            return $response;
+        }
+
+        return $response->withHeader('HX-Trigger-After-Swap', (string) json_encode(
+            ['toasts' => ['items' => $items]],
+            JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
+        ));
     }
 
     protected function viewDefaults(): array
@@ -1224,15 +1349,7 @@ abstract class Controller
 
     protected function csrf(Request $request): array
     {
-        $nameKey  = $this->guard->getTokenNameKey();
-        $valueKey = $this->guard->getTokenValueKey();
-
-        return [
-            'csrf_name_key'  => $nameKey,
-            'csrf_name'      => $request->getAttribute($nameKey),
-            'csrf_value_key' => $valueKey,
-            'csrf_value'     => $request->getAttribute($valueKey),
-        ];
+        return CsrfTokens::fields($request, $this->guard);
     }
 }
 ```
@@ -1250,18 +1367,34 @@ namespace App\Http\Controllers;
 
 use App\Models\Task;
 use App\Support\Flash;
+use App\Support\Pagination;
 use App\Support\Validator;
+use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class TaskController extends Controller
 {
-    protected function viewDefaults(): array
+    /**
+     * Slice paginado + metadata para TODA respuesta de esta ruta (página
+     * completa o swap parcial: ambas regiones llevan su paginación al día).
+     * La página y el tamaño salen del query string (?page=, ?per_page=), que
+     * mandan tanto el navegador como los links HTMX del partial.
+     */
+    private function pageData(Request $request): array
     {
-        // Solo lo que TODAS las acciones necesitan: la lista. 'active' no va
-        // acá porque solo lo usa la página completa (los parciales no tienen nav).
+        $query = $request->getQueryParams();
+
+        $listing = Pagination::paginate(
+            Task::orderByDesc('id'),
+            (int) ($query['page'] ?? 1),
+            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            '/tareas'
+        );
+
         return [
-            'tasks' => Task::orderByDesc('id')->get(),
+            'tasks'      => $listing['items'],
+            'pagination' => $listing,
         ];
     }
 
@@ -1276,7 +1409,7 @@ class TaskController extends Controller
             ? 'tasks/_panel.twig'
             : 'tasks/index.twig';
 
-        return $this->render($request, $response, $template, [
+        return $this->render($request, $response, $template, $this->pageData($request) + [
             'active' => 'tareas',
         ]);
     }
@@ -1293,18 +1426,26 @@ class TaskController extends Controller
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
         } else {
             Task::create(['title' => $data['title']]);
+            Flash::set('success', 'Tarea creada.');
         }
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
-        return $this->render($request, $response, 'tasks/_panel.twig');
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
 
     public function destroy(Request $request, Response $response, array $args): Response
     {
-        Task::destroy((int) $args['id']);
+        $deleted = Task::destroy((int) $args['id']);
 
-        return $this->render($request, $response, 'tasks/_panel.twig');
+        // destroy() de un id inexistente no falla: devuelve 0. Sin este branch
+        // el toast diría "eliminada" sobre una fila que nunca existió.
+        Flash::set(
+            $deleted > 0 ? 'success' : 'error',
+            $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
+        );
+
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
 
     public function edit(Request $request, Response $response, array $args): Response
@@ -1316,16 +1457,14 @@ class TaskController extends Controller
         // Un id que no existe no responde 404: htmx metería la página de
         // error dentro de #tareas-panel. Devolvemos el panel con un flash,
         // que es donde la app ya comunica todo lo que el usuario tiene que
-        // ver sin recargar.
-        $flash = null;
+        // ver sin recargar. El flash NO se consume acá: lo levanta render(),
+        // que decide si va inline o en el header de htmx.
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
-            $flash = Flash::get('error');
         }
 
-        return $this->render($request, $response, 'tasks/_panel.twig', [
-            'editing_id'  => $task?->id,
-            'flash_error' => $flash,
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
+            'editing_id' => $task?->id,
         ]);
     }
 
@@ -1338,7 +1477,7 @@ class TaskController extends Controller
         if ($task === null) {
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
-            return $this->render($request, $response, 'tasks/_panel.twig', [
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
                 'editing_id' => null,
             ]);
         }
@@ -1354,18 +1493,45 @@ class TaskController extends Controller
             // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
             // el input se repinta con task.title (guardado) y el usuario pierde
             // lo que escribió justo cuando aparece el error.
-            return $this->render($request, $response, 'tasks/_panel.twig', [
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
                 'editing_id'    => $task->id,
                 'editing_title' => $data['title'] ?? '',
             ]);
         }
 
         $task->update(['title' => $data['title']]);
+        Flash::set('success', 'Tarea actualizada.');
 
-        return $this->render($request, $response, 'tasks/_panel.twig', [
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request) + [
             'editing_id'    => null,
             'editing_title' => null,
         ]);
+    }
+
+    /**
+     * Cambia el estado entre pendiente y completado, guardando la fecha
+     * de finalización cuando se marca como completada y limpiándola cuando
+     * se desactiva. El mismo panel vuelve entero con la lista actualizada.
+     */
+    public function toggle(Request $request, Response $response, array $args): Response
+    {
+        $task = Task::find((int) $args['id']);
+
+        if ($task === null) {
+            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+
+            return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
+        }
+
+        if ($task->status === 'completado') {
+            $task->update(['status' => 'pendiente', 'completed_at' => null]);
+            Flash::set('success', 'Tarea marcada como pendiente.');
+        } else {
+            $task->update(['status' => 'completado', 'completed_at' => Carbon::now()]);
+            Flash::set('success', 'Tarea completada.');
+        }
+
+        return $this->render($request, $response, 'tasks/_panel.twig', $this->pageData($request));
     }
 }
 ```
@@ -1395,12 +1561,25 @@ use App\Models\User;
 use App\Support\Auth;
 use App\Support\Flash;
 use App\Support\RememberMe;
+use App\Support\Throttle;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
 class AuthController extends Controller
 {
+    /**
+     * Hash bcrypt valido de una clave aleatoria, con el mismo coste que usa
+     * password_hash(PASSWORD_DEFAULT) en PHP >= 8.4. Cuando el email no existe
+     * se verifica contra este hash en vez de saltarse password_verify: un hash
+     * invalido (o de otro coste) tarda distinto y vuelve a enumerar cuentas
+     * por timing. Debe tener 60 caracteres o bcrypt lo rechaza al instante.
+     */
+    public const DUMMY_HASH = '$2y$12$hmGwg9QWNfE1u1JP/s90ReQugq9oOeSa4YlxVNYaQFX3/eCtS84G2';
+
+    /** Mismo mensaje para credenciales malas y para cuenta throttled. */
+    private const INVALID_CREDENTIALS = 'Credenciales inválidas.';
+
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
@@ -1408,8 +1587,7 @@ class AuthController extends Controller
         }
 
         return $this->render($request, $response, 'auth/login.twig', [
-            'active'     => 'login',
-            'flash_info' => Flash::get('info'),
+            'active' => 'login',
         ]);
     }
 
@@ -1427,9 +1605,22 @@ class AuthController extends Controller
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->render($request, $response, 'auth/login.twig', [
-                'active'     => 'login',
-                'flash_info' => Flash::get('info'),
-                'email'      => $email,
+                'active' => 'login',
+                'email'  => $email,
+            ]);
+        }
+
+        // IP del cliente para el throttling. En CLI/tests puede no venir.
+        $ip = (string) ($request->getServerParams()['REMOTE_ADDR'] ?? 'desconocida');
+
+        // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
+        // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
+        if (Throttle::tooMany($email, $ip)) {
+            Flash::set('error', self::INVALID_CREDENTIALS);
+
+            return $this->render($request, $response, 'auth/login.twig', [
+                'active' => 'login',
+                'email'  => $email,
             ]);
         }
 
@@ -1437,20 +1628,23 @@ class AuthController extends Controller
 
         // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
         // no delata si la cuenta existe o no (enumeración por timing).
-        $hash = $user?->password_hash
-            ?? '$2y$10$abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG';
+        $hash = $user === null ? self::DUMMY_HASH : $user->password_hash;
         $password = (string) ($data['password'] ?? '');
 
         if ($user === null || !password_verify($password, $hash)) {
+            Throttle::hit($email, $ip);
+
             // Genérico a propósito: nunca decir si falló el email o la clave.
-            Flash::set('error', 'Credenciales inválidas.');
+            Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
-                'active'     => 'login',
-                'flash_info' => Flash::get('info'),
-                'email'      => $email,
+                'active' => 'login',
+                'email'  => $email,
             ]);
         }
+
+        // Login válido: se perdona el historial de fallos de este email + IP.
+        Throttle::clear($email, $ip);
 
         // Rehash silencioso si cambió el algoritmo o el costo.
         if (password_needs_rehash($user->password_hash, PASSWORD_DEFAULT)) {
@@ -1509,12 +1703,23 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $title
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $completed_at
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @method static Task|null find(int|string $id)
+ * @method static Task create(array<string, mixed> $attributes = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<Task> orderByDesc(string $column)
+ */
 class Task extends Model
 {
-    protected $fillable = ['title', 'done'];
+    protected $fillable = ['title', 'status', 'completed_at'];
 
     protected $casts = [
-        'done' => 'boolean',
+        'completed_at' => 'datetime',
     ];
 }
 ```
@@ -1530,6 +1735,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $id
+ * @property string $email
+ * @property string $password_hash
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property \Illuminate\Support\Carbon $updated_at
+ * @method static User|null find(int|string $id)
+ */
 class User extends Model
 {
     protected $fillable = ['email', 'password_hash'];
@@ -1549,6 +1762,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property string $selector
+ * @property int $user_id
+ * @property string $hashed_validator
+ * @property int $expires_at
+ * @method static RememberToken create(array<string, mixed> $attributes = [])
+ */
 class RememberToken extends Model
 {
     protected $table = 'remember_tokens';
@@ -1577,16 +1797,23 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 Dotenv\Dotenv::createImmutable(__DIR__)->safeLoad();
 
+// La app lee DB_DATABASE (config/container.php); las migraciones tienen que
+// apuntar al mismo archivo o el esquema y la app terminan en bases distintas.
+// Sin la variable se conserva el default historico database/database.sqlite.
+$databaseFile = $_ENV['DB_DATABASE'] ?? (getenv('DB_DATABASE') ?: null);
+$databaseFile = $databaseFile === '' ? null : $databaseFile;
+
 return [
     'paths' => [
         'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
+        'seeds'      => '%%PHINX_CONFIG_DIR%%/database/seeds',
     ],
     'environments' => [
         'default_environment' => 'development',
         'development' => [
             'adapter' => 'sqlite',
-            'name'    => __DIR__ . '/database/database',
-            'suffix'  => '.sqlite',
+            'name'    => $databaseFile ?? __DIR__ . '/database/database',
+            'suffix'  => $databaseFile === null ? '.sqlite' : '',
         ],
     ],
 ];
@@ -1710,9 +1937,9 @@ final class CreateRememberTokensTable extends AbstractMigration
 
 Sin registro público, el primer usuario nace por **seed**: en Phinx, migraciones para SCHEMA y seeds para DATOS. Los seeds corren con `seed:run`, quedan registrados y se pueden repetir sin duplicar.
 
-Primero declará el path en `phinx.php`, junto a `migrations`:
+Primero declará el path en `phinx.php`, junto a `migrations` (fragmento):
 
-```php
+```php excerpt
 return [
     'paths' => [
         'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
@@ -1735,6 +1962,15 @@ use App\Models\User;
 use App\Support\Validator;
 use Phinx\Seed\AbstractSeed;
 
+/**
+ * Admin inicial. Los seeds son para DATOS (las migraciones son para SCHEMA):
+ * corren con `seed:run`, quedan registrados y se pueden repetir sin duplicar.
+ *
+ * El secret sale de entorno real o de `.env` (ojo: Dotenv immutable NO usa
+ * putenv, así que `.env` llega a $_ENV pero nunca a getenv: se miran ambos).
+ * Nunca de argumentos (visibles en `ps`) ni hardcodeado (viaja en git).
+ * Por eso el bootstrap se carga ANTES de leer (Dotenv puebla $_ENV ahí).
+ */
 final class AdminSeeder extends AbstractSeed
 {
     public function run(): void
@@ -1874,6 +2110,11 @@ declare(strict_types=1);
 use App\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
+/**
+ * 100 tareas demo para ejercitar la paginación. A propósito FUERA del
+ * DatabaseSeeder (una instalación fresca no quiere 100 filas de ruido):
+ * se corre solo con -s DemoTasksSeeder. Idempotente por título.
+ */
 final class DemoTasksSeeder extends AbstractSeed
 {
     public function run(): void
@@ -2145,16 +2386,17 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         }
 
         /* Tarjeta propia en vez de `.alert` de daisyUI: el alert fija radio,
-           padding y sombra, y acá se busca acento lateral + barra de vida. El
-           color sale de los tokens del tema activo, así que el claro/oscuro
-           sigue sin una sola utility `dark:`. */
+           padding y sombra, y acá lo que se busca es acento lateral + barra de
+           vida. El color sale de los tokens del tema activo, así que el
+           claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
             --toast-accent: var(--color-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
             /* Borde completo acá y no con `border border-base-300` en el HTML:
-               el CSS del browser build se inyecta después de este <style>, y su
-               shorthand `border-width: 1px` pisaría el acento de 3px. */
+               el CSS del browser build de Tailwind se inyecta después de este
+               <style>, y su shorthand `border-width: 1px` pisaría el acento de
+               3px (misma especificidad, más tarde en la cascada). */
             border: 1px solid var(--color-base-300);
             border-inline-start: 3px solid var(--toast-accent);
             pointer-events: auto;                    /* sí se puede usar el botón cerrar */
@@ -2236,6 +2478,18 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                 </a>
             </li>
         </ul>
+        {% if user_id is defined and user_id %}
+        <div class="border-t border-base-300 p-2">
+            <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
+            <form method="post" action="/logout">
+                {% include 'partials/_csrf.twig' %}
+                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
+                </button>
+            </form>
+        </div>
+        {% endif %}
         <div id="sidebar-foot" class="flex h-12 shrink-0 items-center border-t border-base-300 px-4 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">
             Slim 4 · HTMX · Alpine · daisyUI
         </div>
@@ -2244,15 +2498,16 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
         <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
-            {# Abrir/cerrar en móvil (hamburguesa <-> X). #}
+            {# Abrir/cerrar en móvil. #}
             <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'">
                 <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                 <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
-            {# Plegar a iconos en desktop: un solo glyph que rota por CSS
-               pre-pintado. Ojo: rotate-180 de Tailwind v4 usa la propiedad
-               `rotate`, que SE SUMA al `transform` manual (180+180=360) — con
-               ambos el icono nunca cambiaba. Una sola fuente de verdad. #}
+            {# Plegar a iconos en desktop. #}
+            {# Un solo glyph: la rotación sale del CSS pre-pintado (data-sidebar-mini),
+               NO de una clase Alpine. rotate-180 de Tailwind v4 usa la propiedad
+               `rotate`, que SE SUMA al `transform` del fallback (180+180=360):
+               con ambos, el icono nunca cambiaba. Una sola fuente de verdad. #}
             <button id="collapse-btn" class="btn btn-square btn-ghost hidden lg:inline-flex" @click="toggleMini()" :aria-label="sidebarMini ? 'Desplegar menú' : 'Plegar menú'">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
             </button>
@@ -2267,6 +2522,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                             <li aria-current="page">Tareas</li>
                         </ul>
                     </nav>
+                {% elseif active is defined and active == 'login' %}
+                    <span>Acceder</span>
                 {% else %}
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span>Inicio</span>
@@ -2280,19 +2537,20 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             </label>
         </header>
 
-        {# Avisos flotantes. Posición y estilos en el <style> del head: el host
-           replica la geometría de <main> para caer alineado con el <h1>.
-           Un componente, DOS canales:
+        {# Avisos flotantes. Posición y estilos en el <style> del head: el
+           host replica la geometría de <main> para caer alineado con el <h1>.
+           Un solo componente, dos canales:
            - @toasts.window: evento `toasts` que emite HX-Trigger-After-Swap
              desde Controller::render() en cada acción htmx (éxito, error de
-             validación, tarea inexistente).
-           - @csrf.window: HX-Trigger del failureHandler de slim/csrf. Ese
-             caso NO puede usar el canal de arriba: el request se corta con
-             400 y htmx no hace swap, así que no hay After-Swap.
-           Este nodo es el receptor, y por eso vive en el layout y NO en
-           tasks/_panel.twig: el panel es justo el elemento que el swap
-           reemplaza — un listener ahí llegaría a un nodo que ya no está.
-           Los items viven en un array de Alpine, no en el DOM, así que el
+             validación, tarea inexistente). detail.items es un ARRAY porque
+             el payload del header es un objeto; un array suelto lo envolvería
+             htmx en {value: [...]}.
+           - @csrf.window: HX-Trigger del failureHandler de slim/csrf. Ese caso
+             NO puede usar el canal de arriba: el request se corta con 400 y
+             htmx no hace swap, así que no hay After-Swap. Se lee
+             $event.detail.value porque un string se envuelve en {value}:
+             con $event.detail el aviso decía [object Object] (hay test).
+           Los items viven en un array de Alpine, NO en el DOM del panel: el
            swap de #tareas-panel no los borra ni los duplica. #}
         <div class="toast-host"
              x-data="toastStack()"
@@ -2330,17 +2588,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         </div>
 
         <main class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
-            {# El flash NO se renderiza acá: vive en tasks/_panel.twig, que es la
-               región que HTMX reemplaza en los swaps parciales. Si lo pusiéramos en
-               el layout, en un full page load aparecería duplicado y en un swap no
-               aparecería nunca. #}
+            {# El flash vive en tasks/_panel.twig, que es la región que HTMX
+               reemplaza en los swaps parciales: acá no se renderiza. #}
             {% block content %}{% endblock %}
         </main>
 
         {# Misma altura que el bloque inferior de la sidebar (h-12): así la
-           línea del footer y la de la sidebar quedan continuas. Si un bloque
-           mide distinto (p-3 vs p-4, xs vs sm), las líneas caen a distinta
-           altura aunque ambos terminen abajo. #}
+           línea del footer y la de la sidebar quedan continuas. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
             <aside>Mi App — Slim 4 · HTMX · Alpine.js · daisyUI</aside>
         </footer>
@@ -2368,10 +2622,18 @@ function shell() {
     };
 }
 
+/**
+ * Pila de avisos flotantes. Vive fuera de #tareas-panel (en el layout), así
+ * que sobrevive a los swaps de htmx; el estado es un array de Alpine, no DOM.
+ * La vida de cada toast la lleva la barra de progreso (CSS + animationend),
+ * no un setTimeout: ver `.toast-progress` en el <style> del layout.
+ */
 function toastStack() {
     return {
         items: [],
         seq: 0,
+        // Tope de 3: en un teléfono, cinco acciones seguidas no pueden tapar
+        // media pantalla. Los más viejos salen primero.
         max: 3,
         add(item) {
             if (!item || !item.message) return;
@@ -2590,15 +2852,31 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 ```twig
 <div id="tareas-panel">
+    {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
+       htmx): ahí no hay evento que escuchar, así que el aviso va inline.
+       En las respuestas htmx estos dos banners llegan en null y el mensaje
+       viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
+       un aviso, un canal (ver Controller::render). #}
     {% if flash_error %}
         <div class="alert alert-error mb-4" role="alert">
             <span>{{ flash_error }}</span>
+        </div>
+    {% endif %}
+    {% if flash_success %}
+        <div class="alert alert-success mb-4" role="status">
+            <span>{{ flash_success }}</span>
         </div>
     {% endif %}
 
     <div id="lista-tareas">
         {% include 'tasks/_list.twig' %}
     </div>
+
+    {# Paginación dentro del swap: viaja actualizada con cada acción. #}
+    {% include 'partials/_pagination.twig' with {
+        pagination: pagination,
+        target: '#tareas-panel'
+    } %}
 </div>
 ```
 
@@ -2642,25 +2920,128 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                <span>{{ task.title }}</span>
-                <div class="flex gap-1">
+                <span class="flex items-center gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
+                    {# Icono de estado: tenue para pendiente, verde para completado.
+                       (`text-base-400` no existe en daisyUI 5: era una clase muerta y
+                       el icono salía a full contraste, más pesado que el verde.)
+                       El estado NO se escribe al lado del título ("Pendiente" /
+                       "Completada el ..."): en móvil ese texto le robaba ancho al
+                       título y el dato sólo interesa cuando lo buscás. Ahora el
+                       icono es el disparador de un tooltip por click.
+                       Por qué no `title=` nativo: en táctil no existe el hover y
+                       en desktop aparecería solo al pasar el mouse encima del
+                       icono, no al pedirlo. `aria-label` lleva el texto completo
+                       (lector de pantalla) y el tooltip es puramente visual:
+                       `aria-hidden` + `pointer-events-none` (nunca se queda con
+                       el click que debería cerrarlo). #}
+                    {% set estado_texto = task.status == 'completado'
+                        ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
+                        : 'Pendiente' %}
+                    <span class="relative inline-flex shrink-0"
+                          x-data="{ abierto: false }"
+                          @click.outside="abierto = false"
+                          @keydown.escape="abierto = false">
+                        {# Es un <button> de verdad: focus + Enter/Space lo abren
+                           igual que un click, sin listeners de teclado a mano. #}
+                        <button type="button"
+                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                @click="abierto = !abierto"
+                                :aria-expanded="abierto ? 'true' : 'false'"
+                                aria-label="{{ estado_texto }}">
+                            {% if task.status == 'completado' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 text-base-content/40" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
+                            {% endif %}
+                        </button>
+                        <span x-cloak
+                              x-show="abierto"
+                              x-transition.opacity.duration.150ms
+                              aria-hidden="true"
+                              class="pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
+                            {{ estado_texto }}
+                        </span>
+                    </span>
+                    <span>{{ task.title }}</span>
+                </span>
+                {# Acciones como ICONOS. Con texto, tres botones ("Completar"
+                   + "Editar" + "Eliminar") se comían media fila y en móvil
+                   empujaban el título a un renglón. Ahora el ancho es fijo
+                   (btn-square) y el texto no desaparece: sigue en aria-label
+                   (lector de pantalla) y en title (tooltip nativo). No se usa
+                   el `tooltip` de daisyUI porque tres tooltips CSS vecinos se
+                   superponen al pasar el mouse entre botones.
+                   `shrink-0`: en pantallas angostas se comprimen los iconos,
+                   no el título. Los svg son inline (mismo criterio que los
+                   iconos de estado de arriba): cero requests y heredan
+                   currentColor, así que el tema claro/oscuro es gratis. #}
+                <div class="flex shrink-0 gap-1">
+                    {# Botón para cambiar el estado: HTMX intercambia el panel completo #}
+                    <button
+                        hx-post="/tareas/{{ task.id }}/toggle"
+                        hx-target="#tareas-panel"
+                        hx-swap="outerHTML"
+                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
+                        class="btn btn-square btn-ghost btn-sm {{ task.status == 'completado' ? 'text-success' : '' }}"
+                        aria-label="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}"
+                        title="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}">
+                        {% if task.status == 'completado' %}
+                            {# Deshacer: flecha circular #}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                        {% else %}
+                            {# Completar: tilde #}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        {% endif %}
+                    </button>
                     <button
                         hx-get="/tareas/{{ task.id }}/edit"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
-                        class="btn btn-ghost btn-sm">
-                        Editar
+                        class="btn btn-square btn-ghost btn-sm"
+                        aria-label="Editar"
+                        title="Editar">
+                        {# Lápiz #}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
                     </button>
                     <button
-                        hx-delete="/tareas/{{ task.id }}"
-                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
-                        hx-target="#tareas-panel"
-                        hx-swap="outerHTML"
-                        hx-confirm="¿Borrar esta tarea?"
-                        class="btn btn-ghost btn-sm text-error">
-                        Eliminar
+                        class="btn btn-square btn-ghost btn-sm text-error"
+                        aria-label="Eliminar"
+                        title="Eliminar"
+                        @click="$el.closest('li').querySelector('dialog').showModal()">
+                        {# Papelera #}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                     </button>
                 </div>
+
+            {# Confirmación con modal daisyUI en vez del confirm() nativo:
+               - <dialog> es nativo: sin JS de terceros, sin estado Alpine.
+               - Se abre por DOM (botón y dialog viven en la misma fila).
+               - Cancelar es form method=dialog y afuera es modal-backdrop.
+               - En éxito, el swap reemplaza #tareas-panel y el dialog sale
+                 del DOM: no hay nada que cerrar a mano.
+               - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
+            <dialog class="modal" aria-label="Confirmar borrado de {{ task.title }}">
+                <div class="modal-box">
+                    <h3 class="font-bold">¿Borrar esta tarea?</h3>
+                    <p class="py-3 opacity-70">{{ task.title }}</p>
+                    <div class="modal-action">
+                        <form method="dialog">
+                            <button class="btn btn-ghost">Cancelar</button>
+                        </form>
+                        <button
+                            hx-delete="/tareas/{{ task.id }}"
+                            hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
+                            hx-target="#tareas-panel"
+                            hx-swap="outerHTML"
+                            class="btn btn-error">
+                            Borrar
+                        </button>
+                    </div>
+                </div>
+                <form method="dialog" class="modal-backdrop">
+                    <button>Cerrar</button>
+                </form>
+            </dialog>
             </li>
         {% endif %}
     {% else %}
@@ -2675,14 +3056,22 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 >
 > **`hx-put` manda el body como `application/x-www-form-urlencoded`** (default de htmx para no-GET) y `addBodyParsingMiddleware()` lo parsea igual que un POST. No hace falta `_METHOD` oculto: la ruta ya es `PUT`.
 >
-> **`hx-headers` en el botón de eliminar: sin él, eliminar no borra nada.** `Guard` valida el token también en `DELETE`, y el botón vive fuera del `<form>` de los hidden. Un `hx-delete` a secas cae en el failure handler: **400**, tarea intacta, cero error visible. `Guard` solo mira `getParsedBody()` y headers (nunca query string), y htmx manda los params del DELETE al query string (`methodsThatUseUrlParams`) — por eso los tokens van en headers y **no** con `hx-include`. Medido:
+> **Acciones como iconos, con el texto en `aria-label` + `title`.** Tres botones con texto ("Completar" + "Editar" + "Eliminar") se comían media fila y en móvil empujaban el título a un renglón. Ahora son `btn btn-square`: el ancho es fijo y el texto no desaparece — sigue en `aria-label` (lector de pantalla) y en `title` (tooltip nativo). `shrink-0` en el contenedor: en pantallas angostas se comprimen los iconos, no el título. No se usa el `tooltip` de daisyUI porque tres tooltips CSS vecinos se superponen al pasar el mouse entre botones. Los `svg` son inline: cero requests y heredan `currentColor`, así que el claro/oscuro sale gratis.
+>
+> **El borrado se confirma con un `<dialog class="modal">` de daisyUI, no con `hx-confirm`.** `hx-confirm` es `window.confirm()`: bloquea el hilo, no se estiliza y no se puede probar sin navegador. El `<dialog>` es nativo (sin JS de terceros ni estado Alpine), se abre por DOM desde el botón de la misma fila, y como vive dentro del panel, en éxito el swap se lo lleva puesto: no hay nada que cerrar a mano. En 400 (CSRF) no hay swap: queda abierto y suena el toast. Cancelar es `<form method="dialog">`; el click afuera, `modal-backdrop`.
+>
+> **`hx-headers` en el botón Borrar del modal: sin él, eliminar no borra nada.** `Guard` valida el token también en `DELETE`, y el botón no está dentro de un `<form>` con los hidden. Un `hx-delete` a secas cae en el failure handler: **400**, tarea intacta, cero error visible. `Guard` solo mira `getParsedBody()` y headers (nunca query string), y htmx manda los params del DELETE al query string (`methodsThatUseUrlParams`) — por eso los tokens van en headers y **no** con `hx-include`. Medido:
 >
 > | Dónde van los tokens del DELETE | Resultado medido |
 > |---|---|
 > | query string (`?csrf_name=…&csrf_value=…`) | **400** + `HX-Trigger: {"csrf":"…"}` |
 > | headers `csrf_name` / `csrf_value` | **200**, la tarea desaparece |
 >
-> **`index()` también responde distinto para htmx** (cap. 9): el botón "Cancelar" pide `GET /tareas` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
+> **El toggle es un `POST` que devuelve el panel entero.** `hx-post="/tareas/{id}/toggle"` con `hx-swap="outerHTML"` sobre `#tareas-panel` y tokens por `hx-headers` (el botón no está en un form: mismo motivo que el DELETE). No alcanza con swapear el botón solo: cambiar el estado mueve también la fila entera y los contadores de la paginación.
+>
+> **El estado vive en un tooltip, no escrito al lado del título.** "Pendiente" / "Completada el 14/08/2026 22:31" en la fila le robaba ancho al título en móvil, y es un dato que sólo se busca cuando interesa. Ahora el icono es un `<button>` que abre un globito **por click** (Alpine `abierto`; se cierra con `@click.outside` o `@keydown.escape`): en táctil no existe el hover, así que `title=` nativo no serviría, y el `tooltip` de daisyUI es CSS-hover. El texto completo va en `aria-label` del botón (`:aria-expanded` refleja si está abierto) y el globo es puramente visual: `aria-hidden` + `pointer-events-none`, para que no se quede con el click que debería cerrarlo. El icono es entonces la única señal de estado, así que el pendiente usa `text-base-content/40` (tenue) y el completado `text-success`: `text-base-400` no existe en daisyUI 5 y salía a full contraste, más pesado que el verde.
+>
+> **`index()` también responde distinto para htmx** (cap. 9): los botones "Editar" y "Cancelar" piden `GET /tareas/...`/`GET /tareas` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
 
 `public/index.php` (ya mostrado en el cap. 13):
 
@@ -2893,9 +3282,16 @@ Tres decisiones que importan:
 ## 17. Levantar el servidor y mantenerlo vivo
 
 ```bash
-composer serve
-# equivalente a: php -S 0.0.0.0:8080 -t public
+php -S 0.0.0.0:8080 -t public
 ```
+
+**El servidor va directo, nunca por Composer.** `composer serve` existió y se retiró: Composer ejecuta cada script como subproceso con un `process-timeout` de 300 s (default de `composer config process-timeout`) y, al vencer, lo mata con:
+
+```
+The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds
+```
+
+O sea: `php -S` no se cae solo a los 5 minutos, lo baja Composer. Un servidor web no cabe en un script de un solo tiro. Si te encontrás escribiendo `composer serve`, el script ahora es una guarda (`scripts/serve.php`) que aborta con esa explicación en vez de dejarte esperando media hora de debugging.
 
 Flujo completo en un clon fresco (en este orden):
 
@@ -2906,7 +3302,7 @@ composer dump-autoload -o
 composer migrate                   # crea el schema (phinx usa safeLoad: no pide .env)
 nano .env                          # descomentar ADMIN_EMAIL y ADMIN_PASSWORD (cap. 11.1)
 vendor/bin/phinx seed:run -s DatabaseSeeder   # admin + datos demo
-composer serve
+php -S 0.0.0.0:8080 -t public
 ```
 
 Abrí `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
@@ -2927,7 +3323,7 @@ termux-wake-lock
 ```bash
 pkg install tmux
 tmux new -s app
-composer serve          # ctrl+b, d para desprender la terminal
+php -S 0.0.0.0:8080 -t public   # ctrl+b, d para desprender la terminal
 ```
 
 Volvés cuando quieras con `tmux attach -t app`.
@@ -2977,38 +3373,93 @@ composer check:termux                    # 32 o 64 bits, según PHP_INT_SIZE
 
 declare(strict_types=1);
 
-// Backup timestamped de SQLite + sidecars WAL (-wal/-shm/-journal) si existen.
+// Backup consistente de SQLite con VACUUM INTO.
 // Uso: composer db:backup
-// Destino: storage/backups/YYYYMMDD-HHMMSS/ (gitignored: son datos reales).
-// Hacelo con la app quieta: en caliente la copia puede ir a medias (WAL).
+// Destino: storage/backups/YYYYMMDD-HHMMSS.sqlite (gitignored: son datos reales).
+//
+// VACUUM INTO hace una lectura transaccional y escribe un archivo nuevo: la
+// copia sale consistente aunque la app esté escribiendo, sin copiar -wal/-shm/
+// -journal en caliente.
+//
+// Retención: KEEP (env, default 10) conserva los últimos archivos .sqlite.
+// Los directorios de backups viejos no se tocan.
 
 require __DIR__ . '/../vendor/autoload.php';
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
-$db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+/**
+ * GitHub Actions arranca PHP con variables_order=GPCS: $_ENV queda vacío
+ * aunque la variable exista. getenv() es el fallback que también usa
+ * phinx.php para que DB_DATABASE no dependa de la config del SAPI.
+ */
+function envOrDefault(string $name, string $default): string
+{
+    $value = $_ENV[$name] ?? null;
+    if (!is_string($value) || $value === '') {
+        $value = getenv($name);
+    }
 
-if ($db === ':memory:' || !file_exists($db)) {
+    return is_string($value) && $value !== '' ? $value : $default;
+}
+
+$db = envOrDefault('DB_DATABASE', __DIR__ . '/../database/database.sqlite');
+
+if ($db === ':memory:' || !is_file($db)) {
     fwrite(STDERR, "No hay base para respaldar en '{$db}'.\n");
     exit(1);
 }
 
 $storage = __DIR__ . '/../storage';
-if (!is_dir($storage)) {
-    mkdir($storage, 0777, true);
+if (!is_dir($storage) && !mkdir($storage, 0777, true) && !is_dir($storage)) {
+    fwrite(STDERR, "No se pudo crear '{$storage}'.\n");
+    exit(1);
 }
-$dest = realpath($storage) . '/backups/' . date('Ymd-His');
-mkdir($dest, 0777, true);
 
-$n = 0;
-foreach ([$db, $db . '-wal', $db . '-shm', $db . '-journal'] as $file) {
-    if (file_exists($file)) {
-        copy($file, $dest . '/' . basename($file));
-        $n++;
+$backupDir = $storage . '/backups';
+if (!is_dir($backupDir) && !mkdir($backupDir, 0777, true) && !is_dir($backupDir)) {
+    fwrite(STDERR, "No se pudo crear '{$backupDir}'.\n");
+    exit(1);
+}
+$backupDir = realpath($backupDir);
+
+$base = $backupDir . '/' . date('Ymd-His');
+$dest = $base . '.sqlite';
+for ($suffix = 2; file_exists($dest); $suffix++) {
+    $dest = $base . '-' . $suffix . '.sqlite';
+}
+
+try {
+    $pdo = new PDO('sqlite:' . $db, null, null, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    ]);
+    // SQLite no admite parámetros en VACUUM INTO: se escapa la ruta como
+    // literal SQL duplicando las comillas simples.
+    $target = str_replace("'", "''", $dest);
+    $pdo->exec("VACUUM INTO '{$target}'");
+} catch (PDOException $e) {
+    if (file_exists($dest)) {
+        @unlink($dest);
+    }
+    fwrite(STDERR, "Falló el backup de '{$db}': {$e->getMessage()}\n");
+    exit(1);
+}
+
+$keep = max(1, (int) envOrDefault('KEEP', '10'));
+$backups = [];
+foreach (glob($backupDir . '/*.sqlite') ?: [] as $file) {
+    if (is_file($file) && preg_match('/^\d{8}-\d{6}(?:-\d+)?\.sqlite$/', basename($file))) {
+        $backups[] = $file;
     }
 }
+// strnatcmp ordena timestamps y sufijos (-2, -3, ... -10) como números.
+usort($backups, static fn (string $a, string $b): int => strnatcmp(basename($b), basename($a)));
+foreach (array_slice($backups, $keep) as $old) {
+    @unlink($old);
+}
 
-echo "Backup en {$dest} ({$n} archivos)." . PHP_EOL;
+$size = filesize($dest);
+echo "Backup en {$dest} ({$size} bytes)." . PHP_EOL;
 ```
 
 Hacelo con la app quieta (sin requests en vuelo): copiar sqlite+WAL en caliente puede partir el backup por la mitad. Y si querés sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
@@ -3156,8 +3607,55 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-// Construye la app y el schema UNA sola vez para toda la suite.
+use Phinx\Config\Config;
+use Phinx\Migration\Manager;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
+
+// Los tests corren contra un SQLite real, no contra :memory:. Asi el esquema
+// lo define Phinx (las mismas migraciones que usa la app): si una migracion
+// se rompe, pierde una FK o diverge del modelo, la suite lo ve. Un :memory:
+// propio por conexion obligaba a duplicar el esquema a mano, justo lo que
+// este cambio elimina. El archivo se recrea en cada corrida.
+$db = dirname(__DIR__) . '/storage/cache/tests/app.sqlite';
+@mkdir(dirname($db), 0777, true);
+foreach ([$db, $db . '-wal', $db . '-shm'] as $file) {
+    if (is_file($file)) {
+        unlink($file);
+    }
+}
+
+// bootstrap/app.php lee $_ENV (Dotenv inmutable no lo pisa).
+putenv('DB_DATABASE=' . $db);
+$_ENV['DB_DATABASE'] = $db;
+$_SERVER['DB_DATABASE'] = $db;
+
+// El segundo argumento es la RUTA AL ARCHIVO de config: Phinx resuelve
+// %%PHINX_CONFIG_DIR%% como dirname(esa ruta). Pasar el directorio del
+// proyecto apuntaba a la carpeta padre y no encontraba migraciones.
+$config = new Config(require __DIR__ . '/../phinx.php', dirname(__DIR__) . '/phinx.php');
+$manager = new Manager($config, new ArrayInput([]), new NullOutput());
+$manager->migrate($config->getDefaultEnvironment());
+
 Tests\Support\AppFactory::make();
+
+// La sesion se abre UNA vez, aca, y no en el primer request. En PHP >= 8.5
+// session_start() vuelve a dejar $_SESSION en [] (antes conservaba lo que el
+// llamador habia puesto), asi que los tests que siembran $_SESSION['user_id']
+// en setUp() llegaban a /tareas sin sesion: 303 a /login y cuerpo vacio, que
+// el helper de tokens reportaba como "no encontre el hidden csrf_name".
+// Abriendo la sesion antes, el middleware ve PHP_SESSION_ACTIVE y no la
+// reinicia, con lo cual los valores de cada setUp() sobreviven al request.
+session_name($_ENV['SESSION_NAME'] ?? 'mi_app_session');
+session_start();
+
+register_shutdown_function(static function () use ($db): void {
+    foreach ([$db, $db . '-wal', $db . '-shm'] as $file) {
+        if (is_file($file)) {
+            @unlink($file);
+        }
+    }
+});
 ```
 
 `tests/Support/AppFactory.php` — el helper que evita el bug más tonto de esta configuración:
@@ -3169,11 +3667,13 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use Illuminate\Database\Capsule\Manager as Capsule;
 use Slim\App;
 
 /**
  * La app se construye una vez y se comparte entre todos los tests.
+ * El esquema NO se define aca: lo aplican las migraciones de Phinx desde
+ * tests/bootstrap.php. Duplicar el CREATE TABLE a mano dejaba a la suite
+ * verde contra un esquema que la app nunca usa (y sin la FK de remember_tokens).
  */
 final class AppFactory
 {
@@ -3181,35 +3681,7 @@ final class AppFactory
 
     public static function make(): App
     {
-        if (self::$app === null) {
-            self::$app = require __DIR__ . '/../../bootstrap/app.php';
-            self::defineSchema();
-        }
-
-        return self::$app;
-    }
-
-    /**
-     * El error N.º 1 de este setup: crear un `new Capsule()` propio con
-     * `sqlite::memory:`. Cada conexión nueva a `:memory:` es una base vacía
-     * INDEPENDIENTE — el schema quedaría en una base que la app nunca toca y
-     * todo test fallaría con "no such table: tasks". El schema siempre va
-     * sobre el MISMO Capsule que usa la app.
-     */
-    private static function defineSchema(): void
-    {
-        // Con SQL plano, no con Phinx: los tests tienen que correr en un
-        // segundo, no levantar el migrador.
-        // Trade-off real: si cambiás la migración y olvidás el CREATE TABLE
-        // de acá, los tests siguen verdes contra un esquema viejo. Si eso te
-        // molesta, corré Phinx contra un archivo SQLite temporal en vez de
-        // usar :memory:.
-        Capsule::schema()->create('tasks', function ($table) {
-            $table->increments('id');
-            $table->string('title', 120);
-            $table->boolean('done')->default(false);
-            $table->timestamps();
-        });
+        return self::$app ??= require __DIR__ . '/../../bootstrap/app.php';
     }
 }
 ```
@@ -3344,6 +3816,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
+use App\Models\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -3353,10 +3826,22 @@ use Tests\Support\AppFactory;
 
 final class CsrfFlowTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // La capa de auth en sí se testea en AuthTest, no acá.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
     protected function tearDown(): void
     {
         // El schema vive en memoria y se crea una sola vez: si no limpiás,
         // la suite depende de la orden de ejecución.
+        unset($_SESSION['user_id']);
+        User::query()->delete();
         Task::query()->delete();
     }
 
@@ -3480,7 +3965,7 @@ final class CsrfFlowTest extends TestCase
 
     public function test_el_listener_de_csrf_lee_el_valor_del_evento(): void
     {
-        // Regresión: con `String($event.detail)` el toast mostraba
+        // Regresión del bug 12: con `String($event.detail)` el toast mostraba
         // "[object Object]". El texto vive en `.value`, no en el objeto
         // entero, y gretear solo `@csrf.` pasaba con las dos variantes.
         $layout = file_get_contents(
@@ -3567,11 +4052,11 @@ final class ErrorHandlingTest extends TestCase
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
      * (medido) en vez de los ~507 bytes de errors/error.twig. En 32 bits ese
-     * pico de memoria se paga caro (cap. 18), y de paso dejás de mirar la
-     * página de error real porque todo 404 se ve igual de apocalíptico.
+     * pico de memoria se paga caro (cap. 17), y de paso dejás de mirar la
+     * página de error real porque todo 404 se ve igual de apocalyptic.
      *
-     * Este test corre con APP_DEBUG=true (phpunit.xml), o sea que Whoops está
-     * construido: verifica que la rama correcta sea la elegida.
+     * Este test corre con APP_DEBUG=true (lo que hay en .env), o sea que
+     * Whoops está construido: verifica que la rama correcta sea la elegida.
      */
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
@@ -3677,6 +4162,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
+use App\Models\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -3694,10 +4180,21 @@ use Tests\Support\AppFactory;
  */
 final class DeleteTaskTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
     protected function tearDown(): void
     {
         // El schema vive en memoria y se crea una sola vez: si no limpiás,
         // la suite depende de la orden de ejecución.
+        unset($_SESSION['user_id']);
+        User::query()->delete();
         Task::query()->delete();
     }
 
@@ -3740,6 +4237,18 @@ final class DeleteTaskTest extends TestCase
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
+    public function test_eliminar_pide_confirmacion_con_modal_y_sin_confirm_nativo(): void
+    {
+        $task = Task::create(['title' => 'Comprar pan']);
+
+        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
+
+        self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
+        self::assertStringContainsString('<dialog', $html);
+        self::assertStringContainsString('¿Borrar esta tarea?', $html);
+        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '"', $html);
+    }
+
     /**
      * Extrae los dos hidden que emite partials/_csrf.twig. El name real del
      * input es `csrf_name` / `csrf_value`: `csrf_name_key` es variable de Twig
@@ -3779,6 +4288,8 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use App\Models\User;
+
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -3792,11 +4303,25 @@ use Tests\Support\AppFactory;
  * `hx-swap="outerHTML"`. Si el servidor devuelve `index.twig` (que extiende
  * el layout), HTMX recibe un documento completo, se queda con el `<body>` y lo
  * inserta dentro del panel: quedan dos `<h1>`, dos `id="alta-tarea"` y el
- * padding del layout dos veces. Con el shell daisyUI el daño sería peor
- * (sidebar y header duplicados dentro del panel).
+ * padding del layout dos veces.
  */
 final class PartialRenderTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
+    protected function tearDown(): void
+    {
+        unset($_SESSION['user_id']);
+        User::query()->delete();
+    }
+
     private static function app(): App
     {
         return AppFactory::make();
@@ -3854,6 +4379,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
+use App\Models\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
@@ -3873,10 +4399,21 @@ use Tests\Support\AppFactory;
  */
 final class EditTaskTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        $_SESSION['user_id'] = User::create([
+            'email'         => 'yo@ejemplo.com',
+            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
+        ])->id;
+    }
+
     protected function tearDown(): void
     {
         // El schema vive en memoria y se crea una sola vez: si no limpiás,
         // la suite depende de la orden de ejecución.
+        unset($_SESSION['user_id']);
+        User::query()->delete();
         Task::query()->delete();
     }
 
@@ -4005,7 +4542,6 @@ final class EditTaskTest extends TestCase
     public function test_put_sin_token_devuelve_400_para_htmx(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], htmx: true)
@@ -4066,6 +4602,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use App\Http\Controllers\AuthController;
 use App\Models\RememberToken;
 use App\Models\User;
 use PHPUnit\Framework\TestCase;
@@ -4113,6 +4650,17 @@ final class AuthTest extends TestCase
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('type="password"', $html);
         self::assertStringContainsString('name="remember"', $html);
+    }
+
+    public function test_dummy_hash_es_un_bcrypt_valido_de_coste_12(): void
+    {
+        $info = password_get_info(AuthController::DUMMY_HASH);
+
+        self::assertSame('bcrypt', $info['algoName']);
+        self::assertSame(12, $info['options']['cost']);
+        self::assertSame(60, strlen(AuthController::DUMMY_HASH));
+        // El dummy nunca autentica, pero igual paga el coste de bcrypt.
+        self::assertFalse(password_verify('cualquier-clave', AuthController::DUMMY_HASH));
     }
 
     public function test_login_con_credenciales_malas_no_entra_ni_dice_cual_fallo(): void
@@ -4767,7 +5315,7 @@ mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es es
 
 ### 21.15 "No puede conectarse": `localhost` no es `127.0.0.1`
 
-**[v]** `php -S localhost:8080` puede quedar escuchando solo en IPv6 (`::1`) mientras el navegador pide `127.0.0.1`. **No uses `localhost` como bind**: `127.0.0.1` o `0.0.0.0`, que es lo que ya hace `composer serve`.
+**[v]** `php -S localhost:8080` puede quedar escuchando solo en IPv6 (`::1`) mientras el navegador pide `127.0.0.1`. **No uses `localhost` como bind**: `127.0.0.1` o `0.0.0.0`, que es lo que ya hace `php -S 0.0.0.0:8080 -t public` (cap. 17).
 
 ### 21.16 Clases `is-drawer-*` sin efecto
 
@@ -4804,7 +5352,7 @@ cd ~/slim4-homemade-framework
 git pull
 composer install:termux
 composer migrate
-composer serve
+php -S 0.0.0.0:8080 -t public
 ```
 
 Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `pull` lo resuelve. Regla de oro que este bug deja escrita: **en 32 bits el teléfono nunca resuelve dependencias** — instala (`install`) lo que se resolvió en 64 bits y vino en el lock. El `update` en Termux no es una herramienta, es el síntoma de que algo hay que traer de otro lado.
@@ -4821,6 +5369,18 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 
 **[v]** Si tu error dice `has the same version as "2147483647"` (precedido de warnings `The float-string "2026..." is not representable as an int, cast occurred ... Util.php on line 93`), **no tenés archivos duplicados**: tenés saturación de enteros de 32 bits. Phinx castea el prefijo `YYYYMMDDHHMMSS` a `int`; en `armv7l` todo prefijo moderno vale `PHP_INT_MAX`, así que las N migraciones son "la misma" para el tracker. La fix es versiones secuenciales (`001_`, `002_`...), que ya trae el repo (cap. 11.1): `git pull` + `composer migrate`. Si el duplicado es entre dos archivos con el MISMO prefijo creado por vos (dos `create` en el mismo segundo), renombrá a prefijo único respetando el orden — pero en 32 bits renombrá siempre, no solo en colisión.
 
+### 21.24 `The process ... exceeded the timeout of 300 seconds` al levantar el servidor
+
+**[v]** Si el servidor de dev se muere solo a los 5 minutos y ves `The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds`, no lo mató PHP ni Android: **lo mató Composer**. `composer run-script` ejecuta cada script como subproceso con un `process-timeout` configurable, cuyo default son 300 s (`composer config process-timeout` → `300`). Al vencer, el proceso hijo se mata y el servidor queda muerto aunque tu terminal siga viva.
+
+La fix no es subir el timeout: es no envolver un servidor de larga vida en un runner de scripts. Directo, sin intermediario:
+
+```bash
+php -S 0.0.0.0:8080 -t public
+```
+
+Por eso el repo ya no tiene `composer serve` funcional: quedó como guarda (`scripts/serve.php`) que aborta con esta explicación. Si por alguna razón necesitás forzar el camino viejo, `COMPOSER_PROCESS_TIMEOUT=0` desactiva el límite — pero entonces el servidor vive dentro de Composer igual, con una capa de subproceso que no aporta nada (y los `Ctrl+C` se comportan peor).
+
 ## 22. Cómo verificar esta guía vos mismo
 
 Todo lo que la guía afirma es reproducible. Los capítulos 4 a 20 son código y se **ejecutan**; los capítulos 1 a 3 y 17 a 19 son afirmaciones sobre tu teléfono y **no** se verifican desde afuera. Por eso este capítulo está partido en dos.
@@ -4835,6 +5395,11 @@ composer show respect/validation | head -2
 # 2. Suite completa: el esqueleto, no la demo (cap. 20)
 composer test
 # esperado: OK (la cifra la imprime este comando)
+
+# 2b. Las copias de archivos de esta guía coinciden con el repo (intro)
+composer docs:check
+# esperado: Docs OK (... N copias de archivo verificadas)
+# si falla: composer docs:sync y volvé a mirar el diff
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &
@@ -4953,6 +5518,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `README.md` | La puerta de entrada del repo (arranque, receta CRUD, comandos). Se lee, no se programa — igual que esta guía. |
 | `.phpunit.cache/` | Cache local de PHPUnit. |
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
+| `app/Support/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
 > Todo lo demás (`app/Models/User.php`, `RememberToken.php`, `app/Support/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 

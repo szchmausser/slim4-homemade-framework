@@ -5,10 +5,26 @@ declare(strict_types=1);
 // U7: evita que vuelvan las cifras de tests hardcodeadas, las menciones de
 // CDN en runtime y las afirmaciones de PHP 64-bit. Uso: composer docs:check
 //
+// Además verifica las COPIAS: cada bloque de código de docs/ que declara un
+// archivo del repo (la prosa justo encima, con la ruta entre backticks) tiene
+// que ser idéntico a ese archivo. Sin esto la guía se pudre sola: la primera
+// medición encontró 27 de 56 copias viejas. Arreglo: `composer docs:sync`.
+// Un fragmento se marca con `excerpt` en el info string y queda afuera.
+//
 // El plan de mejoras queda excluido a propósito: es el artefacto que define
 // estos patrones y se autoinmolaría. En Markdown se ignoran los bloques de
 // código: la guía de vendorización puede nombrar los CDNs en sus comandos de
 // descarga, que no son cargas de runtime.
+
+$autoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+    fwrite(STDERR, "Falta 'vendor/': corré composer install antes de docs:check.\n");
+    exit(1);
+}
+
+require $autoload;
+
+use App\Support\Docs\CodeBlocks;
 
 $root = dirname(__DIR__);
 $plan = '.ai/sdd/PLAN-mejoras.md';
@@ -77,12 +93,65 @@ foreach ($codeFiles as $file) {
     checkRule($file, $root, $content, $php64, $violations);
 }
 
+$copies = checkCopies($root . '/docs', $root);
+$violations = array_merge($violations, $copies['violations']);
+
 if ($violations !== []) {
     fwrite(STDERR, "Docs check falló:\n" . implode(PHP_EOL, $violations) . PHP_EOL);
     exit(1);
 }
 
-echo 'Docs OK (' . count($docFiles) . ' markdown, ' . count($codeFiles) . " fuentes)." . PHP_EOL;
+echo 'Docs OK (' . count($docFiles) . ' markdown, ' . count($codeFiles) . ' fuentes, '
+    . $copies['checked'] . " copias de archivo verificadas)." . PHP_EOL;
+
+/**
+ * Verifica que cada copia de archivo en los Markdown de docs/ sea idéntica al
+ * archivo real. Un fence cuyo info string lleva `excerpt` es un fragmento y se
+ * saltea a propósito (no hay nada que comparar).
+ *
+ * @return array{violations: string[], checked: int}
+ */
+function checkCopies(string $docsDir, string $root): array
+{
+    $violations = [];
+    $checked = 0;
+
+    foreach (filesUnder($docsDir, ['md'], $root) as $file) {
+        $markdown = file_get_contents($file);
+        if ($markdown === false) {
+            $violations[] = 'No se pudo leer ' . relativePath($root, $file);
+            continue;
+        }
+
+        foreach (CodeBlocks::parse($markdown) as $block) {
+            $path = CodeBlocks::resolvePath($block['intro'], $root);
+            if ($path === null || CodeBlocks::isExcerpt($block['info'])) {
+                continue;
+            }
+
+            $real = @file_get_contents($root . '/' . $path);
+            if ($real === false) {
+                $violations[] = sprintf('%s:%d: no se pudo leer el archivo declarado «%s»', relativePath($root, $file), $block['line'], $path);
+                continue;
+            }
+
+            $checked++;
+            if (CodeBlocks::normalize($real) === CodeBlocks::normalize($block['content'])) {
+                continue;
+            }
+
+            $violations[] = sprintf(
+                '%s:%d: la copia de «%s» difiere del archivo real — corré `composer docs:sync` '
+                . '(o marcá el fence como `excerpt` si es un fragmento)',
+                relativePath($root, $file),
+                $block['line'],
+                $path
+            );
+        }
+    }
+
+    return ['violations' => $violations, 'checked' => $checked];
+}
 
 /**
  * @param string[] $extensions

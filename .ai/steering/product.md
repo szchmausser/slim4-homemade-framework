@@ -12,7 +12,7 @@ Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin necesidad 
 
 ## Propuesta de Valor
 
-- **Arranque en 6 pasos:** `cp .env.example .env && composer install:termux && composer dump-autoload -o && composer migrate && ADMIN_EMAIL=... vendor/bin/phinx seed:run && composer serve`
+- **Arranque en 6 pasos:** `cp .env.example .env && composer install:termux && composer dump-autoload -o && composer migrate && ADMIN_EMAIL=... vendor/bin/phinx seed:run && php -S 0.0.0.0:8080 -t public`
 - **Suite de tests verde** como señal de calidad garantizada.
 - **Estandarizado:** Cada CRUD sigue el patrón de 8 pasos (migración → modelo → controlador → rutas → vistas → tests → seed → verificar).
 - **Sin CDN en runtime:** Assets vendorizados con SRI en `public/assets/`.
@@ -25,7 +25,8 @@ Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin necesidad 
 - Integración Twig + HTMX + Alpine.js + daisyUI.
 - Migraciones y seeds con Phinx.
 - Testing con PHPUnit (unit + HTTP).
-- Comandos `composer` acotados (serve, migrate, test, verify, db:backup, check:termux).
+- Comandos `composer` acotados (migrate, test, verify, db:backup, check:termux).
+- Servidor dev **fuera** de Composer: `php -S 0.0.0.0:8080 -t public`. `composer serve` está retirado (Composer mata los scripts a los 300 s de `process-timeout`); el script quedó como guarda que aborta explicando el comando correcto.
 
 ### Fuera de Scope
 
@@ -37,7 +38,7 @@ Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin necesidad 
 ## Métricas de Éxito
 
 - `composer test` → suite verde (la cifra la imprime el comando).
-- `composer serve` → servidor respondiendo en `:8080`.
+- `php -S 0.0.0.0:8080 -t public` → servidor respondiendo en `:8080` (nunca `composer serve`).
 - `composer check:termux` → detecta correctamente 32-bit PHP.
 - Migración fresh (`phinx rollback -t 0` + `composer migrate`) sin errores.
 

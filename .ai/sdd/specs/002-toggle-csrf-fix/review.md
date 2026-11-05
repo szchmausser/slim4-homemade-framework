@@ -40,4 +40,4 @@ The toggle button in `resources/views/tasks/_list.twig` used `hx-post` but was m
 ✅ **Approved for merge** — tests green, fix minimal and consistent with existing patterns.
 
 ## Recommendation
-Next: run `composer serve` + manual toggle test on device. Optional follow-up: audit `_list.twig` for any remaining header-less POST buttons.
+Next: run `php -S 0.0.0.0:8080 -t public` + manual toggle test on device. Optional follow-up: audit `_list.twig` for any remaining header-less POST buttons.

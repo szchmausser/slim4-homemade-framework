@@ -26,13 +26,14 @@
         }
     },
     "scripts": {
-        "serve": "php -S 0.0.0.0:8080 -t public",
+        "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
         "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "lint": "@php scripts/lint.php",
         "docs:check": "@php scripts/docs-check.php",
+        "docs:sync": "@php scripts/docs-sync.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
         "verify": [

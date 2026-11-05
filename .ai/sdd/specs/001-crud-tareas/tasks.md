@@ -147,7 +147,7 @@
 - [x] `'active'` para la nav si tiene página completa
 
 #### Criterios de Aceptación
-- [x] `composer serve` + `curl http://localhost:8080/tareas` → 200 (autenticado) o redirect a login
+- [x] `php -S 0.0.0.0:8080 -t public` + `curl http://localhost:8080/tareas` → 200 (autenticado) o redirect a login
 
 #### Archivos
 - `routes/web.php` — modificar

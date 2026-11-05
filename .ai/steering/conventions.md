@@ -42,3 +42,4 @@
 - **Review:** Pull request con revisión de convenciones antes de merge.
 - **Verificación:** `composer test` debe quedar en verde antes de merge.
 - **Nuevos comandos:** agregar a `composer.json` scripts y documentar en README.
+- **Documentación duplicada:** si un Markdown de `docs/` copia un archivo del repo, la copia se declara con la ruta en la línea de arriba y **no se edita a mano**: `composer docs:sync` la reescribe y `composer docs:check` falla si difiere. Un fragmento va con `excerpt` en el info string del fence.

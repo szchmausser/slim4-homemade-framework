@@ -30,7 +30,7 @@
 - **CI:** GitHub Actions con matriz PHP 8.4/8.5 ejecutando `composer verify`.
 - **Build:** Ninguno (PHP interpretado).
 - **Comandos clave:**
-  - `composer serve` — servidor dev en `:8080`.
+  - `php -S 0.0.0.0:8080 -t public` — servidor dev en `:8080`. **No** `composer serve`: Composer mata los scripts al vencer `process-timeout` (300 s) y el script quedó como guarda (`scripts/serve.php`).
   - `composer migrate` — `phinx migrate`.
   - `composer test` — suite completa.
   - `composer verify` — lint + docs-check + PHPStan + tests + migración fresh.
