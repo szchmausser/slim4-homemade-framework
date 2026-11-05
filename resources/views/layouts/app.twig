@@ -38,6 +38,27 @@
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
+        /* Tinta de los iconos de estado: el color semantico de daisyUI es un
+           FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
+           2.87:1, bajo el 3:1 que pide un objeto grafico. Estos tres valores
+           estan medidos contra los fondos reales de cada tema. */
+        :root {
+            --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
+            --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
+            --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
+        }
+        /* En oscuro los semanticos brillantes ya pasan (8.06 y 5.52:1) y se
+           reusan tal cual. No es cosmetico: los mismos ink claros sobre el
+           fondo oscuro dan 3.59 y 2.95:1 y fallarian. */
+        [data-theme="dark"] {
+            --ink-success: var(--color-success);
+            --ink-error:   var(--color-error);
+            --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+        }
+        .icon-success { color: var(--ink-success); }
+        .icon-error   { color: var(--ink-error); }
+        .icon-pending { color: var(--ink-pending); }
+
         /* ── Avisos flotantes ────────────────────────────────────────────
            Posición: en desktop el sidebar es `static`, así que un `fixed`
            contra el viewport NO queda alineado con el contenido (lo que se ve
@@ -145,9 +166,15 @@
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop. #}
+    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop.
+       `inert` (atributo, no una clase CSS) es lo que saca de verdad los
+       enlaces del orden de tabulación: una clase con `visibility` u `opacity`
+       los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
+       layout por la animación de translate-x. En desktop `sidebarOpen`
+       arranca en true, así que ahí nunca queda inerte. #}
     <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:static lg:translate-x-0"
            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
+           x-bind:inert="!sidebarOpen"
            aria-label="Navegación principal">
         <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
             {% include 'partials/_logo.twig' %}
@@ -156,14 +183,16 @@
         <ul class="menu w-full grow gap-1 p-2">
             <li>
                 <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
+                   aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
                 </a>
             </li>
             <li>
                 <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas">
+                   :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
+                   aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
                 </a>
@@ -174,7 +203,7 @@
             <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
             <form method="post" action="/logout">
                 {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
+                <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir" aria-label="Salir">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
                 </button>

@@ -118,6 +118,39 @@ final class ViewClassIntegrityTest extends TestCase
     }
 
     /**
+     * Las clases que el proyecto define en su propio <style> son el unico
+     * respaldo de lo que el guard no puede juzgar contra el bundle. `icon-*`
+     * es el caso vivo: si el bloque de tinta del layout desaparece, los iconos
+     * pierden el color y no se entera nadie, porque `icon-` no es vocabulario
+     * de daisyUI ni utilidad de Tailwind. Sin esta asercion, la correccion de
+     * contraste queda sin red.
+     */
+    public function testLasClasesDeProyectoUsadasEstanDefinidasEnElStyleDelLayout(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $definidas = $this->projectClasses($root, $this->templateFiles($root));
+
+        $usadas = array_filter(
+            array_keys($this->scan()['classes']),
+            static fn (string $clase): bool => str_starts_with($clase, 'icon-')
+        );
+
+        self::assertNotSame(
+            [],
+            $usadas,
+            'no hay clases de proyecto en uso: este test no estaria probando nada'
+        );
+
+        foreach ($usadas as $clase) {
+            self::assertArrayHasKey(
+                $clase,
+                $definidas,
+                "la plantilla usa .{$clase} pero el <style> del layout no la define"
+            );
+        }
+    }
+
+    /**
      * @return array{classes: array<string, list<string>>, dead: array<string, list<string>>}
      */
     private function scan(): array
