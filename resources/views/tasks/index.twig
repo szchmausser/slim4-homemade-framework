@@ -21,8 +21,15 @@
        apagaría también las filas, el header y el sidebar. `find button` queda
        atado a qué elemento toma htmx como disparador y `this` apagaría el form,
        no su submit. Acá el único <button> es el submit: el input no se
-       deshabilita, así que el foco no se pierde mientras espera. #}
-    <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
+       deshabilita, así que el foco no se pierde mientras espera.
+       La posición viaja en la URL del form: el alta no manda page/per_page en
+       el cuerpo, así que sin esto crear desde "25 por página" devuelve la
+       lista en 10 y el usuario pierde su elección sin haberla tocado. La
+       página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
+       siempre en el contexto de index.twig (sólo lo renderiza
+       TaskController::respond, que siempre pasa pageData). #}
+    <form id="alta-tarea" hx-post="/tareas?page=1&per_page={{ pagination.per_page }}"
+          hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">

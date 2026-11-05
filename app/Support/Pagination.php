@@ -58,30 +58,39 @@ final class Pagination
     }
 
     /**
-     * Ventana de páginas estilo Laravel: primera, última y actual±2.
-     * null = ellipsis ("…"). Los números no pueden repetirse por construcción
-     * (el rango va de 2 a last-1), así que no se deduplica: array_unique con
-     * comparación laxa borraría un ellipsis doble, que es válido.
+     * Ventana de páginas con techo de CINCO entradas: primera, actual y
+     * última, más un ellipsis (null = "…") en cada salto. Con last <= 5
+     * entran todas y no hay nada que saltear.
+     *
+     * Los vecinos de la actual NO se muestran a propósito: llegar a la
+     * anterior/siguiente lo cubren las flechas « », que están siempre. La
+     * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
+     * opciones visibles que aguanta un punto de decisión (R7).
+     *
+     * La deduplicación sale de las guardas, no de array_unique: current == 1
+     * o current == last no repiten el número porque el `if` que lo agrega lo
+     * excluye. array_unique con comparación laxa borraría además un ellipsis
+     * doble, que es válido cuando current está lejos de los dos extremos.
      *
      * @return array<int|null>
      */
     public static function window(int $current, int $last): array
     {
-        if ($last <= 7) {
+        if ($last <= 5) {
             return range(1, $last);
         }
 
         $pages = [1];
 
-        if ($current > 4) {
+        if ($current > 2) {
             $pages[] = null;
         }
 
-        foreach (range(max(2, $current - 2), min($last - 1, $current + 2)) as $p) {
-            $pages[] = $p;
+        if ($current > 1 && $current < $last) {
+            $pages[] = $current;
         }
 
-        if ($current < $last - 3) {
+        if ($current < $last - 1) {
             $pages[] = null;
         }
 

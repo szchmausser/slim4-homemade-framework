@@ -61,12 +61,40 @@ class TaskController extends Controller
      */
     private function respond(Request $request, Response $response, array $extra = []): Response
     {
-        return $this->render(
+        // El orden del merge importa: `pageData()` primero, así un $extra no
+        // puede pisar `tasks`/`pagination` (ni el header de abajo).
+        $data = $this->pageData($request) + $extra + ['active' => 'tareas'];
+
+        $response = $this->render(
             $request,
             $response,
             $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
-            $this->pageData($request) + $extra + ['active' => 'tareas']
+            $data
         );
+
+        if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
+            return $response;
+        }
+
+        // La posición de la lista viaja en la URL (S11) desde el HEADER, no
+        // desde un `hx-push-url="/tareas?page=2"` en la plantilla:
+        // Pagination::paginate() clampea la página pedida al rango válido, así
+        // que borrar la última fila de la página 2 hace que el server
+        // renderice la 1. Una URL fija en el markup empujaría una posición que
+        // contradice el contenido que acaba de llegar; sólo el server que
+        // renderizó sabe qué página mostró. htmx 2.0.11 lee el header antes que
+        // el atributo (verificado en el vendor: `HX-Push-Url` gana sobre
+        // `hx-push-url`). Se empuja la URL canónica de la vista y no la de la
+        // acción: /tareas/5/toggle sólo acepta POST y recargarla sería un 404.
+        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
+        $pagination = $data['pagination'];
+
+        return $response->withHeader('HX-Push-Url', sprintf(
+            '%s?page=%d&per_page=%d',
+            $pagination['base_url'],
+            $pagination['current_page'],
+            $pagination['per_page']
+        ));
     }
 
     public function store(Request $request, Response $response): Response

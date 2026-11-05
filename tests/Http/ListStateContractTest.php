@@ -148,9 +148,170 @@ final class ListStateContractTest extends TestCase
         );
     }
 
+    /**
+     * S11 (T10): una accion de fila deja una entrada de historial cuya URL
+     * describe lo que quedo en pantalla. La posicion no puede vivir en la
+     * plantilla (hx-push-url fijo) porque Pagination clampea la pagina pedida:
+     * el server es el unico que sabe que pagina renderizo, asi que la publica
+     * en el header `HX-Push-Url`.
+     *
+     * La URL empujada es la canonica de la vista, no la de la accion:
+     * /tareas/5/toggle solo acepta POST y recargarla seria un 404.
+     */
+    public function test_una_accion_de_fila_empuja_la_url_de_la_pagina_renderizada(): void
+    {
+        $task = Task::orderByDesc('id')->first();
+        self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
+
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('POST', sprintf('/tareas/%d/toggle?page=2&per_page=10', $task->id))
+                ->withHeader('HX-Request', 'true')
+                ->withHeader('csrf_name', $token['csrf_name'])
+                ->withHeader('csrf_value', $token['csrf_value'])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            '/tareas?page=2&per_page=10',
+            $response->getHeaderLine('HX-Push-Url'),
+            'la accion tiene que empujar la posicion que el server renderizo'
+        );
+    }
+
+    /**
+     * S11 (T10) + el clamp de Pagination: la URL empujada no puede describir
+     * una pagina que ya no existe. Con 12 filas y per_page=10 el borrado de la
+     * primera tarea de la pagina 2 deja 11 (la pagina 2 sigue viva), pero el
+     * segundo borrado deja 10 y el server renderiza la pagina 1: la barra de
+     * direcciones tiene que decir pagina 1, no la 2 que se pidio.
+     */
+    public function test_borrar_la_ultima_fila_de_la_ultima_pagina_empuja_la_pagina_clampeada(): void
+    {
+        // Orden desc por id: las dos mas viejas son las de la pagina 2.
+        $viejas = Task::orderBy('id')->limit(2)->get();
+        self::assertCount(2, $viejas, 'el fixture tiene que haber creado 12 tareas');
+
+        // El Guard corre en persistentTokenMode: un solo par sirve para las dos
+        // peticiones del test.
+        $token = self::token();
+
+        $sigue = self::app()->handle(
+            self::request('DELETE', sprintf('/tareas/%d?page=2&per_page=10', $viejas[0]->id))
+                ->withHeader('HX-Request', 'true')
+                ->withHeader('csrf_name', $token['csrf_name'])
+                ->withHeader('csrf_value', $token['csrf_value'])
+        );
+
+        self::assertSame(200, $sigue->getStatusCode());
+        self::assertSame(
+            '/tareas?page=2&per_page=10',
+            $sigue->getHeaderLine('HX-Push-Url'),
+            'quedan 11 filas: la pagina 2 existe y se renderiza'
+        );
+
+        $vacia = self::app()->handle(
+            self::request('DELETE', sprintf('/tareas/%d?page=2&per_page=10', $viejas[1]->id))
+                ->withHeader('HX-Request', 'true')
+                ->withHeader('csrf_name', $token['csrf_name'])
+                ->withHeader('csrf_value', $token['csrf_value'])
+        );
+
+        self::assertSame(200, $vacia->getStatusCode());
+        self::assertSame(
+            '/tareas?page=1&per_page=10',
+            $vacia->getHeaderLine('HX-Push-Url'),
+            'quedan 10 filas: la pagina 2 desaparecio y el server renderizo la 1'
+        );
+    }
+
+    /**
+     * S11 (T10): el alta no lleva posicion en el cuerpo, asi que el tamano de
+     * pagina tiene que viajar en la URL del form. Sin eso, crear desde
+     * per_page=25 devuelve la lista en 10 y el usuario pierde la eleccion sin
+     * haberla cambiado. La pagina si es 1: la tarea nueva queda arriba.
+     */
+    public function test_el_alta_conserva_el_tamano_de_pagina_y_empuja_la_pagina_uno(): void
+    {
+        $html = self::page('/tareas?page=1&per_page=25');
+
+        self::assertStringContainsString(
+            'hx-post="/tareas?page=1&per_page=25"',
+            $html,
+            'el form de alta tiene que arrastrar el tamano de pagina elegido'
+        );
+
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('POST', '/tareas?page=1&per_page=25')
+                ->withHeader('HX-Request', 'true')
+                ->withHeader('csrf_name', $token['csrf_name'])
+                ->withHeader('csrf_value', $token['csrf_value'])
+                ->withParsedBody(['title' => 'Creada desde la pagina 25'])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(
+            '/tareas?page=1&per_page=25',
+            $response->getHeaderLine('HX-Push-Url'),
+            'crear tiene que empujar la pagina 1 con el tamano elegido'
+        );
+
+        // Y el panel tiene que haber salido con ese tamano: 13 filas entran en
+        // una sola pagina de 25, en una de 10 serian dos.
+        self::assertStringContainsString(
+            'Mostrando 1 al 13 de 13 tareas',
+            (string) $response->getBody(),
+            'el panel se renderizo con otro tamano de pagina'
+        );
+    }
+
+    /**
+     * S11 (T10): sin htmx no hay swap que empujar. La respuesta es la pagina
+     * entera y la barra de direcciones la maneja el navegador: un
+     * HX-Push-Url aca seria un header que nadie escucha.
+     */
+    public function test_una_mutacion_sin_htmx_no_empuja_ninguna_url(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('POST', '/tareas?page=1&per_page=25')
+                ->withHeader('csrf_name', $token['csrf_name'])
+                ->withHeader('csrf_value', $token['csrf_value'])
+                ->withParsedBody(['title' => 'Alta sin htmx'])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertFalse(
+            $response->hasHeader('HX-Push-Url'),
+            'una respuesta completa no puede empujar URLs de htmx'
+        );
+    }
+
     private static function page(string $path): string
     {
         return (string) self::app()->handle(self::request('GET', $path))->getBody();
+    }
+
+    /**
+     * Tokens frescos scrapeados de GET /tareas (mismo patron que DeleteTaskTest
+     * y ToggleTaskTest). El Guard corre en persistentTokenMode, asi que el
+     * mismo par sirve para varias peticiones del test.
+     */
+    private static function token(): array
+    {
+        $html = self::page('/tareas');
+
+        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
+        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
+
+        self::assertArrayHasKey(1, $n, 'no encontre el hidden csrf_name');
+        self::assertArrayHasKey(1, $v, 'no encontre el hidden csrf_value');
+
+        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
     }
 
     private static function app(): App
