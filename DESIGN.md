@@ -67,7 +67,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - Todo control tiene nombre accesible: iconos con `aria-label` + `title`, campos con `label` asociado o `aria-label`.
 - Foco visible siempre; nunca `outline: none` en un control interactivo.
 - La paginación es un enlace real (`href`) además de `hx-get`: sin `href` no hay rol ni foco.
-- Skip link pendiente: hoy `<main>` no tiene `id` (deuda conocida).
+- Skip link presente: `.skip-link` es el primer elemento tabulable y apunta a `#contenido`. Va fuera de pantalla por posicion, no por `display`, para que siga recibiendo el primer Tab.
 
 ## Assets
 

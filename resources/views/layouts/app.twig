@@ -76,6 +76,27 @@
             color: var(--color-base-content);
         }
 
+        /* Salto al contenido (WCAG 2.4.1). Fuera de pantalla por posicion y no
+           con `display`/`visibility`: un elemento con display:none no recibe el
+           foco de la primera tabulacion, que es justo lo que este enlace tiene
+           que hacer. `sr-only` de Tailwind haria lo mismo, pero depende de que
+           el JIT lo compile; esto es determinista y no agrega una clase al
+           guard. */
+        .skip-link {
+            position: absolute;
+            left: -9999px;
+            top: 0;
+            z-index: 60;          /* sobre header (z-20), sidebar (z-40) y avisos (z-50) */
+        }
+        .skip-link:focus {
+            left: .5rem;
+            top: .5rem;
+            padding: .5rem 1rem;
+            border-radius: .5rem;
+            background: var(--color-primary);
+            color: var(--color-primary-content);
+        }
+
         /* ── Avisos flotantes ────────────────────────────────────────────
            Posición: abajo a la derecha del area de contenido. El host sigue
            replicando la geometria de la columna (en desktop el sidebar es
@@ -192,6 +213,10 @@
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
+{# Primer elemento tabulable de la pagina. Sin esto, con teclado hay que atravesar
+   hamburguesa, plegado, breadcrumb y toggle de tema en cada pagina antes de
+   llegar al contenido. #}
+<a href="#contenido" class="skip-link">Saltar al contenido</a>
 {# Shell de la app: sidebar plegable + header + contenido + footer.
    El collapse lo gobierna Alpine con utilities estándar (w-16/w-64,
    translate-x, hidden): el browser build las compila al vuelo, incluso
@@ -361,7 +386,7 @@
             </div>
         </div>
 
-        <main class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
+        <main id="contenido" class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
                reemplaza en los swaps parciales: acá no se renderiza. #}
             {% block content %}{% endblock %}
