@@ -6,14 +6,97 @@
    <a> sin href no tiene rol de enlace ni entra en el orden de tabulación, así
    que con teclado o lector de pantalla las páginas 2+ eran inalcanzables.
    Las URLs son navegación real, pero htmx sigue interceptando el click cuando
-   está cargado: el href es el fallback, no un segundo camino. #}
+   está cargado: el href es el fallback, no un segundo camino.
+
+   Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
+   una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
+   con la etiqueta y los controles— sin ritmo entre las piezas ni relación
+   entre el control y la navegación. Ahora son tres líneas centradas con el
+   mismo `gap-3` entre ellas: contador, controles, "Tareas por página". El
+   ancho de teléfono es el caso por defecto (`flex-col` sin prefijo) y `sm:`
+   devuelve la fila de escritorio que ya funcionaba: contador a la izquierda,
+   control de tamaño y paginación a la derecha, todo centrado en vertical.
+
+   El orden del DOM es el de móvil —controles antes de la etiqueta— para que
+   lo que se ve en el teléfono, lo que se lee y el orden de tabulación sean lo
+   mismo; en escritorio la etiqueta recupera el primer lugar con
+   `sm:order-first`. Se resuelve con utilidades y no duplicando markup porque
+   este partial es uno solo para los dos anchos.
+
+   Todos los items del `join` llevan `btn-square`: ancho fijo de `--size`
+   (2rem con `btn-sm`) en vez de dejar que el glifo decida. `«` y `»` son
+   angostos, así que las dos flechas salían como astillas contra los números y
+   el grupo parecía roto en los extremos. Con el cuadrado las siete fichas
+   miden lo mismo; la flecha deshabilitada se sigue leyendo deshabilitada
+   (`btn-disabled` + `disabled`, que es la única sin contorno ni relleno) y la
+   página actual sigue siendo la única con relleno pleno (`btn-primary`).
+
+   El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era
+   la forma de pedir prestado lo que el elemento ya significa. `mt-4` mantiene
+   la separación con la lista. #}
 {% if pagination.total > 0 %}
-<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm opacity-70">
+<div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-center text-sm opacity-70 sm:text-left">
         Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
     </p>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
+        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
+           mismo fondo que la página y un borde de ~1.1:1, así que los números
+           se leían como texto suelto; `btn-outline` les da un contorno que
+           existe en los dos temas. La página actual era `btn-active` (un gris
+           pálido de relleno): indistinguible de una flecha deshabilitada, es
+           decir, no se podía saber dónde se está parado. `btn-primary` la
+           vuelve la única ficha con relleno de color pleno contra `base-100`,
+           distinta de los enlaces (contorno, sin relleno) y de las flechas
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
+        <nav class="join" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de App\Support\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
+            {% if pagination.current_page > 1 %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="join-item btn btn-sm btn-square btn-outline"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">«</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página anterior">«</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    <button class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</button>
+                {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    <a class="join-item btn btn-sm btn-square btn-outline"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="join-item btn btn-sm btn-square btn-outline"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">»</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página siguiente">»</button>
+            {% endif %}
+        </nav>
+
         {% if show_size|default(true) %}
         {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
            select sin depender de que el lector de pantalla lo anuncie, y el
@@ -21,8 +104,10 @@
            No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta (~4.4:1
            sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
            El mismo tono del contador de arriba, con `opacity-70` sólo en el
-           texto, da ~6:1 y deja el select a tinta plena. #}
-        <label class="flex items-center gap-2">
+           texto, da ~6:1 y deja el select a tinta plena.
+           En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
+           en móvil queda como tercera línea, debajo de los controles. #}
+        <label class="flex items-center gap-2 sm:order-first">
             <span class="text-sm opacity-70">Tareas por página</span>
             <select class="select select-sm w-auto" name="per_page"
                     aria-label="Tareas por página"
@@ -37,62 +122,6 @@
             </select>
         </label>
         {% endif %}
-
-        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
-           mismo fondo que la página y un borde de ~1.1:1, así que los números
-           se leían como texto suelto; `btn-outline` les da un contorno que
-           existe en los dos temas. La página actual era `btn-active` (un gris
-           pálido de relleno): indistinguible de una flecha deshabilitada, es
-           decir, no se podía saber dónde se está parado. `btn-primary` la
-           vuelve la única ficha con relleno de color pleno contra `base-100`,
-           distinta de los enlaces (contorno, sin relleno) y de las flechas
-           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
-        <div class="join" role="navigation" aria-label="Paginación">
-            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
-               una sola fuente, así los dos no pueden apuntar a páginas
-               distintas. Se imprime con `|raw` para que el `&` salga literal,
-               como ya estaba (PaginationFlowTest lo fija así). No es una
-               puerta de escape: la cadena es la base fija del controller más
-               enteros de App\Support\Pagination. Dentro del atributo es
-               válido, porque `&per_page` no termina en `;` y por lo tanto no
-               es una referencia de carácter. #}
-            {% if pagination.current_page > 1 %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página anterior">«</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página anterior">«</button>
-            {% endif %}
-
-            {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-primary" aria-current="page">{{ p }}</button>
-                {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm btn-outline"
-                       href="{{ destino|raw }}"
-                       hx-get="{{ destino|raw }}"
-                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página siguiente">»</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página siguiente">»</button>
-            {% endif %}
-        </div>
     </div>
 </div>
 {% endif %}

@@ -3773,14 +3773,97 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    <a> sin href no tiene rol de enlace ni entra en el orden de tabulación, así
    que con teclado o lector de pantalla las páginas 2+ eran inalcanzables.
    Las URLs son navegación real, pero htmx sigue interceptando el click cuando
-   está cargado: el href es el fallback, no un segundo camino. #}
+   está cargado: el href es el fallback, no un segundo camino.
+
+   Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
+   una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
+   con la etiqueta y los controles— sin ritmo entre las piezas ni relación
+   entre el control y la navegación. Ahora son tres líneas centradas con el
+   mismo `gap-3` entre ellas: contador, controles, "Tareas por página". El
+   ancho de teléfono es el caso por defecto (`flex-col` sin prefijo) y `sm:`
+   devuelve la fila de escritorio que ya funcionaba: contador a la izquierda,
+   control de tamaño y paginación a la derecha, todo centrado en vertical.
+
+   El orden del DOM es el de móvil —controles antes de la etiqueta— para que
+   lo que se ve en el teléfono, lo que se lee y el orden de tabulación sean lo
+   mismo; en escritorio la etiqueta recupera el primer lugar con
+   `sm:order-first`. Se resuelve con utilidades y no duplicando markup porque
+   este partial es uno solo para los dos anchos.
+
+   Todos los items del `join` llevan `btn-square`: ancho fijo de `--size`
+   (2rem con `btn-sm`) en vez de dejar que el glifo decida. `«` y `»` son
+   angostos, así que las dos flechas salían como astillas contra los números y
+   el grupo parecía roto en los extremos. Con el cuadrado las siete fichas
+   miden lo mismo; la flecha deshabilitada se sigue leyendo deshabilitada
+   (`btn-disabled` + `disabled`, que es la única sin contorno ni relleno) y la
+   página actual sigue siendo la única con relleno pleno (`btn-primary`).
+
+   El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era
+   la forma de pedir prestado lo que el elemento ya significa. `mt-4` mantiene
+   la separación con la lista. #}
 {% if pagination.total > 0 %}
-<div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-sm opacity-70">
+<div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-center text-sm opacity-70 sm:text-left">
         Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
     </p>
 
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
+        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
+           mismo fondo que la página y un borde de ~1.1:1, así que los números
+           se leían como texto suelto; `btn-outline` les da un contorno que
+           existe en los dos temas. La página actual era `btn-active` (un gris
+           pálido de relleno): indistinguible de una flecha deshabilitada, es
+           decir, no se podía saber dónde se está parado. `btn-primary` la
+           vuelve la única ficha con relleno de color pleno contra `base-100`,
+           distinta de los enlaces (contorno, sin relleno) y de las flechas
+           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
+        <nav class="join" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de App\Support\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
+            {% if pagination.current_page > 1 %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="join-item btn btn-sm btn-square btn-outline"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">«</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página anterior">«</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    <button class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</button>
+                {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    <a class="join-item btn btn-sm btn-square btn-outline"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="join-item btn btn-sm btn-square btn-outline"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">»</a>
+            {% else %}
+                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página siguiente">»</button>
+            {% endif %}
+        </nav>
+
         {% if show_size|default(true) %}
         {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
            select sin depender de que el lector de pantalla lo anuncie, y el
@@ -3788,8 +3871,10 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta (~4.4:1
            sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
            El mismo tono del contador de arriba, con `opacity-70` sólo en el
-           texto, da ~6:1 y deja el select a tinta plena. #}
-        <label class="flex items-center gap-2">
+           texto, da ~6:1 y deja el select a tinta plena.
+           En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
+           en móvil queda como tercera línea, debajo de los controles. #}
+        <label class="flex items-center gap-2 sm:order-first">
             <span class="text-sm opacity-70">Tareas por página</span>
             <select class="select select-sm w-auto" name="per_page"
                     aria-label="Tareas por página"
@@ -3804,62 +3889,6 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
             </select>
         </label>
         {% endif %}
-
-        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
-           mismo fondo que la página y un borde de ~1.1:1, así que los números
-           se leían como texto suelto; `btn-outline` les da un contorno que
-           existe en los dos temas. La página actual era `btn-active` (un gris
-           pálido de relleno): indistinguible de una flecha deshabilitada, es
-           decir, no se podía saber dónde se está parado. `btn-primary` la
-           vuelve la única ficha con relleno de color pleno contra `base-100`,
-           distinta de los enlaces (contorno, sin relleno) y de las flechas
-           deshabilitadas (fondo base, sin contorno), en claro y en oscuro. #}
-        <div class="join" role="navigation" aria-label="Paginación">
-            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
-               una sola fuente, así los dos no pueden apuntar a páginas
-               distintas. Se imprime con `|raw` para que el `&` salga literal,
-               como ya estaba (PaginationFlowTest lo fija así). No es una
-               puerta de escape: la cadena es la base fija del controller más
-               enteros de App\Support\Pagination. Dentro del atributo es
-               válido, porque `&per_page` no termina en `;` y por lo tanto no
-               es una referencia de carácter. #}
-            {% if pagination.current_page > 1 %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página anterior">«</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página anterior">«</button>
-            {% endif %}
-
-            {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="join-item btn btn-sm btn-disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    <button class="join-item btn btn-sm btn-primary" aria-current="page">{{ p }}</button>
-                {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm btn-outline"
-                       href="{{ destino|raw }}"
-                       hx-get="{{ destino|raw }}"
-                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página siguiente">»</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-disabled" disabled aria-label="Página siguiente">»</button>
-            {% endif %}
-        </div>
     </div>
 </div>
 {% endif %}
@@ -4420,60 +4449,15 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
-final class CsrfFlowTest extends TestCase
+final class CsrfFlowTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
         // La capa de auth en sí se testea en AuthTest, no acá.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en memoria y se crea una sola vez: si no limpiás,
-        // la suite depende de la orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
-    }
-
-    /**
-     * Extrae los dos hidden que emite partials/_csrf.twig.
-     *
-     * Ojo con una trampa: `csrf_name_key` es una variable de Twig, NO aparece
-     * en el HTML renderizado. El template es
-     *   <input name="{{ csrf_name_key }}" value="{{ csrf_name }}">
-     * y `getTokenNameKey()` devuelve justo el string literal 'csrf_name'. Así
-     * que el name real del input es `csrf_name`, y buscar "csrf_name_key" en
-     * el HTML no matchea nunca.
-     */
-    private function scrapeToken(string $html): array
-    {
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
+        self::loginAs();
     }
 
     public function test_get_renderiza_el_formulario_con_token(): void
@@ -4527,7 +4511,7 @@ final class CsrfFlowTest extends TestCase
     public function test_post_htmx_con_token_invalido_devuelve_400_y_hx_trigger(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', ['title' => 'x'], htmx: true)
+            self::request('POST', '/tareas', ['title' => 'x'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
@@ -4585,31 +4569,6 @@ final class CsrfFlowTest extends TestCase
         );
         self::assertStringContainsString('@csrf.window=', $layout);
     }
-
-    private static function request(string $method, string $path, array $body = [], bool $htmx = false): ServerRequestInterface
-    {
-        // URI absoluta: con path-only el host queda vacío y Slim se porta
-        // distinto en los casos borde. En producción siempre hay host.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            // Deliberadamente NO usamos withParsedBody(): mandamos el body crudo
-            // con su Content-Type para que pase por el Body Parsing Middleware
-            // igual que en producción. Si inyectás el array ya parseado, el test
-            // deja de cubrir el body parsing — que es justo lo que rompen los
-            // cambios de orden en el pipeline.
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        // Solo lo seteamos cuando corresponde: detectarlo con getHeaderLine()
-        // hace que un header presente con valor vacío cuente como "no HTMX".
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
-    }
 }
 ```
 
@@ -4628,26 +4587,20 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use PHPUnit\Framework\TestCase;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
-final class ErrorHandlingTest extends TestCase
+final class ErrorHandlingTest extends HttpTestCase
 {
     public function test_ruta_inexistente_devuelve_404_y_no_500(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         self::assertSame(404, $response->getStatusCode());
     }
 
     public function test_las_paginas_de_error_tambien_llevan_security_headers(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         self::assertSame('nosniff', $response->getHeaderLine('X-Content-Type-Options'));
         self::assertSame('DENY', $response->getHeaderLine('X-Frame-Options'));
@@ -4670,9 +4623,7 @@ final class ErrorHandlingTest extends TestCase
      */
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $response = self::app()->handle(self::request('GET', '/no-existe'));
 
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();
@@ -4698,9 +4649,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use PHPUnit\Framework\TestCase;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * El router, y sobre todo la ruta raiz.
@@ -4710,22 +4659,18 @@ use Tests\Support\AppFactory;
  * de la página de error era, él mismo, un link muerto. Ningún test lo detectó
  * porque todos asserteaban el status de `/no-existe` y nadie seguía el link.
  */
-final class RoutingTest extends TestCase
+final class RoutingTest extends HttpTestCase
 {
     public function test_la_raiz_responde_y_no_un_404(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $response = self::app()->handle(self::request('GET', '/'));
 
         self::assertSame(200, $response->getStatusCode());
     }
 
     public function test_la_raiz_presenta_el_stack_y_enlaza_a_tareas(): void
     {
-        $response = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $response = self::app()->handle(self::request('GET', '/'));
 
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();
@@ -4738,19 +4683,15 @@ final class RoutingTest extends TestCase
     {
         // Si este test falla, volvio el bug: la pagina de error enlaza a una
         // ruta que no existe y el usuario queda atrapado en un 404.
-        $app = AppFactory::make();
+        $app = self::app();
 
-        $error = $app->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/no-existe')
-        );
+        $error = $app->handle(self::request('GET', '/no-existe'));
         $error->getBody()->rewind();
         $html = $error->getBody()->getContents();
 
         self::assertStringContainsString('href="/"', $html, 'La pagina de error deberia ofrecer volver al inicio.');
 
-        $target = AppFactory::make()->handle(
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/')
-        );
+        $target = $app->handle(self::request('GET', '/'));
 
         // assertSame(200), no assertNotSame(404): un 500 también pasa
         // "distinto de 404" y dejaba el link muerto cubierto por un test verde.
@@ -4773,12 +4714,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * La D del CRUD, que es la única que depende de dónde viajan los tokens.
@@ -4789,38 +4725,21 @@ use Tests\Support\AppFactory;
  * nunca. Por eso el botón de eliminar manda los tokens con `hx-headers` y no
  * con `hx-include`.
  */
-final class DeleteTaskTest extends TestCase
+final class DeleteTaskTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en memoria y se crea una sola vez: si no limpiás,
-        // la suite depende de la orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_delete_con_los_tokens_en_headers_borra_la_tarea(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('DELETE', '/tareas/' . $task->id)
+            self::request('DELETE', '/tareas/' . $task->id)
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -4834,10 +4753,10 @@ final class DeleteTaskTest extends TestCase
     public function test_delete_con_los_tokens_en_query_string_no_pasa_el_guard(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            $this->request('DELETE', '/tareas/' . $task->id . '?' . http_build_query($token))
+            self::request('DELETE', '/tareas/' . $task->id . '?' . http_build_query($token))
                 ->withHeader('HX-Request', 'true')
         );
 
@@ -4852,7 +4771,7 @@ final class DeleteTaskTest extends TestCase
     {
         $task = Task::create(['title' => 'Comprar pan']);
 
-        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/tareas'))->getBody();
 
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
@@ -4860,32 +4779,6 @@ final class DeleteTaskTest extends TestCase
         // El query string de posicion lo fija tests/Http/ListStateContractTest;
         // aca solo importa que el borrado apunte al recurso correcto.
         self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
-    }
-
-    /**
-     * Extrae los dos hidden que emite partials/_csrf.twig. El name real del
-     * input es `csrf_name` / `csrf_value`: `csrf_name_key` es variable de Twig
-     * y no aparece en el HTML renderizado.
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle($this->request('GET', '/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        // URI absoluta, igual que en el resto de la suite: con path-only el
-        // host queda vacío y Slim se porta distinto en los casos borde.
-        return (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
     }
 }
 ```
@@ -4902,14 +4795,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Qué recibe htmx y qué recibe el navegador en la misma ruta.
@@ -4925,35 +4811,18 @@ use Tests\Support\AppFactory;
  * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
  * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
  */
-final class PartialRenderTest extends TestCase
+final class PartialRenderTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en un SQLite compartido: si no limpiás, la suite
-        // depende del orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_get_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $response = self::app()->handle(
-            self::request(false)
+            self::request('GET', '/tareas')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -4967,7 +4836,7 @@ final class PartialRenderTest extends TestCase
     public function test_get_con_hx_request_devuelve_solo_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request(true)
+            self::request('GET', '/tareas', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -4988,10 +4857,10 @@ final class PartialRenderTest extends TestCase
      */
     public function test_post_sin_hx_request_devuelve_la_pagina_completa(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(false, 'POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -5012,14 +4881,14 @@ final class PartialRenderTest extends TestCase
      */
     public function test_post_con_hx_request_devuelve_solo_el_panel(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(true, 'POST', '/tareas', [
+            self::request('POST', '/tareas', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
-            ])
+            ], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -5033,10 +4902,10 @@ final class PartialRenderTest extends TestCase
     public function test_delete_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
-            self::request(false, 'DELETE', '/tareas/' . $task->id, [
+            self::request('DELETE', '/tareas/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
             ])
@@ -5062,50 +4931,6 @@ final class PartialRenderTest extends TestCase
         self::assertStringContainsString('rel="stylesheet"', $html, 'Sin la hoja de estilos la página se ve sin CSS.');
         self::assertStringContainsString('/assets/daisyui-5.7.46.css', $html);
     }
-
-    /**
-     * @return array{csrf_name: string, csrf_value: string}
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle(self::request(false))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    /**
-     * @param array<string, string> $body
-     */
-    private static function request(
-        bool $htmx,
-        string $method = 'GET',
-        string $path = '/tareas',
-        array $body = []
-    ): ServerRequestInterface {
-        // URI absoluta, igual que en el resto de la suite: con path-only el
-        // host queda vacío y Slim se porta distinto en los casos borde.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            // Body crudo con su Content-Type: así pasa por el Body Parsing
-            // Middleware igual que en producción. withParsedBody() saltearía
-            // justo la capa que rompen los cambios de orden del pipeline.
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
-    }
 }
 ```
 
@@ -5121,13 +4946,7 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * La U de CRUD: la edición es inline en la fila.
@@ -5139,29 +4958,12 @@ use Tests\Support\AppFactory;
  * El PUT llega como `application/x-www-form-urlencoded` (el default de htmx
  * para verbos no-GET) y lo parsea `addBodyParsingMiddleware()`.
  */
-final class EditTaskTest extends TestCase
+final class EditTaskTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
-    }
-
-    protected function tearDown(): void
-    {
-        // El schema vive en memoria y se crea una sola vez: si no limpiás,
-        // la suite depende de la orden de ejecución.
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        self::loginAs();
     }
 
     public function test_get_edit_renderiza_el_formulario_de_la_fila(): void
@@ -5202,7 +5004,7 @@ final class EditTaskTest extends TestCase
     public function test_put_con_token_valido_actualiza_la_tarea(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, [
@@ -5222,7 +5024,7 @@ final class EditTaskTest extends TestCase
     public function test_put_sin_titulo_no_actualiza_y_muestra_el_flash(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/' . $task->id, [
@@ -5243,7 +5045,7 @@ final class EditTaskTest extends TestCase
     public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
-        $token = $this->token();
+        $token = self::token();
         $tipeado = str_repeat('b', 200);
 
         $response = self::app()->handle(
@@ -5265,7 +5067,7 @@ final class EditTaskTest extends TestCase
 
     public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
     {
-        $token = $this->token();
+        $token = self::token();
 
         $response = self::app()->handle(
             self::request('PUT', '/tareas/999999', [
@@ -5288,47 +5090,11 @@ final class EditTaskTest extends TestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], htmx: true)
+            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title);
-    }
-
-    /**
-     * Extrae los dos hidden que emite partials/_csrf.twig. El name real del
-     * input es `csrf_name` / `csrf_value`: `csrf_name_key` es variable de Twig
-     * y no aparece en el HTML renderizado.
-     */
-    private function token(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/tareas'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
-    private static function request(string $method, string $path, array $body = [], bool $htmx = false): ServerRequestInterface
-    {
-        // URI absoluta y body crudo con su Content-Type, para que pase por el
-        // Body Parsing Middleware igual que en producción.
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }
 ```
@@ -5349,13 +5115,8 @@ namespace Tests\Http;
 use App\Http\Controllers\AuthController;
 use App\Models\RememberToken;
 use App\Models\User;
-use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Slim\Psr7\Factory\StreamFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Auth v1: login/logout + remember-me + puerta de /tareas.
@@ -5364,7 +5125,7 @@ use Tests\Support\AppFactory;
  * test parte de sesión limpia y deja las tablas vacías. La cookie remember se
  * pasa a mano por header: el cliente de tests no guarda cookies solo.
  */
-final class AuthTest extends TestCase
+final class AuthTest extends HttpTestCase
 {
     protected function setUp(): void
     {
@@ -5373,14 +5134,9 @@ final class AuthTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id']);
+        // Los tokens cuelgan del usuario por FK: se van antes que el usuario.
         RememberToken::query()->delete();
-        User::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
+        parent::tearDown();
     }
 
     public function test_login_muestra_el_formulario(): void
@@ -5410,7 +5166,7 @@ final class AuthTest extends TestCase
     public function test_login_con_credenciales_malas_no_entra_ni_dice_cual_fallo(): void
     {
         $this->createUser('yo@ejemplo.com', 'secreto123');
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         foreach ([
             ['email' => 'otro@ejemplo.com', 'password' => 'secreto123'], // email inexistente
@@ -5447,7 +5203,7 @@ final class AuthTest extends TestCase
     public function test_login_valido_redirige_y_abre_sesion(): void
     {
         $user = $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -5464,7 +5220,7 @@ final class AuthTest extends TestCase
     public function test_login_con_remember_emite_cookie_y_guarda_solo_el_hash(): void
     {
         $this->createUser();
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -5494,7 +5250,7 @@ final class AuthTest extends TestCase
         // Request nueva sin sesión pero con la cookie.
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => $pair])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -5517,7 +5273,7 @@ final class AuthTest extends TestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => $selector . ':' . str_repeat('0', 64)])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -5539,7 +5295,7 @@ final class AuthTest extends TestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], false, ['remember' => 'expiretest1234567890abcd:' . $validator])
+            self::request('GET', '/tareas', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -5557,7 +5313,7 @@ final class AuthTest extends TestCase
 
     public function test_ruta_protegida_htmx_devuelve_hx_redirect(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas', [], true));
+        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
 
         // 200 + HX-Redirect (no 303): un redirect rompería el swap de HTMX.
         self::assertSame(200, $response->getStatusCode());
@@ -5569,7 +5325,7 @@ final class AuthTest extends TestCase
         $user = $this->createUser();
         // El token de logout se scrapea ANTES de entrar: logueado, GET /login
         // redirige a /tareas y ya no hay form.
-        $token = $this->csrf();
+        $token = self::token('/login');
         $this->loginWithRemember($user);
 
         $response = self::app()->handle(
@@ -5585,8 +5341,7 @@ final class AuthTest extends TestCase
 
     public function test_login_estando_logueado_redirige_a_tareas(): void
     {
-        $user = $this->createUser();
-        $_SESSION['user_id'] = $user->id;
+        self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/login'));
 
@@ -5602,24 +5357,10 @@ final class AuthTest extends TestCase
         ]);
     }
 
-    /** Token CSRF fresco de la página de login. */
-    private function csrf(): array
-    {
-        $html = (string) self::app()->handle(self::request('GET', '/login'))->getBody();
-
-        preg_match('/name="csrf_name"\s+value="([^"]+)"/', $html, $n);
-        preg_match('/name="csrf_value"\s+value="([^"]+)"/', $html, $v);
-
-        self::assertArrayHasKey(1, $n, 'no encontré el hidden csrf_name en /login');
-        self::assertArrayHasKey(1, $v, 'no encontré el hidden csrf_value en /login');
-
-        return ['csrf_name' => $n[1], 'csrf_value' => $v[1]];
-    }
-
     /** Login con remember y devuelve el par crudo de la cookie emitida. */
     private function loginWithRemember(User $user): string
     {
-        $token = $this->csrf();
+        $token = self::token('/login');
 
         $response = self::app()->handle(
             self::request('POST', '/login', [
@@ -5652,43 +5393,6 @@ final class AuthTest extends TestCase
         }
 
         return '';
-    }
-
-    private static function request(
-        string $method,
-        string $path,
-        array $body = [],
-        bool $htmx = false,
-        array $cookies = []
-    ): ServerRequestInterface {
-        $request = (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
-
-        if ($body !== []) {
-            $request = $request
-                ->withBody((new StreamFactory())->createStream(http_build_query($body)))
-                ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
-        }
-
-        if ($cookies !== []) {
-            $pairs = [];
-            foreach ($cookies as $k => $v) {
-                $pairs[] = $k . '=' . $v;
-            }
-            $request = $request->withHeader('Cookie', implode('; ', $pairs));
-        }
-
-        // La cookie remember llega por header: hay que poblar $_COOKIE a mano,
-        // el ServerRequest no lo hace solo.
-        if (isset($cookies['remember'])) {
-            $_COOKIE['remember'] = $cookies['remember'];
-        } else {
-            unset($_COOKIE['remember']);
-        }
-
-        return $htmx
-            ? $request->withHeader('HX-Request', 'true')
-            : $request;
     }
 }
 ```
@@ -5863,43 +5567,23 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Models\Task;
-use App\Models\User;
-use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ServerRequestInterface;
-use Slim\App;
-use Slim\Psr7\Factory\ServerRequestFactory;
-use Tests\Support\AppFactory;
+use Tests\Support\HttpTestCase;
 
 /**
  * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
  * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
  * paginar nada: por eso se siembran 12.
  */
-final class PaginationFlowTest extends TestCase
+final class PaginationFlowTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth).
-        $_SESSION['user_id'] = User::create([
-            'email'         => 'yo@ejemplo.com',
-            'password_hash' => password_hash('secreto123', PASSWORD_DEFAULT),
-        ])->id;
+        self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
             Task::create(['title' => sprintf('Tarea %02d', $i)]);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        unset($_SESSION['user_id']);
-        User::query()->delete();
-        Task::query()->delete();
-    }
-
-    private static function app(): App
-    {
-        return AppFactory::make();
     }
 
     public function test_pagina_dos_trae_las_mas_viejas_y_contadores(): void
@@ -5944,12 +5628,6 @@ final class PaginationFlowTest extends TestCase
 
         self::assertStringContainsString('hx-get="/tareas?page=1&per_page=10"', $html);
         self::assertStringContainsString('hx-target="#tareas-panel"', $html);
-    }
-
-    private static function request(string $method, string $path): ServerRequestInterface
-    {
-        return (new ServerRequestFactory())
-            ->createServerRequest($method, 'http://localhost' . $path);
     }
 }
 ```
