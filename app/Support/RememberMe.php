@@ -18,8 +18,8 @@ use App\Models\User;
  * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
  * - Selector conocido + validator que NO matchea: posible robo → se queman
  *   TODOS los tokens del usuario y se borra la cookie.
- * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `secure`
- *   queda en false por el mismo motivo (solo HTTPS real): ver cap. 19.
+ * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `Secure`
+ *   se activa con SESSION_SECURE=true (HTTPS real): ver cap. 19.
  */
 final class RememberMe
 {
@@ -49,11 +49,16 @@ final class RememberMe
     /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
+        $secure = filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            ? '; Secure'
+            : '';
+
         if ($clear) {
-            return self::COOKIE . '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+            return self::COOKIE . '=; Path=/' . $secure . '; HttpOnly; SameSite=Lax; Max-Age=0';
         }
 
-        return self::COOKIE . '=' . $pair . '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' . self::TTL;
+        return self::COOKIE . '=' . $pair . '; Path=/' . $secure
+            . '; HttpOnly; SameSite=Lax; Max-Age=' . self::TTL;
     }
 
     /**

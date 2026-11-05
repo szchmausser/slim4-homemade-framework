@@ -11,21 +11,32 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 class SessionMiddleware implements MiddlewareInterface
 {
+    /**
+     * Parámetros de la cookie de sesión. Públicos para que el test verifique
+     * Secure sin depender de abrir/cerrar la sesión nativa del proceso.
+     *
+     * @return array{lifetime: int, path: string, httponly: bool, samesite: string, secure: bool}
+     */
+    public static function cookieParams(): array
+    {
+        return [
+            'lifetime' => 0,     // 0 = cookie de sesión, expira al cerrar el navegador
+            'path'     => '/',
+            'httponly' => true,  // inaccesible desde document.cookie
+            'samesite' => 'Lax', // capa extra; el token CSRF sigue siendo la defensa real
+            'secure'   => filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN),
+        ];
+    }
+
     public function process(Request $request, Handler $handler): Response
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_name($_ENV['SESSION_NAME'] ?? 'mi_app_session');
 
-            // Sin esto PHP aplica sus propios defaults: cookie accesible desde
-            // JavaScript y sin SameSite. En un dispositivo propio la diferencia
-            // parece chica; el día que la app escuche en la red, no lo es.
-            session_set_cookie_params([
-                'lifetime' => 0,      // 0 = cookie de sesión, expira al cerrar el navegador
-                'path'     => '/',
-                'httponly' => true,   // inaccesible desde document.cookie
-                'samesite' => 'Lax',  // capa extra; el token CSRF sigue siendo la defensa real
-                'secure'   => false,  // poné true SOLO si servís por HTTPS (ver capítulo 18)
-            ]);
+            // SESSION_SECURE=true es para cuando la app se sirve por HTTPS
+            // (directo o detrás de un proxy TLS). En dev local queda false:
+            // una cookie Secure no viaja por HTTP y la sesión no persiste.
+            session_set_cookie_params(self::cookieParams());
 
             // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
             ini_set('session.use_strict_mode', '1');
