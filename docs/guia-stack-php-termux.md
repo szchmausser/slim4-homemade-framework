@@ -3654,14 +3654,14 @@ final class Pagination
     public const DEFAULT_PER_PAGE = 10;
 
     /** @var int[] */
-    public const ALLOWED_PER_PAGE = [10, 15, 25, 50];
+    public const ALLOWED_PER_PAGE = [5, 10, 15, 25, 50];
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
      * partials/_pagination.twig. $page fuera de rango se clampena (nunca vacío
      * por pedir de más).
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
     public static function paginate(Builder $query, int $page, int $perPage, string $baseUrl): array
     {
@@ -3683,6 +3683,9 @@ final class Pagination
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
             'pages'        => self::window($page, $lastPage),
+            // Los tamanos viajan con la paginacion para que el template no
+            // mantenga su propia copia de la lista.
+            'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
     }
 
@@ -3883,7 +3886,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                     hx-swap="{{ swap|default('outerHTML') }}"
                     hx-trigger="change"
                     hx-include="this">
-                {% for size in [10, 15, 25, 50] %}
+                {% for size in pagination.allowed_per_page %}
                     <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
                 {% endfor %}
             </select>
@@ -5518,6 +5521,16 @@ final class PaginationTest extends TestCase
 
         self::assertSame(1, Pagination::paginate($this->query(), 0, 10, '/t')['current_page']);
         self::assertSame(1, Pagination::paginate($this->query(), -3, 10, '/t')['current_page']);
+
+        // 5 tiene que ser un tamano valido, no un valor que el clamp devuelva al
+        // default: si el template ofrece un tamano que el server rechaza, el
+        // usuario elige 5 y la lista le muestra 10 sin explicar nada.
+        self::assertSame(5, Pagination::paginate($this->query(), 1, 5, '/t')['per_page']);
+
+        // La lista de tamanos viaja con la paginacion para que el template no
+        // tenga su propia copia: dos copias se desincronizan en cuanto alguien
+        // agrega o quita un tamano en un solo lado.
+        self::assertSame(Pagination::ALLOWED_PER_PAGE, Pagination::paginate($this->query(), 1, 10, '/t')['allowed_per_page']);
     }
 
     public function test_sin_filas_no_rompe_los_contadores(): void

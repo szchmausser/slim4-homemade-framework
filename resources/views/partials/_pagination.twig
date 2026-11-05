@@ -116,7 +116,7 @@
                     hx-swap="{{ swap|default('outerHTML') }}"
                     hx-trigger="change"
                     hx-include="this">
-                {% for size in [10, 15, 25, 50] %}
+                {% for size in pagination.allowed_per_page %}
                     <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
                 {% endfor %}
             </select>

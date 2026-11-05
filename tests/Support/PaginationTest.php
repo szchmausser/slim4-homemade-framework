@@ -109,6 +109,16 @@ final class PaginationTest extends TestCase
 
         self::assertSame(1, Pagination::paginate($this->query(), 0, 10, '/t')['current_page']);
         self::assertSame(1, Pagination::paginate($this->query(), -3, 10, '/t')['current_page']);
+
+        // 5 tiene que ser un tamano valido, no un valor que el clamp devuelva al
+        // default: si el template ofrece un tamano que el server rechaza, el
+        // usuario elige 5 y la lista le muestra 10 sin explicar nada.
+        self::assertSame(5, Pagination::paginate($this->query(), 1, 5, '/t')['per_page']);
+
+        // La lista de tamanos viaja con la paginacion para que el template no
+        // tenga su propia copia: dos copias se desincronizan en cuanto alguien
+        // agrega o quita un tamano en un solo lado.
+        self::assertSame(Pagination::ALLOWED_PER_PAGE, Pagination::paginate($this->query(), 1, 10, '/t')['allowed_per_page']);
     }
 
     public function test_sin_filas_no_rompe_los_contadores(): void

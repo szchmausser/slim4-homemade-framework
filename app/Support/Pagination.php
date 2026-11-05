@@ -16,14 +16,14 @@ final class Pagination
     public const DEFAULT_PER_PAGE = 10;
 
     /** @var int[] */
-    public const ALLOWED_PER_PAGE = [10, 15, 25, 50];
+    public const ALLOWED_PER_PAGE = [5, 10, 15, 25, 50];
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
      * partials/_pagination.twig. $page fuera de rango se clampena (nunca vacío
      * por pedir de más).
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
     public static function paginate(Builder $query, int $page, int $perPage, string $baseUrl): array
     {
@@ -45,6 +45,9 @@ final class Pagination
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
             'pages'        => self::window($page, $lastPage),
+            // Los tamanos viajan con la paginacion para que el template no
+            // mantenga su propia copia de la lista.
+            'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
     }
 
