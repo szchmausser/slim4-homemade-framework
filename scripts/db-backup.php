@@ -17,7 +17,22 @@ require __DIR__ . '/../vendor/autoload.php';
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
-$db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+/**
+ * GitHub Actions arranca PHP con variables_order=GPCS: $_ENV queda vacío
+ * aunque la variable exista. getenv() es el fallback que también usa
+ * phinx.php para que DB_DATABASE no dependa de la config del SAPI.
+ */
+function envOrDefault(string $name, string $default): string
+{
+    $value = $_ENV[$name] ?? null;
+    if (!is_string($value) || $value === '') {
+        $value = getenv($name);
+    }
+
+    return is_string($value) && $value !== '' ? $value : $default;
+}
+
+$db = envOrDefault('DB_DATABASE', __DIR__ . '/../database/database.sqlite');
 
 if ($db === ':memory:' || !is_file($db)) {
     fwrite(STDERR, "No hay base para respaldar en '{$db}'.\n");
@@ -59,7 +74,7 @@ try {
     exit(1);
 }
 
-$keep = max(1, (int) ($_ENV['KEEP'] ?? 10));
+$keep = max(1, (int) envOrDefault('KEEP', '10'));
 $backups = [];
 foreach (glob($backupDir . '/*.sqlite') ?: [] as $file) {
     if (is_file($file) && preg_match('/^\d{8}-\d{6}(?:-\d+)?\.sqlite$/', basename($file))) {
