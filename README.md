@@ -31,7 +31,7 @@ composer test               # suite verde: 69 tests
 | `vendor/bin/phinx rollback -t 0` | Baja todo (el "fresh") |
 | `vendor/bin/phinx seed:run -s DatabaseSeeder` | Admin + demo en orden |
 | `vendor/bin/phinx seed:run -s NombreSeed` | Un seed puntual |
-| `composer db:backup` | Backup timestamped a `storage/backups/` |
+| `composer db:backup` | Backup consistente (`.sqlite`) en `storage/backups/`, retención `KEEP` |
 | `composer test` | Suite completa |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | 32 o 64 bits |

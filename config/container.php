@@ -6,7 +6,7 @@ use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
 use Illuminate\Database\Capsule\Manager as Capsule;
-use Monolog\Handler\StreamHandler;
+use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
 use Monolog\Logger;
 use Psr\Container\ContainerInterface;
@@ -24,8 +24,11 @@ return [
 
     LoggerInterface::class => function () {
         $logger = new Logger('app');
-        $logger->pushHandler(new StreamHandler(
+        // RotatingFileHandler escribe app-YYYY-MM-DD.log y conserva
+        // LOG_MAX_FILES (default 14). Un StreamHandler único crecía sin límite.
+        $logger->pushHandler(new RotatingFileHandler(
             __DIR__ . '/../storage/logs/app.log',
+            (int) ($_ENV['LOG_MAX_FILES'] ?? 14),
             filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)
                 ? Level::Debug
                 : Level::Warning
