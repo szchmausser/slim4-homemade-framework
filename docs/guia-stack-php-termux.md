@@ -2671,7 +2671,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                 <form method="post" action="/logout" class="shrink-0">
                     {% include 'partials/_csrf.twig' %}
                     <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
                     </button>
                 </form>
             </div>
