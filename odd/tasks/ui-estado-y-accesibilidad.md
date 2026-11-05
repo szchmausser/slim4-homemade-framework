@@ -16,6 +16,7 @@ Antecedente verificado: crítica de dos pasadas + tres revisiones ciegas indepen
 - **S9** — Una mutación invocada sin htmx (POST normal, URL directa) devuelve una página completa, no un fragmento. Hoy `store/destroy/edit/update/toggle` renderizan siempre `_panel.twig`; solo `index()` ramifica por `HX-Request`.
 - **S10** — `prefers-reduced-motion: reduce` cubre todas las transiciones, no solo la barra del toast. Hoy quedan fuera `transition-all duration-200` del sidebar y los `x-transition` de toasts y tooltips.
 - **S11** — La posición de la lista (`page`, `per_page`) viaja en la URL (`hx-push-url`), así recargar, volver atrás o compartir no devuelve siempre a la página 1.
+- **S12** — El login se renderiza como superficie de autenticación, no dentro del shell: sin sidebar, sin header de la app y sin un solo enlace a una ruta protegida.
 
 ## Tasks
 
@@ -30,6 +31,7 @@ Antecedente verificado: crítica de dos pasadas + tres revisiones ciegas indepen
 - **T9** — Reduced motion completo (S10). Superficie: `app.twig` + `_list.twig`. Commit: pendiente.
 - **T10** — Estado en la URL (S11). Superficie: `_list.twig`, `_pagination.twig`, `app.twig`. Commit: pendiente.
 - **T11** — Pendientes menores (P3): favicon + `<link rel="icon">`, alta fallida no debe borrar lo tipeado (`hx-on::after-request` condicionado al éxito), URLs raíz-absolutas para subpath, marca placeholder, footer duplicado, "registros"→"tareas", tamaño alta vs edición, etiqueta visible de `per_page`, fallback silencioso de `_icon.twig`. Commit: pendiente.
+- **T13** — Login fuera del shell (S12): nuevo `layouts/auth.twig` sin htmx ni Alpine, `login.twig` lo extiende y el test fija que `/login` no contenga el sidebar ni `href="/tareas"`. Superficies: `layouts/auth.twig` (nuevo), `auth/login.twig`, `AuthTest.php`. Commit: `28ca79f`.
 - **T12** — Bloqueado: peso del motor de estilos (1.47 MB bloqueantes + JIT en navegador). Requiere decisión de producto: aceptar un paso de build contradice la premisa "sin toolchain" del README. No se toca sin esa decisión.
 
 ## Decisiones
@@ -55,6 +57,8 @@ Estado al cerrar T3/T5. Cada uno con su factibilidad y mi recomendación de cuá
 | R10 | Pendientes P3 (T11): favicon 404, el alta fallida borra lo tipeado, `_icon.twig` con fallback silencioso, footer duplicado, «registros», tamaño alta vs edición. | Alta, todos pequeños. | **Al final, en un solo lote.** Ninguno bloquea. |
 | R11 | Trampa de onboarding: si la base de desarrollo tiene migraciones pendientes, el login explota con `no such table: login_attempts` en vez de un mensaje entendible. Ocurrió y se resolvió aplicando 5 y 6. | Media — un chequeo de esquema al arrancar, o documentar `composer migrate` como paso obligatorio tras cualquier `pull`. | **A decidir al cierre.** No bloquea, pero cuesta un diagnóstico cada vez que pasa. |
 | R12 | Entrar en edición enfoca el campo (ya resuelto por la clave reusada), pero `focus()` puede scrollear el panel en listas largas. | Baja, sólo observable en navegador. | **Dentro de R3.** Se ve o no se ve en la pasada visual. |
+| R13 | Dos layouts (`app` y `auth`) repiten el `<head>`: charset, viewport, pre-pintado de tema y los dos SRI. Un cambio de assets obliga a tocar ambos. | Alta — se resuelve con un partial de `<head>` común. | **Sólo si aparece un tercer layout.** Hoy son dos y el partial agregaría una indirección por tres líneas de ahorro. |
+| R14 | Reduced motion no cubre las transiciones del bundle (rotación del `.swap` del toggle de tema, apertura del `.modal`). | Media — hay que pisar reglas del vendor con `!important`. | **Al cierre, con criterio:** si la pasada visual muestra que molestan, se pisán; si no, se acepta. |
 
 ## Log
 
@@ -71,3 +75,5 @@ Estado al cerrar T3/T5. Cada uno con su factibilidad y mi recomendación de cuá
 - **Riesgos aceptados en T5**: `inert` depende de que Alpine arranque (`defer`), así que queda una ventana pre-Alpine en móvil; y no existe en Firefox <112 ni Safari <15.5. Cerrar la ventana exigiría el atributo pre-paint en el script inline.
 - **L11** — T4, T6 y T7 cerrados. Suite `OK (115 tests, 469 assertions)`, lint OK. Desvío aceptado del escritor de T4: agregó `data-focus-key` también al «Borrar» del `<dialog>`, porque ese es el que dispara el DELETE; sin eso el camino de borrado quedaba inalcanzable. Hueco que el propio escritor reportó y el padre cerró: al entrar en edición la clave `edit-N` desaparecía del DOM nuevo y el foco caía en el panel; se reusó la clave en el input para que aterrice en el campo. Verificado que el guard no marca `error-main`/`error-body` (clases de proyecto definidas en el `<style>` de la propia página).
 - **Incidente de entorno (no de código)**: el login falló con `no such table: login_attempts` porque la base de desarrollo tenía las migraciones 5 y 6 pendientes. Backup con `composer db:backup`, luego `composer migrate`. Verificado sin pérdida: las 3 tareas tenían `done = 0`, así que el `UPDATE` de preservación de la 005 fue no-op y el `DROP COLUMN` no borró datos. Queda como R11.
+- **L12** — T8 y T9 cerrados (`7e51052`): listener de `htmx:responseError`/`sendError` con 400/419 omitidos a propósito (el `failureHandler` de slim/csrf ya manda su toast y htmx procesa `HX-Trigger` antes de disparar el evento: avisar también daría dos avisos del mismo fallo), y `respond()` en `TaskController` para que toda mutación sin htmx devuelva el documento completo. Suite `OK (118 tests, 490 assertions)`.
+- **L13** — Reporte del usuario, verbatim: «si, ya el login funciona, pero lo sigo viendo dentro del layout principal de la app, no como una pagina independiente». Causa: `login.twig` extendía `layouts/app.twig`. Cerrado con `layouts/auth.twig` (`28ca79f`), S12/T13. Verificado que el test nuevo muerde: con el `extends` viejo, falla. Suite `OK (119 tests, 493 assertions)`. En el camino rompí la firma de `test_login_valido_redirige_y_abre_sesion` con una edición mal anclada y la reparé antes de commitear (`php -l` limpio).
