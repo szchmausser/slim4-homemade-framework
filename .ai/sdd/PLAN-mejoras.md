@@ -53,7 +53,7 @@ Orden: **U1 → U2 → U3 → U4 → U5 → U6 → U7**
 | U3 | ✅ hecho | `cc4f0ee` + `08db5ed` (merge `88650d0`) — 82 tests |
 | U4 | ✅ hecho | `3ff032b` + `e57ec71` (merge `7e7ff63`) — 87 tests |
 | U5 | ✅ hecho | `0d2740c` (merge `d79de81`) — 90 tests |
-| U6 | pendiente | CI + PHPStan |
+| U6 | ✅ hecho | `ac96134` (merge `c38c9df`) — 90 tests |
 | U7 | pendiente | docs sincronizadas |
 
 ### U1 — Piso real de PHP
