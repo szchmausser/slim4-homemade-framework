@@ -1460,12 +1460,40 @@ class TaskController extends Controller
      */
     private function respond(Request $request, Response $response, array $extra = []): Response
     {
-        return $this->render(
+        // El orden del merge importa: `pageData()` primero, así un $extra no
+        // puede pisar `tasks`/`pagination` (ni el header de abajo).
+        $data = $this->pageData($request) + $extra + ['active' => 'tareas'];
+
+        $response = $this->render(
             $request,
             $response,
             $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
-            $this->pageData($request) + $extra + ['active' => 'tareas']
+            $data
         );
+
+        if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
+            return $response;
+        }
+
+        // La posición de la lista viaja en la URL (S11) desde el HEADER, no
+        // desde un `hx-push-url="/tareas?page=2"` en la plantilla:
+        // Pagination::paginate() clampea la página pedida al rango válido, así
+        // que borrar la última fila de la página 2 hace que el server
+        // renderice la 1. Una URL fija en el markup empujaría una posición que
+        // contradice el contenido que acaba de llegar; sólo el server que
+        // renderizó sabe qué página mostró. htmx 2.0.11 lee el header antes que
+        // el atributo (verificado en el vendor: `HX-Push-Url` gana sobre
+        // `hx-push-url`). Se empuja la URL canónica de la vista y no la de la
+        // acción: /tareas/5/toggle sólo acepta POST y recargarla sería un 404.
+        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
+        $pagination = $data['pagination'];
+
+        return $response->withHeader('HX-Push-Url', sprintf(
+            '%s?page=%d&per_page=%d',
+            $pagination['base_url'],
+            $pagination['current_page'],
+            $pagination['per_page']
+        ));
     }
 
     public function store(Request $request, Response $response): Response
@@ -2431,14 +2459,18 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         .icon-pending { color: var(--ink-pending); }
 
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: en desktop el sidebar es `static`, así que un `fixed`
-           contra el viewport NO queda alineado con el contenido (lo que se ve
-           es la columna que arranca después del sidebar). El host replica la
-           geometría de la columna y el stack adentro repite el `max-w-6xl` y
-           el padding de <main>: el borde derecho de cada toast cae exacto
-           sobre el del <h1>, en el espacio que la fila del título deja libre.
-           En móvil no hay espacio a la derecha del título: va abajo, con 1rem
-           de margen, que es el patrón de teléfono y no tapa el h1. */
+           Posición: abajo a la derecha del area de contenido. El host sigue
+           replicando la geometria de la columna (en desktop el sidebar es
+           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           espera) y el stack adentro repite el `max-w-6xl` y el padding de
+           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
+           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           llega el aviso.
+           La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
+           encima del anterior y el bloque se expande hacia el titulo, nunca
+           hacia el borde inferior de la pantalla. En móvil el mismo criterio,
+           con 1rem de margen. */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
@@ -2449,7 +2481,10 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         }
         .toast-stack {
             display: flex;
-            flex-direction: column;
+            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
+               hacia el titulo y el aviso recien llegado es el primero que se
+               lee. El ancla inferior la da `bottom` en el host. */
+            flex-direction: column-reverse;
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
@@ -2459,8 +2494,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         @media (min-width: 1024px) {
             .toast-host {
                 inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
-                top: calc(4rem + 1.5rem);                  /* header h-16 + main lg:p-6 */
-                bottom: auto;
+                top: auto;
+                bottom: 1.5rem;                            /* = lg:p-6 de <main> */
                 padding-inline: 0;
                 transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
             }
@@ -3103,8 +3138,15 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
        apagaría también las filas, el header y el sidebar. `find button` queda
        atado a qué elemento toma htmx como disparador y `this` apagaría el form,
        no su submit. Acá el único <button> es el submit: el input no se
-       deshabilita, así que el foco no se pierde mientras espera. #}
-    <form id="alta-tarea" hx-post="/tareas" hx-target="#tareas-panel" hx-swap="outerHTML"
+       deshabilita, así que el foco no se pierde mientras espera.
+       La posición viaja en la URL del form: el alta no manda page/per_page en
+       el cuerpo, así que sin esto crear desde "25 por página" devuelve la
+       lista en 10 y el usuario pierde su elección sin haberla tocado. La
+       página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
+       siempre en el contexto de index.twig (sólo lo renderiza
+       TaskController::respond, que siempre pasa pageData). #}
+    <form id="alta-tarea" hx-post="/tareas?page=1&per_page={{ pagination.per_page }}"
+          hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
@@ -3519,30 +3561,39 @@ final class Pagination
     }
 
     /**
-     * Ventana de páginas estilo Laravel: primera, última y actual±2.
-     * null = ellipsis ("…"). Los números no pueden repetirse por construcción
-     * (el rango va de 2 a last-1), así que no se deduplica: array_unique con
-     * comparación laxa borraría un ellipsis doble, que es válido.
+     * Ventana de páginas con techo de CINCO entradas: primera, actual y
+     * última, más un ellipsis (null = "…") en cada salto. Con last <= 5
+     * entran todas y no hay nada que saltear.
+     *
+     * Los vecinos de la actual NO se muestran a propósito: llegar a la
+     * anterior/siguiente lo cubren las flechas « », que están siempre. La
+     * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
+     * opciones visibles que aguanta un punto de decisión (R7).
+     *
+     * La deduplicación sale de las guardas, no de array_unique: current == 1
+     * o current == last no repiten el número porque el `if` que lo agrega lo
+     * excluye. array_unique con comparación laxa borraría además un ellipsis
+     * doble, que es válido cuando current está lejos de los dos extremos.
      *
      * @return array<int|null>
      */
     public static function window(int $current, int $last): array
     {
-        if ($last <= 7) {
+        if ($last <= 5) {
             return range(1, $last);
         }
 
         $pages = [1];
 
-        if ($current > 4) {
+        if ($current > 2) {
             $pages[] = null;
         }
 
-        foreach (range(max(2, $current - 2), min($last - 1, $current + 2)) as $p) {
-            $pages[] = $p;
+        if ($current > 1 && $current < $last) {
+            $pages[] = $current;
         }
 
-        if ($current < $last - 3) {
+        if ($current < $last - 1) {
             $pages[] = null;
         }
 
@@ -5537,10 +5588,12 @@ final class PaginationTest extends TestCase
         return [
             'una sola'            => [1, 1, [1]],
             'pocas sin ellipsis'  => [1, 5, [1, 2, 3, 4, 5]],
-            'inicio con ellipsis' => [1, 10, [1, 2, 3, null, 10]],
-            'medio con dos'       => [5, 10, [1, null, 3, 4, 5, 6, 7, null, 10]],
-            'final con una'       => [9, 10, [1, null, 7, 8, 9, 10]],
-            'última exacta'       => [10, 10, [1, null, 8, 9, 10]],
+            'inicio con ellipsis' => [1, 10, [1, null, 10]],
+            'medio con dos'       => [5, 10, [1, null, 5, null, 10]],
+            'final con una'       => [9, 10, [1, null, 9, 10]],
+            'última exacta'       => [10, 10, [1, null, 10]],
+            'vecina del inicio'   => [2, 10, [1, 2, null, 10]],
+            'seis paginas, medio' => [3, 6, [1, null, 3, null, 6]],
         ];
     }
 
@@ -5548,6 +5601,26 @@ final class PaginationTest extends TestCase
     public function test_ventana(int $current, int $last, array $expected): void
     {
         self::assertSame($expected, Pagination::window($current, $last));
+    }
+
+    /**
+     * R7: un punto de decisión no muestra más de cuatro opciones visibles, así
+     * que la ventana tiene que entrar en cinco entradas contando el «…».
+     * Se barre todo el espacio que la paginación real puede producir en vez de
+     * un caso suelto: el techo es la regla, no el ejemplo.
+     */
+    public function test_la_ventana_nunca_pasa_de_cinco_entradas(): void
+    {
+        foreach (range(1, 12) as $last) {
+            foreach (range(1, $last) as $current) {
+                $pages = Pagination::window($current, $last);
+                $caso = sprintf('ventana de %d en %d', $current, $last);
+
+                self::assertLessThanOrEqual(5, count($pages), $caso);
+                self::assertSame(1, $pages[0], $caso . ': empieza en la primera');
+                self::assertSame($last, $pages[array_key_last($pages)], $caso . ': termina en la última');
+            }
+        }
     }
 
     public function test_pagina_intermedia_trae_su_slice_y_contadores(): void

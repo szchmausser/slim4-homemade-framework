@@ -68,14 +68,18 @@
         .icon-pending { color: var(--ink-pending); }
 
         /* ── Avisos flotantes ────────────────────────────────────────────
-           Posición: en desktop el sidebar es `static`, así que un `fixed`
-           contra el viewport NO queda alineado con el contenido (lo que se ve
-           es la columna que arranca después del sidebar). El host replica la
-           geometría de la columna y el stack adentro repite el `max-w-6xl` y
-           el padding de <main>: el borde derecho de cada toast cae exacto
-           sobre el del <h1>, en el espacio que la fila del título deja libre.
-           En móvil no hay espacio a la derecha del título: va abajo, con 1rem
-           de margen, que es el patrón de teléfono y no tapa el h1. */
+           Posición: abajo a la derecha del area de contenido. El host sigue
+           replicando la geometria de la columna (en desktop el sidebar es
+           `static`, asi que un `fixed` contra el viewport no cae donde uno
+           espera) y el stack adentro repite el `max-w-6xl` y el padding de
+           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           Anclado ABAJO y no arriba: pegado al titulo tapaba el formulario de
+           alta y su boton, que es justo lo que el usuario esta por usar cuando
+           llega el aviso.
+           La pila crece hacia ARRIBA (`column-reverse`): el aviso nuevo entra
+           encima del anterior y el bloque se expande hacia el titulo, nunca
+           hacia el borde inferior de la pantalla. En móvil el mismo criterio,
+           con 1rem de margen. */
         .toast-host {
             position: fixed;
             z-index: 50;          /* sobre header sticky (z-20) y sidebar (z-40) */
@@ -86,7 +90,10 @@
         }
         .toast-stack {
             display: flex;
-            flex-direction: column;
+            /* El ultimo del DOM es el mas nuevo y queda arriba: la pila crece
+               hacia el titulo y el aviso recien llegado es el primero que se
+               lee. El ancla inferior la da `bottom` en el host. */
+            flex-direction: column-reverse;
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
@@ -96,8 +103,8 @@
         @media (min-width: 1024px) {
             .toast-host {
                 inset-inline-start: 16rem;                 /* sidebar expandido (w-64) */
-                top: calc(4rem + 1.5rem);                  /* header h-16 + main lg:p-6 */
-                bottom: auto;
+                top: auto;
+                bottom: 1.5rem;                            /* = lg:p-6 de <main> */
                 padding-inline: 0;
                 transition: inset-inline-start 200ms;      /* sigue el plegado del sidebar */
             }
