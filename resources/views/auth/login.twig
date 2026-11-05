@@ -1,9 +1,11 @@
-{% extends 'layouts/app.twig' %}
+{% extends 'layouts/auth.twig' %}
 
 {% block title %}Acceder{% endblock %}
 
 {% block content %}
-    <div class="mx-auto max-w-sm">
+    {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
+       card aprovecha el ancho en movil en vez de quedar flotando. #}
+    <div class="w-full max-w-sm">
         <h1 class="mb-4 text-2xl font-bold">Acceder</h1>
 
         {% if flash_error %}
