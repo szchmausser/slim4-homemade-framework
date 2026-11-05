@@ -6,7 +6,10 @@
    partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
    puerta de escape: la cadena sale de dos enteros de App\Support\Pagination,
    nunca de texto del usuario. Dentro del atributo es válido, porque
-   `&per_page` no forma una referencia de carácter (no termina en `;`). #}
+   `&per_page` no forma una referencia de carácter (no termina en `;`).
+   La RUTA (lo que va antes del `?`) sí pasa por `url()`: es lo que la saca del
+   dominio cuando la app vive bajo un prefijo (S13). El helper recibe sólo el
+   path y el query queda afuera justamente para que el `&` siga siendo `&`. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
 {# `data-focus-key` en cada control de acción: el swap de #tareas-panel
    (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
@@ -20,7 +23,7 @@
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <form hx-put="/tareas/{{ task.id }}?{{ posicion|raw }}"
+                <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex items-center gap-2">
@@ -54,7 +57,7 @@
                     </button>
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     <button type="button"
-                            hx-get="/tareas?{{ posicion|raw }}"
+                            hx-get="{{ url('/tareas') }}?{{ posicion|raw }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
                             data-focus-key="cancel-{{ task.id }}"
@@ -139,7 +142,7 @@
                     {# Botón para cambiar el estado: HTMX intercambia el panel completo.
                        `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
                     <button
-                        hx-post="/tareas/{{ task.id }}/toggle?{{ posicion|raw }}"
+                        hx-post="{{ url('/tareas/' ~ task.id ~ '/toggle') }}?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
@@ -156,7 +159,7 @@
                         {% endif %}
                     </button>
                     <button
-                        hx-get="/tareas/{{ task.id }}/edit?{{ posicion|raw }}"
+                        hx-get="{{ url('/tareas/' ~ task.id ~ '/edit') }}?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         data-focus-key="edit-{{ task.id }}"
@@ -193,7 +196,7 @@
                             <button class="btn btn-ghost">Cancelar</button>
                         </form>
                         <button
-                            hx-delete="/tareas/{{ task.id }}?{{ posicion|raw }}"
+                            hx-delete="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                             hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"

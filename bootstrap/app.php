@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use App\Support\Url;
 use DI\ContainerBuilder;
 use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -31,6 +32,12 @@ $container->get(Capsule::class);
 
 AppFactory::setContainer($container);
 $app = AppFactory::create();
+
+// S13: el prefijo de ruta es parte de la RUTA registrada, no un detalle de las
+// plantillas. Con APP_BASE_PATH=/app, una request a /app/tareas matchea la ruta
+// /tareas (y /tareas, sin el prefijo, deja de existir). Sin prefijo es '' y el
+// router se comporta exactamente como antes.
+$app->setBasePath(Url::base());
 
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);

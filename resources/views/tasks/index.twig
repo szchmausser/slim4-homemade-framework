@@ -28,7 +28,7 @@
        página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
        siempre en el contexto de index.twig (sólo lo renderiza
        TaskController::respond, que siempre pasa pageData). #}
-    <form id="alta-tarea" hx-post="/tareas?page=1&per_page={{ pagination.per_page }}"
+    <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"

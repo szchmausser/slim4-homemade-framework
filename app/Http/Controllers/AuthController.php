@@ -9,6 +9,7 @@ use App\Support\Auth;
 use App\Support\Flash;
 use App\Support\RememberMe;
 use App\Support\Throttle;
+use App\Support\Url;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -30,7 +31,7 @@ class AuthController extends Controller
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
-            return $response->withStatus(303)->withHeader('Location', '/tareas');
+            return $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
         }
 
         return $this->render($request, $response, 'auth/login.twig', [
@@ -101,7 +102,7 @@ class AuthController extends Controller
 
         Auth::login($user->id);
 
-        $response = $response->withStatus(303)->withHeader('Location', '/tareas');
+        $response = $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
 
         if (!empty($data['remember'])) {
             $response = $response->withAddedHeader(
@@ -123,7 +124,7 @@ class AuthController extends Controller
         Auth::logout();
         Flash::set('info', 'Sesión cerrada.');
 
-        $response = $response->withStatus(303)->withHeader('Location', '/login');
+        $response = $response->withStatus(303)->withHeader('Location', Url::path('/login'));
 
         return $response->withAddedHeader('Set-Cookie', RememberMe::cookieHeader(clear: true));
     }

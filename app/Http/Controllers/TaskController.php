@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Support\Flash;
 use App\Support\Pagination;
+use App\Support\Url;
 use App\Support\Validator;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -28,7 +29,10 @@ class TaskController extends Controller
             Task::orderByDesc('id'),
             (int) ($query['page'] ?? 1),
             (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
-            '/tareas'
+            // Con el prefijo ya aplicado: base_url es la fuente de la
+            // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
+            // de más abajo, así que las tres heredan el prefijo sin saberlo.
+            Url::path('/tareas')
         );
 
         return [

@@ -78,6 +78,7 @@ Para parir `Recetas` (o lo que sea) desde `Tareas`, replicá el patrón:
 ## Convenciones que no se negocian
 
 - Respuestas HTMX devuelven HTML de la región, nunca redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
+- Toda URL de plantilla va por `url('/tareas')` (en PHP, `App\Support\Url::path()`), nunca `href="/tareas"` a mano: es lo único que permite servir la app desde una carpeta con `APP_BASE_PATH=/app` (vacío = raíz, sin cambios). Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo.
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
 - Assets en `public/assets/` vendorizados con SRI (nada de CDN en runtime).
 - Clases daisyUI as-is; componentes compartidos a `partials/` con params.

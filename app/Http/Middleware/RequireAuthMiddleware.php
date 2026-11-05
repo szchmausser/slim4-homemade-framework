@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use App\Support\Auth;
 use App\Support\Flash;
+use App\Support\Url;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -30,12 +31,12 @@ final class RequireAuthMiddleware implements MiddlewareInterface
 
         if ($request->getHeaderLine('HX-Request') !== '') {
             return $this->responseFactory->createResponse(200)
-                ->withHeader('HX-Redirect', '/login');
+                ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
         Flash::set('error', 'Iniciá sesión para continuar.');
 
         return $this->responseFactory->createResponse(303)
-            ->withHeader('Location', '/login');
+            ->withHeader('Location', Url::path('/login'));
     }
 }

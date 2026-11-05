@@ -20,7 +20,7 @@
         {% endif %}
 
         {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
-        <form method="post" action="/login" class="card border border-base-300 bg-base-100">
+        <form method="post" action="{{ url('/login') }}" class="card border border-base-300 bg-base-100">
             <div class="card-body gap-3">
                 {% include 'partials/_csrf.twig' %}
                 {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de

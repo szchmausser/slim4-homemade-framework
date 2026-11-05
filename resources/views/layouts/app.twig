@@ -11,7 +11,7 @@
        en /assets porque el archivo vive en la raíz de public: la URL dice
        dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
        (~600 bytes). #}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
        después y se vería un flash del tema claro en cada recarga oscura. #}
@@ -22,13 +22,13 @@
     <script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
 
     {# daisyUI 5.7.46 vendorizado + SRI: offline, sin cambio de runtime sin deploy. #}
-    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css"
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
           integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="/assets/tailwind-browser-4.3.3.js"
+    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
             integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
-    <script src="/assets/htmx-2.0.11.min.js"
+    <script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
             integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"></script>
-    <script defer src="/assets/alpine-3.17.4.min.js"
+    <script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
             integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
 
     <style>
@@ -246,7 +246,7 @@
         </div>
         <ul class="menu w-full grow gap-1 p-2">
             <li>
-                <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
+                <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
                    :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
                    aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
@@ -254,7 +254,7 @@
                 </a>
             </li>
             <li>
-                <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
+                <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
                    :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
                    aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
@@ -277,7 +277,7 @@
                       :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
                 <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
                       :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
-                <form method="post" action="/logout" class="shrink-0">
+                <form method="post" action="{{ url('/logout') }}" class="shrink-0">
                     {% include 'partials/_csrf.twig' %}
                     <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
@@ -311,7 +311,7 @@
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <nav class="breadcrumbs" aria-label="Miga de pan">
                         <ul>
-                            <li><a href="/">Inicio</a></li>
+                            <li><a href="{{ url('/') }}">Inicio</a></li>
                             <li aria-current="page">Tareas</li>
                         </ul>
                     </nav>

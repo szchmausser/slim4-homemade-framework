@@ -349,6 +349,7 @@ declare(strict_types=1);
 use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Support\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -362,6 +363,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Twig\TwigFunction;
 
 return [
     ResponseFactoryInterface::class => \DI\autowire(ResponseFactory::class),
@@ -423,13 +425,21 @@ return [
     },
 
     Twig::class => function () {
-        return Twig::create(__DIR__ . '/../resources/views', [
+        $twig = Twig::create(__DIR__ . '/../resources/views', [
             // Con 'cache' => false, Twig re-parsea cada .twig en cada request.
             // En un ARM de 32 bits eso se nota. El caché va a disco, así que
             // remember crear el directorio y agregarlo al .gitignore.
             'cache'       => __DIR__ . '/../storage/cache/twig',
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
+
+        // `url('/tareas')` global para las plantillas (S13): es la ÚNICA vía
+        // por la que una URL llega al HTML, así que no puede quedar una
+        // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
+        // la misma cadena que estaba escrita a mano y nada cambia.
+        $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
+
+        return $twig;
     },
 
     Guard::class => function (ContainerInterface $c) {
@@ -485,7 +495,9 @@ return [
                         ]));
                 }
 
-                return $response->withStatus(303)->withHeader('Location', '/');
+                // Prefijado como todo redirect: un 303 a '/' desde /app deja
+                // al usuario en la raíz del dominio, que no es esta app.
+                return $response->withStatus(303)->withHeader('Location', Url::path('/'));
             },
         );
     },
@@ -508,6 +520,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
+use App\Support\Url;
 use DI\ContainerBuilder;
 use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -535,6 +548,12 @@ $container->get(Capsule::class);
 
 AppFactory::setContainer($container);
 $app = AppFactory::create();
+
+// S13: el prefijo de ruta es parte de la RUTA registrada, no un detalle de las
+// plantillas. Con APP_BASE_PATH=/app, una request a /app/tareas matchea la ruta
+// /tareas (y /tareas, sin el prefijo, deja de existir). Sin prefijo es '' y el
+// router se comporta exactamente como antes.
+$app->setBasePath(Url::base());
 
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);
@@ -691,7 +710,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
 
     {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
        costaría un 404 extra. Son ~55 bytes. #}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
        necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
@@ -700,7 +719,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
        abajo quedan inertes, que es exactamente el defecto que esto arregla.
        Sin JS no hay JIT de Tailwind, así que acá NO se usan utilidades
        (`flex`, `p-6`, `text-6xl`): sólo nombres que el bundle define. #}
-    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css">
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
 
     <style>
         /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
@@ -728,7 +747,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
                     <h1 class="card-title">{{ mensaje }}</h1>
-                    <a href="/" class="btn btn-primary btn-block">Volver al inicio</a>
+                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
                 </div>
             </div>
         </div>
@@ -876,6 +895,7 @@ namespace App\Http\Middleware;
 
 use App\Support\Auth;
 use App\Support\Flash;
+use App\Support\Url;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -900,13 +920,13 @@ final class RequireAuthMiddleware implements MiddlewareInterface
 
         if ($request->getHeaderLine('HX-Request') !== '') {
             return $this->responseFactory->createResponse(200)
-                ->withHeader('HX-Redirect', '/login');
+                ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
         Flash::set('error', 'Iniciá sesión para continuar.');
 
         return $this->responseFactory->createResponse(303)
-            ->withHeader('Location', '/login');
+            ->withHeader('Location', Url::path('/login'));
     }
 }
 ```
@@ -1406,6 +1426,7 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Support\Flash;
 use App\Support\Pagination;
+use App\Support\Url;
 use App\Support\Validator;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -1427,7 +1448,10 @@ class TaskController extends Controller
             Task::orderByDesc('id'),
             (int) ($query['page'] ?? 1),
             (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
-            '/tareas'
+            // Con el prefijo ya aplicado: base_url es la fuente de la
+            // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
+            // de más abajo, así que las tres heredan el prefijo sin saberlo.
+            Url::path('/tareas')
         );
 
         return [
@@ -1644,6 +1668,7 @@ use App\Support\Auth;
 use App\Support\Flash;
 use App\Support\RememberMe;
 use App\Support\Throttle;
+use App\Support\Url;
 use App\Support\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -1665,7 +1690,7 @@ class AuthController extends Controller
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
-            return $response->withStatus(303)->withHeader('Location', '/tareas');
+            return $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
         }
 
         return $this->render($request, $response, 'auth/login.twig', [
@@ -1736,7 +1761,7 @@ class AuthController extends Controller
 
         Auth::login($user->id);
 
-        $response = $response->withStatus(303)->withHeader('Location', '/tareas');
+        $response = $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
 
         if (!empty($data['remember'])) {
             $response = $response->withAddedHeader(
@@ -1758,7 +1783,7 @@ class AuthController extends Controller
         Auth::logout();
         Flash::set('info', 'Sesión cerrada.');
 
-        $response = $response->withStatus(303)->withHeader('Location', '/login');
+        $response = $response->withStatus(303)->withHeader('Location', Url::path('/login'));
 
         return $response->withAddedHeader('Set-Cookie', RememberMe::cookieHeader(clear: true));
     }
@@ -2402,7 +2427,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
        en /assets porque el archivo vive en la raíz de public: la URL dice
        dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
        (~600 bytes). #}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
        después y se vería un flash del tema claro en cada recarga oscura. #}
@@ -2413,13 +2438,13 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
 
     {# daisyUI 5.7.46 vendorizado + SRI: offline, sin cambio de runtime sin deploy. #}
-    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css"
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
           integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="/assets/tailwind-browser-4.3.3.js"
+    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
             integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
-    <script src="/assets/htmx-2.0.11.min.js"
+    <script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
             integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"></script>
-    <script defer src="/assets/alpine-3.17.4.min.js"
+    <script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
             integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
 
     <style>
@@ -2637,7 +2662,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         </div>
         <ul class="menu w-full grow gap-1 p-2">
             <li>
-                <a href="/" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
+                <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
                    :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Inicio"
                    aria-label="Inicio">
                     {% include 'partials/_icon.twig' with { name: 'home' } %}
@@ -2645,7 +2670,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                 </a>
             </li>
             <li>
-                <a href="/tareas" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
+                <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
                    :class="sidebarMini && 'lg:tooltip lg:tooltip-right'" data-tip="Tareas"
                    aria-label="Tareas">
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
@@ -2668,7 +2693,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                       :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
                 <span class="sidebar-label min-w-0 flex-1 truncate text-xs"
                       :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">{{ user_email }}</span>
-                <form method="post" action="/logout" class="shrink-0">
+                <form method="post" action="{{ url('/logout') }}" class="shrink-0">
                     {% include 'partials/_csrf.twig' %}
                     <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
@@ -2702,7 +2727,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                     {% include 'partials/_icon.twig' with { name: 'tasks' } %}
                     <nav class="breadcrumbs" aria-label="Miga de pan">
                         <ul>
-                            <li><a href="/">Inicio</a></li>
+                            <li><a href="{{ url('/') }}">Inicio</a></li>
                             <li aria-current="page">Tareas</li>
                         </ul>
                     </nav>
@@ -3047,7 +3072,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
         {% endif %}
 
         {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
-        <form method="post" action="/login" class="card border border-base-300 bg-base-100">
+        <form method="post" action="{{ url('/login') }}" class="card border border-base-300 bg-base-100">
             <div class="card-body gap-3">
                 {% include 'partials/_csrf.twig' %}
                 {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
@@ -3127,7 +3152,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     Listado de tareas con altas, edición y borrado, servido por un esqueleto
                     PHP en capas. El formulario de altas está en la pantalla de tareas.
                 </p>
-                <a href="/tareas" class="btn btn-primary">Ir a tareas</a>
+                <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
             </div>
         </div>
     </div>
@@ -3188,7 +3213,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
        página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
        siempre en el contexto de index.twig (sólo lo renderiza
        TaskController::respond, que siempre pasa pageData). #}
-    <form id="alta-tarea" hx-post="/tareas?page=1&per_page={{ pagination.per_page }}"
+    <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.successful) this.reset()"
           hx-disabled-elt="#alta-tarea button"
@@ -3286,7 +3311,10 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
    puerta de escape: la cadena sale de dos enteros de App\Support\Pagination,
    nunca de texto del usuario. Dentro del atributo es válido, porque
-   `&per_page` no forma una referencia de carácter (no termina en `;`). #}
+   `&per_page` no forma una referencia de carácter (no termina en `;`).
+   La RUTA (lo que va antes del `?`) sí pasa por `url()`: es lo que la saca del
+   dominio cuando la app vive bajo un prefijo (S13). El helper recibe sólo el
+   path y el query queda afuera justamente para que el `&` siga siendo `&`. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
 {# `data-focus-key` en cada control de acción: el swap de #tareas-panel
    (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
@@ -3300,7 +3328,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     {% for task in tasks %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <form hx-put="/tareas/{{ task.id }}?{{ posicion|raw }}"
+                <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex items-center gap-2">
@@ -3334,7 +3362,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     </button>
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     <button type="button"
-                            hx-get="/tareas?{{ posicion|raw }}"
+                            hx-get="{{ url('/tareas') }}?{{ posicion|raw }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
                             data-focus-key="cancel-{{ task.id }}"
@@ -3419,7 +3447,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     {# Botón para cambiar el estado: HTMX intercambia el panel completo.
                        `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
                     <button
-                        hx-post="/tareas/{{ task.id }}/toggle?{{ posicion|raw }}"
+                        hx-post="{{ url('/tareas/' ~ task.id ~ '/toggle') }}?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
@@ -3436,7 +3464,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         {% endif %}
                     </button>
                     <button
-                        hx-get="/tareas/{{ task.id }}/edit?{{ posicion|raw }}"
+                        hx-get="{{ url('/tareas/' ~ task.id ~ '/edit') }}?{{ posicion|raw }}"
                         hx-target="#tareas-panel"
                         hx-swap="outerHTML"
                         data-focus-key="edit-{{ task.id }}"
@@ -3473,7 +3501,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             <button class="btn btn-ghost">Cancelar</button>
                         </form>
                         <button
-                            hx-delete="/tareas/{{ task.id }}?{{ posicion|raw }}"
+                            hx-delete="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                             hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
                             hx-target="#tareas-panel"
                             hx-swap="outerHTML"
@@ -4173,6 +4201,19 @@ final class AppFactory
     public static function make(): App
     {
         return self::$app ??= require __DIR__ . '/../../bootstrap/app.php';
+    }
+
+    /**
+     * Descarta la app cacheada para que el proximo make() vuelva a bootstrapear.
+     * Solo para tests que cambian el entorno ANTES del arranque: el prefijo de
+     * ruta (APP_BASE_PATH) se fija una vez, en `$app->setBasePath()`, y Twig
+     * resuelve la funcion `url()` contra ese mismo prefijo. Sin este reset el
+     * test correria contra una app armada con el entorno anterior y el verde no
+     * diria nada. Ningun test de produccion deberia llamarlo: la app es una.
+     */
+    public static function reset(): void
+    {
+        self::$app = null;
     }
 }
 ```

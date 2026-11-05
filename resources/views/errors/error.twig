@@ -7,7 +7,7 @@
 
     {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
        costaría un 404 extra. Son ~55 bytes. #}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
        necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
@@ -16,7 +16,7 @@
        abajo quedan inertes, que es exactamente el defecto que esto arregla.
        Sin JS no hay JIT de Tailwind, así que acá NO se usan utilidades
        (`flex`, `p-6`, `text-6xl`): sólo nombres que el bundle define. #}
-    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css">
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
 
     <style>
         /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
@@ -44,7 +44,7 @@
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
                     <h1 class="card-title">{{ mensaje }}</h1>
-                    <a href="/" class="btn btn-primary btn-block">Volver al inicio</a>
+                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
                 </div>
             </div>
         </div>

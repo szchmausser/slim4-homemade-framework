@@ -7,14 +7,14 @@
 
     {# Mismo favicon que el shell: es el mismo producto, y sin <link> el
        navegador pide /favicon.ico y la pantalla de login pierde el icono. #}
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Mismo pre-pintado de tema que el layout principal: si la persona ya fijó
        oscuro, el login no puede aparecer claro un instante y corregirse despues. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
-    <link rel="stylesheet" href="/assets/daisyui-5.7.46.css"
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
           integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="/assets/tailwind-browser-4.3.3.js"
+    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
             integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
 
     {# Sin htmx ni Alpine a proposito: el login es un POST normal y no hay
@@ -25,7 +25,7 @@
        ofrece navegacion a /tareas, que sin sesion redirige de vuelta a este
        mismo formulario: era una puerta que no lleva a ningun lado. #}
     <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-        <a href="/" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">
+        <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">
             {% include 'partials/_logo.twig' %}
             <span class="text-lg font-bold">Mi App</span>
         </a>

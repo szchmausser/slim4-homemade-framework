@@ -69,6 +69,15 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - La paginación es un enlace real (`href`) además de `hx-get`: sin `href` no hay rol ni foco.
 - Skip link presente: `.skip-link` es el primer elemento tabulable y apunta a `#contenido`. Va fuera de pantalla por posicion, no por `display`, para que siga recibiendo el primer Tab.
 
+## Despliegue con prefijo de ruta
+
+`APP_BASE_PATH` (vacío por defecto) permite servir la app desde una carpeta en vez de la raíz del dominio. Con `/app`, todas las URLs de las vistas, las acciones htmx, los assets, los redirects y el `HX-Push-Url` salen prefijadas; vacío, todo queda idéntico al caso raíz.
+
+- En plantillas: `{{ url('/tareas') }}`. Nunca un literal `href="/tareas"`.
+- En PHP: `App\Support\Url::path('/tareas')`.
+- El servidor tiene que reenviar el prefijo a `public/index.php` (nginx: `handle_path /app/*`). **`php -S -t public` no puede servir una ruta prefijada**: sirve solo el caso raíz, así que un despliegue con prefijo exige proxy o regla de reescritura.
+- Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo: es la única regla que hay que recordar al agregar vistas.
+
 ## Assets
 
 Vendorizados con SRI, servidos desde `public/assets/`. `php -S` no comprime; en despliegue, la compresión HTTP (nginx/Caddy) lleva los ~1.47 MB a ~150 KB sobre el cable. Eso es configuración del servidor, no del proyecto.

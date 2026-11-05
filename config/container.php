@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Middleware\RememberMeMiddleware;
 use App\Http\Middleware\RequireAuthMiddleware;
 use App\Http\Middleware\SecurityHeadersMiddleware;
+use App\Support\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -18,6 +19,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Twig\TwigFunction;
 
 return [
     ResponseFactoryInterface::class => \DI\autowire(ResponseFactory::class),
@@ -79,13 +81,21 @@ return [
     },
 
     Twig::class => function () {
-        return Twig::create(__DIR__ . '/../resources/views', [
+        $twig = Twig::create(__DIR__ . '/../resources/views', [
             // Con 'cache' => false, Twig re-parsea cada .twig en cada request.
             // En un ARM de 32 bits eso se nota. El caché va a disco, así que
             // remember crear el directorio y agregarlo al .gitignore.
             'cache'       => __DIR__ . '/../storage/cache/twig',
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
+
+        // `url('/tareas')` global para las plantillas (S13): es la ÚNICA vía
+        // por la que una URL llega al HTML, así que no puede quedar una
+        // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
+        // la misma cadena que estaba escrita a mano y nada cambia.
+        $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
+
+        return $twig;
     },
 
     Guard::class => function (ContainerInterface $c) {
@@ -141,7 +151,9 @@ return [
                         ]));
                 }
 
-                return $response->withStatus(303)->withHeader('Location', '/');
+                // Prefijado como todo redirect: un 303 a '/' desde /app deja
+                // al usuario en la raíz del dominio, que no es esta app.
+                return $response->withStatus(303)->withHeader('Location', Url::path('/'));
             },
         );
     },
