@@ -78,7 +78,7 @@ class AuthController extends Controller
 
         // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
         // no delata si la cuenta existe o no (enumeración por timing).
-        $hash = $user?->password_hash ?? self::DUMMY_HASH;
+        $hash = $user === null ? self::DUMMY_HASH : $user->password_hash;
         $password = (string) ($data['password'] ?? '');
 
         if ($user === null || !password_verify($password, $hash)) {

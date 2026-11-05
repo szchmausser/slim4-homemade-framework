@@ -24,13 +24,16 @@
 
 ## Testing / Verificación
 
-- **Lint/Typecheck:** Sin comando dedicado (revisar manual o `php -l`).
+- **Lint/Typecheck:** `composer lint` + `composer phpstan` (PHPStan 2.x nivel 5, phar dev-only, baseline vacía).
 - **Test:** PHPUnit ^13.3 (`vendor/bin/phpunit` o `composer test`).
+- **Verificación completa:** `composer verify` = lint + PHPStan + suite + migración fresh sobre DB temporal.
+- **CI:** GitHub Actions con matriz PHP 8.4/8.5 ejecutando `composer verify`.
 - **Build:** Ninguno (PHP interpretado).
 - **Comandos clave:**
   - `composer serve` — servidor dev en `:8080`.
   - `composer migrate` — `phinx migrate`.
   - `composer test` — suite completa.
+  - `composer verify` — lint + PHPStan + tests + migración fresh.
   - `composer check:termux` — detección 32/64-bit.
 
 ## Restricciones

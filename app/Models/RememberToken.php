@@ -6,6 +6,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property string $selector
+ * @property int $user_id
+ * @property string $hashed_validator
+ * @property int $expires_at
+ * @method static RememberToken create(array<string, mixed> $attributes = [])
+ */
 class RememberToken extends Model
 {
     protected $table = 'remember_tokens';

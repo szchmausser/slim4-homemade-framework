@@ -1,0 +1,6 @@
+# PHPStan dev-only, nivel 5. Sin baseline: si aparece un error nuevo se
+# arregla en el código, no se esconde en un archivo de supresiones.
+parameters:
+    level: 5
+    paths:
+        - app
