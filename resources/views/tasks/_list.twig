@@ -108,11 +108,17 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-pending" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
                             {% endif %}
                         </button>
+                        {# `tooltip-estado`: gancho para apagar el x-transition en
+                           "reducir movimiento". El override vive en el
+                           <style> del layout porque Alpine aplica la
+                           transición sobre el nodo, y una clase de proyecto
+                           es la única forma de apuntarle sin depender de sus
+                           atributos internos. #}
                         <span x-cloak
                               x-show="abierto"
                               x-transition.opacity.duration.150ms
                               aria-hidden="true"
-                              class="pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
+                              class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
                             {{ estado_texto }}
                         </span>
                     </span>

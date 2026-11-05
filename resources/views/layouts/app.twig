@@ -149,6 +149,20 @@
            y apagarla del todo dejaría el toast pegado para siempre. */
         @media (prefers-reduced-motion: reduce) {
             .toast-progress { animation-name: toast-fade; }
+
+            /* S10: el resto de las transiciones también se apaga. Es una regla
+               por ELEMENTO y con `!important` porque los `x-transition` de
+               Alpine se aplican como clases e inline SOBRE el nodo que se
+               mueve: un selector normal perdería contra el inline, y apuntar
+               a Alpine ("anulá las transiciones") no es algo que su API
+               exponga. `transition` no toca `animation`, así que la barra del
+               toast sigue corriendo como fade (regla de arriba). */
+            #sidebar,        /* plegado (w-64/w-16) y entrada del overlay móvil */
+            .toast-host,     /* acompaña el plegado del sidebar */
+            .toast-card,     /* x-transition enter/leave del toast */
+            .tooltip-estado { /* x-transition.opacity del tooltip de estado */
+                transition: none !important;
+            }
         }
     </style>
 </head>
@@ -447,6 +461,44 @@ function restaurarFocoTrasSwap() {
 // Los listeners van en document.body y no en el panel: el panel se reemplaza en
 // cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
 restaurarFocoTrasSwap();
+
+/**
+ * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
+ * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
+ * usuario ve una acción que "no hizo nada" y la repite.
+ *
+ * - `htmx:responseError`: el servidor contestó 4xx/5xx.
+ * - `htmx:sendError`: no hubo respuesta (sin red, DNS, servidor caído).
+ *
+ * Se usa el MISMO evento `toasts` que ya emite Controller::render() para las
+ * acciones htmx exitosas: un solo componente de avisos, y este script no toca
+ * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
+ */
+function avisarFallosDeHtmx() {
+    const avisar = (mensaje) => window.dispatchEvent(new CustomEvent('toasts', {
+        detail: { items: [{ message: mensaje, type: 'error' }] }
+    }));
+
+    document.body.addEventListener('htmx:responseError', (evento) => {
+        const estado = evento.detail && evento.detail.xhr ? evento.detail.xhr.status : 0;
+
+        // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
+        // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
+        // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
+        // dice más ("Tu sesión expiró") porque sabe por qué falló.
+        if (estado === 400 || estado === 419) {
+            return;
+        }
+
+        avisar('No se pudo completar la acción. Probá de nuevo.');
+    });
+
+    document.body.addEventListener('htmx:sendError', () => {
+        avisar('No hay conexión con el servidor.');
+    });
+}
+
+avisarFallosDeHtmx();
 </script>
 </body>
 </html>
