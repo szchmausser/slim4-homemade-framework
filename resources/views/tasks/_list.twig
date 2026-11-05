@@ -26,7 +26,7 @@
                            value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
                            required
                            maxlength="120"
-                           class="input input-bordered input-sm w-full">
+                           class="input input-sm w-full">
                     <button type="submit" class="btn btn-primary btn-sm">
                         Guardar
                     </button>
@@ -64,9 +64,16 @@
                           @click.outside="abierto = false"
                           @keydown.escape="abierto = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
-                           igual que un click, sin listeners de teclado a mano. #}
+                           igual que un click, sin listeners de teclado a mano.
+                           El anillo de foco va SIN color a propósito: daisyUI
+                           5.7.46 no trae `outline-<color>` y `primary` no está
+                           en la paleta de Tailwind, así que `outline-primary` no
+                           lo compilaba nadie y el anillo salía por defecto. Con
+                           `outline-2` + `outline-offset-2` (utilidades planas de
+                           Tailwind, que el browser build sí resuelve) el color
+                           cae en `currentColor`, que contrasta en los dos temas. #}
                         <button type="button"
-                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                class="cursor-help rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="abierto = !abierto"
                                 :aria-expanded="abierto ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">

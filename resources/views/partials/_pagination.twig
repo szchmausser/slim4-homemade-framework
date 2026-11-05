@@ -15,7 +15,7 @@
 
     <div class="flex flex-wrap items-center gap-2">
         {% if show_size|default(true) %}
-        <select class="select select-bordered select-sm w-auto" name="per_page"
+        <select class="select select-sm w-auto" name="per_page"
                 aria-label="Registros por página"
                 hx-get="{{ pagination.base_url }}"
                 hx-target="{{ target }}"
