@@ -1,5 +1,7 @@
 # Feature: ui-estado-y-accesibilidad
 
+> Documento histórico de la pasada de UI. El estado vigente vive en [`PRODUCT.md`](../../PRODUCT.md) y [`DESIGN.md`](../../DESIGN.md); algunas rutas y hallazgos de este registro son anteriores a la separación `framework/` + `app/`.
+
 Estandarización y mejora de UI de `resources/views`: que la interfaz diga la verdad sobre el estado de las acciones y sobre quién puede operarla. Modo Operate (app de tareas, server-rendered, sin build).
 Antecedente verificado: crítica de dos pasadas + tres revisiones ciegas independientes. Los tres P1 ya están cerrados en `fix/list-state-contract` (`1cf123f`).
 
