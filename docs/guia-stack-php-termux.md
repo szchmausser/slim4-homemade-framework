@@ -3527,6 +3527,25 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         </div>
                     </div>
                 {% endif %}
+
+                <div class="mt-auto border-t border-base-300 pt-4">
+                    <h3 id="requirements-title" class="text-xs font-semibold opacity-60">Requisitos</h3>
+                    <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs" aria-labelledby="requirements-title">
+                        <dt class="font-medium">PHP</dt>
+                        <dd class="text-right opacity-70">8.4.1+</dd>
+                        <dt class="font-medium">Extensiones</dt>
+                        <dd class="text-right opacity-70">pdo_sqlite, sqlite3 y mbstring</dd>
+                        <dt class="font-medium">Composer</dt>
+                        <dd class="text-right opacity-70">2.x</dd>
+                        <dt class="font-medium">Navegador</dt>
+                        <dd class="text-right opacity-70">
+                            <span class="whitespace-nowrap">Chrome 111+</span>,
+                            <span class="whitespace-nowrap">Safari 16.4+</span> o
+                            <span class="whitespace-nowrap">Firefox 128+</span>
+                        </dd>
+                    </dl>
+                    <p class="mt-3 text-xs opacity-60">Sin Node, build ni CDN en runtime.</p>
+                </div>
             </div>
         </div>
     </section>
