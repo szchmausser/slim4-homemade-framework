@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Support\Flash;
+use Framework\Http\Flash;
 use PHPUnit\Framework\TestCase;
 
 final class FlashTest extends TestCase

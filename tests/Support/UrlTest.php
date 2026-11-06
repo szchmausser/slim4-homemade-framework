@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Support\Url;
+use Framework\Http\Url;
 use PHPUnit\Framework\TestCase;
 
 /**

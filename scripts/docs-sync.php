@@ -22,13 +22,13 @@ $touched = 0;
 foreach ($files as $file) {
     $markdown = (string) file_get_contents($file);
     $lines = preg_split('/\R/', $markdown) ?: [];
-    $blocks = App\Support\Docs\CodeBlocks::parse($markdown);
+    $blocks = Framework\Docs\CodeBlocks::parse($markdown);
     $changed = false;
 
     // De abajo hacia arriba: reemplazar no corre los índices de lo que falta.
     foreach (array_reverse($blocks) as $block) {
-        $path = App\Support\Docs\CodeBlocks::resolvePath($block['intro'], $root);
-        if ($path === null || App\Support\Docs\CodeBlocks::isExcerpt($block['info'])) {
+        $path = Framework\Docs\CodeBlocks::resolvePath($block['intro'], $root);
+        if ($path === null || Framework\Docs\CodeBlocks::isExcerpt($block['info'])) {
             continue;
         }
 
@@ -38,8 +38,8 @@ foreach ($files as $file) {
             exit(1);
         }
 
-        $normalized = App\Support\Docs\CodeBlocks::normalize($real);
-        if (App\Support\Docs\CodeBlocks::normalize($block['content']) === $normalized) {
+        $normalized = Framework\Docs\CodeBlocks::normalize($real);
+        if (Framework\Docs\CodeBlocks::normalize($block['content']) === $normalized) {
             continue;
         }
 
@@ -56,7 +56,14 @@ foreach ($files as $file) {
     }
 
     if ($changed) {
-        file_put_contents($file, implode("\n", $lines));
+        $tmp = $file . '.tmp';
+        $content = implode("\n", $lines);
+
+        if (file_put_contents($tmp, $content) === false || !rename($tmp, $file)) {
+            @unlink($tmp);
+            fwrite(STDERR, "No se pudo escribir '{$file}'.\n");
+            exit(1);
+        }
     }
 }
 

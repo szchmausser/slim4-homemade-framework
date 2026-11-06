@@ -198,18 +198,25 @@ final class ViewClassIntegrityTest extends TestCase
      */
     private function templateFiles(string $root): array
     {
-        $directory = $root . '/resources/views';
-        $files = [];
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
-        );
+        $directories = [$root . '/resources/views'];
+        $demo = $root . '/framework/scaffolds/tasks/resources/views';
+        if (is_dir($demo)) {
+            $directories[] = $demo;
+        }
 
-        /** @var \SplFileInfo $file */
-        foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->getExtension() !== 'twig') {
-                continue;
+        $files = [];
+        foreach ($directories as $directory) {
+            $iterator = new RecursiveIteratorIterator(
+                new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS)
+            );
+
+            /** @var \SplFileInfo $file */
+            foreach ($iterator as $file) {
+                if (!$file->isFile() || $file->getExtension() !== 'twig') {
+                    continue;
+                }
+                $files[] = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
             }
-            $files[] = str_replace('\\', '/', substr($file->getPathname(), strlen($root) + 1));
         }
 
         sort($files);

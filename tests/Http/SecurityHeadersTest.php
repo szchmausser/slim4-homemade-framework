@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Http\Middleware\SessionMiddleware;
+use Framework\Auth\RememberToken;
+use Framework\Http\Middleware\SessionMiddleware;
 use App\Models\User;
-use App\Support\RememberToken;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
@@ -126,7 +126,7 @@ final class SecurityHeadersTest extends HttpTestCase
         // Rotación: sin sesión, la cookie presentada se cambia por otra Secure.
         $_SESSION = [];
         $rotated = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $rotated->getStatusCode());
@@ -134,8 +134,10 @@ final class SecurityHeadersTest extends HttpTestCase
         self::assertNotSame($pair, $this->rememberPair($rotated));
 
         // Borrado: logout quema el token y manda una cookie Secure con Max-Age=0.
+        // El token se pide al home: la ruta de test no renderiza formulario y
+        // la sesión se vació para forzar la rotación remember-me.
         $logout = self::app()->handle(
-            self::request('POST', '/logout', self::scrapeToken((string) $rotated->getBody()))
+            self::request('POST', '/logout', self::token('/'))
         );
 
         self::assertSame(303, $logout->getStatusCode());

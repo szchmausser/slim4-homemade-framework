@@ -34,3 +34,48 @@ jobs:
 
       - name: Verify
         run: composer verify
+
+  demo-round-trip:
+    name: Demo round-trip
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3, mbstring
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install demo
+        run: composer demo:install
+
+      - name: Test with demo
+        run: composer test
+
+      - name: PHPStan with demo
+        run: composer phpstan
+
+      - name: Remove demo
+        run: composer demo:remove
+
+      - name: Test after removal
+        run: composer test
+
+      - name: Assert no demo residue
+        run: |
+          test ! -e app/Tasks
+          test ! -e routes/tasks.php
+          test ! -e resources/views/tasks
+          test ! -e database/migrations/tasks
+          test ! -e database/seeds/tasks
+          test ! -e tests/Tasks
+          test ! -e config/tasks.php

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Models\Task;
 use App\Models\User;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
@@ -85,13 +84,13 @@ abstract class HttpTestCase extends TestCase
     /**
      * Tokens CSRF frescos de una página que ya los renderiza.
      *
-     * Por defecto /tareas, la página protegida. El Guard corre en
-     * persistentTokenMode: el mismo par sirve para varias peticiones del test,
-     * así que alcanza con pedirlo una vez.
+     * Por defecto /login, que siempre existe y renderiza el partial. El Guard
+     * corre en persistentTokenMode: el mismo par sirve para varias peticiones
+     * del test, así que alcanza con pedirlo una vez.
      *
      * @return array{csrf_name: string, csrf_value: string}
      */
-    protected static function token(string $path = '/tareas'): array
+    protected static function token(string $path = '/login'): array
     {
         return self::scrapeToken(
             (string) self::app()->handle(self::request('GET', $path))->getBody()
@@ -122,8 +121,8 @@ abstract class HttpTestCase extends TestCase
     }
 
     /**
-     * Crea (o reusa, si le pasás uno) el usuario y siembra la sesión: /tareas
-     * exige login y RequireAuth mira `$_SESSION['user_id']`.
+     * Crea (o reusa, si le pasás uno) el usuario y siembra la sesión: las
+     * rutas protegidas exigen login y RequireAuth mira `$_SESSION['user_id']`.
      *
      * La sesión ya viene abierta por tests/bootstrap.php, así que el valor
      * sobrevive al request: en PHP >= 8.5 abrirla otra vez vuelve a dejar
@@ -151,7 +150,6 @@ abstract class HttpTestCase extends TestCase
     protected function tearDown(): void
     {
         unset($_SESSION['user_id']);
-        Task::query()->delete();
         User::query()->delete();
     }
 

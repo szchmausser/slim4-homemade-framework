@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Http\Middleware\RememberMeMiddleware;
-use App\Http\Middleware\SecurityHeadersMiddleware;
-use App\Http\Middleware\SessionMiddleware;
+use Framework\Http\Middleware\RememberMeMiddleware;
+use Framework\Http\Middleware\SecurityHeadersMiddleware;
+use Framework\Http\Middleware\SessionMiddleware;
 use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Csrf\Guard;

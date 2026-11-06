@@ -325,6 +325,7 @@
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
                 </a>
             </li>
+            {% if tasks_enabled %}
             <li>
                 <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
                    title="Tareas"
@@ -333,6 +334,7 @@
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
                 </a>
             </li>
+            {% endif %}
         </ul>
         {% if user_id is defined and user_id %}
         {# Fila de usuario sin caja: el correo a la izquierda ocupando el ancho y

@@ -21,6 +21,23 @@
        estado de cliente que gobernar. Son ~106 KB que esta pantalla no usa. #}
 
     <style>
+        /* Mismas tintas de icono que layouts/app.twig: los semanticos de
+           daisyUI son fondos, no tintas. Se replican aca porque esta pantalla
+           no carga el <style> del shell. */
+        :root {
+            --ink-success: oklch(53% .14 163.223);
+            --ink-error:   oklch(55% .19 13.428);
+            --ink-info:    oklch(52% .12 233.807);
+        }
+        [data-theme="dark"] {
+            --ink-success: var(--color-success);
+            --ink-error:   var(--color-error);
+            --ink-info:    var(--color-info);
+        }
+        .icon-success { color: var(--ink-success); }
+        .icon-error   { color: var(--ink-error); }
+        .icon-info    { color: var(--ink-info); }
+
         /* Placeholder al 70 % de base-content, igual que en layouts/app.twig:
            daisyUI y el preflight de Tailwind lo pintan al 50 %, que sobre
            base-100 claro mide 3.38:1, bajo el piso de 4.5:1 del sistema. Al
@@ -32,11 +49,56 @@
             color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
             opacity: 1;
         }
+
+        /* El autofill de Chrome pinta los campos con su azul de sistema y
+           rompe la superficie base-200 del formulario. El box-shadow interno
+           cubre ese fondo sin depender de una animacion. */
+        input.login-input:-webkit-autofill,
+        input.login-input:-webkit-autofill:hover,
+        input.login-input:-webkit-autofill:focus {
+            -webkit-box-shadow: 0 0 0 1000px var(--color-base-200) inset;
+            -webkit-text-fill-color: var(--color-base-content);
+            caret-color: var(--color-base-content);
+        }
+
+        .login-field { position: relative; }
+        .login-field-icon {
+            z-index: 1;
+            color: color-mix(in oklab, var(--color-base-content) 65%, transparent);
+            transition: color 150ms ease;
+        }
+        .login-field:focus-within .login-field-icon { color: var(--color-primary); }
+
+        /* `.label` de daisyUI ya pinta al 60 % y el `opacity-80` de la vista
+           lo bajaba a ~48 %. El texto queda al 80 % real; el checkbox sube su
+           borde al 50 % para que el control no desaparezca sobre base-100. */
+        label.login-remember {
+            color: color-mix(in oklab, var(--color-base-content) 80%, transparent);
+            opacity: 1;
+        }
+        label.login-remember .checkbox {
+            border-color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+        }
+
+        input.login-input {
+            background-color: var(--color-base-200);
+            caret-color: var(--color-base-content);
+        }
+        input.login-input:focus {
+            --input-color: var(--color-primary);
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+
+        ::selection {
+            background: color-mix(in oklab, var(--color-primary) 25%, transparent);
+            color: var(--color-base-content);
+        }
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
     {# Layout de autenticacion, sin sidebar ni header. El shell de la app
-       ofrece navegacion a /tareas, que sin sesion redirige de vuelta a este
+       ofrece navegacion a una ruta protegida, que sin sesion redirige de vuelta a este
        mismo formulario: era una puerta que no lleva a ningun lado. #}
     <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
         <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">

@@ -6,59 +6,85 @@
     {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
        card aprovecha el ancho en movil en vez de quedar flotando. #}
     <div class="w-full max-w-sm">
-        <h1 class="mb-4 text-center text-2xl font-bold">Acceder</h1>
+        <div class="card border border-base-300 bg-base-100">
+            <div class="card-body gap-5 p-6 sm:p-7">
+                <header class="space-y-1">
+                    <h1 class="text-2xl font-bold">Acceder</h1>
+                    <p class="text-sm opacity-70">Ingresá con tu email y clave para continuar.</p>
+                </header>
 
-        {% if flash_error %}
-            <div class="alert alert-error mb-4" role="alert">
-                <span>{{ flash_error }}</span>
-            </div>
-        {% endif %}
-        {% if flash_info is defined and flash_info %}
-            {# `status` y no `alert`: la convencion del proyecto es error ->
-               alert, exito/info -> status (ver tasks/_panel.twig), y este
-               aviso no interrumpe nada. #}
-            <div class="alert alert-info mb-4" role="status">
-                <span>{{ flash_info }}</span>
-            </div>
-        {% endif %}
+                {% if flash_error %}
+                    {# Aviso dentro del card: comparte superficie con el formulario
+                       y el icono da el estado sin teñir todo el fondo de rojo. #}
+                    <div class="flex items-start gap-3 rounded-box border border-error/30 bg-error/10 p-3 text-sm" role="alert">
+                        <span class="icon-error mt-0.5 shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
+                        </span>
+                        <p class="leading-snug">{{ flash_error }}</p>
+                    </div>
+                {% endif %}
+                {% if flash_info is defined and flash_info %}
+                    {# `status` y no `alert`: la convencion del proyecto es error ->
+                       alert, exito/info -> status (ver tasks/_panel.twig), y este
+                       aviso no interrumpe nada. #}
+                    <div class="flex items-start gap-3 rounded-box border border-info/30 bg-info/10 p-3 text-sm" role="status">
+                        <span class="icon-info mt-0.5 shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
+                        </span>
+                        <p class="leading-snug">{{ flash_info }}</p>
+                    </div>
+                {% endif %}
 
-        {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
-        <form method="post" action="{{ url('/login') }}" class="card border border-base-300 bg-base-100">
-            <div class="card-body gap-3">
-                {% include 'partials/_csrf.twig' %}
-                {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
-                   los wrappers de la v4 (`form-control` y `label-text`), que la
-                   5 eliminó. El fieldset ya trae el grid vertical con su gap
-                   entre la etiqueta y el input, que era lo único que aportaba
-                   `form-control`.
-                   La etiqueta es un <label for> y NO un <legend>: el legend
-                   nombra al grupo, no al control, así que los inputs se
-                   quedaban sin nombre accesible. `.fieldset-legend` es un
-                   selector de clase (no `legend.fieldset-legend`), así que el
-                   formato es el mismo. #}
-                <fieldset class="fieldset">
-                    <label class="fieldset-legend" for="login-email">Email</label>
-                    <input id="login-email" type="email" name="email" required autocomplete="username"
-                           value="{{ email|default('') }}"
-                           placeholder="vos@ejemplo.com"
-                           class="input w-full">
-                </fieldset>
-                <fieldset class="fieldset">
-                    <label class="fieldset-legend" for="login-password">Clave</label>
-                    <input id="login-password" type="password" name="password" required autocomplete="current-password"
-                           placeholder="••••••••"
-                           class="input w-full">
-                </fieldset>
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="remember" value="1" class="checkbox">
-                    {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
-                       el formato de la fila lo da el `label` de afuera. #}
-                    <span>Recordarme 30 días</span>
-                </label>
-                <button type="submit" class="btn btn-primary w-full">
-                    Entrar
-                </button>
+                {# Form normal, sin HTMX: el login navega de verdad (303 a /). #}
+                <form method="post" action="{{ url('/login') }}" class="space-y-4">
+                    {% include 'partials/_csrf.twig' %}
+                    {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
+                       los wrappers de la v4 (`form-control` y `label-text`), que la
+                       5 eliminó. El fieldset ya trae el grid vertical con su gap
+                       entre la etiqueta y el input, que era lo único que aportaba
+                       `form-control`.
+                       La etiqueta es un <label for> y NO un <legend>: el legend
+                       nombra al grupo, no al control, así que los inputs se
+                       quedaban sin nombre accesible. `.fieldset-legend` es un
+                       selector de clase (no `legend.fieldset-legend`), así que el
+                       formato es el mismo. #}
+                    <fieldset class="fieldset">
+                        <label class="fieldset-legend" for="login-email">Email</label>
+                        <div class="login-field">
+                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
+                            </span>
+                            <input id="login-email" type="email" name="email" required autocomplete="username"
+                                   value="{{ email|default('') }}"
+                                   placeholder="vos@ejemplo.com"
+                                   class="input login-input h-11 w-full pl-10">
+                        </div>
+                    </fieldset>
+                    <fieldset class="fieldset">
+                        <label class="fieldset-legend" for="login-password">Clave</label>
+                        <div class="login-field">
+                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
+                            </span>
+                            <input id="login-password" type="password" name="password" required autocomplete="current-password"
+                                   placeholder="••••••••"
+                                   class="input login-input h-11 w-full pl-10">
+                        </div>
+                    </fieldset>
+                    <label class="label login-remember cursor-pointer justify-start gap-2.5 text-sm">
+                        <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
+                        {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
+                           el formato de la fila lo da el `label` de afuera. #}
+                        <span>Recordarme 30 días</span>
+                    </label>
+                    <button type="submit" class="btn btn-primary w-full gap-2">
+                        <span>Entrar</span>
+                        <span aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                        </span>
+                    </button>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 {% endblock %}

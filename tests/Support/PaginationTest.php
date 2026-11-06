@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Models\Task;
-use App\Support\Pagination;
+use Framework\Http\Pagination;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -18,7 +18,7 @@ final class PaginationTest extends TestCase
 {
     protected function tearDown(): void
     {
-        Task::query()->delete();
+        User::query()->delete();
     }
 
     public function test_clamp_acepta_solo_tamanos_permitidos(): void
@@ -77,7 +77,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_intermedia_trae_su_slice_y_contadores(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 2, 10, '/tareas');
 
@@ -93,7 +93,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_fuera_de_rango_se_clampea_a_la_ultima(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 99, 10, '/tareas');
 
@@ -105,7 +105,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_cero_o_negativa_es_la_primera(): void
     {
-        $this->seedTasks(5);
+        $this->seedUsers(5);
 
         self::assertSame(1, Pagination::paginate($this->query(), 0, 10, '/t')['current_page']);
         self::assertSame(1, Pagination::paginate($this->query(), -3, 10, '/t')['current_page']);
@@ -134,7 +134,7 @@ final class PaginationTest extends TestCase
 
     public function test_per_page_invalido_cae_al_default(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 1, 999, '/tareas');
 
@@ -144,13 +144,16 @@ final class PaginationTest extends TestCase
 
     private function query(): Builder
     {
-        return Task::orderByDesc('id');
+        return User::orderByDesc('id');
     }
 
-    private function seedTasks(int $n): void
+    private function seedUsers(int $n): void
     {
         for ($i = 1; $i <= $n; $i++) {
-            Task::create(['title' => sprintf('Tarea %02d', $i)]);
+            User::create([
+                'email'         => sprintf('user%02d@example.test', $i),
+                'password_hash' => 'not-a-real-hash',
+            ]);
         }
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 
 /**
@@ -18,7 +19,20 @@ final class AppFactory
 
     public static function make(): App
     {
-        return self::$app ??= require __DIR__ . '/../../bootstrap/app.php';
+        if (self::$app !== null) {
+            return self::$app;
+        }
+
+        $app = require __DIR__ . '/../../bootstrap/app.php';
+
+        // Ruta protegida exclusiva de la suite: los tests de auth y de base
+        // path no dependen de que el scaffold demo esté instalado.
+        $app->get('/_test/protected', function ($request, $response) {
+            $response->getBody()->write('protected');
+            return $response;
+        })->add(RequireAuthMiddleware::class);
+
+        return self::$app = $app;
     }
 
     /**

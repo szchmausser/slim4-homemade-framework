@@ -8,10 +8,10 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 
 | Capa | Responsabilidad | Ejemplos | Patrones |
 |------|-----------------|----------|----------|
-| **Presentation** | Vistas, HTML, HTMX regions | `layouts/app.twig`, `_panel.html` | Region-based rendering |
-| **Application** | Controllers, business logic | `App\Http\Controllers\TaskController` | Single responsibility per controller |
-| **Domain** | Models, entities, validation | `App\Models\Task`, `App\Support\Validator` | Eloquent ORM + Respect validation |
-| **Infrastructure** | DB, middleware, services | `App\Support\Pagination`, `App\Http\Middleware\RememberMe` | Dedicated classes per concern |
+| **Presentation** | Vistas, HTML, HTMX regions | `layouts/app.twig`, `resources/views/tasks/_panel.twig` | Region-based rendering |
+| **Application** | Controllers, business logic | `App\Http\Controllers\Auth\AuthController` | Single responsibility per controller |
+| **Domain** | Models, entities, validation | `App\Models\User`, `Framework\Validation\Validator` | Eloquent ORM + Respect validation |
+| **Infrastructure** | DB, middleware, services | `Framework\Http\Pagination`, `Framework\Http\Middleware\RememberMeMiddleware` | Dedicated classes per concern |
 | **Data** | Migrations, seeds, schema | `database/migrations/*`, `database/seeds/*` | Phinx-driven, sequential numbering |
 
 ## Principios de Diseño
@@ -32,20 +32,24 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 ### 2. Controllers (`App\Http\Controllers`)
 - Implementan la lógica de negocio en métodos sobrecargados (`index`, `create`, `store`, `show`, `edit`, `destroy`).
 - Delegan a modelos para persistencia.
-- Retornan estructuras JSON o regiones HTMX según la respuesta.
+- Retornan regiones HTMX o HTML completo según la respuesta.
 
 ### 3. Models (`App\Models`)
-- Extensión de `Illuminate\Support\Facades\Eloquent\Model`.
+- Extensión de `Illuminate\Database\Eloquent\Model`.
 - Usan `$fillable` para campos permitidos.
 - Implementan métodos estáticos para operaciones comunes (paginación, filtros).
 
-### 4. Support (`App\Support`)
-- Helpers reutilizables: `RememberMe`, `Flash`, `Validator`, `Pagination`, `RememberToken`.
-- Centralizan la lógica de utilidad para evitar duplicación.
+### 4. Framework (`Framework`)
+- `Auth/`: `Auth`, `RememberMe`, `RememberToken`, `Throttle`.
+- `Http/`: `CsrfTokens`, `Flash`, `Url`, `Pagination`.
+- `Validation/`: `Validator`.
+- `Docs/`: `CodeBlocks` (tooling de la guía).
+- `App\Support/` queda para helpers propios de la app; hoy no tiene clases.
+- El demo de tareas vive en `framework/scaffolds/tasks/` y se instala/desinstala con `composer demo:install` / `composer demo:remove`.
 
-### 5. Middleware (`App\Http\Middleware`)
-- `Session`, `Csrf`, `RememberMe`, `Auth`.
-- Gestiona el ciclo de vida de la solicitud.
+### 5. Middleware (`Framework\Http\Middleware`)
+- `Session`, `SecurityHeaders`, `RememberMe`, `RequireAuth`.
+- El pipeline base vive acá; `app/Http/Middleware` queda para middleware propio de la app.
 
 ### 6. Database (`database`)
 - **Migrations**: Phinx-generated, numbered sequentially.
@@ -68,7 +72,7 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 
 - **Memoria**: Mantener el contenedor ligero; evitar cargas innecesarias.
 - **Int32**: SQLite en Termux 32-bit requiere índices y claves enteras de 32 bits.
-- **PHP 32-bit**: Se recomienda usar `php:32` en Termux para compatibilidad total.
+- **PHP 32-bit**: El runtime objetivo es PHP con `PHP_INT_SIZE === 4`; el código evita asumir 64 bits.
 - **Compilación**: No se necesita compilar código PHP; todo es precompilado.
 
 ## Próximos Pasos

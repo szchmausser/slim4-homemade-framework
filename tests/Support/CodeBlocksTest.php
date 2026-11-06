@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Support\Docs\CodeBlocks;
+use Framework\Docs\CodeBlocks;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -25,8 +25,31 @@ final class CodeBlocksTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->dir !== '' && is_dir($this->dir)) {
-            exec('rm -rf ' . escapeshellarg($this->dir));
+            $this->removeTree($this->dir);
         }
+    }
+
+    /**
+     * Borrado recursivo en PHP: `rm -rf` no existe en Windows y dejaba
+     * cientos de directorios de prueba en storage/cache/tests.
+     */
+    private function removeTree(string $path): void
+    {
+        if (!is_dir($path)) {
+            if (is_file($path)) {
+                unlink($path);
+            }
+            return;
+        }
+
+        foreach (scandir($path) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            $this->removeTree($path . '/' . $entry);
+        }
+
+        rmdir($path);
     }
 
     public function test_parse_encuentra_fences_con_info_intro_y_lineas(): void

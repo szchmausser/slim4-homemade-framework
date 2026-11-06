@@ -4,3 +4,7 @@ parameters:
     level: 5
     paths:
         - app
+        - framework/Auth
+        - framework/Http
+        - framework/Validation
+        - framework/Docs

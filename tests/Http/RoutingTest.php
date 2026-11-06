@@ -23,7 +23,7 @@ final class RoutingTest extends HttpTestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
-    public function test_la_raiz_presenta_el_stack_y_enlaza_a_tareas(): void
+    public function test_la_raiz_presenta_el_stack(): void
     {
         $response = self::app()->handle(self::request('GET', '/'));
 
@@ -31,7 +31,24 @@ final class RoutingTest extends HttpTestCase
         $html = $response->getBody()->getContents();
 
         self::assertStringContainsString('Slim 4', $html, 'La raiz deberia mostrar el stack.');
-        self::assertStringContainsString('href="/tareas"', $html, 'La raiz deberia enlazar al listado.');
+    }
+
+    public function test_la_raiz_no_ofrece_ingresar_si_ya_hay_sesion(): void
+    {
+        self::loginAs();
+
+        $response = self::app()->handle(self::request('GET', '/'));
+
+        $response->getBody()->rewind();
+        $html = $response->getBody()->getContents();
+
+        self::assertStringNotContainsString('>Ingresar</a>', $html);
+
+        if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
+            self::assertStringContainsString('composer demo:install', $html);
+        }
+
+        self::assertStringContainsString('composer demo:remove', $html);
     }
 
     public function test_el_boton_de_la_pagina_de_error_no_es_un_link_muerto(): void

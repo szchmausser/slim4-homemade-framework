@@ -24,7 +24,7 @@ if (!is_file($autoload)) {
 
 require $autoload;
 
-use App\Support\Docs\CodeBlocks;
+use Framework\Docs\CodeBlocks;
 
 $root = dirname(__DIR__);
 $plan = '.ai/sdd/PLAN-mejoras.md';
@@ -36,7 +36,7 @@ $docFiles = array_merge(
 );
 
 $codeFiles = [];
-foreach (['app', 'bootstrap', 'config', 'resources', 'routes'] as $dir) {
+foreach (['app', 'bootstrap', 'config', 'framework/Auth', 'framework/Http', 'framework/Validation', 'framework/Docs', 'resources', 'routes'] as $dir) {
     $codeFiles = array_merge(
         $codeFiles,
         filesUnder($root . '/' . $dir, ['php', 'twig'], $root)
@@ -52,7 +52,7 @@ sort($docFiles);
 sort($codeFiles);
 
 $testCount = [
-    'regex'   => '/\b(?:65|66|69)\s+tests\b|\b(?:200|204|221)\s+assertions\b/i',
+    'regex'   => '/\b\d{2,}\s+(?:tests?|assertions?)\b/i',
     'message' => 'cifra hardcodeada de tests; usá la salida de composer test',
 ];
 $cdn = [

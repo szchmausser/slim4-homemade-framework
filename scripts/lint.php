@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-// Lint de sintaxis sobre app/ y tests/. Uso: composer lint
+// Lint de sintaxis sobre app/, framework/ y tests/. Uso: composer lint
 // Sale con 1 si algún archivo no parsea; no ejecuta la suite.
 
-$roots = [__DIR__ . '/../app', __DIR__ . '/../tests'];
+$roots = [__DIR__ . '/../app', __DIR__ . '/../framework', __DIR__ . '/../tests'];
 $files = [];
 
 foreach ($roots as $root) {

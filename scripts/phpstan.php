@@ -37,8 +37,35 @@ if (!is_file($config)) {
     exit(1);
 }
 
+// Con el demo desinstalado, su código runtime vive solo en framework/scaffolds/tasks/app
+// y hay que analizarlo ahí. Sus tests/seeds no se analizan, igual que la base
+// no analiza tests/. Con el demo instalado, ya lo cubre app/ (evitamos la
+// clase duplicada). El config temporal incluye el base y suma el scaffold.
+$analyseConfig = $config;
+if (!is_dir($root . '/app/Tasks') && is_dir($root . '/framework/scaffolds')) {
+    $scaffoldConfig = $root . '/storage/cache/phpstan-scaffold.neon';
+    $content = implode("\n", [
+        'includes:',
+        '    - ' . neonPath($config),
+        'parameters:',
+        '    paths:',
+        '        - ' . neonPath($root . '/app'),
+        '        - ' . neonPath($root . '/framework/Auth'),
+        '        - ' . neonPath($root . '/framework/Http'),
+        '        - ' . neonPath($root . '/framework/Validation'),
+        '        - ' . neonPath($root . '/framework/Docs'),
+        '        - ' . neonPath($root . '/framework/scaffolds/tasks/app'),
+    ]) . "\n";
+
+    if (file_put_contents($scaffoldConfig, $content) === false) {
+        fwrite(STDERR, "No se pudo escribir '{$scaffoldConfig}'.\n");
+        exit(1);
+    }
+    $analyseConfig = $scaffoldConfig;
+}
+
 $process = proc_open(
-    [PHP_BINARY, $phar, 'analyse', '--configuration=' . $config, '--no-progress'],
+    [PHP_BINARY, $phar, 'analyse', '--configuration=' . $analyseConfig, '--no-progress'],
     [0 => STDIN, 1 => STDOUT, 2 => STDERR],
     $pipes
 );
@@ -49,6 +76,11 @@ if (!is_resource($process)) {
 }
 
 exit(proc_close($process));
+
+function neonPath(string $path): string
+{
+    return "'" . str_replace("'", "''", str_replace('\\', '/', $path)) . "'";
+}
 
 function ensurePhar(string $target): void
 {

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Models\Task;
 use Tests\Support\AppFactory;
 use Tests\Support\HttpTestCase;
 
@@ -45,11 +44,9 @@ final class BasePathTest extends HttpTestCase
         AppFactory::reset();
     }
 
-    public function test_el_listado_responde_bajo_el_prefijo_y_ninguna_url_queda_en_la_raiz(): void
+    public function test_la_raiz_responde_bajo_el_prefijo_y_ninguna_url_queda_en_la_raiz(): void
     {
-        self::loginAs();
-
-        $response = self::app()->handle(self::request('GET', '/app/tareas'));
+        $response = self::app()->handle(self::request('GET', '/app/'));
 
         self::assertSame(200, $response->getStatusCode(), 'el prefijo no llegó al router');
         $html = (string) $response->getBody();
@@ -58,9 +55,6 @@ final class BasePathTest extends HttpTestCase
         // JIT de Tailwind no cargan y la página sale como texto plano).
         self::assertStringContainsString('href="/app/assets/daisyui-5.7.46.css"', $html);
         self::assertStringContainsString('src="/app/assets/htmx-2.0.11.min.js"', $html);
-
-        // Navegación y favicon.
-        self::assertStringContainsString('href="/app/tareas"', $html);
         self::assertStringContainsString('href="/app/favicon.svg"', $html);
 
         // La regla de S13 en una sola línea: ninguna URL de atributo empieza en
@@ -74,9 +68,7 @@ final class BasePathTest extends HttpTestCase
 
     public function test_sin_el_prefijo_la_ruta_no_existe(): void
     {
-        self::loginAs();
-
-        $response = self::app()->handle(self::request('GET', '/tareas'));
+        $response = self::app()->handle(self::request('GET', '/'));
 
         // 404 y no 200: el prefijo es parte de la ruta registrada. Si esto
         // devolviera 200, el prefijo sería cosmético y el despliegue en /app
@@ -84,7 +76,6 @@ final class BasePathTest extends HttpTestCase
         self::assertSame(404, $response->getStatusCode());
 
         $html = (string) $response->getBody();
-        self::assertStringNotContainsString('Mis tareas', $html);
 
         // El 404 sale por errors/error.twig, que no extiende el layout: también
         // tiene que perder la raíz del dominio, o la página de error de un
@@ -96,71 +87,32 @@ final class BasePathTest extends HttpTestCase
         self::assertStringContainsString('href="/app/"', $html);
     }
 
-    public function test_la_paginacion_y_la_url_empujada_llevan_el_prefijo(): void
-    {
-        self::loginAs();
-
-        // 11 filas: con 10 por página existe una página 2, y sin eso la
-        // paginación no emite ningún <a href> (son botones apagados).
-        for ($i = 1; $i <= 11; $i++) {
-            Task::create(['title' => sprintf('Tarea %02d', $i)]);
-        }
-
-        $html = (string) self::app()->handle(self::request('GET', '/app/tareas'))->getBody();
-
-        // base_url lo arma el controller con el helper: si la paginación no lo
-        // hereda, el segundo click sale del prefijo y da 404.
-        self::assertMatchesRegularExpression(
-            '#<a[^>]*href="/app/tareas\?page=2&(?:amp;)?per_page=10"#',
-            $html,
-            'la paginación tiene que llevar el prefijo'
-        );
-
-        $task = Task::orderByDesc('id')->first();
-        self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
-
-        $token = self::token('/app/tareas');
-
-        $response = self::app()->handle(
-            self::request('POST', sprintf('/app/tareas/%d/toggle?page=1&per_page=10', $task->id))
-                ->withHeader('HX-Request', 'true')
-                ->withHeader('csrf_name', $token['csrf_name'])
-                ->withHeader('csrf_value', $token['csrf_value'])
-        );
-
-        self::assertSame(200, $response->getStatusCode());
-        // HX-Push-Url sale de base_url: prefijado o no, es la diferencia entre
-        // recargar la lista en su carpeta y volver a la raíz del dominio.
-        self::assertSame(
-            '/app/tareas?page=1&per_page=10',
-            $response->getHeaderLine('HX-Push-Url')
-        );
-    }
-
     public function test_los_redirects_llevan_el_prefijo(): void
     {
-        // Sin sesión: la puerta de /tareas en sus dos dialectos. Un 303 o un
-        // HX-Redirect a `/login` dejaría al usuario fuera de la app, en el
+        // Sin sesión: la ruta protegida de test en sus dos dialectos. Un 303 o
+        // un HX-Redirect a `/login` dejaría al usuario fuera de la app, en el
         // login (inexistente) de la raíz del dominio.
-        $normal = self::app()->handle(self::request('GET', '/app/tareas'));
+        $normal = self::app()->handle(self::request('GET', '/app/_test/protected'));
         self::assertSame(303, $normal->getStatusCode());
         self::assertSame('/app/login', $normal->getHeaderLine('Location'));
 
         $htmx = self::app()->handle(
-            self::request('GET', '/app/tareas')->withHeader('HX-Request', 'true')
+            self::request('GET', '/app/_test/protected')->withHeader('HX-Request', 'true')
         );
         self::assertSame('/app/login', $htmx->getHeaderLine('HX-Redirect'));
 
-        // Ya logueado, /login no muestra el formulario: manda al listado.
+        // El token se pide ANTES de entrar: logueado, /login redirige y ya no
+        // hay formulario del que scrapearlo.
+        $token = self::token('/app/login');
+
+        // Ya logueado, /login no muestra el formulario: manda al inicio.
         self::loginAs();
 
         $yaAdentro = self::app()->handle(self::request('GET', '/app/login'));
         self::assertSame(303, $yaAdentro->getStatusCode());
-        self::assertSame('/app/tareas', $yaAdentro->getHeaderLine('Location'));
+        self::assertSame('/app/', $yaAdentro->getHeaderLine('Location'));
 
         // Y salir vuelve al login, igual que entrar.
-        $token = self::token('/app/tareas');
-
         $salida = self::app()->handle(
             self::request('POST', '/app/logout')
                 ->withHeader('csrf_name', $token['csrf_name'])

@@ -7,11 +7,33 @@
         <div class="hero-content py-6 text-center">
             <div class="max-w-xl">
                 <h1 class="text-3xl font-bold">Mi App</h1>
-                <p class="py-3 opacity-70">
-                    Listado de tareas con altas, edición y borrado, servido por un esqueleto
-                    PHP en capas. El formulario de altas está en la pantalla de tareas.
-                </p>
-                <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
+                {% if tasks_enabled %}
+                    <p class="py-3 opacity-70">
+                        Demo de tareas instalado: altas, edición, borrado, completar/pendiente,
+                        paginación y avisos HTMX sobre SQLite.
+                    </p>
+                    <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
+                    <p class="mt-3 text-sm opacity-70">
+                        Para quitarlo:
+                        <code class="rounded bg-base-200 px-1">composer demo:remove</code>
+                    </p>
+                {% else %}
+                    <p class="py-3 opacity-70">
+                        El esqueleto incluye un demo opcional de tareas: CRUD, completar/pendiente,
+                        paginación y avisos HTMX. Se instala en app/Tasks, rutas, vistas,
+                        migraciones, seeds y tests; además corre las migraciones y el seed del demo.
+                    </p>
+                    <div class="flex flex-col items-center gap-2">
+                        <code class="rounded-box border border-base-300 bg-base-200 px-3 py-2 text-sm">composer demo:install</code>
+                        <p class="text-sm opacity-70">
+                            Para desinstalarlo:
+                            <code class="rounded bg-base-200 px-1">composer demo:remove</code>
+                        </p>
+                        {% if not user_id %}
+                            <a href="{{ url('/login') }}" class="btn btn-primary">Ingresar</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>

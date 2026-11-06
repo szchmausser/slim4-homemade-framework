@@ -20,7 +20,7 @@
    una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
    con la etiqueta y los controles— sin ritmo entre las piezas ni relación
    entre el control y la navegación. Ahora son tres líneas centradas con el
-   mismo `gap-3` entre ellas: contador, controles, "Tareas por página". El
+   mismo `gap-3` entre ellas: contador, controles, "Registros por página". El
    ancho de teléfono es el caso por defecto (`flex-col` sin prefijo) y `sm:`
    devuelve la fila de escritorio que ya funcionaba: contador a la izquierda,
    control de tamaño y paginación a la derecha, todo centrado en vertical.
@@ -45,7 +45,7 @@
 {% if pagination.total > 0 %}
 <div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-center text-sm opacity-70 sm:text-left">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
@@ -70,7 +70,7 @@
                distintas. Se imprime con `|raw` para que el `&` salga literal,
                como ya estaba (PaginationFlowTest lo fija así). No es una
                puerta de escape: la cadena es la base fija del controller más
-               enteros de App\Support\Pagination. Dentro del atributo es
+               enteros de Framework\Http\Pagination. Dentro del atributo es
                válido, porque `&per_page` no termina en `;` y por lo tanto no
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
@@ -126,9 +126,9 @@
            hijo del flex; el label conserva su fila y su `gap-2`. #}
         <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
             <label class="flex items-center gap-2">
-                <span class="text-sm opacity-70">Tareas por página</span>
+                <span class="text-sm opacity-70">{{ label|default('registros')|capitalize }} por página</span>
                 <select class="select select-sm w-auto" name="per_page"
-                        aria-label="Tareas por página"
+                        aria-label="{{ label|default('registros')|capitalize }} por página"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"

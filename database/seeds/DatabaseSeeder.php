@@ -14,15 +14,19 @@ use Phinx\Seed\AbstractSeed;
  */
 final class DatabaseSeeder extends AbstractSeed
 {
-    /** @var class-string[] en orden explícito de ejecución. */
-    private const SEEDS = [
-        AdminSeeder::class,
-        TaskSeeder::class,
-    ];
-
     public function run(): void
     {
-        foreach (self::SEEDS as $class) {
+        require_once __DIR__ . '/AdminSeeder.php';
+
+        // El demo es opcional: solo se siembra si su scaffold está instalado.
+        $seeds = [AdminSeeder::class];
+        $taskSeeder = __DIR__ . '/tasks/TaskSeeder.php';
+        if (is_file($taskSeeder)) {
+            require_once $taskSeeder;
+            $seeds[] = TaskSeeder::class;
+        }
+
+        foreach ($seeds as $class) {
             (new $class())->setAdapter($this->getAdapter())->run();
         }
     }

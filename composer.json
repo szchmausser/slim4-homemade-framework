@@ -22,8 +22,12 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
+            "Framework\\": "framework/",
             "Tests\\": "tests/"
-        }
+        },
+        "exclude-from-classmap": [
+            "/framework/scaffolds/"
+        ]
     },
     "scripts": {
         "serve": "@php scripts/serve.php",
@@ -36,6 +40,8 @@
         "docs:sync": "@php scripts/docs-sync.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
+        "demo:install": "@php scripts/demo.php install",
+        "demo:remove": "@php scripts/demo.php remove",
         "verify": [
             "@lint",
             "@docs:check",

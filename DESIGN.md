@@ -20,9 +20,10 @@ Un layout nuevo sólo se justifica si no puede ser una rama de estos tres. Hay d
 
 - daisyUI 5 aporta los tokens: `--color-base-100/200/300/content`, `--color-primary/secondary/accent/neutral`, `--color-info/success/warning/error` y sus `*-content`.
 - Tema por `data-theme` en `<html>` (`light` / `dark`), aplicado **antes del primer paint** por un script inline en el `<head>` de **los tres** layouts. La página de error era la excepción —no tenía el script, así que salía siempre en claro— y ya no lo es. **Prohibido `dark:`**: si aparece una utilidad `dark:` es un error de sistema, no una variante.
-- Los semánticos de daisyUI son **fondos**, no tintas. Para iconos existen tres tokens propios en el `<style>` del layout: `--ink-success` (4.77:1), `--ink-error` (5.37:1), `--ink-pending` (6.55:1) en claro, con reuso de los semánticos en oscuro. Se aplican con `.icon-success`, `.icon-error`, `.icon-pending`.
+- Los semánticos de daisyUI son **fondos**, no tintas. Para iconos existen cuatro tokens propios en el `<style>` de `layouts/app.twig`: `--ink-success` (4.77:1), `--ink-error` (5.37:1), `--ink-pending` (6.55:1) y `--ink-info` (5.31:1) en claro, con reuso de los semánticos en oscuro. Se aplican con `.icon-success`, `.icon-error` y `.icon-pending`; `layouts/auth.twig` replica success/error/info para sus avisos y define `.icon-info`.
 - Sin hex ni `oklch()` sueltos en las plantillas. Si hace falta un valor nuevo, va como custom property en el `<style>`.
 - El placeholder de los campos se pinta al 70 % de `base-content`, no al 50 % de daisyUI (3.38:1 sobre base-100, bajo el piso): una regla sobre `input`/`textarea` en el `<style>` de `layouts/app.twig` y `layouts/auth.twig`, no una clase por campo.
+- En auth los campos usan `.login-input` sobre `base-200` y el autofill de Chrome se cubre con un `box-shadow` interno; el foco es `outline` primary de 2 px. Los iconos de campo (`.login-field-icon`) comparten trazo con el resto del sistema y pasan a primary con `:focus-within`.
 
 ## Tipografía
 
@@ -51,7 +52,7 @@ daisyUI, sin capa propia de componentes: `btn`, `input`, `select`, `join`, `moda
 
 **Regla dura:** toda clase de daisyUI usada tiene que existir en `public/assets/daisyui-5.7.46.css`. Lo verifica `tests/Support/ViewClassIntegrityTest.php`, que además exige que cada clase de proyecto usada esté definida en el `<style>` del layout. Si el guard falla, se corrige la plantilla, nunca el guard.
 
-Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toast-stack`, `toast-card`, `toast-icon`, `toast-progress`, `sidebar-head`, `sidebar-label`, `icon-success`, `icon-error`, `icon-pending`.
+Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toast-stack`, `toast-card`, `toast-icon`, `toast-progress`, `sidebar-head`, `sidebar-label`, `icon-success`, `icon-error`, `icon-pending`. En `auth.twig`: `login-field`, `login-field-icon`, `login-input`, `login-remember` e `icon-info`.
 
 ## Interacción
 
@@ -80,7 +81,7 @@ En los bloques `<script>` y en las expresiones de Alpine los identificadores van
 `APP_BASE_PATH` (vacío por defecto) permite servir la app desde una carpeta en vez de la raíz del dominio. Con `/app`, todas las URLs de las vistas, las acciones htmx, los assets, los redirects y el `HX-Push-Url` salen prefijadas; vacío, todo queda idéntico al caso raíz.
 
 - En plantillas: `{{ url('/tareas') }}`. Nunca un literal `href="/tareas"`.
-- En PHP: `App\Support\Url::path('/tareas')`.
+- En PHP: `Framework\Http\Url::path('/tareas')`.
 - El servidor tiene que reenviar el prefijo a `public/index.php` (nginx: `handle_path /app/*`). **`php -S -t public` no puede servir una ruta prefijada**: sirve solo el caso raíz, así que un despliegue con prefijo exige proxy o regla de reescritura.
 - Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo: es la única regla que hay que recordar al agregar vistas.
 

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use Framework\Validation\Validator;
 use App\Models\User;
-use App\Support\Validator;
 use Phinx\Seed\AbstractSeed;
 
 /**

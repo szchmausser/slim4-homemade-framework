@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use Framework\Auth\Throttle;
 use App\Models\User;
-use App\Support\Throttle;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Psr\Http\Message\ResponseInterface;
 use Slim\Psr7\Factory\ServerRequestFactory;

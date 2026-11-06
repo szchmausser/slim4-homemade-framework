@@ -6,7 +6,7 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 >
 > Nota sobre daisyUI: se usa **as-is**, temas claro/oscuro por defecto, sin personalizar. Nada de `dark:` utilities (el tema lo gobierna `data-theme`), nada de JS de terceros, nada de variantes `is-drawer-*` (no existen en el CSS linkeado — verificado, capítulo 14).
 
-> **Las copias de archivos que hay en esta guía están verificadas, no mantenidas a mano.** Cada bloque que declara un archivo del repo (`resources/views/tasks/_list.twig`, por ejemplo) es una copia literal de ese archivo: `composer docs:check` falla si difieren y `composer docs:sync` las reescribe desde el repo. Un fragmento (un método suelto, tres líneas de un array) se marca `excerpt` en el info string y queda fuera del control. El motivo es medido: la primera vez que se comparó, **27 de 56 copias estaban viejas** (una vista tenía tres features de atraso).
+> **Las copias de archivos que hay en esta guía están verificadas, no mantenidas a mano.** Cada bloque que declara un archivo del repo (`framework/scaffolds/tasks/resources/views/tasks/_list.twig`, por ejemplo) es una copia literal de ese archivo: `composer docs:check` falla si difieren y `composer docs:sync` las reescribe desde el repo. Un fragmento (un método suelto, tres líneas de un array) se marca `excerpt` en el info string y queda fuera del control. El motivo es medido: la primera vez que se comparó, **27 de 56 copias estaban viejas** (una vista tenía tres features de atraso).
 
 ## Índice
 1. Preparar Termux
@@ -91,9 +91,9 @@ source ~/.bashrc
 mkdir -p ~/proyectos && cd ~/proyectos
 mkdir mi-app && cd mi-app
 
-mkdir -p app/Http/Controllers app/Http/Middleware app/Models app/Support
-mkdir -p bootstrap config database/migrations
-mkdir -p public/assets resources/views/layouts resources/views/tasks resources/views/partials resources/views/errors
+mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs app/Support
+mkdir -p bootstrap config database/migrations database/seeds
+mkdir -p public/assets resources/views/layouts resources/views/auth resources/views/partials resources/views/errors
 mkdir -p routes storage/logs storage/cache/twig storage/sessions
 mkdir -p tests/Http tests/Support
 ```
@@ -102,27 +102,60 @@ mkdir -p tests/Http tests/Support
 
 ```
 mi-app/
+├── framework/
+│   ├── Auth/
+│   │   ├── Auth.php
+│   │   ├── RememberMe.php
+│   │   ├── RememberToken.php
+│   │   ├── Throttle.php
+│   │   └── UserProvider.php
+│   ├── Http/
+│   │   ├── Controller.php
+│   │   ├── CsrfTokens.php
+│   │   ├── Flash.php
+│   │   ├── Pagination.php
+│   │   ├── Url.php
+│   │   └── Middleware/
+│   │       ├── SessionMiddleware.php
+│   │       ├── SecurityHeadersMiddleware.php
+│   │       ├── RememberMeMiddleware.php
+│   │       └── RequireAuthMiddleware.php
+│   ├── Validation/
+│   │   └── Validator.php
+│   ├── Docs/
+│   │   └── CodeBlocks.php          # tooling de docs, no runtime
+│   └── scaffolds/
+│       └── tasks/                  # demo opcional: composer demo:install
+│           ├── app/Tasks/{Http,Models}/
+│           ├── database/{migrations,seeds}/tasks/
+│           ├── resources/views/tasks/
+│           ├── routes/tasks.php
+│           └── tests/Tasks/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── Controller.php      # base abstracta: render()+csrf()+viewDefaults()
-│   │   │   └── TaskController.php
+│   │   │   └── Auth/
+│   │   │       └── AuthController.php
 │   │   └── Middleware/
-│   │       ├── SessionMiddleware.php
-│   │       └── SecurityHeadersMiddleware.php
+│   │       └── README.md           # middleware propio de la app
 │   ├── Models/
-│   │   └── Task.php
+│   │   └── User.php
 │   └── Support/
-│       ├── Flash.php
-│       └── Validator.php
+│       └── README.md               # helpers propios de la app
 ├── bootstrap/
 │   └── app.php
 ├── config/
+│   ├── auth.php
 │   ├── container.php
 │   └── middleware.php
 ├── database/
 │   ├── migrations/
-│   │   └── 001_create_tasks_table.php
+│   │   ├── 002_create_users_table.php
+│   │   ├── 003_create_remember_tokens_table.php
+│   │   └── 006_login_attempts.php
+│   ├── seeds/
+│   │   ├── AdminSeeder.php
+│   │   └── DatabaseSeeder.php
 │   └── database.sqlite             # se autocrea; NO va a git
 ├── public/
 │   ├── assets/                     # vendorizado, SÍ va a git
@@ -134,20 +167,21 @@ mi-app/
 ├── resources/
 │   └── views/
 │       ├── layouts/app.twig        # shell: sidebar+header+footer
+│       ├── layouts/auth.twig       # acceso, sin shell
+│       ├── auth/login.twig
 │       ├── errors/error.twig       # standalone a propósito (cap. 7.1)
 │       ├── home.twig
-│       ├── partials/{_csrf.twig,_logo.twig,_icon.twig}
-│       └── tasks/{index.twig,_panel.twig,_list.twig}
+│       └── partials/{_csrf.twig,_logo.twig,_icon.twig,_pagination.twig}
 ├── routes/
-│   └── web.php
+│   └── web.php                     # raíz + login/logout (rutas base)
 ├── storage/                        # se autocrea; NO va a git
 │   ├── cache/twig/
 │   ├── logs/
 │   └── sessions/
 ├── tests/
 │   ├── bootstrap.php
-│   ├── Http/{CsrfFlowTest,DeleteTaskTest,EditTaskTest,ErrorHandlingTest,PartialRenderTest,RoutingTest}.php
-│   └── Support/{AppFactory,ValidatorTest,FlashTest}.php
+│   ├── Http/{AuthTest,BasePathTest,ErrorHandlingTest,LoginThrottleTest,RoutingTest,SecurityHeadersTest}.php
+│   └── Support/{AppFactory,HttpTestCase,ValidatorTest,FlashTest,...}.php
 ├── .env                            # local; NO va a git (se genera de .env.example)
 ├── .env.example                    # SÍ va a git
 ├── .gitattributes
@@ -157,6 +191,8 @@ mi-app/
 ├── phinx.php
 └── phpunit.xml
 ```
+
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
 
 ## 4. Dependencias del backend
 
@@ -228,8 +264,12 @@ composer require --dev phpunit/phpunit
     "autoload": {
         "psr-4": {
             "App\\": "app/",
+            "Framework\\": "framework/",
             "Tests\\": "tests/"
-        }
+        },
+        "exclude-from-classmap": [
+            "/framework/scaffolds/"
+        ]
     },
     "scripts": {
         "serve": "@php scripts/serve.php",
@@ -242,6 +282,8 @@ composer require --dev phpunit/phpunit
         "docs:sync": "@php scripts/docs-sync.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
+        "demo:install": "@php scripts/demo.php install",
+        "demo:remove": "@php scripts/demo.php remove",
         "verify": [
             "@lint",
             "@docs:check",
@@ -346,11 +388,11 @@ Sin esto, un checkout en Windows reescribe los `.js` a CRLF, el hash `integrity`
 
 declare(strict_types=1);
 
-use App\Http\Middleware\RememberMeMiddleware;
-use App\Http\Middleware\RequireAuthMiddleware;
-use App\Http\Middleware\SecurityHeadersMiddleware;
-use App\Support\Flash;
-use App\Support\Url;
+use Framework\Http\Flash;
+use Framework\Http\Middleware\RememberMeMiddleware;
+use Framework\Http\Middleware\RequireAuthMiddleware;
+use Framework\Http\Middleware\SecurityHeadersMiddleware;
+use Framework\Http\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -440,6 +482,10 @@ return [
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
 
+        // El scaffold tasks deja routes/tasks.php al instalarse. Esa es la
+        // única fuente: si no hay rutas, las vistas base no muestran enlaces.
+        $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
+
         return $twig;
     },
 
@@ -528,13 +574,18 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use App\Support\Url;
+use Framework\Auth\UserProvider;
+use Framework\Http\Url;
 use DI\ContainerBuilder;
 use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Slim\Factory\AppFactory;
 
 Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+/** @var array{model: class-string<\Illuminate\Database\Eloquent\Model>} $auth */
+$auth = require __DIR__ . '/../config/auth.php';
+UserProvider::configure($auth['model']);
 
 // Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
 // fallan en silencio o con paths inexistentes. Se crean acá, antes del
@@ -558,13 +609,19 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 
 // S13: el prefijo de ruta es parte de la RUTA registrada, no un detalle de las
-// plantillas. Con APP_BASE_PATH=/app, una request a /app/tareas matchea la ruta
-// /tareas (y /tareas, sin el prefijo, deja de existir). Sin prefijo es '' y el
+// plantillas. Con APP_BASE_PATH=/app, una request a /app/login matchea la ruta
+// /login (y /login, sin el prefijo, deja de existir). Sin prefijo es '' y el
 // router se comporta exactamente como antes.
 $app->setBasePath(Url::base());
 
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);
+
+// El demo tasks es opcional: si está instalado, registra sus rutas.
+$tasksRoutes = __DIR__ . '/../routes/tasks.php';
+if (is_file($tasksRoutes)) {
+    (require $tasksRoutes)($app);
+}
 
 return $app;
 ```
@@ -576,9 +633,9 @@ return $app;
 
 declare(strict_types=1);
 
-use App\Http\Middleware\RememberMeMiddleware;
-use App\Http\Middleware\SecurityHeadersMiddleware;
-use App\Http\Middleware\SessionMiddleware;
+use Framework\Http\Middleware\RememberMeMiddleware;
+use Framework\Http\Middleware\SecurityHeadersMiddleware;
+use Framework\Http\Middleware\SessionMiddleware;
 use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Csrf\Guard;
@@ -804,14 +861,14 @@ Los 404 y 405 salen gratis de este mismo handler: Slim lanza `HttpNotFoundExcept
 
 ### 7.2 Headers de seguridad
 
-`app/Http/Middleware/SecurityHeadersMiddleware.php`:
+`framework/Http/Middleware/SecurityHeadersMiddleware.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace Framework\Http\Middleware;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -874,16 +931,16 @@ RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
 RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ```
 
-`app/Http/Middleware/RememberMeMiddleware.php` (global: resume la sesión desde la cookie remember):
+`framework/Http/Middleware/RememberMeMiddleware.php` (global: resume la sesión desde la cookie remember):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace Framework\Http\Middleware;
 
-use App\Support\RememberMe;
+use Framework\Auth\RememberMe;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
@@ -926,18 +983,18 @@ En `config/middleware.php`, entre routing y sesión (en ejecución corre justo d
     $app->add(SessionMiddleware::class);
 ```
 
-`app/Http/Middleware/RequireAuthMiddleware.php` (NO global: se agrega por grupo, solo a `/tareas`):
+`framework/Http/Middleware/RequireAuthMiddleware.php` (NO global: se agrega por grupo, solo a `/tareas`):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace Framework\Http\Middleware;
 
-use App\Support\Auth;
-use App\Support\Flash;
-use App\Support\Url;
+use Framework\Auth\Auth;
+use Framework\Http\Flash;
+use Framework\Http\Url;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -979,14 +1036,14 @@ El 200 + `HX-Redirect` es deliberado (no 401): htmx procesa ese header en respue
 
 Slim no trae middleware de sesión — lo escribimos nosotros:
 
-`app/Http/Middleware/SessionMiddleware.php`:
+`framework/Http/Middleware/SessionMiddleware.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace Framework\Http\Middleware;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -1035,14 +1092,14 @@ class SessionMiddleware implements MiddlewareInterface
 
 De paso, un helper de flash al estilo `session()->flash()` de Laravel:
 
-`app/Support/Flash.php`:
+`framework/Http/Flash.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Http;
 
 class Flash
 {
@@ -1064,16 +1121,16 @@ class Flash
 
 Tres clases de soporte para el cap. 9.2. La security-critical es `RememberMe`: cualquier cambio ahí merece relectura y suite verde.
 
-`app/Support/Auth.php` (sesión de auth sobre la sesión nativa; solo guarda el id):
+`framework/Auth/Auth.php` (sesión de auth sobre la sesión nativa; solo guarda el id):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Auth;
 
-use App\Models\User;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Sesión de autenticación sobre la sesión nativa de PHP (que abre
@@ -1093,10 +1150,10 @@ final class Auth
         return self::id() !== null;
     }
 
-    public static function user(): ?User
+    public static function user(): ?Model
     {
         $id = self::id();
-        return $id === null ? null : User::find($id);
+        return $id === null ? null : UserProvider::find($id);
     }
 
     /** Establece la sesión. Regenera el ID (fijación de sesión). */
@@ -1122,16 +1179,14 @@ final class Auth
 }
 ```
 
-`app/Support/RememberMe.php` (split-token con rotación — leer los comentarios, SON el diseño):
+`framework/Auth/RememberMe.php` (split-token con rotación — leer los comentarios, SON el diseño):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
-
-use App\Models\User;
+namespace Framework\Auth;
 
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
@@ -1206,7 +1261,7 @@ final class RememberMe
             return null; // selector desconocido: nada que quemar, solo ignorar
         }
 
-        $user = User::find($row->user_id);
+        $user = UserProvider::find((int) $row->user_id);
         if ($user === null) {
             $row->delete();
             return self::cookieHeader(clear: true);
@@ -1219,14 +1274,14 @@ final class RememberMe
 
         if (!password_verify($validator, $row->hashed_validator)) {
             // Posible robo: el selector existe pero el secreto no matchea.
-            RememberToken::query()->where('user_id', $user->id)->delete();
+            RememberToken::query()->where('user_id', (int) $user->getKey())->delete();
             return self::cookieHeader(clear: true);
         }
 
         $row->delete();
-        Auth::login($user->id);
+        Auth::login((int) $user->getKey());
 
-        return self::cookieHeader(self::create($user->id));
+        return self::cookieHeader(self::create((int) $user->getKey()));
     }
 
     public static function clearUser(int $userId): void
@@ -1236,14 +1291,14 @@ final class RememberMe
 }
 ```
 
-`app/Support/CsrfTokens.php` (las 4 vars de `_csrf.twig`, una sola fuente para controladores y closures de ruta):
+`framework/Http/CsrfTokens.php` (las 4 vars de `_csrf.twig`, una sola fuente para controladores y closures de ruta):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Http;
 
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
@@ -1281,11 +1336,9 @@ final class CsrfTokens
 
 declare(strict_types=1);
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\TaskController;
-use App\Http\Middleware\RequireAuthMiddleware;
-use App\Support\Auth;
-use App\Support\CsrfTokens;
+use Framework\Auth\Auth;
+use Framework\Http\CsrfTokens;
+use App\Http\Controllers\Auth\AuthController;
 use Slim\App;
 use Slim\Csrf\Guard;
 use Slim\Views\Twig;
@@ -1293,7 +1346,7 @@ use Slim\Views\Twig;
 return function (App $app) {
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
     // GET / devuelve 404 y el boton "Volver al inicio" de errors/error.twig
-    // vuelve a ser un link muerto. Pública a propósito (lo pide /tareas, no ella).
+    // vuelve a ser un link muerto. Pública a propósito (la pide la app, no ella).
     // El layout necesita csrf (form de logout) y usuario: como acá se renderiza
     // directo sin Controller, van explícitos con la misma fuente (CsrfTokens).
     $app->get('/', function ($request, $response) use ($app) {
@@ -1304,7 +1357,7 @@ return function (App $app) {
         return $container->get(Twig::class)->render($response, 'home.twig', [
             'active'     => 'home',
             'user_id'    => Auth::id(),
-            'user_email' => Auth::user()?->email,
+            'user_email' => Auth::user()?->getAttribute('email'),
             ...CsrfTokens::fields($request, $container->get(Guard::class)),
         ]);
     });
@@ -1312,15 +1365,6 @@ return function (App $app) {
     $app->get('/login', [AuthController::class, 'show']);
     $app->post('/login', [AuthController::class, 'store']);
     $app->post('/logout', [AuthController::class, 'destroy']);
-
-    $app->group('/tareas', function ($group) {
-        $group->get('', [TaskController::class, 'index']);
-        $group->post('', [TaskController::class, 'store']);
-        $group->get('/{id}/edit', [TaskController::class, 'edit']);
-        $group->post('/{id}/toggle', [TaskController::class, 'toggle']);
-        $group->put('/{id}', [TaskController::class, 'update']);
-        $group->delete('/{id}', [TaskController::class, 'destroy']);
-    })->add(RequireAuthMiddleware::class);
 };
 ```
 
@@ -1334,18 +1378,16 @@ El `->add()` al grupo protege las 5 rutas de un saque; `/`, `/login` y `/logout`
 
 Antes de `TaskController`, una decisión: el payload de respuesta (flash + CSRF) y el `render()` se iban a repetir en cada controlador futuro. En Laravel no se nota porque el framework te da `view()`, `View::share()` y view composers; acá esa maquinaria no existe, así que va la versión mínima: una clase base abstracta con hook.
 
-`app/Http/Controllers/Controller.php`:
+`framework/Http/Controller.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Framework\Http;
 
-use App\Support\Auth;
-use App\Support\CsrfTokens;
-use App\Support\Flash;
+use Framework\Auth\Auth;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
@@ -1397,8 +1439,8 @@ abstract class Controller
             'flash_error'   => $flash['error'],
             'flash_success' => $flash['success'],
             'flash_info'    => $flash['info'],
-            'user_id'       => $user?->id,
-            'user_email'    => $user?->email,
+            'user_id'       => $user?->getKey(),
+            'user_email'    => $user?->getAttribute('email'),
             ...$this->csrf($request),
             ...$this->viewDefaults(),
             ...$extra,
@@ -1455,20 +1497,21 @@ abstract class Controller
 
 El orden del merge es el contrato: flash + CSRF, después defaults del controlador, después `$extra` de la acción. Lo puntual siempre gana a lo general. Y php-di autowirea el constructor heredado sin configuración: el próximo controlador nace con `extends Controller` y listo.
 
-`app/Http/Controllers/TaskController.php`:
+`framework/scaffolds/tasks/app/Tasks/Http/TaskController.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace App\Tasks\Http;
 
-use App\Models\Task;
-use App\Support\Flash;
-use App\Support\Pagination;
-use App\Support\Url;
-use App\Support\Validator;
+use Framework\Http\Controller;
+use Framework\Http\Flash;
+use Framework\Http\Pagination;
+use Framework\Http\Url;
+use Framework\Validation\Validator;
+use App\Tasks\Models\Task;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -1695,22 +1738,23 @@ Y una deliberada: cada acción repite `return $this->render($request, $response,
 
 Diseño v1 deliberadamente chico: login + logout + remember-me + usuario inicial por seed. **Sin registro público** (achica superficie: enumeración, spam de cuentas) y **sin reset por email** (en Termux no hay MTA; eso es otro proyecto con SMTP externo). Cero dependencias nuevas: `password_hash`/`password_verify` son núcleo PHP, 32-bit safe.
 
-`app/Http/Controllers/AuthController.php`:
+`app/Http/Controllers/Auth/AuthController.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Auth;
 
-use App\Models\User;
-use App\Support\Auth;
-use App\Support\Flash;
-use App\Support\RememberMe;
-use App\Support\Throttle;
-use App\Support\Url;
-use App\Support\Validator;
+use Framework\Auth\Auth;
+use Framework\Auth\RememberMe;
+use Framework\Auth\Throttle;
+use Framework\Auth\UserProvider;
+use Framework\Http\Controller;
+use Framework\Http\Flash;
+use Framework\Http\Url;
+use Framework\Validation\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
@@ -1731,7 +1775,7 @@ class AuthController extends Controller
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
-            return $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
+            return $response->withStatus(303)->withHeader('Location', Url::path('/'));
         }
 
         return $this->render($request, $response, 'auth/login.twig', [
@@ -1772,11 +1816,11 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = User::query()->where('email', $email)->first();
+        $user = UserProvider::findByEmail($email);
 
         // Dummy bcrypt cuando el email no existe: así el tiempo de respuesta
         // no delata si la cuenta existe o no (enumeración por timing).
-        $hash = $user === null ? self::DUMMY_HASH : $user->password_hash;
+        $hash = $user === null ? self::DUMMY_HASH : (string) $user->getAttribute('password_hash');
         $password = (string) ($data['password'] ?? '');
 
         if ($user === null || !password_verify($password, $hash)) {
@@ -1795,19 +1839,19 @@ class AuthController extends Controller
         Throttle::clear($email, $ip);
 
         // Rehash silencioso si cambió el algoritmo o el costo.
-        if (password_needs_rehash($user->password_hash, PASSWORD_DEFAULT)) {
-            $user->password_hash = password_hash($password, PASSWORD_DEFAULT);
+        if (password_needs_rehash((string) $user->getAttribute('password_hash'), PASSWORD_DEFAULT)) {
+            $user->setAttribute('password_hash', password_hash($password, PASSWORD_DEFAULT));
             $user->save();
         }
 
-        Auth::login($user->id);
+        Auth::login((int) $user->getKey());
 
-        $response = $response->withStatus(303)->withHeader('Location', Url::path('/tareas'));
+        $response = $response->withStatus(303)->withHeader('Location', Url::path('/'));
 
         if (!empty($data['remember'])) {
             $response = $response->withAddedHeader(
                 'Set-Cookie',
-                RememberMe::cookieHeader(RememberMe::create($user->id))
+                RememberMe::cookieHeader(RememberMe::create((int) $user->getKey()))
             );
         }
 
@@ -1840,14 +1884,14 @@ El login es un form normal (sin HTMX): navega de verdad con 303. Cuatro detalles
 
 ## 10. Modelos Eloquent (+ User y RememberToken)
 
-`app/Models/Task.php`:
+`framework/scaffolds/tasks/app/Tasks/Models/Task.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Models;
+namespace App\Tasks\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -1899,14 +1943,14 @@ class User extends Model
 }
 ```
 
-`app/Support/RememberToken.php` (infraestructura del remember-me, no modelo de dominio: sin id autoincrement, el selector ES la clave; sin timestamps de Eloquent, la tabla lleva solo `created_at`):
+`framework/Auth/RememberToken.php` (infraestructura del remember-me, no modelo de dominio: sin id autoincrement, el selector ES la clave; sin timestamps de Eloquent, la tabla lleva solo `created_at`):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Auth;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -1933,7 +1977,7 @@ class RememberToken extends Model
 }
 ```
 
-`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `app/Support/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`Task`, `User`).
+`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `framework/Auth/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`Task`, `User`).
 
 ## 11. Migraciones con Phinx
 
@@ -1953,10 +1997,21 @@ Dotenv\Dotenv::createImmutable(__DIR__)->safeLoad();
 $databaseFile = $_ENV['DB_DATABASE'] ?? (getenv('DB_DATABASE') ?: null);
 $databaseFile = $databaseFile === '' ? null : $databaseFile;
 
+$migrations = ['%%PHINX_CONFIG_DIR%%/database/migrations'];
+$seeds = ['%%PHINX_CONFIG_DIR%%/database/seeds'];
+
+// El demo es opcional: sus migraciones/seeds solo existen tras demo:install.
+if (is_dir(__DIR__ . '/database/migrations/tasks')) {
+    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/tasks';
+}
+if (is_dir(__DIR__ . '/database/seeds/tasks')) {
+    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/tasks';
+}
+
 return [
     'paths' => [
-        'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
-        'seeds'      => '%%PHINX_CONFIG_DIR%%/database/seeds',
+        'migrations' => $migrations,
+        'seeds'      => $seeds,
     ],
     'environments' => [
         'default_environment' => 'development',
@@ -2019,13 +2074,6 @@ vendor/bin/phinx create CreateUsersTable
 vendor/bin/phinx create CreateRememberTokensTable
 ```
 
-### 11.1 Migraciones de auth y seed del admin
-
-```bash
-vendor/bin/phinx create CreateUsersTable
-vendor/bin/phinx create CreateRememberTokensTable
-```
-
 > **Regla de 32 bits: renombrá SIEMPRE lo que genera `create`.** Phinx nombra `YYYYMMDDHHMMSS_algo.php` (14 dígitos, ~2×10¹³) y extrae la versión con `(int)` del prefijo (`Util.php:93`). En 64 bits entra; en 32 bits **satura a `PHP_INT_MAX` (2147483647)** con el warning `The float-string "2026..." is not representable as an int` — y TODAS tus migraciones colapsan a la misma versión: `Duplicate migration` garantizado aunque haya un solo archivo por timestamp. El patrón acepta cualquier dígito inicial (`/^\d+_.../`, sin validar fechas), así que usamos secuenciales de 3 dígitos (ordenan bien hasta 999):
 >
 > ```bash
@@ -2033,7 +2081,7 @@ vendor/bin/phinx create CreateRememberTokensTable
 >    database/migrations/002_create_users_table.php
 > ```
 >
-> Nuestras tres migraciones son `001_create_tasks_table.php`, `002_create_users_table.php` y `003_create_remember_tokens_table.php`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
+> La base usa `002_create_users_table.php`, `003_create_remember_tokens_table.php` y `006_login_attempts.php`. El scaffold `tasks` reserva `001`, `004` y `005`; no uses esos números para migraciones propias. El siguiente libre es `007`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
 
 `database/migrations/002_create_users_table.php`:
 
@@ -2108,8 +2156,8 @@ Completá `database/seeds/AdminSeeder.php` (el secret sale de entorno real o de 
 
 declare(strict_types=1);
 
+use Framework\Validation\Validator;
 use App\Models\User;
-use App\Support\Validator;
 use Phinx\Seed\AbstractSeed;
 
 /**
@@ -2192,29 +2240,33 @@ use Phinx\Seed\AbstractSeed;
  */
 final class DatabaseSeeder extends AbstractSeed
 {
-    /** @var class-string[] en orden explícito de ejecución. */
-    private const SEEDS = [
-        AdminSeeder::class,
-        TaskSeeder::class,
-    ];
-
     public function run(): void
     {
-        foreach (self::SEEDS as $class) {
+        require_once __DIR__ . '/AdminSeeder.php';
+
+        // El demo es opcional: solo se siembra si su scaffold está instalado.
+        $seeds = [AdminSeeder::class];
+        $taskSeeder = __DIR__ . '/tasks/TaskSeeder.php';
+        if (is_file($taskSeeder)) {
+            require_once $taskSeeder;
+            $seeds[] = TaskSeeder::class;
+        }
+
+        foreach ($seeds as $class) {
             (new $class())->setAdapter($this->getAdapter())->run();
         }
     }
 }
 ```
 
-`database/seeds/TaskSeeder.php` (datos demo; el guard la hace idempotente):
+`framework/scaffolds/tasks/database/seeds/tasks/TaskSeeder.php` (datos demo; el guard la hace idempotente):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-use App\Models\Task;
+use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
@@ -2225,7 +2277,7 @@ final class TaskSeeder extends AbstractSeed
 {
     public function run(): void
     {
-        require_once __DIR__ . '/../../bootstrap/app.php';
+        require_once __DIR__ . '/../../../bootstrap/app.php';
 
         if (Task::query()->exists()) {
             echo "TaskSeeder: ya hay tareas, no se toca nada." . PHP_EOL;
@@ -2250,26 +2302,27 @@ ADMIN_EMAIL=... ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s DatabaseSeeder
 
 ¿Otros datos mañana? Nuevo seeder con guard, una línea en `SEEDS`, listo. Regla: ningún seeder duplica en re-ejecución, nunca.
 
-`database/seeds/DemoTasksSeeder.php` (100 filas para ejercitar la paginación del cap. 16.1 — a propósito FUERA de `DatabaseSeeder`: una instalación fresca no quiere 100 filas de ruido, se corre solo con `-s`):
+`framework/scaffolds/tasks/database/seeds/tasks/DemoTasksSeeder.php` (100 filas para ejercitar la paginación del cap. 16.1 — a propósito FUERA de `DatabaseSeeder`: una instalación fresca no quiere 100 filas de ruido, se ejecuta puntualmente con `-s DemoTasksSeeder`; un `seed:run` pelado también lo corre porque vive en el path de seeds):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-use App\Models\Task;
+use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
  * 100 tareas demo para ejercitar la paginación. A propósito FUERA del
  * DatabaseSeeder (una instalación fresca no quiere 100 filas de ruido):
- * se corre solo con -s DemoTasksSeeder. Idempotente por título.
+ * se ejecuta puntualmente con -s DemoTasksSeeder. Un `seed:run` pelado
+ * también lo corre porque vive en el path de seeds. Idempotente por título.
  */
 final class DemoTasksSeeder extends AbstractSeed
 {
     public function run(): void
     {
-        require_once __DIR__ . '/../../bootstrap/app.php';
+        require_once __DIR__ . '/../../../bootstrap/app.php';
 
         $created = 0;
         for ($i = 1; $i <= 100; $i++) {
@@ -2292,14 +2345,14 @@ vendor/bin/phinx seed:run -s DemoTasksSeeder
 
 ## 12. Validación estilo Laravel sobre respect/validation
 
-`app/Support/Validator.php` — te da la sintaxis `'campo' => 'required|max:120'` de Laravel, corriendo por debajo sobre `respect/validation`:
+`framework/Validation/Validator.php` — te da la sintaxis `'campo' => 'required|max:120'` de Laravel, corriendo por debajo sobre `respect/validation`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Validation;
 
 use Respect\Validation\Exceptions\NestedValidationException;
 use Respect\Validation\Validator as V;
@@ -2784,6 +2837,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
                 </a>
             </li>
+            {% if tasks_enabled %}
             <li>
                 <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
                    title="Tareas"
@@ -2792,6 +2846,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                     <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
                 </a>
             </li>
+            {% endif %}
         </ul>
         {% if user_id is defined and user_id %}
         {# Fila de usuario sin caja: el correo a la izquierda ocupando el ancho y
@@ -3155,12 +3210,23 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 `resources/views/partials/_icon.twig` (una sola fuente para sidebar y header):
 
 ```twig
-{# Iconos compartidos entre sidebar y header: una sola fuente para que ambos
-   muestren EL MISMO svg por ruta. `name`: home|tasks. `class` opcional. #}
+{# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
+   fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
+   `name`: home|tasks|mail|lock|arrow-right|alert-circle|info. `class` opcional. #}
 {% if name is defined and name == 'home' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 {% elseif name is defined and name == 'tasks' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+{% elseif name is defined and name == 'mail' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+{% elseif name is defined and name == 'lock' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+{% elseif name is defined and name == 'arrow-right' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+{% elseif name is defined and name == 'alert-circle' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
+{% elseif name is defined and name == 'info' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee
@@ -3182,60 +3248,86 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
     {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
        card aprovecha el ancho en movil en vez de quedar flotando. #}
     <div class="w-full max-w-sm">
-        <h1 class="mb-4 text-center text-2xl font-bold">Acceder</h1>
+        <div class="card border border-base-300 bg-base-100">
+            <div class="card-body gap-5 p-6 sm:p-7">
+                <header class="space-y-1">
+                    <h1 class="text-2xl font-bold">Acceder</h1>
+                    <p class="text-sm opacity-70">Ingresá con tu email y clave para continuar.</p>
+                </header>
 
-        {% if flash_error %}
-            <div class="alert alert-error mb-4" role="alert">
-                <span>{{ flash_error }}</span>
-            </div>
-        {% endif %}
-        {% if flash_info is defined and flash_info %}
-            {# `status` y no `alert`: la convencion del proyecto es error ->
-               alert, exito/info -> status (ver tasks/_panel.twig), y este
-               aviso no interrumpe nada. #}
-            <div class="alert alert-info mb-4" role="status">
-                <span>{{ flash_info }}</span>
-            </div>
-        {% endif %}
+                {% if flash_error %}
+                    {# Aviso dentro del card: comparte superficie con el formulario
+                       y el icono da el estado sin teñir todo el fondo de rojo. #}
+                    <div class="flex items-start gap-3 rounded-box border border-error/30 bg-error/10 p-3 text-sm" role="alert">
+                        <span class="icon-error mt-0.5 shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
+                        </span>
+                        <p class="leading-snug">{{ flash_error }}</p>
+                    </div>
+                {% endif %}
+                {% if flash_info is defined and flash_info %}
+                    {# `status` y no `alert`: la convencion del proyecto es error ->
+                       alert, exito/info -> status (ver tasks/_panel.twig), y este
+                       aviso no interrumpe nada. #}
+                    <div class="flex items-start gap-3 rounded-box border border-info/30 bg-info/10 p-3 text-sm" role="status">
+                        <span class="icon-info mt-0.5 shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
+                        </span>
+                        <p class="leading-snug">{{ flash_info }}</p>
+                    </div>
+                {% endif %}
 
-        {# Form normal, sin HTMX: el login navega de verdad (303 a /tareas). #}
-        <form method="post" action="{{ url('/login') }}" class="card border border-base-300 bg-base-100">
-            <div class="card-body gap-3">
-                {% include 'partials/_csrf.twig' %}
-                {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
-                   los wrappers de la v4 (`form-control` y `label-text`), que la
-                   5 eliminó. El fieldset ya trae el grid vertical con su gap
-                   entre la etiqueta y el input, que era lo único que aportaba
-                   `form-control`.
-                   La etiqueta es un <label for> y NO un <legend>: el legend
-                   nombra al grupo, no al control, así que los inputs se
-                   quedaban sin nombre accesible. `.fieldset-legend` es un
-                   selector de clase (no `legend.fieldset-legend`), así que el
-                   formato es el mismo. #}
-                <fieldset class="fieldset">
-                    <label class="fieldset-legend" for="login-email">Email</label>
-                    <input id="login-email" type="email" name="email" required autocomplete="username"
-                           value="{{ email|default('') }}"
-                           placeholder="vos@ejemplo.com"
-                           class="input w-full">
-                </fieldset>
-                <fieldset class="fieldset">
-                    <label class="fieldset-legend" for="login-password">Clave</label>
-                    <input id="login-password" type="password" name="password" required autocomplete="current-password"
-                           placeholder="••••••••"
-                           class="input w-full">
-                </fieldset>
-                <label class="label cursor-pointer justify-start gap-2">
-                    <input type="checkbox" name="remember" value="1" class="checkbox">
-                    {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
-                       el formato de la fila lo da el `label` de afuera. #}
-                    <span>Recordarme 30 días</span>
-                </label>
-                <button type="submit" class="btn btn-primary w-full">
-                    Entrar
-                </button>
+                {# Form normal, sin HTMX: el login navega de verdad (303 a /). #}
+                <form method="post" action="{{ url('/login') }}" class="space-y-4">
+                    {% include 'partials/_csrf.twig' %}
+                    {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
+                       los wrappers de la v4 (`form-control` y `label-text`), que la
+                       5 eliminó. El fieldset ya trae el grid vertical con su gap
+                       entre la etiqueta y el input, que era lo único que aportaba
+                       `form-control`.
+                       La etiqueta es un <label for> y NO un <legend>: el legend
+                       nombra al grupo, no al control, así que los inputs se
+                       quedaban sin nombre accesible. `.fieldset-legend` es un
+                       selector de clase (no `legend.fieldset-legend`), así que el
+                       formato es el mismo. #}
+                    <fieldset class="fieldset">
+                        <label class="fieldset-legend" for="login-email">Email</label>
+                        <div class="login-field">
+                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
+                            </span>
+                            <input id="login-email" type="email" name="email" required autocomplete="username"
+                                   value="{{ email|default('') }}"
+                                   placeholder="vos@ejemplo.com"
+                                   class="input login-input h-11 w-full pl-10">
+                        </div>
+                    </fieldset>
+                    <fieldset class="fieldset">
+                        <label class="fieldset-legend" for="login-password">Clave</label>
+                        <div class="login-field">
+                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
+                            </span>
+                            <input id="login-password" type="password" name="password" required autocomplete="current-password"
+                                   placeholder="••••••••"
+                                   class="input login-input h-11 w-full pl-10">
+                        </div>
+                    </fieldset>
+                    <label class="label login-remember cursor-pointer justify-start gap-2.5 text-sm">
+                        <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
+                        {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
+                           el formato de la fila lo da el `label` de afuera. #}
+                        <span>Recordarme 30 días</span>
+                    </label>
+                    <button type="submit" class="btn btn-primary w-full gap-2">
+                        <span>Entrar</span>
+                        <span aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                        </span>
+                    </button>
+                </form>
             </div>
-        </form>
+        </div>
     </div>
 {% endblock %}
 ```
@@ -3261,7 +3353,9 @@ Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto 
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `resources/views/tasks/index.twig`.
+> El demo es opcional. `composer demo:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
+
+La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/tasks/index.twig`.
 
 `resources/views/home.twig`:
 
@@ -3275,11 +3369,33 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         <div class="hero-content py-6 text-center">
             <div class="max-w-xl">
                 <h1 class="text-3xl font-bold">Mi App</h1>
-                <p class="py-3 opacity-70">
-                    Listado de tareas con altas, edición y borrado, servido por un esqueleto
-                    PHP en capas. El formulario de altas está en la pantalla de tareas.
-                </p>
-                <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
+                {% if tasks_enabled %}
+                    <p class="py-3 opacity-70">
+                        Demo de tareas instalado: altas, edición, borrado, completar/pendiente,
+                        paginación y avisos HTMX sobre SQLite.
+                    </p>
+                    <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
+                    <p class="mt-3 text-sm opacity-70">
+                        Para quitarlo:
+                        <code class="rounded bg-base-200 px-1">composer demo:remove</code>
+                    </p>
+                {% else %}
+                    <p class="py-3 opacity-70">
+                        El esqueleto incluye un demo opcional de tareas: CRUD, completar/pendiente,
+                        paginación y avisos HTMX. Se instala en app/Tasks, rutas, vistas,
+                        migraciones, seeds y tests; además corre las migraciones y el seed del demo.
+                    </p>
+                    <div class="flex flex-col items-center gap-2">
+                        <code class="rounded-box border border-base-300 bg-base-200 px-3 py-2 text-sm">composer demo:install</code>
+                        <p class="text-sm opacity-70">
+                            Para desinstalarlo:
+                            <code class="rounded bg-base-200 px-1">composer demo:remove</code>
+                        </p>
+                        {% if not user_id %}
+                            <a href="{{ url('/login') }}" class="btn btn-primary">Ingresar</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -3307,7 +3423,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% endblock %}
 ```
 
-`resources/views/tasks/index.twig`:
+`framework/scaffolds/tasks/resources/views/tasks/index.twig`:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -3362,7 +3478,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% endblock %}
 ```
 
-`resources/views/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
+`framework/scaffolds/tasks/resources/views/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
 
 ```twig
 {# `tabindex="-1"`: marca el panel como destino de foco programático (no
@@ -3423,7 +3539,8 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     {# Paginación dentro del swap: viaja actualizada con cada acción. #}
     {% include 'partials/_pagination.twig' with {
         pagination: pagination,
-        target: '#tareas-panel'
+        target: '#tareas-panel',
+        label: 'tareas'
     } %}
 </div>
 ```
@@ -3432,7 +3549,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 >
 > **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borrás el listener quedás con el fallo silencioso original.
 
-`resources/views/tasks/_list.twig`:
+`framework/scaffolds/tasks/resources/views/tasks/_list.twig`:
 
 ```twig
 {# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
@@ -3441,7 +3558,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    cuatro URLs la usan tal cual, así no pueden divergir entre sí.
    Se imprime con `|raw` para que el `&` salga literal, igual que en
    partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
-   puerta de escape: la cadena sale de dos enteros de App\Support\Pagination,
+   puerta de escape: la cadena sale de dos enteros de Framework\Http\Pagination,
    nunca de texto del usuario. Dentro del atributo es válido, porque
    `&per_page` no forma una referencia de carácter (no termina en `;`).
    La RUTA (lo que va antes del `?`) sí pasa por `url()`: es lo que la saca del
@@ -3718,14 +3835,14 @@ $app->run();
 
 Nada de `get()` pelado en listados (cap. 18.3): cada render trae su slice + metadata. Y sin `illuminate/pagination` a propósito — ese paquete exige `php ^8.3` y subiría el piso de todo el proyecto solo por un objeto cuyos links igual renderizamos nosotros. Son las mismas 2 queries que hace `paginate()` por dentro (count + slice), a mano:
 
-`app/Support/Pagination.php`:
+`framework/Http/Pagination.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Framework\Http;
 
 use Illuminate\Database\Eloquent\Builder;
 
@@ -3875,7 +3992,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
    con la etiqueta y los controles— sin ritmo entre las piezas ni relación
    entre el control y la navegación. Ahora son tres líneas centradas con el
-   mismo `gap-3` entre ellas: contador, controles, "Tareas por página". El
+   mismo `gap-3` entre ellas: contador, controles, "Registros por página". El
    ancho de teléfono es el caso por defecto (`flex-col` sin prefijo) y `sm:`
    devuelve la fila de escritorio que ya funcionaba: contador a la izquierda,
    control de tamaño y paginación a la derecha, todo centrado en vertical.
@@ -3900,7 +4017,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 {% if pagination.total > 0 %}
 <div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-center text-sm opacity-70 sm:text-left">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} tareas
+        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
@@ -3925,7 +4042,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                distintas. Se imprime con `|raw` para que el `&` salga literal,
                como ya estaba (PaginationFlowTest lo fija así). No es una
                puerta de escape: la cadena es la base fija del controller más
-               enteros de App\Support\Pagination. Dentro del atributo es
+               enteros de Framework\Http\Pagination. Dentro del atributo es
                válido, porque `&per_page` no termina en `;` y por lo tanto no
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
@@ -3981,9 +4098,9 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            hijo del flex; el label conserva su fila y su `gap-2`. #}
         <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
             <label class="flex items-center gap-2">
-                <span class="text-sm opacity-70">Tareas por página</span>
+                <span class="text-sm opacity-70">{{ label|default('registros')|capitalize }} por página</span>
                 <select class="select select-sm w-auto" name="per_page"
-                        aria-label="Tareas por página"
+                        aria-label="{{ label|default('registros')|capitalize }} por página"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"
@@ -4321,10 +4438,11 @@ Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste ce
 
     <php>
         <!-- force="true" + Dotenv::createImmutable() en bootstrap/app.php:
-             las variables de acá ganan, el .env real no las pisa. -->
+             las variables de acá ganan, el .env real no las pisa.
+             DB_DATABASE lo fija tests/bootstrap.php (SQLite temporal donde
+             corren las migraciones reales). -->
         <env name="APP_ENV"    value="testing" force="true"/>
         <env name="APP_DEBUG"  value="true"    force="true"/>
-        <env name="DB_DATABASE" value=":memory:" force="true"/>
     </php>
 </phpunit>
 ```
@@ -4398,6 +4516,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 
 /**
@@ -4412,7 +4531,20 @@ final class AppFactory
 
     public static function make(): App
     {
-        return self::$app ??= require __DIR__ . '/../../bootstrap/app.php';
+        if (self::$app !== null) {
+            return self::$app;
+        }
+
+        $app = require __DIR__ . '/../../bootstrap/app.php';
+
+        // Ruta protegida exclusiva de la suite: los tests de auth y de base
+        // path no dependen de que el scaffold demo esté instalado.
+        $app->get('/_test/protected', function ($request, $response) {
+            $response->getBody()->write('protected');
+            return $response;
+        })->add(RequireAuthMiddleware::class);
+
+        return self::$app = $app;
     }
 
     /**
@@ -4455,7 +4587,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Support\Validator;
+use Framework\Validation\Validator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -4512,7 +4644,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Support\Flash;
+use Framework\Http\Flash;
 use PHPUnit\Framework\TestCase;
 
 final class FlashTest extends TestCase
@@ -4550,18 +4682,18 @@ final class FlashTest extends TestCase
 
 Ejercita en una sola request real: el pipeline completo, la sesión abierta **antes** que el `Guard`, el body parsing, Twig, routing, el controlador, Eloquent y el flash. Si alguien reordena `config/middleware.php`, este test falla.
 
-`tests/Http/CsrfFlowTest.php`:
+`framework/scaffolds/tasks/tests/Tasks/Http/CsrfFlowTest.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Tasks\Http;
 
-use Tests\Support\HttpTestCase;
+use Tests\Tasks\Http\TasksTestCase;
 
-final class CsrfFlowTest extends HttpTestCase
+final class CsrfFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
@@ -4651,7 +4783,7 @@ final class CsrfFlowTest extends HttpTestCase
         // tocás layouts/app.twig y te llevás el @csrf.window, este test falla
         // antes que alguien pierda una tarea en silencio.
         $layout = file_get_contents(
-            dirname(__DIR__, 2) . '/resources/views/layouts/app.twig'
+            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
         );
 
         self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
@@ -4668,7 +4800,7 @@ final class CsrfFlowTest extends HttpTestCase
         // "[object Object]". El texto vive en `.value`, no en el objeto
         // entero, y gretear solo `@csrf.` pasaba con las dos variantes.
         $layout = file_get_contents(
-            dirname(__DIR__, 2) . '/resources/views/layouts/app.twig'
+            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
         );
 
         self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
@@ -4778,7 +4910,7 @@ final class RoutingTest extends HttpTestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
-    public function test_la_raiz_presenta_el_stack_y_enlaza_a_tareas(): void
+    public function test_la_raiz_presenta_el_stack(): void
     {
         $response = self::app()->handle(self::request('GET', '/'));
 
@@ -4786,7 +4918,24 @@ final class RoutingTest extends HttpTestCase
         $html = $response->getBody()->getContents();
 
         self::assertStringContainsString('Slim 4', $html, 'La raiz deberia mostrar el stack.');
-        self::assertStringContainsString('href="/tareas"', $html, 'La raiz deberia enlazar al listado.');
+    }
+
+    public function test_la_raiz_no_ofrece_ingresar_si_ya_hay_sesion(): void
+    {
+        self::loginAs();
+
+        $response = self::app()->handle(self::request('GET', '/'));
+
+        $response->getBody()->rewind();
+        $html = $response->getBody()->getContents();
+
+        self::assertStringNotContainsString('>Ingresar</a>', $html);
+
+        if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
+            self::assertStringContainsString('composer demo:install', $html);
+        }
+
+        self::assertStringContainsString('composer demo:remove', $html);
     }
 
     public function test_el_boton_de_la_pagina_de_error_no_es_un_link_muerto(): void
@@ -4814,17 +4963,17 @@ final class RoutingTest extends HttpTestCase
 
 ### 20.7 Borrar y recargar el panel: lo que htmx espera recibir
 
-`tests/Http/DeleteTaskTest.php` (la D del CRUD; antes de este archivo, `grep -r "delete" tests/` no devolvía ningún DELETE — el botón más usado sin un solo test):
+`framework/scaffolds/tasks/tests/Tasks/Http/DeleteTaskTest.php` (la D del CRUD; antes de este archivo, `grep -r "delete" tests/` no devolvía ningún DELETE — el botón más usado sin un solo test):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Tasks\Http;
 
-use App\Models\Task;
-use Tests\Support\HttpTestCase;
+use App\Tasks\Models\Task;
+use Tests\Tasks\Http\TasksTestCase;
 
 /**
  * La D del CRUD, que es la única que depende de dónde viajan los tokens.
@@ -4835,7 +4984,7 @@ use Tests\Support\HttpTestCase;
  * nunca. Por eso el botón de eliminar manda los tokens con `hx-headers` y no
  * con `hx-include`.
  */
-final class DeleteTaskTest extends HttpTestCase
+final class DeleteTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
@@ -4895,17 +5044,17 @@ final class DeleteTaskTest extends HttpTestCase
 
 El segundo test no assertea lo deseado: assertea el bug. Si algún día `Guard` leyera el query string, este test daría 200 y habría que releerlo. Los dos juntos dejan escrito el contrato: los tokens del DELETE viajan en headers.
 
-`tests/Http/PartialRenderTest.php` (qué recibe HTMX con `HX-Request` — protege el branch de `index()`):
+`framework/scaffolds/tasks/tests/Tasks/Http/PartialRenderTest.php` (qué recibe HTMX con `HX-Request` — protege el branch de `index()`):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Tasks\Http;
 
-use App\Models\Task;
-use Tests\Support\HttpTestCase;
+use App\Tasks\Models\Task;
+use Tests\Tasks\Http\TasksTestCase;
 
 /**
  * Qué recibe htmx y qué recibe el navegador en la misma ruta.
@@ -4921,7 +5070,7 @@ use Tests\Support\HttpTestCase;
  * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
  * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
  */
-final class PartialRenderTest extends HttpTestCase
+final class PartialRenderTest extends TasksTestCase
 {
     protected function setUp(): void
     {
@@ -5046,17 +5195,17 @@ final class PartialRenderTest extends HttpTestCase
 
 ### 20.8 Edición: la U del CRUD
 
-`tests/Http/EditTaskTest.php` (cubre render del form, persistencia del PUT, validación que rechaza **conservando lo tipeado**, id inexistente y token ausente):
+`framework/scaffolds/tasks/tests/Tasks/Http/EditTaskTest.php` (cubre render del form, persistencia del PUT, validación que rechaza **conservando lo tipeado**, id inexistente y token ausente):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Tasks\Http;
 
-use App\Models\Task;
-use Tests\Support\HttpTestCase;
+use App\Tasks\Models\Task;
+use Tests\Tasks\Http\TasksTestCase;
 
 /**
  * La U de CRUD: la edición es inline en la fila.
@@ -5068,7 +5217,7 @@ use Tests\Support\HttpTestCase;
  * El PUT llega como `application/x-www-form-urlencoded` (el default de htmx
  * para verbos no-GET) y lo parsea `addBodyParsingMiddleware()`.
  */
-final class EditTaskTest extends HttpTestCase
+final class EditTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
@@ -5222,14 +5371,14 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Http\Controllers\AuthController;
+use Framework\Auth\RememberToken;
+use App\Http\Controllers\Auth\AuthController;
 use App\Models\User;
-use App\Support\RememberToken;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
 /**
- * Auth v1: login/logout + remember-me + puerta de /tareas.
+ * Auth v1: login/logout + remember-me + puerta de rutas protegidas.
  *
  * Los tests comparten proceso (y $_SESSION) con el resto de la suite: cada
  * test parte de sesión limpia y deja las tablas vacías. La cookie remember se
@@ -5296,7 +5445,7 @@ final class AuthTest extends HttpTestCase
 
     /**
      * El login no es una pantalla de la app: dentro del shell ofrecia
-     * navegacion a /tareas, que sin sesion redirige de vuelta a este mismo
+     * navegacion a una ruta protegida, que sin sesion redirige de vuelta a este mismo
      * formulario. Era una puerta que no lleva a ningun lado, y ademas mostraba
      * el header, el toggle de tema y el footer de una app a la que todavia no
      * se entro. Vive en layouts/auth.twig, no en layouts/app.twig.
@@ -5307,7 +5456,7 @@ final class AuthTest extends HttpTestCase
 
         self::assertStringContainsString('action="/login"', $html);
         self::assertStringNotContainsString('id="sidebar"', $html);
-        self::assertStringNotContainsString('href="/tareas"', $html);
+        self::assertStringNotContainsString('href="/_test/protected"', $html);
     }
 
     public function test_login_valido_redirige_y_abre_sesion(): void
@@ -5323,7 +5472,7 @@ final class AuthTest extends HttpTestCase
         );
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+        self::assertSame('/', $response->getHeaderLine('Location'));
         self::assertSame($user->id, $_SESSION['user_id'] ?? null);
     }
 
@@ -5360,7 +5509,7 @@ final class AuthTest extends HttpTestCase
         // Request nueva sin sesión pero con la cookie.
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -5383,7 +5532,7 @@ final class AuthTest extends HttpTestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -5405,7 +5554,7 @@ final class AuthTest extends HttpTestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -5415,7 +5564,7 @@ final class AuthTest extends HttpTestCase
 
     public function test_ruta_protegida_sin_login_redirige(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas'));
+        $response = self::app()->handle(self::request('GET', '/_test/protected'));
 
         self::assertSame(303, $response->getStatusCode());
         self::assertSame('/login', $response->getHeaderLine('Location'));
@@ -5423,7 +5572,7 @@ final class AuthTest extends HttpTestCase
 
     public function test_ruta_protegida_htmx_devuelve_hx_redirect(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
+        $response = self::app()->handle(self::request('GET', '/_test/protected', [], ['HX-Request' => 'true']));
 
         // 200 + HX-Redirect (no 303): un redirect rompería el swap de HTMX.
         self::assertSame(200, $response->getStatusCode());
@@ -5434,7 +5583,7 @@ final class AuthTest extends HttpTestCase
     {
         $user = $this->createUser();
         // El token de logout se scrapea ANTES de entrar: logueado, GET /login
-        // redirige a /tareas y ya no hay form.
+        // redirige a / y ya no hay form.
         $token = self::token('/login');
         $this->loginWithRemember($user);
 
@@ -5449,14 +5598,14 @@ final class AuthTest extends HttpTestCase
         self::assertStringContainsString('Max-Age=0', $this->rememberRaw($response));
     }
 
-    public function test_login_estando_logueado_redirige_a_tareas(): void
+    public function test_login_estando_logueado_redirige_a_la_raiz(): void
     {
         self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/login'));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+        self::assertSame('/', $response->getHeaderLine('Location'));
     }
 
     private function createUser(string $email = 'yo@ejemplo.com', string $password = 'secreto123'): User
@@ -5507,14 +5656,14 @@ final class AuthTest extends HttpTestCase
 }
 ```
 
-Dos consecuencias de proteger `/tareas` que te van a morder si no las sabés:
+Dos consecuencias de tener rutas protegidas que te van a morder si no las sabés:
 
-1. **Los tests viejos entran logueados.** CsrfFlow, Delete, Edit y Partial pegan a `/tareas`: cada uno crea un usuario en `setUp()` e inyecta `$_SESSION['user_id']` (la auth en sí se testea acá, no ahí), y lo limpia en `tearDown()` junto con las tablas. Sin eso, todo lo viejo da 303.
-2. **`AppFactory` crea las tres tablas** en `:memory:` (`tasks`, `users`, `remember_tokens` espejando las migraciones). Si agregás una migración y olvidás su `CREATE TABLE` acá, los tests corren contra un esquema viejo en verde.
+1. **Los tests base usan `/_test/protected`.** `AppFactory` registra esa ruta solo para la suite, así los tests de auth y base path no dependen del demo. Los tests del demo (`/tareas`) viven en `framework/scaffolds/tasks/tests/Tasks/` y se instalan con el scaffold.
+2. **El esquema lo aplica Phinx, no `AppFactory`.** `tests/bootstrap.php` migra un SQLite temporal en `storage/cache/tests/`; `AppFactory` solo construye la app. No hay `CREATE TABLE` espejo que mantener: si agregás una migración, la suite la corre.
 
 ### 20.10 Paginación: matemática pura + flujo con 12 filas
 
-`tests/Support/PaginationTest.php` (sin HTTP: clamp, ventana y slices contra `:memory:` — si esto está verde, lo raro en pantalla es maquetación, no datos):
+`tests/Support/PaginationTest.php` (sin HTTP: clamp, ventana y slices contra la SQLite de tests — si esto está verde, lo raro en pantalla es maquetación, no datos):
 
 ```php
 <?php
@@ -5523,8 +5672,8 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Models\Task;
-use App\Support\Pagination;
+use Framework\Http\Pagination;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -5537,7 +5686,7 @@ final class PaginationTest extends TestCase
 {
     protected function tearDown(): void
     {
-        Task::query()->delete();
+        User::query()->delete();
     }
 
     public function test_clamp_acepta_solo_tamanos_permitidos(): void
@@ -5596,7 +5745,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_intermedia_trae_su_slice_y_contadores(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 2, 10, '/tareas');
 
@@ -5612,7 +5761,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_fuera_de_rango_se_clampea_a_la_ultima(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 99, 10, '/tareas');
 
@@ -5624,7 +5773,7 @@ final class PaginationTest extends TestCase
 
     public function test_pagina_cero_o_negativa_es_la_primera(): void
     {
-        $this->seedTasks(5);
+        $this->seedUsers(5);
 
         self::assertSame(1, Pagination::paginate($this->query(), 0, 10, '/t')['current_page']);
         self::assertSame(1, Pagination::paginate($this->query(), -3, 10, '/t')['current_page']);
@@ -5653,7 +5802,7 @@ final class PaginationTest extends TestCase
 
     public function test_per_page_invalido_cae_al_default(): void
     {
-        $this->seedTasks(25);
+        $this->seedUsers(25);
 
         $p = Pagination::paginate($this->query(), 1, 999, '/tareas');
 
@@ -5663,13 +5812,16 @@ final class PaginationTest extends TestCase
 
     private function query(): Builder
     {
-        return Task::orderByDesc('id');
+        return User::orderByDesc('id');
     }
 
-    private function seedTasks(int $n): void
+    private function seedUsers(int $n): void
     {
         for ($i = 1; $i <= $n; $i++) {
-            Task::create(['title' => sprintf('Tarea %02d', $i)]);
+            User::create([
+                'email'         => sprintf('user%02d@example.test', $i),
+                'password_hash' => 'not-a-real-hash',
+            ]);
         }
     }
 }
@@ -5677,24 +5829,24 @@ final class PaginationTest extends TestCase
 
 Este archivo ya pagó su costo: la primera versión de `window()` deduplicaba con `array_unique` y borraba un ellipsis doble válido — el test `medio con dos` lo agarró antes que cualquier ojo.
 
-`tests/Http/PaginationFlowTest.php` (12 filas a propósito: con pocas, todo cae en página 1 y estos tests serían verdes sin paginar nada):
+`framework/scaffolds/tasks/tests/Tasks/Http/PaginationFlowTest.php` (12 filas a propósito: con pocas, todo cae en página 1 y estos tests serían verdes sin paginar nada):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Tasks\Http;
 
-use App\Models\Task;
-use Tests\Support\HttpTestCase;
+use App\Tasks\Models\Task;
+use Tests\Tasks\Http\TasksTestCase;
 
 /**
  * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
  * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
  * paginar nada: por eso se siembran 12.
  */
-final class PaginationFlowTest extends HttpTestCase
+final class PaginationFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
@@ -5798,8 +5950,8 @@ En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprobá con `
 
 Dos casos que el mensaje no cubre, a saber:
 
-1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si `/tareas` dice `no such table: tasks` justo después de migrar, es esto: o borrá la variable (default relativo para ambos) o migrá consciente del path.
-2. **`no such table: tasks` en un clon fresco** significa que nunca corriste `composer migrate`. No es un bug: la base se autocrea vacía, el schema lo pone Phinx.
+1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si el demo dice `no such table: tasks` justo después de migrar, es esto: o borrá la variable (default relativo para ambos) o migrá consciente del path.
+2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Corré `composer demo:install` (copia, migra y siembra) o, si solo querés las tablas base, `composer migrate`.
 
 ```bash
 ls -la database/                # ¿existe el archivo? ¿cuánto pesa?
@@ -5943,7 +6095,7 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 
 ### 21.22 Suite roja de golpe tras proteger una ruta
 
-**[v]** Protegés `/tareas` con `RequireAuth` y 12 tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
+**[v]** Protegés `/tareas` con `RequireAuth` y varios tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
 
 ### 21.23 `Duplicate migration` con versión `2147483647`
 
@@ -6096,11 +6248,12 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `storage/` | Lo crea el bootstrap (cap. 7). Nunca va a git. |
 | `odd/tasks/*.md` | Registros de trabajo del desarrollo (decisiones, evidencia, próximos pasos). Útiles para entender *por qué*, innecesarios para replicar el *qué*. |
 | `README.md` | La puerta de entrada del repo (arranque, receta CRUD, comandos). Se lee, no se programa — igual que esta guía. |
+| `app/Support/README.md` | Nota de capa: `app/Support/` es para helpers propios de la app; el framework vive en `framework/`. Se lee, no se programa. |
 | `.phpunit.cache/` | Cache local de PHPUnit. |
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
-| `app/Support/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
+| `framework/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
-> Todo lo demás (`app/Models/User.php`, `app/Support/RememberToken.php`, `app/Support/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
+> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 

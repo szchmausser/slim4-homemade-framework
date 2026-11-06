@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\Auth\RememberToken;
 use App\Models\User;
-use App\Support\RememberToken;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use PDO;
 use PHPUnit\Framework\TestCase;
@@ -68,13 +68,4 @@ final class SchemaIntegrityTest extends TestCase
         );
     }
 
-    public function testTasksNoLongerCarryTheDeadDoneColumn(): void
-    {
-        $pdo = Capsule::connection()->getPdo();
-        $columns = $pdo->query("PRAGMA table_info('tasks')")->fetchAll(PDO::FETCH_COLUMN, 1);
-
-        self::assertContains('status', $columns);
-        self::assertContains('completed_at', $columns);
-        self::assertNotContains('done', $columns, 'tasks.done fue reemplazada por status (migracion 005).');
-    }
 }

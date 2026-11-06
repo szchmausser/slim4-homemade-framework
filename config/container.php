@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\Http\Middleware\RememberMeMiddleware;
-use App\Http\Middleware\RequireAuthMiddleware;
-use App\Http\Middleware\SecurityHeadersMiddleware;
-use App\Support\Flash;
-use App\Support\Url;
+use Framework\Http\Flash;
+use Framework\Http\Middleware\RememberMeMiddleware;
+use Framework\Http\Middleware\RequireAuthMiddleware;
+use Framework\Http\Middleware\SecurityHeadersMiddleware;
+use Framework\Http\Url;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -95,6 +95,10 @@ return [
         // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
+
+        // El scaffold tasks deja routes/tasks.php al instalarse. Esa es la
+        // única fuente: si no hay rutas, las vistas base no muestran enlaces.
+        $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
 
         return $twig;
     },

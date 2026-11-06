@@ -11,10 +11,21 @@ Dotenv\Dotenv::createImmutable(__DIR__)->safeLoad();
 $databaseFile = $_ENV['DB_DATABASE'] ?? (getenv('DB_DATABASE') ?: null);
 $databaseFile = $databaseFile === '' ? null : $databaseFile;
 
+$migrations = ['%%PHINX_CONFIG_DIR%%/database/migrations'];
+$seeds = ['%%PHINX_CONFIG_DIR%%/database/seeds'];
+
+// El demo es opcional: sus migraciones/seeds solo existen tras demo:install.
+if (is_dir(__DIR__ . '/database/migrations/tasks')) {
+    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/tasks';
+}
+if (is_dir(__DIR__ . '/database/seeds/tasks')) {
+    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/tasks';
+}
+
 return [
     'paths' => [
-        'migrations' => '%%PHINX_CONFIG_DIR%%/database/migrations',
-        'seeds'      => '%%PHINX_CONFIG_DIR%%/database/seeds',
+        'migrations' => $migrations,
+        'seeds'      => $seeds,
     ],
     'environments' => [
         'default_environment' => 'development',

@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use App\Support\Url;
+use Framework\Auth\UserProvider;
+use Framework\Http\Url;
 use DI\ContainerBuilder;
 use Dotenv\Dotenv;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Slim\Factory\AppFactory;
 
 Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
+
+/** @var array{model: class-string<\Illuminate\Database\Eloquent\Model>} $auth */
+$auth = require __DIR__ . '/../config/auth.php';
+UserProvider::configure($auth['model']);
 
 // Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
 // fallan en silencio o con paths inexistentes. Se crean acá, antes del
@@ -34,12 +39,18 @@ AppFactory::setContainer($container);
 $app = AppFactory::create();
 
 // S13: el prefijo de ruta es parte de la RUTA registrada, no un detalle de las
-// plantillas. Con APP_BASE_PATH=/app, una request a /app/tareas matchea la ruta
-// /tareas (y /tareas, sin el prefijo, deja de existir). Sin prefijo es '' y el
+// plantillas. Con APP_BASE_PATH=/app, una request a /app/login matchea la ruta
+// /login (y /login, sin el prefijo, deja de existir). Sin prefijo es '' y el
 // router se comporta exactamente como antes.
 $app->setBasePath(Url::base());
 
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);
+
+// El demo tasks es opcional: si está instalado, registra sus rutas.
+$tasksRoutes = __DIR__ . '/../routes/tasks.php';
+if (is_file($tasksRoutes)) {
+    (require $tasksRoutes)($app);
+}
 
 return $app;

@@ -47,7 +47,10 @@ try {
         ->fetchAll(PDO::FETCH_COLUMN);
     $pdo = null;
 
-    $required = ['tasks', 'users', 'remember_tokens', 'login_attempts'];
+    $required = ['users', 'remember_tokens', 'login_attempts'];
+    if (is_dir($root . '/database/migrations/tasks')) {
+        $required[] = 'tasks';
+    }
     $missing = array_values(array_diff($required, $tables));
     if ($missing !== []) {
         throw new RuntimeException(

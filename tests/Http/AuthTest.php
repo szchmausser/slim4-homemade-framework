@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
-use App\Http\Controllers\AuthController;
+use Framework\Auth\RememberToken;
+use App\Http\Controllers\Auth\AuthController;
 use App\Models\User;
-use App\Support\RememberToken;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
 /**
- * Auth v1: login/logout + remember-me + puerta de /tareas.
+ * Auth v1: login/logout + remember-me + puerta de rutas protegidas.
  *
  * Los tests comparten proceso (y $_SESSION) con el resto de la suite: cada
  * test parte de sesión limpia y deja las tablas vacías. La cookie remember se
@@ -78,7 +78,7 @@ final class AuthTest extends HttpTestCase
 
     /**
      * El login no es una pantalla de la app: dentro del shell ofrecia
-     * navegacion a /tareas, que sin sesion redirige de vuelta a este mismo
+     * navegacion a una ruta protegida, que sin sesion redirige de vuelta a este mismo
      * formulario. Era una puerta que no lleva a ningun lado, y ademas mostraba
      * el header, el toggle de tema y el footer de una app a la que todavia no
      * se entro. Vive en layouts/auth.twig, no en layouts/app.twig.
@@ -89,7 +89,7 @@ final class AuthTest extends HttpTestCase
 
         self::assertStringContainsString('action="/login"', $html);
         self::assertStringNotContainsString('id="sidebar"', $html);
-        self::assertStringNotContainsString('href="/tareas"', $html);
+        self::assertStringNotContainsString('href="/_test/protected"', $html);
     }
 
     public function test_login_valido_redirige_y_abre_sesion(): void
@@ -105,7 +105,7 @@ final class AuthTest extends HttpTestCase
         );
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+        self::assertSame('/', $response->getHeaderLine('Location'));
         self::assertSame($user->id, $_SESSION['user_id'] ?? null);
     }
 
@@ -142,7 +142,7 @@ final class AuthTest extends HttpTestCase
         // Request nueva sin sesión pero con la cookie.
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $pair])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -165,7 +165,7 @@ final class AuthTest extends HttpTestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $selector . ':' . str_repeat('0', 64)])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -187,7 +187,7 @@ final class AuthTest extends HttpTestCase
 
         $_SESSION = [];
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=expiretest1234567890abcd:' . $validator])
         );
 
         self::assertArrayNotHasKey('user_id', $_SESSION);
@@ -197,7 +197,7 @@ final class AuthTest extends HttpTestCase
 
     public function test_ruta_protegida_sin_login_redirige(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas'));
+        $response = self::app()->handle(self::request('GET', '/_test/protected'));
 
         self::assertSame(303, $response->getStatusCode());
         self::assertSame('/login', $response->getHeaderLine('Location'));
@@ -205,7 +205,7 @@ final class AuthTest extends HttpTestCase
 
     public function test_ruta_protegida_htmx_devuelve_hx_redirect(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
+        $response = self::app()->handle(self::request('GET', '/_test/protected', [], ['HX-Request' => 'true']));
 
         // 200 + HX-Redirect (no 303): un redirect rompería el swap de HTMX.
         self::assertSame(200, $response->getStatusCode());
@@ -216,7 +216,7 @@ final class AuthTest extends HttpTestCase
     {
         $user = $this->createUser();
         // El token de logout se scrapea ANTES de entrar: logueado, GET /login
-        // redirige a /tareas y ya no hay form.
+        // redirige a / y ya no hay form.
         $token = self::token('/login');
         $this->loginWithRemember($user);
 
@@ -231,14 +231,14 @@ final class AuthTest extends HttpTestCase
         self::assertStringContainsString('Max-Age=0', $this->rememberRaw($response));
     }
 
-    public function test_login_estando_logueado_redirige_a_tareas(): void
+    public function test_login_estando_logueado_redirige_a_la_raiz(): void
     {
         self::loginAs();
 
         $response = self::app()->handle(self::request('GET', '/login'));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/tareas', $response->getHeaderLine('Location'));
+        self::assertSame('/', $response->getHeaderLine('Location'));
     }
 
     private function createUser(string $email = 'yo@ejemplo.com', string $password = 'secreto123'): User
