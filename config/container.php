@@ -100,6 +100,11 @@ return [
         // única fuente: si no hay rutas, las vistas base no muestran enlaces.
         $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
 
+        // Datos de ejecución para el pie del shell. No son configuración de
+        // producto: describen dónde está corriendo la app ahora mismo.
+        $twig->getEnvironment()->addGlobal('php_version', PHP_VERSION);
+        $twig->getEnvironment()->addGlobal('app_env', $_ENV['APP_ENV'] ?? 'local');
+
         return $twig;
     },
 

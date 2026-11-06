@@ -134,8 +134,8 @@
            Posición: abajo a la derecha del área de contenido. El host sigue
            replicando la geometría de la columna (en desktop el sidebar es
            `static`, así que un `fixed` contra el viewport no cae donde uno
-           espera) y el stack adentro repite el `max-w-6xl` y el padding de
-           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           espera) y el stack adentro repite el padding de <main>: el borde
+           derecho de cada toast queda sobre el del contenido.
            Anclado ABAJO y no arriba: pegado al título tapaba el formulario de
            alta y su botón, que es justo lo que el usuario está por usar cuando
            llega el aviso.
@@ -161,8 +161,6 @@
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
-            max-width: 72rem;     /* = max-w-6xl de <main> */
-            margin-inline: auto;
         }
         @media (min-width: 1024px) {
             .toast-host {
@@ -469,18 +467,17 @@
             </div>
         </div>
 
-        <main id="contenido" class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
+        <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
                reemplaza en los swaps parciales: acá no se renderiza. #}
             {% block content %}{% endblock %}
         </main>
 
-        {# El stack vive aca y no en la sidebar: el pie de la columna de
-           contenido es el lugar estable para esa linea (no cambia con el
-           plegado) y la marca ya esta en la cabecera del sidebar. Una sola
-           copia del dato, en un lugar que no depende del estado del menu. #}
+        {# El pie muestra datos de ejecución, no el stack: el stack ya está en
+           la portada. La versión de PHP y el entorno salen del container para
+           que el shell diga dónde está corriendo la app sin duplicar contenido. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Slim 4 · HTMX · Alpine · daisyUI</aside>
+            <aside>PHP {{ php_version }} · SQLite · entorno {{ app_env }}</aside>
         </footer>
     </div>
 </div>

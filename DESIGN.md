@@ -41,7 +41,8 @@ Atenuar se hace con `opacity-*` (medido: 60 % = 4.64:1, 70 % = 6.54:1, 80 % = 9.
 
 ## Estructura
 
-- Una sola columna, `max-w-6xl`, `p-4 lg:p-6`, centrada.
+- Una sola columna, ancho completo del área de contenido, `p-4 lg:p-6`; sin `max-width` adicional para que la separación lateral coincida con la superior.
+- Portada: fila superior de identidad a ancho completo; debajo, stack a la izquierda y demo a la derecha desde `lg`, apilados en móvil. El stack va agrupado por capa y subcategoría, con una sinopsis por tecnología.
 - Tarjetas de fila: `rounded-box border border-base-300 bg-base-100 p-3`.
 - Cromo de altura fija: header `h-16`, footer `h-12`. Las líneas del footer y del sidebar son continuas.
 - Separadores con `border-base-300`; nunca sombras para delimitar estructura (las sombras son para capas flotantes: modal y avisos). En oscuro el modal de borrado suma un borde de tinta y un telón más denso (`--modal-scrim`), porque ahí la sombra no se ve.

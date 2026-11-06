@@ -48,7 +48,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 
 - Nombre de trabajo visible: **Mi App** (placeholder).
 - Logo SVG abstracto de capas; es una marca genérica y reemplazable, no una identidad final.
-- Voz de producto en español rioplatense, directa y sin jerga innecesaria.
+- Voz de producto en español neutro, directa y sin jerga innecesaria.
 
 ## Evidence on Hand
 

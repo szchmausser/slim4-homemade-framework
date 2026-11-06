@@ -486,6 +486,11 @@ return [
         // única fuente: si no hay rutas, las vistas base no muestran enlaces.
         $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
 
+        // Datos de ejecución para el pie del shell. No son configuración de
+        // producto: describen dónde está corriendo la app ahora mismo.
+        $twig->getEnvironment()->addGlobal('php_version', PHP_VERSION);
+        $twig->getEnvironment()->addGlobal('app_env', $_ENV['APP_ENV'] ?? 'local');
+
         return $twig;
     },
 
@@ -2646,8 +2651,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
            Posición: abajo a la derecha del área de contenido. El host sigue
            replicando la geometría de la columna (en desktop el sidebar es
            `static`, así que un `fixed` contra el viewport no cae donde uno
-           espera) y el stack adentro repite el `max-w-6xl` y el padding de
-           <main>: el borde derecho de cada toast queda sobre el del contenido.
+           espera) y el stack adentro repite el padding de <main>: el borde
+           derecho de cada toast queda sobre el del contenido.
            Anclado ABAJO y no arriba: pegado al título tapaba el formulario de
            alta y su botón, que es justo lo que el usuario está por usar cuando
            llega el aviso.
@@ -2673,8 +2678,6 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             align-items: flex-end;
             gap: .5rem;
             width: 100%;
-            max-width: 72rem;     /* = max-w-6xl de <main> */
-            margin-inline: auto;
         }
         @media (min-width: 1024px) {
             .toast-host {
@@ -2981,18 +2984,17 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             </div>
         </div>
 
-        <main id="contenido" class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
+        <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
                reemplaza en los swaps parciales: acá no se renderiza. #}
             {% block content %}{% endblock %}
         </main>
 
-        {# El stack vive aca y no en la sidebar: el pie de la columna de
-           contenido es el lugar estable para esa linea (no cambia con el
-           plegado) y la marca ya esta en la cabecera del sidebar. Una sola
-           copia del dato, en un lugar que no depende del estado del menu. #}
+        {# El pie muestra datos de ejecución, no el stack: el stack ya está en
+           la portada. La versión de PHP y el entorno salen del container para
+           que el shell diga dónde está corriendo la app sin duplicar contenido. #}
         <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>Slim 4 · HTMX · Alpine · daisyUI</aside>
+            <aside>PHP {{ php_version }} · SQLite · entorno {{ app_env }}</aside>
         </footer>
     </div>
 </div>
@@ -3252,7 +3254,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
             <div class="card-body gap-5 p-6 sm:p-7">
                 <header class="space-y-1">
                     <h1 class="text-2xl font-bold">Acceder</h1>
-                    <p class="text-sm opacity-70">Ingresá con tu email y clave para continuar.</p>
+                    <p class="text-sm opacity-70">Ingresa con tu email y clave para continuar.</p>
                 </header>
 
                 {% if flash_error %}
@@ -3298,7 +3300,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                             </span>
                             <input id="login-email" type="email" name="email" required autocomplete="username"
                                    value="{{ email|default('') }}"
-                                   placeholder="vos@ejemplo.com"
+                                   placeholder="tu@ejemplo.com"
                                    class="input login-input h-11 w-full pl-10">
                         </div>
                     </fieldset>
@@ -3365,61 +3367,169 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% block title %}Mi App{% endblock %}
 
 {% block content %}
-    <div class="hero rounded-box border border-base-300 bg-base-100">
-        <div class="hero-content py-6 text-center">
-            <div class="max-w-xl">
-                <h1 class="text-3xl font-bold">Mi App</h1>
-                {% if tasks_enabled %}
-                    <p class="py-3 opacity-70">
-                        Demo de tareas instalado: altas, edición, borrado, completar/pendiente,
-                        paginación y avisos HTMX sobre SQLite.
-                    </p>
-                    <a href="{{ url('/tareas') }}" class="btn btn-primary">Ir a tareas</a>
-                    <p class="mt-3 text-sm opacity-70">
-                        Para quitarlo:
-                        <code class="rounded bg-base-200 px-1">composer demo:remove</code>
-                    </p>
-                {% else %}
-                    <p class="py-3 opacity-70">
-                        El esqueleto incluye un demo opcional de tareas: CRUD, completar/pendiente,
-                        paginación y avisos HTMX. Se instala en app/Tasks, rutas, vistas,
-                        migraciones, seeds y tests; además corre las migraciones y el seed del demo.
-                    </p>
-                    <div class="flex flex-col items-center gap-2">
-                        <code class="rounded-box border border-base-300 bg-base-200 px-3 py-2 text-sm">composer demo:install</code>
-                        <p class="text-sm opacity-70">
-                            Para desinstalarlo:
-                            <code class="rounded bg-base-200 px-1">composer demo:remove</code>
+    <section class="card overflow-hidden border border-base-300 bg-base-100" aria-labelledby="home-title">
+        <div class="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:p-10">
+            <div class="lg:flex-1">
+                <div class="flex items-center gap-3">
+                    {% include 'partials/_logo.twig' with { size: 'h-11 w-11' } %}
+                    <div>
+                        <h1 id="home-title" class="text-3xl font-bold">Mi App</h1>
+                        <p class="text-sm opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
+                    </div>
+                </div>
+                <p class="mt-4 opacity-70">
+                    Este Framework existe para desarrollar con agentes de IA en entornos
+                    limitados o antiguos (Windows, Linux o Termux de 32 bits). Este proyecto evita
+                    las fricciones de esos entornos en su arquitectura: las vistas se
+                    renderizan en el servidor, la interactividad se resuelve con HTMX y
+                    Alpine.js en lugar de una SPA, y los recursos frontend —sin Node, bundler
+                    ni toolchain de compilación— se sirven localmente, sin CDNs ni conexión
+                    a internet. Así se mantiene un stack web moderno, maduro y al día.
+                </p>
+            </div>
+            <div class="flex flex-wrap gap-2 lg:shrink-0">
+                {% if not user_id %}
+                    <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
+                        <span>Ingresar</span>
+                        <span aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                        </span>
+                    </a>
+                {% elseif tasks_enabled %}
+                    <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
+                        <span>Ir a tareas</span>
+                        <span aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                        </span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="grid border-t border-base-300 lg:grid-cols-5">
+            <div class="p-6 sm:p-8 lg:col-span-3 lg:p-10">
+                <h2 class="text-sm font-semibold">Stack</h2>
+                <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:gap-8">
+                    <div>
+                        <h3 id="stack-backend" class="text-xs font-semibold opacity-60">Backend</h3>
+                        <dl class="mt-2 space-y-2" aria-labelledby="stack-backend">
+                            <div>
+                                <dt class="text-sm font-medium">PHP</dt>
+                                <dd class="text-xs opacity-70">Lenguaje y runtime</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">Slim 4</dt>
+                                <dd class="text-xs opacity-70">Router y middleware HTTP</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">PHP-DI</dt>
+                                <dd class="text-xs opacity-70">Inyección de dependencias</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">respect/validation</dt>
+                                <dd class="text-xs opacity-70">Validación de entrada</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">Monolog</dt>
+                                <dd class="text-xs opacity-70">Registro de eventos</dd>
+                            </div>
+                        </dl>
+
+                        <div class="mt-4">
+                            <h4 id="stack-datos" class="text-xs font-semibold opacity-60">Datos</h4>
+                            <dl class="mt-2 space-y-2" aria-labelledby="stack-datos">
+                                <div>
+                                    <dt class="text-sm font-medium">Eloquent ORM</dt>
+                                    <dd class="text-xs opacity-70">Acceso y mapeo de datos</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium">SQLite</dt>
+                                    <dd class="text-xs opacity-70">Base de datos embebida</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium">Phinx</dt>
+                                    <dd class="text-xs opacity-70">Migraciones y versionado del esquema</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 id="stack-frontend" class="text-xs font-semibold opacity-60">Frontend</h3>
+                        <dl class="mt-2 space-y-2" aria-labelledby="stack-frontend">
+                            <div>
+                                <dt class="text-sm font-medium">Twig</dt>
+                                <dd class="text-xs opacity-70">Plantillas renderizadas en servidor</dd>
+                            </div>
+                        </dl>
+
+                        <div class="mt-4">
+                            <h4 id="stack-visual" class="text-xs font-semibold opacity-60">Visual</h4>
+                            <dl class="mt-2 space-y-2" aria-labelledby="stack-visual">
+                                <div>
+                                    <dt class="text-sm font-medium">Tailwind CSS</dt>
+                                    <dd class="text-xs opacity-70">Estilos utilitarios</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium">daisyUI</dt>
+                                    <dd class="text-xs opacity-70">Componentes sobre Tailwind</dd>
+                                </div>
+                            </dl>
+                        </div>
+
+                        <div class="mt-4">
+                            <h4 id="stack-interactividad" class="text-xs font-semibold opacity-60">Interactividad</h4>
+                            <dl class="mt-2 space-y-2" aria-labelledby="stack-interactividad">
+                                <div>
+                                    <dt class="text-sm font-medium">HTMX</dt>
+                                    <dd class="text-xs opacity-70">Intercambios HTML sin SPA</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium">Alpine.js</dt>
+                                    <dd class="text-xs opacity-70">Estado en el cliente</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="demo" class="flex flex-col gap-5 border-t border-base-300 bg-base-200 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:border-t-0 lg:p-10">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold">Demo de tareas</h2>
+                        <p class="mt-1 text-sm opacity-70">
+                            CRUD, cambio entre completada y pendiente, paginación y avisos
+                            HTMX sobre SQLite.
                         </p>
-                        {% if not user_id %}
-                            <a href="{{ url('/login') }}" class="btn btn-primary">Ingresar</a>
-                        {% endif %}
+                    </div>
+                    {% if tasks_enabled %}
+                        <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                    {% else %}
+                        <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                    {% endif %}
+                </div>
+
+                {% if tasks_enabled %}
+                    <div>
+                        <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
+                        <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:remove</code>
+                    </div>
+                {% else %}
+                    <div class="space-y-3">
+                        <div>
+                            <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
+                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:install</code>
+                        </div>
+                        <div>
+                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
+                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:remove</code>
+                        </div>
                     </div>
                 {% endif %}
             </div>
         </div>
-    </div>
-
-    <h2 class="mb-3 mt-8 text-lg font-semibold">Stack</h2>
-
-    <div class="grid gap-2 sm:grid-cols-2">
-        {% for name, role in {
-            'PHP': 'lenguaje',
-            'Slim 4': 'router y middleware',
-            'Eloquent ORM': 'modelos',
-            'Twig': 'plantillas',
-            'HTMX': 'intercambios parciales',
-            'Alpine.js': 'estado en el cliente',
-            'Tailwind CSS': 'estilos',
-            'daisyUI': 'componentes',
-            'SQLite': 'base de datos'
-        } %}
-            <div class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-medium">{{ name }}</span>
-                <span class="badge badge-ghost">{{ role }}</span>
-            </div>
-        {% endfor %}
-    </div>
+    </section>
 {% endblock %}
 ```
 
@@ -4929,7 +5039,7 @@ final class RoutingTest extends HttpTestCase
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();
 
-        self::assertStringNotContainsString('>Ingresar</a>', $html);
+        self::assertStringNotContainsString('href="/login"', $html);
 
         if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
             self::assertStringContainsString('composer demo:install', $html);

@@ -42,7 +42,7 @@ final class RoutingTest extends HttpTestCase
         $response->getBody()->rewind();
         $html = $response->getBody()->getContents();
 
-        self::assertStringNotContainsString('>Ingresar</a>', $html);
+        self::assertStringNotContainsString('href="/login"', $html);
 
         if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
             self::assertStringContainsString('composer demo:install', $html);
