@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__engram__mem_search",
+      "mcp__engram__mem_session_summary",
+      "mcp__engram__mem_get_observation",
+      "mcp__engram__mem_judge"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}
