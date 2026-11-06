@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Models\RememberToken;
 use App\Models\User;
+use App\Support\RememberToken;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use PDO;
 use PHPUnit\Framework\TestCase;

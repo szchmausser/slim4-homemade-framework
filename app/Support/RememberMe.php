@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\RememberToken;
 use App\Models\User;
 
 /**

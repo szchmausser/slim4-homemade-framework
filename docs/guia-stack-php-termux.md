@@ -1131,7 +1131,6 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\RememberToken;
 use App\Models\User;
 
 /**
@@ -1900,14 +1899,14 @@ class User extends Model
 }
 ```
 
-`app/Models/RememberToken.php` (sin id autoincrement: el selector ES la clave; sin timestamps de Eloquent: la tabla lleva solo `created_at`):
+`app/Support/RememberToken.php` (infraestructura del remember-me, no modelo de dominio: sin id autoincrement, el selector ES la clave; sin timestamps de Eloquent, la tabla lleva solo `created_at`):
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Models;
+namespace App\Support;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -1933,6 +1932,8 @@ class RememberToken extends Model
     protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at'];
 }
 ```
+
+`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `app/Support/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`Task`, `User`).
 
 ## 11. Migraciones con Phinx
 
@@ -2816,7 +2817,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                   :class="sidebarMini && 'lg:mx-auto'">
                 {% include 'partials/_csrf.twig' %}
                 <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
                 </button>
             </form>
         </div>
@@ -5222,8 +5223,8 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Http\Controllers\AuthController;
-use App\Models\RememberToken;
 use App\Models\User;
+use App\Support\RememberToken;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
@@ -6099,7 +6100,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
 | `app/Support/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
-> Todo lo demás (`app/Models/User.php`, `RememberToken.php`, `app/Support/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
+> Todo lo demás (`app/Models/User.php`, `app/Support/RememberToken.php`, `app/Support/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 

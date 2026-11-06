@@ -83,13 +83,15 @@ Para parir `Recetas` (o lo que sea) desde `Tareas`, replicá el patrón:
 - Assets en `public/assets/` vendorizados con SRI (nada de CDN en runtime).
 - Clases daisyUI as-is; componentes compartidos a `partials/` con params.
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
+- `app/Models/` es para modelos de dominio; la infraestructura del framework (p. ej. `RememberToken`) vive en `app/Support/`.
 
 ## Estructura
 
 ```
 app/Http/Controllers/  Controller base + controladores (Auth, Task, ...)
 app/Http/Middleware/   Sesión, CSRF/headers/error (pipeline), RememberMe, RequireAuth
-app/Models/ app/Support/   Modelos + helpers (Auth, Flash, Validator, Pagination, ...)
+app/Models/            Modelos de dominio (Task, User, ...)
+app/Support/           Infraestructura (Auth, RememberMe, RememberToken, ...)
 bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
 database/migrations/ database/seeds/  Schema versionado + datos
 public/assets/  Frontend vendorizado con SRI

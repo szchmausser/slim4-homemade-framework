@@ -17,7 +17,7 @@
 
 - **Capas:** Controllers → Middleware → Models + Support helpers.
 - **Middleware pipeline:** Sesión, CSRF/headers/error (pipeline), RememberMe, RequireAuth.
-- **Modelos:** `$fillable` + `$hidden` si hay secrets. Seeder idempotente (tolerante a re-ejecución).
+- **Modelos:** `$fillable` + `$hidden` si hay secrets. `app/Models/` es solo para modelos de dominio; la infraestructura del framework (p. ej. `RememberToken`) vive en `app/Support/`. Seeder idempotente (tolerante a re-ejecución).
 - **Tests:** request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida. Al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).
 
 ## Reglas de Testing (que no se negocian)

@@ -46,7 +46,7 @@
 
 ## Decisiones Arquitectónicas
 
-- **Capas separadas:** `app/Http/Controllers/`, `app/Http/Middleware/`, `app/Models/`, `app/Support/`.
+- **Capas separadas:** `app/Http/Controllers/`, `app/Http/Middleware/`, `app/Models/` (solo dominio), `app/Support/` (infraestructura: `Auth`, `RememberMe`, `RememberToken`, ...).
 - **PDO/SQLite** como driver de base de datos (via illuminate/database).
 - **Sesión + CSRF** manejados por middleware Slim built-in.
 - **Tests** con body raw + URI absoluta + login inyectado para rutas protegidas.

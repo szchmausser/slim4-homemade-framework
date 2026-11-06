@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Http;
 
 use App\Http\Middleware\SessionMiddleware;
-use App\Models\RememberToken;
 use App\Models\User;
+use App\Support\RememberToken;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
