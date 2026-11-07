@@ -126,7 +126,8 @@ Los demos usan estas piezas como referencia real: tareas usa lista, paginación,
     name: 'title',
     label: 'Título',
     required: true,
-    maxlength: 120
+    maxlength: 120,
+    error: errors.title|default(null)
 } only %}
 
 {% include 'components/feedback/alert.twig' with {

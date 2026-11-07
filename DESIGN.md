@@ -68,9 +68,9 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 ### Componentes reutilizables
 
 - `components/ui/button.twig`: botón o enlace con `variant`, `size`, `icon`, `href`, `type`, `onclick`, `aria_label`, `extra_class` y atributos HTMX/`data-focus-key` opcionales.
-- `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle` y bloque `body`.
+- `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle`, `open` y bloque `body`. `open` emite el atributo nativo del `<dialog>` y sirve para devolver desde el servidor un formulario inválido con su modal abierto, sin JS; un `<dialog open>` no entra al top layer, así que Escape no lo cierra y el cierre queda en los botones.
 - `components/feedback/alert.twig`: aviso semántico con icono y `role`; variantes `error`, `success` e `info`.
-- `components/form/field.twig`: `fieldset` + label + input consistente, con `required`, `optional`, `maxlength`, `input_class`, `field_class`, `label_class`, `aria_label` y `data_focus_key`.
+- `components/form/field.twig`: `fieldset` + label + input consistente, con `error`, `error_class`, `required`, `optional`, `maxlength`, `input_class`, `field_class`, `label_class`, `aria_label` y `data_focus_key`. Con `error` el input sale con `aria-invalid="true"` y `aria-describedby` apuntando al mensaje, que se renderiza debajo con `role="alert"`: un error por campo se lee donde se cometió, no como un aviso flotante que desaparece.
 - `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty` y un bloque `row` por elemento.
 - `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-rows`) para una tabla Tabulator; el initializer de columnas vive con la tabla.
 - `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
