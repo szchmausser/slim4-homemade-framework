@@ -20,6 +20,7 @@ S6 — El formulario de alta de tareas sólo se limpia cuando el servidor confir
 S7 — Un fallo de alta o edición en contactos re-renderiza el formulario con los valores tipeados y los mensajes, en lugar de redirigir y descartar lo escrito.
 
 S8 — Las guardas de clases cubren las dos demos y toda la familia de clases de proyecto, no sólo `icon-`. `framework/scaffolds/contacts/resources/views` deja de estar fuera de `ViewClassIntegrityTest`.
+Alcance real de la guarda: las familias se derivan del CSS propio, así que detecta la clase borrada y el typo dentro de una familia que conserva al menos una definición. No detecta el borrado de una familia entera cuyo nombre no sea raíz de daisyUI (`error-`, `login-`, `pagination-`, `sidebar-`, `skip-`, `task-`), ni reglas que no declaran clase propia (`.modal[open]`, `.modal-box`, `--modal-scrim`).
 
 ## Tasks
 
@@ -44,3 +45,5 @@ L3 — "necesito que delegues una segunda revision, con el mismo scope del prime
 L4 — Propuesta aceptada, items 1-4: (1) sidebar con `matchMedia`/`resize` + test de contrato del layout; (2) validación con mensajes en castellano, `errors()` cableado a `field.twig` con `aria-invalid`/`aria-describedby` y regla desconocida que explota; (3) 422/404 reales y reset del formulario condicionado a eso; (4) cerrar huecos de las guardas (scaffold de contactos + familia completa de clases de proyecto).
 
 L5 — Evidencia de la verificación adversarial: `sidebarOpen` se inicializa leyendo `window.innerWidth` una vez y no hay listener de `resize`/`matchMedia`; `Validator` ejecutado con `'requird|mxa:120'` devuelve `fails() === false`; mensajes reales de Respect filtrados a `Flash::set`; `TaskController::store` devuelve 200 en fallo mientras el comentario de `tasks/index.twig:22` afirma que es false en un 400.
+
+L6 — T6 entregado: la guarda barre 26 plantillas (20 de `resources/views` + 3 de tareas + 3 de contactos) y 257 clases referenciadas, sin clases muertas. Limitación registrada en S8: la derivación de familias deja pasar el borrado de una familia entera que no sea raíz de daisyUI. Es el precio de derivar en vez de mantener una lista a mano; se acepta consciente.

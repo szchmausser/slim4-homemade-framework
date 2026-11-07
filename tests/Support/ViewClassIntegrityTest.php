@@ -28,8 +28,16 @@ use RecursiveIteratorIterator;
  *    reconocen por su forma y quedan fuera.
  *
  * Tampoco se valida contra el bundle lo que el propio proyecto declara en sus
- * <style> (toast-*, sidebar-*): esas clases existen, solo que no las trae
- * daisyUI.
+ * <style> (toast-*, sidebar-*, pagination-*, login-*): esas clases existen,
+ * solo que no las trae daisyUI. Y como el bundle no es su autoridad, tampoco
+ * puede delatarlas cuando se borran: de eso se encarga la FAMILIA (S8), que se
+ * deriva del propio <style> y convierte `sidebar-lable` en un fallo en vez de
+ * silencio.
+ *
+ * S8: el guard mira las DOS demos (`framework/scaffolds/tasks` y
+ * `framework/scaffolds/contacts`), no solo `resources/views`. Una clase
+ * escrita en la demo de contactos se ve exactamente igual que una de la app:
+ * sin estilo, y sin nadie que lo note hasta abrir esa pantalla.
  */
 final class ViewClassIntegrityTest extends TestCase
 {
@@ -118,36 +126,133 @@ final class ViewClassIntegrityTest extends TestCase
     }
 
     /**
-     * Las clases que el proyecto define en su propio <style> son el unico
-     * respaldo de lo que el guard no puede juzgar contra el bundle. `icon-*`
-     * es el caso vivo: si el bloque de tinta del layout desaparece, los iconos
-     * pierden el color y no se entera nadie, porque `icon-` no es vocabulario
-     * de daisyUI ni utilidad de Tailwind. Sin esta asercion, la correccion de
-     * contraste queda sin red.
+     * `icon-*` fue el caso por el que nacio este test: si el bloque de tinta del
+     * layout desaparece, los iconos pierden el color y no se entera nadie,
+     * porque `icon-` no es vocabulario de daisyUI ni utilidad de Tailwind. Pero
+     * la red no puede quedarse en ese prefijo: `toast-*`, `pagination-*`,
+     * `sidebar-*`, `skip-link` y `login-*` tienen exactamente el mismo problema
+     * y antes de S8 no los vigilaba nadie.
+     *
+     * La mitad de arriba comprueba que el MECANISMO sigue vivo: si la
+     * derivacion de familias devolviera vacio, o ninguna clase usada cayera en
+     * una familia, el bucle de abajo pasaria por no mirar nada y la guarda
+     * seria decorativa.
      */
     public function testLasClasesDeProyectoUsadasEstanDefinidasEnElStyleDelLayout(): void
     {
         $root = dirname(__DIR__, 2);
-        $definidas = $this->projectClasses($root, $this->templateFiles($root));
+        $css = $this->projectCss($root, $this->templateFiles($root));
+        $definidas = $this->projectClasses($css);
+        $familias = $this->projectFamilies($css);
+        $bundle = $this->bundleClasses((string) file_get_contents($root . '/' . self::BUNDLE));
 
+        self::assertNotSame(
+            [],
+            $familias,
+            'la derivacion no encontro ninguna familia de proyecto: la guarda de S8 no estaria mirando nada'
+        );
+
+        // Lo que el bundle define no necesita definicion propia aunque su
+        // familia coincida con una del proyecto: `modal-action` y
+        // `modal-backdrop` son de daisyUI y solo comparten el prefijo con
+        // nuestro `.modal-box`. Juzgarlas aca seria un falso positivo.
         $usadas = array_filter(
             array_keys($this->scan()['classes']),
-            static fn (string $clase): bool => str_starts_with($clase, 'icon-')
+            function (string $clase) use ($bundle, $familias): bool {
+                $familia = $this->classFamily($clase);
+
+                return !isset($bundle[$clase]) && $familia !== null && isset($familias[$familia]);
+            }
         );
 
         self::assertNotSame(
             [],
             $usadas,
-            'no hay clases de proyecto en uso: este test no estaria probando nada'
+            'ninguna clase usada cae en una familia de proyecto: este test no estaria probando nada'
+        );
+
+        // Ancla de la regresion original: si el bloque `.icon-*` desaparece
+        // entero del <style>, la familia se esfuma y el bucle de abajo no
+        // tendria nada que revisar. Esto lo vuelve explicito.
+        self::assertArrayHasKey(
+            'icon-',
+            $familias,
+            'la familia icon- ya no se deriva del <style>: es la regresion que este test cuida'
         );
 
         foreach ($usadas as $clase) {
             self::assertArrayHasKey(
                 $clase,
                 $definidas,
-                "la plantilla usa .{$clase} pero el <style> del layout no la define"
+                "la plantilla usa .{$clase} pero el <style> del proyecto no la define"
             );
         }
+    }
+
+    /**
+     * S8: la familia se DERIVA del CSS propio y no de una lista escrita a
+     * mano; la lista a mano es justamente lo que dejo `icon-` como unica
+     * familia vigilada. Se prueba con CSS SINTETICO, igual que la extraccion:
+     * es una funcion del texto y no depende de que plantilla exista hoy.
+     */
+    public function testLasFamiliasDeProyectoSeDerivanDeLasClasesQueDeclaraSuStyle(): void
+    {
+        $familias = $this->projectFamilies(
+            '.toast-card { color: red; } .toast-icon { color: red; } .flex { display: flex; }'
+        );
+
+        self::assertArrayHasKey(
+            'toast-',
+            $familias,
+            'una clase definida con `-` declara la familia de su primer segmento'
+        );
+        self::assertArrayNotHasKey(
+            'flex-',
+            $familias,
+            'una clase sin `-` no declara familia: cada utilidad de Tailwind abriria una'
+        );
+        self::assertArrayNotHasKey(
+            'icon-',
+            $familias,
+            'una familia que el <style> no declara no se inventa'
+        );
+    }
+
+    /**
+     * S8: el hueco que cierra la familia es el typo DENTRO de una familia
+     * conocida. `sidebar-lable` no es vocabulario de daisyUI (su raiz no esta
+     * en el bundle) ni utilidad de Tailwind, asi que sin esta regla el guard
+     * lo dejaba pasar y el estilo que falta no lo veia nadie.
+     *
+     * Se juzga con fuentes SINTETICAS por la misma razon que la extraccion: la
+     * decision es una funcion de (clase, bundle, CSS propio) y no necesita que
+     * la plantilla real tenga el typo.
+     */
+    public function testUnTypoDentroDeUnaFamiliaDeProyectoSeReportaComoClaseMuerta(): void
+    {
+        $fuentes = $this->classSources(
+            // Bundle minimo: `menu` y `menu-title` son daisyUI de verdad.
+            '.menu { display: flex; } .menu-title { font-weight: 700; }',
+            // CSS propio: declara las familias `sidebar-` y `toast-`.
+            '.sidebar-head { display: flex; } .toast-card { color: red; }'
+        );
+
+        self::assertFalse(
+            $this->isDeadClass('toast-card', $fuentes),
+            'una clase que el <style> define existe, no es muerta'
+        );
+        self::assertFalse(
+            $this->isDeadClass('menu-title', $fuentes),
+            'un modificador real de daisyUI no se reporta aunque `menu` sea familia de proyecto'
+        );
+        self::assertTrue(
+            $this->isDeadClass('sidebar-lable', $fuentes),
+            'un typo dentro de una familia declarada es una clase muerta, no silencio'
+        );
+        self::assertFalse(
+            $this->isDeadClass('icon-succes', $fuentes),
+            'sin familia declarada y sin forma de daisyUI la clase sigue fuera: no se denuncia todo'
+        );
     }
 
     /**
@@ -167,21 +272,16 @@ final class ViewClassIntegrityTest extends TestCase
         self::assertIsString($css, 'No se pudo leer el bundle ' . self::BUNDLE . '.');
 
         // El bundle y el CSS propio del proyecto son las dos unicas fuentes
-        // que pueden hacer existir una clase; lo que no este en ninguna de las
-        // dos y tenga forma de daisyUI es una clase muerta.
-        $bundle = $this->bundleClasses($css);
-        $local = $this->projectClasses($root, $templates);
-        $colors = $this->daisyColors($css);
-        $roots = $this->componentRoots($bundle);
+        // que pueden hacer existir una clase. Lo que no este en ninguna de las
+        // dos es una clase muerta si el proyecto la reclama: sea por su forma
+        // de daisyUI, sea porque pertenece a una familia que su <style> declara.
+        $sources = $this->classSources($css, $this->projectCss($root, $templates));
 
         $classes = $this->referencedClasses($root, $templates);
 
         $dead = [];
         foreach ($classes as $class => $where) {
-            if (isset($bundle[$class]) || isset($local[$class])) {
-                continue;
-            }
-            if (!$this->isDaisyClass($class, $colors['colors'], $colors['groups'], $roots)) {
+            if (!$this->isDeadClass($class, $sources)) {
                 continue;
             }
             $unique = array_values(array_unique($where));
@@ -194,14 +294,22 @@ final class ViewClassIntegrityTest extends TestCase
     }
 
     /**
+     * S8: la app y las DOS demos. La demo de contactos quedaba afuera, y sus
+     * plantillas se ven igual que las de la app: una clase sin estilo no
+     * revienta hasta que alguien abre esa pantalla. Una demo se instala y se
+     * quita (`demo:contacts:remove`), asi que un directorio que no existe no
+     * es un error: simplemente no aporta plantillas.
+     *
      * @return list<string> rutas relativas a la raiz del proyecto, ordenadas
      */
     private function templateFiles(string $root): array
     {
         $directories = [$root . '/resources/views'];
-        $demo = $root . '/framework/scaffolds/tasks/resources/views';
-        if (is_dir($demo)) {
-            $directories[] = $demo;
+        foreach (['tasks', 'contacts'] as $demo) {
+            $views = $root . '/framework/scaffolds/' . $demo . '/resources/views';
+            if (is_dir($views)) {
+                $directories[] = $views;
+            }
         }
 
         $files = [];
@@ -372,33 +480,85 @@ final class ViewClassIntegrityTest extends TestCase
     }
 
     /**
-     * Clases que el proyecto define en sus propios <style>. Se leen del
-     * template que las declara para que sigan al dia si el CSS se mueve; los
-     * comentarios CSS se descartan para no tomar como definida una clase que
-     * solo se menciona en una explicacion.
+     * El CSS propio: el contenido de los <style> de todas las plantillas
+     * vigiladas. Se lee del template que lo declara para que siga al dia si el
+     * CSS se mueve, y los comentarios CSS se descartan para no tomar como
+     * definida una clase que solo se menciona en una explicacion.
      *
      * @param list<string> $files
-     * @return array<string, true>
      */
-    private function projectClasses(string $root, array $files): array
+    private function projectCss(string $root, array $files): string
     {
-        $classes = [];
+        $css = '';
 
         foreach ($files as $relative) {
             $source = (string) file_get_contents($root . '/' . $relative);
             if (preg_match_all('~<style[^>]*>(.*?)</style>~is', $source, $blocks) === 0) {
                 continue;
             }
-            foreach ($blocks[1] as $css) {
-                $css = (string) preg_replace('~/\*.*?\*/~s', '', $css);
-                preg_match_all('/\.([a-zA-Z][a-zA-Z0-9_-]*)/', $css, $matches);
-                foreach ($matches[1] as $class) {
-                    $classes[$class] = true;
-                }
+            foreach ($blocks[1] as $block) {
+                $css .= (string) preg_replace('~/\*.*?\*/~s', '', $block) . "\n";
             }
         }
 
+        return $css;
+    }
+
+    /**
+     * Clases que ese CSS define. Recibe CSS y no archivos a proposito: es una
+     * funcion del texto, y asi se puede probar con CSS sintetico.
+     *
+     * @return array<string, true>
+     */
+    private function projectClasses(string $css): array
+    {
+        preg_match_all('/\.([a-zA-Z][a-zA-Z0-9_-]*)/', $css, $matches);
+
+        $classes = [];
+        foreach ($matches[1] as $class) {
+            $classes[$class] = true;
+        }
+
         return $classes;
+    }
+
+    /**
+     * S8: las familias que el CSS propio declara (`.toast-card` y
+     * `.toast-icon` declaran `toast-`). Es la lista que vuelve `sidebar-lable`
+     * un fallo: sin ella el guard solo reconoce la forma de daisyUI, y todo lo
+     * que el proyecto inventa queda sin red.
+     *
+     * Se deriva del CSS y no se escribe a mano porque una lista a mano se
+     * queda vieja: `icon-` era la unica familia vigilada por eso mismo.
+     *
+     * @return array<string, true>
+     */
+    private function projectFamilies(string $css): array
+    {
+        $families = [];
+
+        foreach (array_keys($this->projectClasses($css)) as $class) {
+            $family = $this->classFamily($class);
+            if ($family !== null) {
+                $families[$family] = true;
+            }
+        }
+
+        return $families;
+    }
+
+    /**
+     * Familia de una clase: su primer segmento con el guion (`toast-card` ->
+     * `toast-`). Una clase sin guion no declara familia; si no, cada utilidad
+     * de Tailwind abriria una (`flex-`) y el guard se volveria ruido.
+     */
+    private function classFamily(string $class): ?string
+    {
+        if (!str_contains($class, '-')) {
+            return null;
+        }
+
+        return explode('-', $class)[0] . '-';
     }
 
     /**
@@ -500,11 +660,82 @@ final class ViewClassIntegrityTest extends TestCase
     }
 
     /**
+     * Todo lo que decide si una clase existe, armado una sola vez por scan. Se
+     * construye desde dos cadenas de CSS para que la decision se pueda probar
+     * con fuentes sinteticas.
+     *
+     * @return array{
+     *     bundle: array<string, true>,
+     *     local: array<string, true>,
+     *     families: array<string, true>,
+     *     colors: array<string, true>,
+     *     groups: array<string, true>,
+     *     roots: array<string, true>
+     * }
+     */
+    private function classSources(string $bundleCss, string $projectCss): array
+    {
+        $bundle = $this->bundleClasses($bundleCss);
+        $colors = $this->daisyColors($bundleCss);
+
+        return [
+            'bundle' => $bundle,
+            'local' => $this->projectClasses($projectCss),
+            'families' => $this->projectFamilies($projectCss),
+            'colors' => $colors['colors'],
+            'groups' => $colors['groups'],
+            'roots' => $this->componentRoots($bundle),
+        ];
+    }
+
+    /**
+     * Una clase esta muerta cuando ninguna fuente la define y, ademas, el
+     * proyecto la reclama. Hay dos formas de reclamarla:
+     *
+     * - tiene la forma del vocabulario de daisyUI (`toast-crad`,
+     *   `bg-base-999`): el bundle es la autoridad y no la trae;
+     * - pertenece a una familia que el <style> del proyecto declara
+     *   (`sidebar-head` declara `sidebar-`, asi `sidebar-lable` se reporta):
+     *   no es daisyUI ni utilidad de Tailwind, y sin esta regla el estilo que
+     *   falta no lo ve nadie.
+     *
+     * El bundle y el CSS propio se miran PRIMERO: un modificador real de
+     * daisyUI (`menu-title`, `tooltip-right`) cuya familia coincida con una
+     * del proyecto no es muerto, y este guard no puede empezar a mentir.
+     *
+     * @param array{
+     *     bundle: array<string, true>,
+     *     local: array<string, true>,
+     *     families: array<string, true>,
+     *     colors: array<string, true>,
+     *     groups: array<string, true>,
+     *     roots: array<string, true>
+     * } $sources
+     */
+    private function isDeadClass(string $class, array $sources): bool
+    {
+        if (isset($sources['bundle'][$class]) || isset($sources['local'][$class])) {
+            return false;
+        }
+
+        if ($this->isDaisyClass($class, $sources['colors'], $sources['groups'], $sources['roots'])) {
+            return true;
+        }
+
+        $family = $this->classFamily($class);
+
+        return $family !== null && isset($sources['families'][$family]);
+    }
+
+    /**
      * @param array<string, list<string>> $dead
      */
     private function deadMessage(array $dead): string
     {
-        $lines = ['Clases referenciadas en resources/views que no existen en ' . self::BUNDLE . ':'];
+        $lines = [
+            'Clases referenciadas en las plantillas de la app y las demos que no existen en '
+            . self::BUNDLE . ' ni en el <style> del proyecto:',
+        ];
         foreach ($dead as $class => $where) {
             $lines[] = '  - ' . $class . ' (' . implode(', ', $where) . ')';
         }
