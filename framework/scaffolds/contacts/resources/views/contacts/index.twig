@@ -55,10 +55,15 @@
         </div>
     </section>
 
+    {# `open_create_modal`: el alta inválida reusa este mismo render con el
+       modal abierto y lo tipeado, así el usuario sigue donde estaba
+       escribiendo (S7). Con un alta exitosa el flujo es el 303 de siempre y la
+       variable no viene, así que el modal sale cerrado. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-create-modal',
         title: 'Nuevo contacto',
-        subtitle: 'Completá los datos para agregarlo al listado.'
+        subtitle: 'Completá los datos para agregarlo al listado.',
+        open: open_create_modal|default(false)
     } %}
         {% block body %}
             {% include 'contacts/_form.twig' with {

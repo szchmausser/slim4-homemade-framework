@@ -19,11 +19,13 @@
 
     {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
-       quedaría pegado. `event.detail.successful` es false en un 400 de
-       validación, en un 5xx y cuando no hubo respuesta; ahí el texto tipeado es
-       justo lo que no se puede borrar, porque es lo único que el usuario tiene
-       para corregir. El server ya conserva el título en el camino de edición
-       (`editing_title`); esto es la otra mitad de la misma regla.
+       quedaría pegado tras crear la tarea. La condición es el STATUS y no
+       `event.detail.successful`: un fallo de validación responde 422 y ese 422
+       sí swapea (ver el handler de htmx:beforeSwap en layouts/app.twig), así
+       que esa bandera sería true justamente cuando el texto tipeado es lo
+       único que el usuario tiene para corregir. El server ya conserva el título
+       en el camino de edición (`editing_title`); esto es la otra mitad de la
+       misma regla.
        maxlength=120 alinea el browser con el max:120 del server.
        hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
        emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
@@ -47,7 +49,7 @@
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
-          hx-on::after-request="if (event.detail.successful) this.reset()"
+          hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}

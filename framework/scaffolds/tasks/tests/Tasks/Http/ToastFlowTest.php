@@ -78,6 +78,12 @@ final class ToastFlowTest extends TasksTestCase
         );
     }
 
+    /**
+     * S5 + S3: el fallo de validación responde 422 y el mensaje que viaja al
+     * toast es el de `Validator`, en castellano. El canal sigue siendo el
+     * header porque el campo de alta vive FUERA de #tareas-panel: el swap no
+     * lo toca y el toast es su único canal in-band.
+     */
     public function test_la_validacion_fallida_llega_como_toast_de_error(): void
     {
         $token = self::token();
@@ -90,12 +96,12 @@ final class ToastFlowTest extends TasksTestCase
             ], ['HX-Request' => 'true'])
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame(0, Task::count(), 'No se crea nada.');
 
         $items = $this->toastItems($response);
         self::assertSame('error', $items[0]['type'] ?? null);
-        self::assertNotSame('', (string) ($items[0]['message'] ?? ''), 'El toast de error llegó vacío.');
+        self::assertSame('Este campo es obligatorio.', $items[0]['message'] ?? null);
         self::assertStringNotContainsString('alert-error', (string) $response->getBody());
     }
 

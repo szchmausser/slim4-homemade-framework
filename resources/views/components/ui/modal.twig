@@ -1,6 +1,19 @@
 {# Modal nativo de daisyUI. Usar con {% embed %} y el bloque body.
-   Props: id, title, subtitle. #}
-<dialog id="{{ id }}" class="modal" aria-labelledby="{{ id }}-title">
+   Props: id, title, subtitle, open.
+
+   `open` emite el atributo nativo `open` del <dialog>. Es lo que daisyUI
+   5.7.46 tiene en cuenta para mostrarlo (`.modal.modal-open, .modal[open],
+   .modal:popover-open, .modal:target` — verificado en el bundle), así que
+   las dos formas funcionan con el CSS vendorizado. Se prefiere el atributo
+   sobre la clase `modal-open` por dos razones: es el estado nativo del
+   elemento (sigue abierto aunque el CSS no cargue) y el bloque de tema oscuro
+   del layout ya apunta a `.modal[open]` para el telón.
+
+   Sirve para re-renderizar desde el servidor un formulario inválido con su
+   modal abierto (S7), sin JS y sin perder lo tipeado. Ojo: un `<dialog open>`
+   no es modal (no entra al top layer), así que Escape no lo cierra; el cierre
+   queda en los botones, que llaman a `close()` como siempre. #}
+<dialog id="{{ id }}" class="modal"{% if open|default(false) %} open{% endif %} aria-labelledby="{{ id }}-title">
     <div class="modal-box">
         <h2 id="{{ id }}-title" class="font-bold">{{ title }}</h2>
         {% if subtitle is defined and subtitle %}

@@ -58,6 +58,24 @@ final class DeleteTaskTest extends TasksTestCase
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
+    /**
+     * S5: sin htmx el request es un navegador pidiendo un recurso que no
+     * existe, y ahí corresponde el 404. La rama de htmx (200 + aviso) la fija
+     * ToastFlowTest y no se toca: un 404 dentro de #tareas-panel metería la
+     * página de error en la lista.
+     */
+    public function test_borrar_un_id_inexistente_sin_htmx_responde_404(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('DELETE', '/tareas/999999', $token)
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
+    }
+
     public function test_eliminar_pide_confirmacion_con_modal_y_sin_confirm_nativo(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);

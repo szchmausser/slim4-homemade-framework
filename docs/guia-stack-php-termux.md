@@ -1572,6 +1572,7 @@ use App\Tasks\Models\Task;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Exception\HttpNotFoundException;
 
 class TaskController extends Controller
 {
@@ -1622,8 +1623,12 @@ class TaskController extends Controller
      *
      * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
      * así que pueden viajar en las dos formas.
+     *
+     * `$status` es el status de la respuesta. 422 en un fallo de validación no
+     * es cosmético: es lo que le dice a htmx (con el handler de app.twig) que
+     * swapee igual, y lo que le dice al formulario de alta que NO se limpie.
      */
-    private function respond(Request $request, Response $response, array $extra = []): Response
+    private function respond(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
         // El orden del merge importa: `pageData()` primero, así un $extra no
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
@@ -1641,6 +1646,14 @@ class TaskController extends Controller
             $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
             $data
         );
+
+        // Un 422 no es una posición nueva de la lista: es el mismo panel con el
+        // mensaje de validación al lado del campo. Empujar la URL canónica ahí
+        // le escribiría al usuario una entrada de historial por un intento que
+        // no cambió nada, así que el `HX-Push-Url` queda reservado al 200.
+        if ($status !== 200) {
+            return $response->withStatus($status);
+        }
 
         if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
             return $response;
@@ -1676,11 +1689,23 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
+            // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
+            // que el swap no lo toca y ningún mensaje por campo puede quedar
+            // pegado a él: el toast es su ÚNICO canal in-band, y por eso acá el
+            // flash SÍ se conserva (en update() no, porque el mensaje se lee al
+            // lado del input). El 422 es la otra mitad: sin él el formulario se
+            // limpiaría y el usuario perdería lo tipeado.
+            // `errors` viaja para que el panel tenga la misma forma que en
+            // update(); como la lista no está en modo edición, hoy no lo lee.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-        } else {
-            Task::create(['title' => $data['title']]);
-            Flash::set('success', 'Tarea creada.');
+
+            return $this->respond($request, $response, [
+                'errors' => $validator->errors(),
+            ], 422);
         }
+
+        Task::create(['title' => $data['title']]);
+        Flash::set('success', 'Tarea creada.');
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
@@ -1691,8 +1716,14 @@ class TaskController extends Controller
     {
         $deleted = Task::destroy((int) $args['id']);
 
-        // destroy() de un id inexistente no falla: devuelve 0. Sin este branch
-        // el toast diría "eliminada" sobre una fila que nunca existió.
+        // destroy() de un id inexistente no falla: devuelve 0. Con htmx el
+        // panel vuelve con un aviso (sin este branch el toast diría "eliminada"
+        // sobre una fila que nunca existió). Sin htmx no hay panel adonde
+        // avisar: es un DELETE sobre un recurso que no existe, o sea un 404.
+        if ($deleted === 0 && !$request->hasHeader('HX-Request')) {
+            throw new HttpNotFoundException($request);
+        }
+
         Flash::set(
             $deleted > 0 ? 'success' : 'error',
             $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
@@ -1707,12 +1738,20 @@ class TaskController extends Controller
         // modo formulario. Sin `editing_id` la lista no sabe cuál editar.
         $task = Task::find((int) $args['id']);
 
-        // Un id que no existe no responde 404: htmx metería la página de
-        // error dentro de #tareas-panel. Devolvemos el panel con un flash,
-        // que es donde la app ya comunica todo lo que el usuario tiene que
-        // ver sin recargar. El flash NO se consume acá: lo levanta render(),
-        // que decide si va inline o en el header de htmx.
+        // Un id que no existe, CON htmx, no responde 404: htmx metería la
+        // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
+        // flash, que es donde la app ya comunica todo lo que el usuario tiene
+        // que ver sin recargar. El flash NO se consume acá: lo levanta
+        // render(), que decide si va inline o en el header de htmx.
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                // Sin htmx es un navegador pidiendo el documento de un recurso
+                // que no existe: 404 de verdad, con el mensaje de
+                // errors/error.twig. Un 200 con un cartel mentiría al
+                // protocolo (y un curl --fail no se enteraría).
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
         }
 
@@ -1725,9 +1764,14 @@ class TaskController extends Controller
     {
         $task = Task::find((int) $args['id']);
 
-        // Mismo criterio que en edit(): sin fila no hay nada que validar ni
-        // que guardar, y un 404 llegaría al panel como HTML ajeno.
+        // Mismo criterio que en edit(): con htmx un 404 llegaría al panel como
+        // HTML ajeno, así que la fila inexistente vuelve como panel + flash.
+        // Sin htmx es un PUT sobre un recurso que no existe: 404.
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
             return $this->respond($request, $response, [
@@ -1742,14 +1786,17 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-            // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
-            // el input se repinta con task.title (guardado) y el usuario pierde
-            // lo que escribió justo cuando aparece el error.
+            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`)
+            // y la fila sigue en modo formulario conservando lo tipeado. Un
+            // banner con el mismo texto lo diría dos veces, y el canal de
+            // avisos queda para lo que no es un campo.
+            // Sin esto el input se repinta con task.title (guardado) y el
+            // usuario pierde lo que escribió justo cuando aparece el error.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
                 'editing_title' => $data['title'] ?? '',
-            ]);
+                'errors'        => $validator->errors(),
+            ], 422);
         }
 
         $task->update(['title' => $data['title']]);
@@ -1771,6 +1818,10 @@ class TaskController extends Controller
         $task = Task::find((int) $args['id']);
 
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
             return $this->respond($request, $response);
@@ -1857,12 +1908,20 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-
+            // Errores por campo y NO flash: el aviso tiene que quedar pegado al
+            // input que lo causó, que es lo único que dice qué corregir. El
+            // flash sigue siendo el canal de credenciales y de throttling,
+            // que no son un campo del formulario.
+            //
+            // 422 y no 200: el formulario se re-renderiza igual (es la única
+            // forma de mostrar el mensaje sin JS), pero un login con campos
+            // inválidos no se completó. El 200 le decía al cliente —y al log
+            // del servidor— que la petición había salido bien.
             return $this->render($request, $response, 'auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
-            ]);
+                'errors' => $validator->errors(),
+            ])->withStatus(422);
         }
 
         // IP del cliente para el throttling. En CLI/tests puede no venir.
@@ -2428,13 +2487,26 @@ declare(strict_types=1);
 
 namespace Framework\Validation;
 
-use Respect\Validation\Exceptions\NestedValidationException;
+use InvalidArgumentException;
+use Respect\Validation\Exceptions\ValidationException;
 use Respect\Validation\Validator as V;
 
 class Validator
 {
+    /**
+     * Reglas que entiende la sintaxis `'campo' => 'required|max:120'`. `max` y
+     * `min` comparten `length()`: la regla sola no trae largos, los trae el
+     * parámetro, y sin esta lista un typo (`requird`) se descartaba en silencio.
+     */
+    private const RULES = ['required', 'string', 'email', 'numeric', 'max', 'min'];
+
+    /** @var array<string, string> campo => mensaje, uno solo por campo. */
     private array $errors = [];
 
+    /**
+     * @param array<string, mixed>  $data
+     * @param array<string, string> $rules
+     */
     public static function make(array $data, array $rules): self
     {
         $instance = new self();
@@ -2442,38 +2514,119 @@ class Validator
         return $instance;
     }
 
+    /**
+     * @param array<string, mixed>  $data
+     * @param array<string, string> $rules
+     */
     private function run(array $data, array $rules): void
     {
-        foreach ($rules as $field => $ruleString) {
+        foreach ($rules as $key => $ruleString) {
+            $field = (string) $key;
             $value = $data[$field] ?? null;
 
-            try {
-                $this->buildChain($ruleString)->assert($value);
-            } catch (NestedValidationException $e) {
-                $this->errors[$field] = $e->getMessages();
+            // TODAS las reglas se parsean antes de evaluar la primera: una
+            // regla mal escrita tiene que explotar siempre, aunque una regla
+            // anterior ya hubiera fallado y no se llegue a evaluar (S2).
+            foreach ($this->parse((string) $ruleString, $field) as [$name, $param]) {
+                if ($this->passes($name, $param, $value)) {
+                    continue;
+                }
+
+                // Primera regla que falla, único mensaje del campo: seguir
+                // evaluando el resto sólo cambiaría el texto del aviso (el
+                // campo ya es inválido) y hacía que el orden interno de
+                // Respect eligiera el mensaje en vez del orden de las reglas.
+                $this->errors[$field] = $this->message($name, $param);
+                continue 2;
             }
         }
     }
 
-    private function buildChain(string $ruleString): V
+    /**
+     * Convierte `required|max:120` en pares regla/parámetro, validando el
+     * nombre y el número del largo. Cualquier cosa fuera de lugar corta acá con
+     * una excepción que nombra la regla, el campo y el string completo: es el
+     * dato que hace falta para encontrar el template roto.
+     *
+     * @return list<array{0: string, 1: string|null}>
+     */
+    private function parse(string $ruleString, string $field): array
     {
-        $chain = V::create();
+        $parsed = [];
 
         foreach (explode('|', $ruleString) as $rule) {
             [$name, $param] = array_pad(explode(':', $rule, 2), 2, null);
 
-            $chain = match ($name) {
-                'required' => $chain->notEmpty(),
-                'string'   => $chain->stringType(),
-                'email'    => $chain->email(),
-                'numeric'  => $chain->numeric(),
-                'max'      => $chain->length(null, (int) $param),
-                'min'      => $chain->length((int) $param, null),
-                default    => $chain,
-            };
+            if (!in_array($name, self::RULES, true)) {
+                throw new InvalidArgumentException(sprintf(
+                    'Unknown validation rule "%s" for field "%s" in "%s".',
+                    $name,
+                    $field,
+                    $ruleString
+                ));
+            }
+
+            // `(int) null` convertía un `max` sin número en `length(0)`: el
+            // campo no podía pasar nunca y nadie sabía por qué.
+            if (($name === 'max' || $name === 'min') && ($param === null || !ctype_digit($param))) {
+                throw new InvalidArgumentException(sprintf(
+                    'Validation rule "%s" for field "%s" needs a numeric parameter in "%s".',
+                    $name,
+                    $field,
+                    $ruleString
+                ));
+            }
+
+            $parsed[] = [$name, $param];
         }
 
-        return $chain;
+        return $parsed;
+    }
+
+    /**
+     * Una regla por vez, con las mismas primitivas de Respect que usaba la
+     * cadena: `required` es `notEmpty()` (los espacios cuentan como vacío) y
+     * `max`/`min` son `length()` (cuenta caracteres, no bytes). `numeric` va
+     * por `numericVal()`: `numeric()` no existe como nombre de regla y lanzaba
+     * una ComponentException en vez de validar.
+     */
+    private function passes(string $name, ?string $param, mixed $value): bool
+    {
+        $rule = match ($name) {
+            'required' => V::notEmpty(),
+            'string'   => V::stringType(),
+            'email'    => V::email(),
+            'numeric'  => V::numericVal(),
+            'max'      => V::length(null, (int) $param),
+            'min'      => V::length((int) $param, null),
+            default    => throw new InvalidArgumentException(sprintf('Unsupported validation rule "%s".', $name)),
+        };
+
+        try {
+            $rule->assert($value);
+        } catch (ValidationException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Mensaje en castellano y sin el nombre del campo: la vista ya lo nombra
+     * con su label, y los textos de Respect vienen en inglés y con su propio
+     * vocabulario (`notEmpty`, `length`), que no es el de estas reglas (S3).
+     */
+    private function message(string $name, ?string $param): string
+    {
+        return match ($name) {
+            'required' => 'Este campo es obligatorio.',
+            'string'   => 'Este campo debe ser texto.',
+            'email'    => 'Este campo debe ser un email válido.',
+            'numeric'  => 'Este campo debe ser un número.',
+            'max'      => sprintf('No puede superar los %d caracteres.', (int) $param),
+            'min'      => sprintf('Debe tener al menos %d caracteres.', (int) $param),
+            default    => throw new InvalidArgumentException(sprintf('Unsupported validation rule "%s".', $name)),
+        };
     }
 
     public function fails(): bool
@@ -2481,6 +2634,7 @@ class Validator
         return count($this->errors) > 0;
     }
 
+    /** @return array<string, string> campo => mensaje. */
     public function errors(): array
     {
         return $this->errors;
@@ -2488,8 +2642,8 @@ class Validator
 
     public function firstError(): ?string
     {
-        foreach ($this->errors as $messages) {
-            return array_values($messages)[0] ?? null;
+        foreach ($this->errors as $message) {
+            return $message;
         }
         return null;
     }
@@ -2987,6 +3141,18 @@ function shell() {
                 v ? document.documentElement.setAttribute('data-sidebar-mini', '')
                   : document.documentElement.removeAttribute('data-sidebar-mini');
             });
+
+            // R2 del sidebar: `sidebarOpen` nace leyendo el ancho UNA vez. Sin
+            // este observador, achicar o estirar la ventana dejaba el estado
+            // pegado al ancho de la carga: al pasar a escritorio el `<aside>`
+            // se ve (lg:translate-x-0 le gana el cascade) pero conserva
+            // `inert` de móvil, así que enlaces y «Salir» quedaban sin foco y
+            // sin click, y no había control que los recuperara porque el
+            // hamburguesa es lg:hidden. Al revés, en móvil el drawer quedaba
+            // abierto tapando el contenido. El breakpoint es el mismo del
+            // pre-pintado de arriba y el de la guarda de Escape: uno solo.
+            const lg = matchMedia('(min-width: 1024px)');
+            lg.addEventListener('change', e => { this.sidebarOpen = e.matches; });
         },
         toggleMini() { this.sidebarMini = !this.sidebarMini; }
     };
@@ -3093,6 +3259,34 @@ function restoreFocusAfterSwap() {
 restoreFocusAfterSwap();
 
 /**
+ * Un 422 no es un fallo de transporte: es la respuesta con el panel o el
+ * formulario re-renderizado y el mensaje de validación adentro. htmx 2.0.11 no
+ * swapea NINGÚN 4xx por default (`responseHandling`:
+ * `[{code:"204",swap:false},{code:"[23]..",swap:true},{code:"[45]..",swap:false,error:true}]`),
+ * así que sin esta excepción el mensaje por campo no llega nunca a la
+ * pantalla: el panel queda como estaba y lo único visible es el toast
+ * genérico de notifyHtmxFailures().
+ *
+ * `isError = false` es la otra mitad: es el flag del que htmx deriva
+ * `failed`/`successful` y el que decide si emite `htmx:responseError`. Con el
+ * swap habilitado y el flag encendido, el toast genérico denunciaría un fallo
+ * que el formulario ya explica campo por campo.
+ */
+function allowValidationSwap() {
+    document.body.addEventListener('htmx:beforeSwap', (event) => {
+        const detail = event.detail;
+        const xhr = detail && detail.xhr;
+
+        if (!xhr || xhr.status !== 422) {
+            return;
+        }
+
+        detail.shouldSwap = true;
+        detail.isError = false;
+    });
+}
+
+/**
  * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
  * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
  * usuario ve una acción que "no hizo nada" y la repite.
@@ -3112,11 +3306,13 @@ function notifyHtmxFailures() {
     document.body.addEventListener('htmx:responseError', (event) => {
         const status = event.detail && event.detail.xhr ? event.detail.xhr.status : 0;
 
-        // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
-        // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
-        // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
-        // dice más ("Tu sesión expiró") porque sabe por qué falló.
-        if (status === 400 || status === 419) {
+        // 400, 419 y 422 ya tienen su aviso: el failureHandler de slim/csrf
+        // responde 400 con `HX-Trigger` y ese evento `csrf` lo muestra este
+        // mismo stack; el 422 swapea (ver allowValidationSwap) y el mensaje
+        // viaja en el formulario o en `HX-Trigger-After-Swap`. Avisar también
+        // acá daría DOS toasts del mismo fallo, y el de CSRF dice más
+        // ("Tu sesión expiró") porque sabe por qué falló.
+        if (status === 400 || status === 419 || status === 422) {
             return;
         }
 
@@ -3128,6 +3324,7 @@ function notifyHtmxFailures() {
     });
 }
 
+allowValidationSwap();
 notifyHtmxFailures();
 </script>
 
@@ -3238,6 +3435,12 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 {% block title %}Acceder{% endblock %}
 
 {% block content %}
+    {# Errores por campo que devuelve Validator (campo => mensaje). Van
+       pegados al input que los causó: el flash es un solo aviso y no dice cuál
+       de los dos campos corregir. `default('')` cubre el render inicial, donde
+       `errors` no existe. #}
+    {% set email_error = errors.email|default('') %}
+    {% set password_error = errors.password|default('') %}
     {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
        card aprovecha el ancho en movil en vez de quedar flotando. #}
     <div class="w-full max-w-sm">
@@ -3291,9 +3494,17 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                             </span>
                             <input id="login-email" type="email" name="email" required autocomplete="username"
                                    value="{{ email|default('') }}"
+                                   {% if email_error %}aria-invalid="true" aria-describedby="login-email-error"{% endif %}
                                    placeholder="tu@ejemplo.com"
                                    class="input login-input h-11 w-full pl-10">
                         </div>
+                        {# El mensaje va FUERA de `.login-field`: ese div es el
+                           contenedor `relative` del icono y `inset-y-0` lo
+                           estira a todo el alto, asi que un <p> adentro lo
+                           bajaría del centro del input. #}
+                        {% if email_error %}
+                            <p id="login-email-error" class="text-error text-sm" role="alert">{{ email_error }}</p>
+                        {% endif %}
                     </fieldset>
                     <fieldset class="fieldset">
                         <label class="fieldset-legend" for="login-password">Clave</label>
@@ -3302,9 +3513,13 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                                 {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-password" type="password" name="password" required autocomplete="current-password"
+                                   {% if password_error %}aria-invalid="true" aria-describedby="login-password-error"{% endif %}
                                    placeholder="••••••••"
                                    class="input login-input h-11 w-full pl-10">
                         </div>
+                        {% if password_error %}
+                            <p id="login-password-error" class="text-error text-sm" role="alert">{{ password_error }}</p>
+                        {% endif %}
                     </fieldset>
                     <label class="label login-remember cursor-pointer justify-start gap-2.5 text-sm">
                         <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
@@ -3763,11 +3978,13 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
     {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
-       quedaría pegado. `event.detail.successful` es false en un 400 de
-       validación, en un 5xx y cuando no hubo respuesta; ahí el texto tipeado es
-       justo lo que no se puede borrar, porque es lo único que el usuario tiene
-       para corregir. El server ya conserva el título en el camino de edición
-       (`editing_title`); esto es la otra mitad de la misma regla.
+       quedaría pegado tras crear la tarea. La condición es el STATUS y no
+       `event.detail.successful`: un fallo de validación responde 422 y ese 422
+       sí swapea (ver el handler de htmx:beforeSwap en layouts/app.twig), así
+       que esa bandera sería true justamente cuando el texto tipeado es lo
+       único que el usuario tiene para corregir. El server ya conserva el título
+       en el camino de edición (`editing_title`); esto es la otra mitad de la
+       misma regla.
        maxlength=120 alinea el browser con el max:120 del server.
        hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
        emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
@@ -3791,7 +4008,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
-          hx-on::after-request="if (event.detail.successful) this.reset()"
+          hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
@@ -3928,10 +4145,13 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
+                {# `flex-wrap`: el mensaje de error del título viaja en su
+                   propia línea (`w-full`) en vez de robarle ancho al input y a
+                   los botones en móvil. #}
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
-                      class="flex items-center gap-2">
+                      class="flex flex-wrap items-center gap-2">
                     {% include 'partials/_csrf.twig' %}
                     {# En fallo de validación se repinta lo TIPEADO (editing_title),
                        no el valor guardado: si no, el usuario pierde lo que
@@ -3941,6 +4161,12 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        tarea como nombre porque ya está en `value` y el lector
                        lo anunciaría dos veces. La misma clave que el botón de
                        editar hace que el foco del swap aterrice en el campo. #}
+                    {# El error se pasa EXPLÍCITO: el include usa `only`, así que
+                       `errors` del contexto no llega solo. `error_class` con
+                       `w-full` lo manda a su propia línea del form.
+                       `errors.title` sólo existe tras un fallo de validación;
+                       en el resto de los renders queda en null y el campo sale
+                       como siempre. #}
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
@@ -3951,7 +4177,9 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         field_class: 'contents',
                         label_class: 'sr-only',
                         input_class: 'input input-sm w-full',
-                        data_focus_key: 'edit-' ~ task.id
+                        data_focus_key: 'edit-' ~ task.id,
+                        error: errors.title|default(null),
+                        error_class: 'text-error text-sm w-full'
                     } only %}
                     {% include 'components/ui/button.twig' with {
                         label: 'Guardar',
@@ -4937,6 +5165,7 @@ declare(strict_types=1);
 namespace Tests\Support;
 
 use Framework\Validation\Validator;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -4973,7 +5202,103 @@ final class ValidatorTest extends TestCase
         $validator = Validator::make(['title' => ''], ['title' => 'required|max:120']);
 
         self::assertTrue($validator->fails());
-        self::assertNotNull($validator->firstError());
+        // `errors()` es campo => mensaje, no campo => lista de mensajes.
+        self::assertSame(['title' => 'Este campo es obligatorio.'], $validator->errors());
+        self::assertSame('Este campo es obligatorio.', $validator->firstError());
+    }
+
+    /** @return array<string, array{0: array, 1: array, 2: string, 3: string}> */
+    public static function mensajes(): array
+    {
+        return [
+            // caso          datos                            reglas                   campo      mensaje
+            'required' => [['title' => ''],                ['title' => 'required'],    'title',    'Este campo es obligatorio.'],
+            'string'   => [['title' => 123],               ['title' => 'string'],      'title',    'Este campo debe ser texto.'],
+            'email'    => [['email' => 'no-es-email'],     ['email' => 'email'],       'email',    'Este campo debe ser un email válido.'],
+            'numeric'  => [['priority' => 'alta'],         ['priority' => 'numeric'],  'priority', 'Este campo debe ser un número.'],
+            'max'      => [['title' => str_repeat('a', 51)], ['title' => 'max:50'],    'title',    'No puede superar los 50 caracteres.'],
+            'min'      => [['password' => 'corta'],        ['password' => 'min:8'],    'password', 'Debe tener al menos 8 caracteres.'],
+        ];
+    }
+
+    /**
+     * El mensaje que ve el usuario es castellano y viene por campo: es lo que
+     * la vista pinta al lado del input (S3), no el texto en inglés de Respect.
+     */
+    #[DataProvider('mensajes')]
+    public function test_los_mensajes_son_en_castellano(array $data, array $rules, string $field, string $expected): void
+    {
+        $validator = Validator::make($data, $rules);
+
+        self::assertTrue($validator->fails(), 'El caso tenía que fallar.');
+        self::assertSame([$field => $expected], $validator->errors());
+        self::assertSame($expected, $validator->firstError());
+    }
+
+    /**
+     * S2: un typo en la regla (`requird`) no puede validar en silencio. La
+     * excepción nombra la regla, el campo y el string completo, que es lo que
+     * hace falta para encontrar la regla rota sin abrir el template.
+     */
+    public function test_una_regla_desconocida_explota_nombrando_regla_campo_y_regla_completa(): void
+    {
+        try {
+            Validator::make(['title' => 'Comprar pan'], ['title' => 'requird|max:120']);
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('requird', $e->getMessage(), 'El mensaje no nombra la regla.');
+            self::assertStringContainsString('title', $e->getMessage(), 'El mensaje no nombra el campo.');
+            self::assertStringContainsString('requird|max:120', $e->getMessage(), 'El mensaje no trae la regla completa.');
+
+            return;
+        }
+
+        self::fail('Una regla desconocida validó en silencio.');
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function longitudesSinNumero(): array
+    {
+        return [
+            'max sin parámetro' => ['max'],
+            'min sin parámetro' => ['min'],
+            'max con texto'     => ['max:muchos'],
+            'min con texto'     => ['min:ocho'],
+        ];
+    }
+
+    /**
+     * `max`/`min` sin número es una regla rota: antes `(int) null` la volvía
+     * `length(0)` y el campo nunca podía pasar, sin decir por qué.
+     */
+    #[DataProvider('longitudesSinNumero')]
+    public function test_una_longitud_sin_numero_explota(string $rule): void
+    {
+        try {
+            Validator::make(['title' => 'Comprar pan'], ['title' => $rule]);
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString('title', $e->getMessage(), 'El mensaje no nombra el campo.');
+            self::assertStringContainsString($rule, $e->getMessage(), 'El mensaje no trae la regla completa.');
+
+            return;
+        }
+
+        self::fail('Un "' . $rule . '" sin número validó en silencio.');
+    }
+
+    /**
+     * Un solo mensaje por campo: gana la primera regla que falla, en el orden
+     * en que están escritas. Sin eso el texto dependía del orden interno de
+     * Respect y el aviso podía hablar de la regla equivocada.
+     */
+    public function test_la_primera_regla_que_falla_es_la_que_se_reporta(): void
+    {
+        // 'zzzzz' no es un email y además pasa el máximo: gana `email`.
+        $primera = Validator::make(['email' => 'zzzzz'], ['email' => 'email|max:3']);
+        self::assertSame(['email' => 'Este campo debe ser un email válido.'], $primera->errors());
+
+        // Al revés: `max` gana aunque `email` también falle después.
+        $segunda = Validator::make(['email' => str_repeat('a', 50)], ['email' => 'max:3|email']);
+        self::assertSame(['email' => 'No puede superar los 3 caracteres.'], $segunda->errors());
     }
 }
 ```
@@ -5370,6 +5695,24 @@ final class DeleteTaskTest extends TasksTestCase
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
+    /**
+     * S5: sin htmx el request es un navegador pidiendo un recurso que no
+     * existe, y ahí corresponde el 404. La rama de htmx (200 + aviso) la fija
+     * ToastFlowTest y no se toca: un 404 dentro de #tareas-panel metería la
+     * página de error en la lista.
+     */
+    public function test_borrar_un_id_inexistente_sin_htmx_responde_404(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('DELETE', '/tareas/999999', $token)
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
+    }
+
     public function test_eliminar_pide_confirmacion_con_modal_y_sin_confirm_nativo(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
@@ -5589,10 +5932,36 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringContainsString('Cancelar', $html);
     }
 
-    public function test_get_edit_de_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
+    /**
+     * S5: sin htmx la petición es un navegador pidiendo un documento, y el
+     * recurso que pidió no existe. Devolver 200 con un cartel es mentirle al
+     * protocolo (un buscador indexa la URL, un proxy la cachea, un curl con
+     * `--fail` no falla). El aviso vive dentro del panel porque ahí no hay
+     * otro canal: en una página de error el mensaje lo pone el propio 404.
+     */
+    public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $response = self::app()->handle(
             self::request('GET', '/tareas/999999/edit')
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('No encontramos esa página.', $html, 'Tiene que salir la página de error, no el panel.');
+        self::assertStringNotContainsString('tareas-panel', $html, 'Un fragmento de la app dentro de un 404 es el bug opuesto.');
+    }
+
+    /**
+     * La otra mitad de S5: un request de htmx sigue recibiendo el panel
+     * re-renderizado con el aviso, porque un 404 le metería la página de error
+     * dentro de #tareas-panel.
+     */
+    public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
+    {
+        $response = self::app()->handle(
+            self::request('GET', '/tareas/999999/edit', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -5600,8 +5969,19 @@ final class EditTaskTest extends TasksTestCase
         $html = (string) $response->getBody();
 
         self::assertStringContainsString('tareas-panel', $html);
-        self::assertStringContainsString('La tarea no existe o ya fue eliminada.', $html);
         self::assertStringNotContainsString('hx-put=', $html, 'No hay fila que editar.');
+
+        $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
+
+        self::assertSame(
+            'La tarea no existe o ya fue eliminada.',
+            $payload['toasts']['items'][0]['message'] ?? null
+        );
+        self::assertStringNotContainsString(
+            'La tarea no existe o ya fue eliminada.',
+            $html,
+            'Con htmx el aviso va en el header, no en el HTML.'
+        );
     }
 
     public function test_put_con_token_valido_actualiza_la_tarea(): void
@@ -5624,7 +6004,13 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringNotContainsString('hx-put=', (string) $response->getBody());
     }
 
-    public function test_put_sin_titulo_no_actualiza_y_muestra_el_flash(): void
+    /**
+     * S5: un fallo de validación no es un 2xx. Además, el mensaje ya no va
+     * por el flash genérico: vive pegado al campo (`errors.title`), con
+     * `aria-invalid` para que el lector lo anuncie. Dos avisos del mismo
+     * fallo (banner + campo) es ruido, no redundancia.
+     */
+    public function test_put_sin_titulo_devuelve_422_con_el_error_del_campo(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
         $token = self::token();
@@ -5637,12 +6023,17 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
-        self::assertStringContainsString('alert-error', (string) $response->getBody(), 'El flash de error no se renderizó.');
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('Este campo es obligatorio.', $html, 'El mensaje en castellano tiene que llegar al campo.');
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringNotContainsString('alert-error', $html, 'El error de un campo no se repite como flash.');
         // La fila se queda en modo formulario: si volviera a la lista, el
         // usuario pierde el lugar que estaba editando junto con el error.
-        self::assertStringContainsString('hx-put=', (string) $response->getBody());
+        self::assertStringContainsString('hx-put=', $html);
     }
 
     public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
@@ -5659,16 +6050,25 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
+
+        $html = (string) $response->getBody();
+
         self::assertStringContainsString(
             'value="' . $tipeado . '"',
-            (string) $response->getBody(),
+            $html,
             'El input se repintó con el valor guardado y perdió lo tipeado.'
         );
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringContainsString('No puede superar los 120 caracteres.', $html);
     }
 
-    public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
+    /**
+     * S5: el mismo criterio que en el GET de edición. Sin htmx el recurso
+     * pedido no existe y el 200 con un cartel le miente al protocolo.
+     */
+    public function test_put_a_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $token = self::token();
 
@@ -5680,10 +6080,30 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
+        self::assertSame(404, $response->getStatusCode());
+        self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
+        self::assertSame(0, Task::count(), 'No se creó ninguna fila nueva.');
+    }
+
+    public function test_put_a_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('PUT', '/tareas/999999', [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => 'No debería guardarse',
+            ], ['HX-Request' => 'true'])
+        );
+
         self::assertSame(200, $response->getStatusCode());
-        self::assertStringContainsString(
+
+        $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
+
+        self::assertSame(
             'La tarea no existe o ya fue eliminada.',
-            (string) $response->getBody()
+            $payload['toasts']['items'][0]['message'] ?? null
         );
         self::assertSame(0, Task::count(), 'No se creó ninguna fila nueva.');
     }
@@ -5753,6 +6173,36 @@ final class AuthTest extends HttpTestCase
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('type="password"', $html);
         self::assertStringContainsString('name="remember"', $html);
+    }
+
+    /**
+     * Un campo vacío no es un fallo de credenciales: el mensaje va pegado al
+     * input que lo causó (per-field, con aria) y NO por el flash genérico.
+     * El flash queda para credenciales y throttling, que no son un campo.
+     *
+     * S5: un fallo de validación no es un 2xx. El formulario se re-renderiza
+     * igual, pero el status le dice al cliente (y al log del servidor) que la
+     * petición no se completó.
+     */
+    public function test_login_con_datos_invalidos_muestra_el_error_por_campo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', ['email' => '', 'password' => ''] + $token)
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('id="login-email-error"', $html);
+        self::assertStringContainsString('id="login-password-error"', $html);
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringContainsString('aria-describedby="login-email-error"', $html);
+        self::assertStringContainsString('Este campo es obligatorio.', $html);
+        // El canal de credenciales no se usa para validación de campos.
+        self::assertStringNotContainsString('Credenciales inválidas.', $html);
     }
 
     public function test_dummy_hash_es_un_bcrypt_valido_de_coste_12(): void

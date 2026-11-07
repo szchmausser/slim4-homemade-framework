@@ -48,6 +48,10 @@ final class AuthTest extends HttpTestCase
      * Un campo vacío no es un fallo de credenciales: el mensaje va pegado al
      * input que lo causó (per-field, con aria) y NO por el flash genérico.
      * El flash queda para credenciales y throttling, que no son un campo.
+     *
+     * S5: un fallo de validación no es un 2xx. El formulario se re-renderiza
+     * igual, pero el status le dice al cliente (y al log del servidor) que la
+     * petición no se completó.
      */
     public function test_login_con_datos_invalidos_muestra_el_error_por_campo(): void
     {
@@ -57,7 +61,7 @@ final class AuthTest extends HttpTestCase
             self::request('POST', '/login', ['email' => '', 'password' => ''] + $token)
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
 
         $html = (string) $response->getBody();
 

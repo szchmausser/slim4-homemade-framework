@@ -519,6 +519,34 @@ function restoreFocusAfterSwap() {
 restoreFocusAfterSwap();
 
 /**
+ * Un 422 no es un fallo de transporte: es la respuesta con el panel o el
+ * formulario re-renderizado y el mensaje de validación adentro. htmx 2.0.11 no
+ * swapea NINGÚN 4xx por default (`responseHandling`:
+ * `[{code:"204",swap:false},{code:"[23]..",swap:true},{code:"[45]..",swap:false,error:true}]`),
+ * así que sin esta excepción el mensaje por campo no llega nunca a la
+ * pantalla: el panel queda como estaba y lo único visible es el toast
+ * genérico de notifyHtmxFailures().
+ *
+ * `isError = false` es la otra mitad: es el flag del que htmx deriva
+ * `failed`/`successful` y el que decide si emite `htmx:responseError`. Con el
+ * swap habilitado y el flag encendido, el toast genérico denunciaría un fallo
+ * que el formulario ya explica campo por campo.
+ */
+function allowValidationSwap() {
+    document.body.addEventListener('htmx:beforeSwap', (event) => {
+        const detail = event.detail;
+        const xhr = detail && detail.xhr;
+
+        if (!xhr || xhr.status !== 422) {
+            return;
+        }
+
+        detail.shouldSwap = true;
+        detail.isError = false;
+    });
+}
+
+/**
  * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
  * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
  * usuario ve una acción que "no hizo nada" y la repite.
@@ -538,11 +566,13 @@ function notifyHtmxFailures() {
     document.body.addEventListener('htmx:responseError', (event) => {
         const status = event.detail && event.detail.xhr ? event.detail.xhr.status : 0;
 
-        // 400/419 ya tienen su aviso: el failureHandler de slim/csrf responde
-        // 400 con `HX-Trigger` y ese evento `csrf` lo muestra este mismo stack.
-        // Avisar también acá daría DOS toasts del mismo fallo, y el de CSRF
-        // dice más ("Tu sesión expiró") porque sabe por qué falló.
-        if (status === 400 || status === 419) {
+        // 400, 419 y 422 ya tienen su aviso: el failureHandler de slim/csrf
+        // responde 400 con `HX-Trigger` y ese evento `csrf` lo muestra este
+        // mismo stack; el 422 swapea (ver allowValidationSwap) y el mensaje
+        // viaja en el formulario o en `HX-Trigger-After-Swap`. Avisar también
+        // acá daría DOS toasts del mismo fallo, y el de CSRF dice más
+        // ("Tu sesión expiró") porque sabe por qué falló.
+        if (status === 400 || status === 419 || status === 422) {
             return;
         }
 
@@ -554,6 +584,7 @@ function notifyHtmxFailures() {
     });
 }
 
+allowValidationSwap();
 notifyHtmxFailures();
 </script>
 

@@ -13,6 +13,7 @@ use App\Tasks\Models\Task;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Slim\Exception\HttpNotFoundException;
 
 class TaskController extends Controller
 {
@@ -63,8 +64,12 @@ class TaskController extends Controller
      *
      * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
      * así que pueden viajar en las dos formas.
+     *
+     * `$status` es el status de la respuesta. 422 en un fallo de validación no
+     * es cosmético: es lo que le dice a htmx (con el handler de app.twig) que
+     * swapee igual, y lo que le dice al formulario de alta que NO se limpie.
      */
-    private function respond(Request $request, Response $response, array $extra = []): Response
+    private function respond(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
         // El orden del merge importa: `pageData()` primero, así un $extra no
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
@@ -82,6 +87,14 @@ class TaskController extends Controller
             $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
             $data
         );
+
+        // Un 422 no es una posición nueva de la lista: es el mismo panel con el
+        // mensaje de validación al lado del campo. Empujar la URL canónica ahí
+        // le escribiría al usuario una entrada de historial por un intento que
+        // no cambió nada, así que el `HX-Push-Url` queda reservado al 200.
+        if ($status !== 200) {
+            return $response->withStatus($status);
+        }
 
         if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
             return $response;
@@ -117,11 +130,23 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
+            // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
+            // que el swap no lo toca y ningún mensaje por campo puede quedar
+            // pegado a él: el toast es su ÚNICO canal in-band, y por eso acá el
+            // flash SÍ se conserva (en update() no, porque el mensaje se lee al
+            // lado del input). El 422 es la otra mitad: sin él el formulario se
+            // limpiaría y el usuario perdería lo tipeado.
+            // `errors` viaja para que el panel tenga la misma forma que en
+            // update(); como la lista no está en modo edición, hoy no lo lee.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-        } else {
-            Task::create(['title' => $data['title']]);
-            Flash::set('success', 'Tarea creada.');
+
+            return $this->respond($request, $response, [
+                'errors' => $validator->errors(),
+            ], 422);
         }
+
+        Task::create(['title' => $data['title']]);
+        Flash::set('success', 'Tarea creada.');
 
         // Devolvemos el panel completo, no solo la lista: el flash vive en el
         // mismo swap, así se ve sin recargar.
@@ -132,8 +157,14 @@ class TaskController extends Controller
     {
         $deleted = Task::destroy((int) $args['id']);
 
-        // destroy() de un id inexistente no falla: devuelve 0. Sin este branch
-        // el toast diría "eliminada" sobre una fila que nunca existió.
+        // destroy() de un id inexistente no falla: devuelve 0. Con htmx el
+        // panel vuelve con un aviso (sin este branch el toast diría "eliminada"
+        // sobre una fila que nunca existió). Sin htmx no hay panel adonde
+        // avisar: es un DELETE sobre un recurso que no existe, o sea un 404.
+        if ($deleted === 0 && !$request->hasHeader('HX-Request')) {
+            throw new HttpNotFoundException($request);
+        }
+
         Flash::set(
             $deleted > 0 ? 'success' : 'error',
             $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
@@ -148,12 +179,20 @@ class TaskController extends Controller
         // modo formulario. Sin `editing_id` la lista no sabe cuál editar.
         $task = Task::find((int) $args['id']);
 
-        // Un id que no existe no responde 404: htmx metería la página de
-        // error dentro de #tareas-panel. Devolvemos el panel con un flash,
-        // que es donde la app ya comunica todo lo que el usuario tiene que
-        // ver sin recargar. El flash NO se consume acá: lo levanta render(),
-        // que decide si va inline o en el header de htmx.
+        // Un id que no existe, CON htmx, no responde 404: htmx metería la
+        // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
+        // flash, que es donde la app ya comunica todo lo que el usuario tiene
+        // que ver sin recargar. El flash NO se consume acá: lo levanta
+        // render(), que decide si va inline o en el header de htmx.
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                // Sin htmx es un navegador pidiendo el documento de un recurso
+                // que no existe: 404 de verdad, con el mensaje de
+                // errors/error.twig. Un 200 con un cartel mentiría al
+                // protocolo (y un curl --fail no se enteraría).
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
         }
 
@@ -166,9 +205,14 @@ class TaskController extends Controller
     {
         $task = Task::find((int) $args['id']);
 
-        // Mismo criterio que en edit(): sin fila no hay nada que validar ni
-        // que guardar, y un 404 llegaría al panel como HTML ajeno.
+        // Mismo criterio que en edit(): con htmx un 404 llegaría al panel como
+        // HTML ajeno, así que la fila inexistente vuelve como panel + flash.
+        // Sin htmx es un PUT sobre un recurso que no existe: 404.
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
             return $this->respond($request, $response, [
@@ -183,14 +227,17 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-            // La fila sigue en modo formulario Y conserva lo tipeado: sin esto
-            // el input se repinta con task.title (guardado) y el usuario pierde
-            // lo que escribió justo cuando aparece el error.
+            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`)
+            // y la fila sigue en modo formulario conservando lo tipeado. Un
+            // banner con el mismo texto lo diría dos veces, y el canal de
+            // avisos queda para lo que no es un campo.
+            // Sin esto el input se repinta con task.title (guardado) y el
+            // usuario pierde lo que escribió justo cuando aparece el error.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
                 'editing_title' => $data['title'] ?? '',
-            ]);
+                'errors'        => $validator->errors(),
+            ], 422);
         }
 
         $task->update(['title' => $data['title']]);
@@ -212,6 +259,10 @@ class TaskController extends Controller
         $task = Task::find((int) $args['id']);
 
         if ($task === null) {
+            if (!$request->hasHeader('HX-Request')) {
+                throw new HttpNotFoundException($request);
+            }
+
             Flash::set('error', 'La tarea no existe o ya fue eliminada.');
 
             return $this->respond($request, $response);

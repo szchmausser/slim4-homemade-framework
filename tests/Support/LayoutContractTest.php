@@ -78,4 +78,61 @@ final class LayoutContractTest extends TestCase
             'el sidebar debe atar inert a sidebarOpen, que es el estado que sincroniza el breakpoint.'
         );
     }
+
+    /**
+     * S5: un 422 no es un fallo de transporte, es la respuesta con el panel
+     * re-renderizado y el mensaje de validación adentro. htmx 2.0.11 no
+     * swapea NINGÚN 4xx por default (`responseHandling`:
+     * `[{code:"204",swap:false},{code:"[23]..",swap:true},{code:"[45]..",swap:false,error:true}]`),
+     * así que sin este handler el mensaje por campo se quedaría en el cable:
+     * el panel no cambia, el 422 llega como error y el usuario sólo vería el
+     * toast genérico de `notifyHtmxFailures()`.
+     *
+     * `isError = false` es la otra mitad: es el flag del que htmx deriva
+     * `failed`/`successful` y el que decide si emite `htmx:responseError`.
+     * Swapear sin apagarlo dejaría el toast genérico denunciando un fallo que
+     * ya está explicado en el formulario.
+     */
+    public function test_el_layout_permite_el_swap_de_un_422(): void
+    {
+        $script = self::view('resources/views/layouts/app.twig');
+
+        self::assertPattern(
+            "/addEventListener\(\s*'htmx:beforeSwap'[\s\S]{0,900}xhr\.status\s*!==\s*422[\s\S]{0,400}shouldSwap\s*=\s*true[\s\S]{0,400}isError\s*=\s*false/",
+            $script,
+            'app.twig tiene que habilitar el swap del 422 (shouldSwap + isError): sin eso htmx descarta el cuerpo y el mensaje por campo no se ve nunca.'
+        );
+    }
+
+    /**
+     * S6: el formulario de alta vive FUERA de `#tareas-panel`, así que el swap
+     * no lo toca y el texto tipeado quedaría pegado tras un alta exitosa. La
+     * condición para limpiarlo no puede ser `event.detail.successful`: con el
+     * swap del 422 habilitado (S5) esa bandera pasa a ser true en un fallo de
+     * validación, y el usuario perdería justo lo que tiene que corregir. Lo
+     * que distingue éxito de fallo es el status del servidor.
+     */
+    public function test_el_alta_de_tareas_solo_se_limpia_con_un_200_del_servidor(): void
+    {
+        $form = self::view('framework/scaffolds/tasks/resources/views/tasks/index.twig');
+
+        self::assertPattern(
+            '/hx-on::after-request="if \(event\.detail\.xhr\.status === 200\) this\.reset\(\)"/',
+            $form,
+            'el alta tiene que limpiarse sólo con un 200: en un 422 el texto tipeado es lo único que el usuario tiene para corregir.'
+        );
+
+        self::assertPattern(
+            '/hx-on::after-request="([^"]*)"/',
+            $form,
+            'no encontré el handler hx-on::after-request del formulario de alta.'
+        );
+        preg_match('/hx-on::after-request="([^"]*)"/', $form, $handler);
+
+        self::assertStringNotContainsString(
+            'successful',
+            $handler[1],
+            'con el swap del 422 habilitado, successful es true en un fallo: la condición tiene que ser el status.'
+        );
+    }
 }

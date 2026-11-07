@@ -55,11 +55,16 @@ class AuthController extends Controller
             // input que lo causó, que es lo único que dice qué corregir. El
             // flash sigue siendo el canal de credenciales y de throttling,
             // que no son un campo del formulario.
+            //
+            // 422 y no 200: el formulario se re-renderiza igual (es la única
+            // forma de mostrar el mensaje sin JS), pero un login con campos
+            // inválidos no se completó. El 200 le decía al cliente —y al log
+            // del servidor— que la petición había salido bien.
             return $this->render($request, $response, 'auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
                 'errors' => $validator->errors(),
-            ]);
+            ])->withStatus(422);
         }
 
         // IP del cliente para el throttling. En CLI/tests puede no venir.

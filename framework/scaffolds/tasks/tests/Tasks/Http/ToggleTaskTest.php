@@ -111,4 +111,21 @@ final class ToggleTaskTest extends TasksTestCase
             'El aviso no puede ir en el header Y en el HTML.'
         );
     }
+
+    /**
+     * S5: la otra mitad del test de arriba. Este no es un request de htmx: es
+     * un navegador pidiendo el estado de un recurso que no existe, así que
+     * corresponde el 404 y no un 200 con un toast que nadie escucha.
+     */
+    public function test_toggle_sin_htmx_de_un_id_inexistente_responde_404(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('POST', '/tareas/999999/toggle', $token)
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+        self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
+    }
 }

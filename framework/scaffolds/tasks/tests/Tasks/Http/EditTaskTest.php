@@ -45,10 +45,36 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringContainsString('Cancelar', $html);
     }
 
-    public function test_get_edit_de_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
+    /**
+     * S5: sin htmx la petición es un navegador pidiendo un documento, y el
+     * recurso que pidió no existe. Devolver 200 con un cartel es mentirle al
+     * protocolo (un buscador indexa la URL, un proxy la cachea, un curl con
+     * `--fail` no falla). El aviso vive dentro del panel porque ahí no hay
+     * otro canal: en una página de error el mensaje lo pone el propio 404.
+     */
+    public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $response = self::app()->handle(
             self::request('GET', '/tareas/999999/edit')
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('No encontramos esa página.', $html, 'Tiene que salir la página de error, no el panel.');
+        self::assertStringNotContainsString('tareas-panel', $html, 'Un fragmento de la app dentro de un 404 es el bug opuesto.');
+    }
+
+    /**
+     * La otra mitad de S5: un request de htmx sigue recibiendo el panel
+     * re-renderizado con el aviso, porque un 404 le metería la página de error
+     * dentro de #tareas-panel.
+     */
+    public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
+    {
+        $response = self::app()->handle(
+            self::request('GET', '/tareas/999999/edit', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -56,8 +82,19 @@ final class EditTaskTest extends TasksTestCase
         $html = (string) $response->getBody();
 
         self::assertStringContainsString('tareas-panel', $html);
-        self::assertStringContainsString('La tarea no existe o ya fue eliminada.', $html);
         self::assertStringNotContainsString('hx-put=', $html, 'No hay fila que editar.');
+
+        $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
+
+        self::assertSame(
+            'La tarea no existe o ya fue eliminada.',
+            $payload['toasts']['items'][0]['message'] ?? null
+        );
+        self::assertStringNotContainsString(
+            'La tarea no existe o ya fue eliminada.',
+            $html,
+            'Con htmx el aviso va en el header, no en el HTML.'
+        );
     }
 
     public function test_put_con_token_valido_actualiza_la_tarea(): void
@@ -80,7 +117,13 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringNotContainsString('hx-put=', (string) $response->getBody());
     }
 
-    public function test_put_sin_titulo_no_actualiza_y_muestra_el_flash(): void
+    /**
+     * S5: un fallo de validación no es un 2xx. Además, el mensaje ya no va
+     * por el flash genérico: vive pegado al campo (`errors.title`), con
+     * `aria-invalid` para que el lector lo anuncie. Dos avisos del mismo
+     * fallo (banner + campo) es ruido, no redundancia.
+     */
+    public function test_put_sin_titulo_devuelve_422_con_el_error_del_campo(): void
     {
         $task = Task::create(['title' => 'Comprar pan']);
         $token = self::token();
@@ -93,12 +136,17 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
-        self::assertStringContainsString('alert-error', (string) $response->getBody(), 'El flash de error no se renderizó.');
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('Este campo es obligatorio.', $html, 'El mensaje en castellano tiene que llegar al campo.');
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringNotContainsString('alert-error', $html, 'El error de un campo no se repite como flash.');
         // La fila se queda en modo formulario: si volviera a la lista, el
         // usuario pierde el lugar que estaba editando junto con el error.
-        self::assertStringContainsString('hx-put=', (string) $response->getBody());
+        self::assertStringContainsString('hx-put=', $html);
     }
 
     public function test_put_invalido_conserva_lo_tipeado_en_lugar_del_guardado(): void
@@ -115,16 +163,25 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
-        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(422, $response->getStatusCode());
         self::assertSame('Comprar pan', $task->fresh()->title, 'La validación falló: el título no cambia.');
+
+        $html = (string) $response->getBody();
+
         self::assertStringContainsString(
             'value="' . $tipeado . '"',
-            (string) $response->getBody(),
+            $html,
             'El input se repintó con el valor guardado y perdió lo tipeado.'
         );
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringContainsString('No puede superar los 120 caracteres.', $html);
     }
 
-    public function test_put_a_un_id_inexistente_avisa_en_lugar_de_ignorar(): void
+    /**
+     * S5: el mismo criterio que en el GET de edición. Sin htmx el recurso
+     * pedido no existe y el 200 con un cartel le miente al protocolo.
+     */
+    public function test_put_a_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $token = self::token();
 
@@ -136,10 +193,30 @@ final class EditTaskTest extends TasksTestCase
             ])
         );
 
+        self::assertSame(404, $response->getStatusCode());
+        self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
+        self::assertSame(0, Task::count(), 'No se creó ninguna fila nueva.');
+    }
+
+    public function test_put_a_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
+    {
+        $token = self::token();
+
+        $response = self::app()->handle(
+            self::request('PUT', '/tareas/999999', [
+                'csrf_name'  => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+                'title'      => 'No debería guardarse',
+            ], ['HX-Request' => 'true'])
+        );
+
         self::assertSame(200, $response->getStatusCode());
-        self::assertStringContainsString(
+
+        $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
+
+        self::assertSame(
             'La tarea no existe o ya fue eliminada.',
-            (string) $response->getBody()
+            $payload['toasts']['items'][0]['message'] ?? null
         );
         self::assertSame(0, Task::count(), 'No se creó ninguna fila nueva.');
     }
