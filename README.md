@@ -41,7 +41,7 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer docs:sync` | Reescribe las copias de archivos de la guía desde el repo (`docs-check` es el que verifica) |
 | `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
 | `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
-| `composer demo:tasks:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra |
+| `composer demo:tasks:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra 100 tareas |
 | `composer demo:tasks:remove` | Desinstala el demo de tareas y limpia la tabla `tasks` + sus filas de `phinxlog` |
 | `composer demo:install` / `demo:remove` | Alias compatibles de `demo:tasks:install` / `demo:tasks:remove` |
 | `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
@@ -55,7 +55,7 @@ Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, 
 
 Los flags del demo se pasan después de `--`: `composer demo:tasks:install -- --force` reinstala, y `composer demo:tasks:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
 
-El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con paginación local (10 filas por página, selector 10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
+El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con paginación local (10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
 
 `respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 
@@ -100,6 +100,49 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
 - `app/Models/` es para modelos de dominio; la infraestructura del framework vive en `framework/` por componente (`Auth`, `Http`, `Validation`, `Docs`). `app/Support/` queda para helpers propios de la app.
 - El demo no se instala por defecto: `composer demo:tasks:install` copia `framework/scaffolds/tasks/`; `composer demo:tasks:remove` lo quita. La app base no debe referenciar rutas ni modelos del demo.
+
+## Componentes de UI
+
+La reutilización está separada en capas para no forzar una arquitectura:
+
+- **Base independiente:** `components/ui/button.twig`, `modal.twig`, `components/form/field.twig`, `components/feedback/alert.twig`, `partials/_icon.twig`, `_csrf.twig`, `_logo.twig` y `partials/layout/toasts.twig`.
+- **Compuestos opcionales:** `components/list/simple.twig` para listas server-rendered, `components/pagination/simple.twig` para paginación HTMX y `components/table/tabulator.twig` para tablas avanzadas locales.
+- **Dominio del demo:** las filas, estados y acciones de tareas; las columnas y formatters de contactos. Son ejemplos de implementación, no componentes universales.
+
+Los demos usan estas piezas como referencia real: tareas usa lista, paginación, botones, modal y alertas; contactos usa botones, campos, modales, tabla, toasts e iconos. Tabulator conserva su paginación local porque no corresponde mezclarla con la paginación server-side.
+
+### Ejemplos de uso
+
+```twig
+{% include 'components/ui/button.twig' with {
+    label: 'Guardar',
+    type: 'submit',
+    icon: 'check',
+    hx_post: url('/tareas'),
+    hx_target: '#tareas-panel'
+} only %}
+
+{% include 'components/form/field.twig' with {
+    name: 'title',
+    label: 'Título',
+    required: true,
+    maxlength: 120
+} only %}
+
+{% include 'components/feedback/alert.twig' with {
+    variant: 'error',
+    message: 'No se pudo guardar.'
+} only %}
+
+{% embed 'components/ui/modal.twig' with {
+    id: 'demo-modal',
+    title: 'Confirmar acción'
+} %}
+    {% block body %}
+        <p>¿Deseas continuar?</p>
+    {% endblock %}
+{% endembed %}
+```
 
 ## Estructura
 

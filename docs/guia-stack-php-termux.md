@@ -204,7 +204,7 @@ mi-app/
 
 El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
 
-Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
+Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
 ## 4. Dependencias del backend
 
@@ -2334,7 +2334,7 @@ final class DatabaseSeeder extends AbstractSeed
 }
 ```
 
-`framework/scaffolds/tasks/database/seeds/tasks/TaskSeeder.php` (datos demo; el guard la hace idempotente):
+`framework/scaffolds/tasks/database/seeds/tasks/TaskSeeder.php` (100 tareas demo; el guard la hace idempotente):
 
 ```php
 <?php
@@ -2359,11 +2359,11 @@ final class TaskSeeder extends AbstractSeed
             return;
         }
 
-        foreach (['Comprar pan', 'Regar las plantas', 'Terminar la guía'] as $title) {
-            Task::create(['title' => $title]);
+        for ($index = 1; $index <= 100; $index++) {
+            Task::create(['title' => "Tarea demo {$index}"]);
         }
 
-        echo "TaskSeeder: 3 tareas demo." . PHP_EOL;
+        echo "TaskSeeder: 100 tareas demo." . PHP_EOL;
     }
 }
 ```
@@ -2371,13 +2371,13 @@ final class TaskSeeder extends AbstractSeed
 ```bash
 ADMIN_EMAIL=... ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s DatabaseSeeder
 # OK admin ... (id 1)
-# TaskSeeder: 3 tareas demo.
+# TaskSeeder: 100 tareas demo.
 # All Done.
 ```
 
 ¿Otros datos mañana? Nuevo seeder con guard, una línea en `SEEDS`, listo. Regla: ningún seeder duplica en re-ejecución, nunca.
 
-`framework/scaffolds/tasks/database/seeds/tasks/DemoTasksSeeder.php` (100 filas para ejercitar la paginación del cap. 16.1 — a propósito FUERA de `DatabaseSeeder`: una instalación fresca no quiere 100 filas de ruido, se ejecuta puntualmente con `-s DemoTasksSeeder`; un `seed:run` pelado también lo corre porque vive en el path de seeds):
+`framework/scaffolds/tasks/database/seeds/tasks/DemoTasksSeeder.php` (compatibilidad y ejecución puntual: `TaskSeeder` ya crea las 100 al instalar el demo; este seeder sigue siendo idempotente por título y sirve para bases existentes):
 
 ```php
 <?php
@@ -2388,10 +2388,9 @@ use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
- * 100 tareas demo para ejercitar la paginación. A propósito FUERA del
- * DatabaseSeeder (una instalación fresca no quiere 100 filas de ruido):
- * se ejecuta puntualmente con -s DemoTasksSeeder. Un `seed:run` pelado
- * también lo corre porque vive en el path de seeds. Idempotente por título.
+ * Compatibilidad y ejecución puntual de 100 tareas demo. `TaskSeeder` ya las
+ * crea al instalar el demo; este seeder queda para bases existentes o para
+ * correrlo a mano. Idempotente por título.
  */
 final class DemoTasksSeeder extends AbstractSeed
 {
@@ -2717,6 +2716,29 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         .pagination-control:disabled {
             cursor: not-allowed;
             opacity: .4;
+        }
+
+        /* Mismo criterio de filas alternadas que la tabla de contactos, con la
+           primera fila en el tono oscuro. */
+        .task-list > li:nth-child(odd) {
+            background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
+        }
+        .task-list > li:hover {
+            background: var(--color-base-300);
+        }
+
+        /* El input de alta de tareas usaba el borde/outline de base-content;
+           en oscuro se veía como un contorno blanco. El foco sigue visible,
+           pero con el color primary del sistema. */
+        #alta-tarea input {
+            border-color: var(--color-base-300);
+        }
+        #alta-tarea input:focus,
+        #alta-tarea input:focus-visible {
+            outline: 2px solid var(--color-primary) !important;
+            outline-offset: 2px;
+            border-color: var(--color-primary) !important;
+            box-shadow: none !important;
         }
 
         /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
@@ -3151,7 +3173,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
-   `name`: home|tasks|contacts|mail|lock|arrow-right|alert-circle|info|plus|pencil|trash|check-circle. `class` opcional. #}
+   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package. `class` opcional. #}
 {% if name is defined and name == 'home' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 {% elseif name is defined and name == 'tasks' %}
@@ -3164,6 +3186,16 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
 {% elseif name is defined and name == 'arrow-right' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+{% elseif name is defined and name == 'arrow-left' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+{% elseif name is defined and name == 'check' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m20 6-11 11-5-5"/></svg>
+{% elseif name is defined and name == 'x' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+{% elseif name is defined and name == 'rotate' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+{% elseif name is defined and name == 'list' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
 {% elseif name is defined and name == 'alert-circle' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
 {% elseif name is defined and name == 'info' %}
@@ -3176,6 +3208,18 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
 {% elseif name is defined and name == 'check-circle' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
+{% elseif name is defined and name == 'layers' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.5-8.58 3.91a2 2 0 0 1-1.66 0L3 12.5"/><path d="m22 17.5-8.58 3.91a2 2 0 0 1-1.66 0L3 17.5"/></svg>
+{% elseif name is defined and name == 'server' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>
+{% elseif name is defined and name == 'monitor' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+{% elseif name is defined and name == 'database' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>
+{% elseif name is defined and name == 'wrench' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+{% elseif name is defined and name == 'package' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee
@@ -3315,203 +3359,316 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 {% block content %}
     <section class="card overflow-hidden border border-base-300 bg-base-100" aria-labelledby="home-title">
-        <div class="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:p-10">
-            <div class="lg:flex-1">
+        {# Header principal / Hero #}
+        <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
-                    {% include 'partials/_logo.twig' with { size: 'h-11 w-11' } %}
+                    {% include 'partials/_logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
-                        <h1 id="home-title" class="text-3xl font-bold">Mi App</h1>
-                        <p class="text-sm opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
+                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
+                        <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
                     </div>
                 </div>
-                <p class="mt-4 opacity-70">
-                    Este Framework existe para desarrollar con agentes de IA en entornos
-                    limitados o antiguos (Windows, Linux o Termux de 32 bits). Este proyecto evita
-                    las fricciones de esos entornos en su arquitectura: las vistas se
-                    renderizan en el servidor, la interactividad se resuelve con HTMX y
-                    Alpine.js en lugar de una SPA, y los recursos frontend —sin Node, bundler
-                    ni toolchain de compilación— se sirven localmente, sin CDNs ni conexión
-                    a internet. Así se mantiene un stack web moderno, maduro y al día.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2 lg:shrink-0">
                 {% if not user_id %}
-                    <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
-                        <span>Ingresar</span>
-                        <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                        </span>
-                    </a>
-                {% elseif tasks_enabled %}
-                    <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
-                        <span>Ir a tareas</span>
-                        <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                        </span>
-                    </a>
+                    <div>
+                        <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
+                            <span>Ingresar</span>
+                            <span aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                            </span>
+                        </a>
+                    </div>
+                {% elseif tasks_enabled or contacts_enabled %}
+                    <div class="flex flex-wrap gap-2">
+                        {% if tasks_enabled %}
+                            <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
+                                <span>Ir a tareas</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        {% endif %}
+                        {% if contacts_enabled %}
+                            <a href="{{ url('/contactos') }}" class="btn btn-primary gap-2">
+                                <span>Ir a contactos</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        {% endif %}
+                    </div>
                 {% endif %}
+            </div>
+
+            <p class="text-base sm:text-lg leading-relaxed opacity-80 w-full">
+                Esqueleto optimizado para desarrollo ágil y asistido por IA en entornos acotados
+                (Windows, Linux o Termux 32 bits offline). Arquitectura limpia con renderizado en el servidor,
+                reactividad ligera sin sobrecarga de SPA, y recursos frontend servidos de forma local sin Node,
+                sin bundlers ni dependencias de CDNs externas.
+            </p>
+        </div>
+
+        {# Franja de características operativas #}
+        <div class="border-t border-base-300 bg-base-300 p-6 sm:p-8 lg:px-10 lg:py-7">
+            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">Características operativas</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
+                </div>
             </div>
         </div>
 
+        {# Grilla principal: Stack a la izquierda, Módulos/Demos a la derecha #}
         <div class="grid border-t border-base-300 lg:grid-cols-5">
+            {# Columna izquierda: Stack técnico #}
             <div class="p-6 sm:p-8 lg:col-span-3 lg:p-10">
-                <h2 class="text-sm font-semibold">Stack</h2>
-                <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:gap-8">
-                    <div>
-                        <h3 id="stack-backend" class="text-xs font-semibold opacity-60">Backend</h3>
-                        <dl class="mt-2 space-y-2" aria-labelledby="stack-backend">
+                <div class="mb-6">
+                    <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
+                        </span>
+                        Arquitectura y stack
+                    </h2>
+                    <p class="mt-1 text-xs opacity-60">Tecnologías desacopladas, estándar PSR y listas para producción sin pasos de compilación.</p>
+                </div>
+
+                <div class="grid gap-6 sm:grid-cols-2 lg:gap-8">
+                    {# Backend & Núcleo #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-backend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Núcleo & Backend
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-backend">
                             <div>
-                                <dt class="text-sm font-medium">PHP</dt>
-                                <dd class="text-xs opacity-70">Lenguaje y runtime</dd>
+                                <dt class="text-sm font-semibold">PHP 8.4+</dt>
+                                <dd class="text-xs opacity-70">Lenguaje base y runtime moderno</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Slim 4</dt>
-                                <dd class="text-xs opacity-70">Router, middleware y PSR-7</dd>
+                                <dt class="text-sm font-semibold">Slim 4</dt>
+                                <dd class="text-xs opacity-70">Router HTTP, middlewares y pipeline PSR-7/15</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">PHP-DI</dt>
-                                <dd class="text-xs opacity-70">Inyección de dependencias</dd>
+                                <dt class="text-sm font-semibold">PHP-DI</dt>
+                                <dd class="text-xs opacity-70">Contenedor de inyección de dependencias PSR-11</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">slim/csrf</dt>
-                                <dd class="text-xs opacity-70">Protección CSRF</dd>
+                                <dt class="text-sm font-semibold">slim/csrf</dt>
+                                <dd class="text-xs opacity-70">Protección contra falsificación de peticiones</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">phpdotenv</dt>
-                                <dd class="text-xs opacity-70">Variables de entorno</dd>
+                                <dt class="text-sm font-semibold">phpdotenv</dt>
+                                <dd class="text-xs opacity-70">Configuración centralizada por variables de entorno</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">respect/validation</dt>
-                                <dd class="text-xs opacity-70">Validación de entrada</dd>
+                                <dt class="text-sm font-semibold">respect/validation</dt>
+                                <dd class="text-xs opacity-70">Reglas declarativas para validación de entradas</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Monolog</dt>
-                                <dd class="text-xs opacity-70">Registro de eventos</dd>
+                                <dt class="text-sm font-semibold">Monolog</dt>
+                                <dd class="text-xs opacity-70">Registro estructurado de eventos del sistema</dd>
                             </div>
                         </dl>
-
-                        <div class="mt-4">
-                            <h4 id="stack-datos" class="text-xs font-semibold opacity-60">Datos</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-datos">
-                                <div>
-                                    <dt class="text-sm font-medium">Eloquent ORM</dt>
-                                    <dd class="text-xs opacity-70">Acceso y mapeo de datos (illuminate/database)</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">SQLite</dt>
-                                    <dd class="text-xs opacity-70">Base de datos embebida</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">Phinx</dt>
-                                    <dd class="text-xs opacity-70">Migraciones y versionado del esquema</dd>
-                                </div>
-                            </dl>
-                        </div>
                     </div>
 
-                    <div>
-                        <h3 id="stack-frontend" class="text-xs font-semibold opacity-60">Frontend</h3>
-                        <dl class="mt-2 space-y-2" aria-labelledby="stack-frontend">
+                    {# Frontend & UI #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-frontend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Frontend & Reactividad
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-frontend">
                             <div>
-                                <dt class="text-sm font-medium">Twig</dt>
-                                <dd class="text-xs opacity-70">Plantillas en servidor vía slim/twig-view</dd>
+                                <dt class="text-sm font-semibold">Twig</dt>
+                                <dd class="text-xs opacity-70">Plantillas server-rendered vía slim/twig-view</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Tailwind CSS</dt>
+                                <dd class="text-xs opacity-70">Estilos utilitarios ejecutados localmente sin Node</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">daisyUI 5</dt>
+                                <dd class="text-xs opacity-70">Componentes de interfaz vendorizados y temables</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">HTMX</dt>
+                                <dd class="text-xs opacity-70">Navegación reactiva y swaps HTML sin SPA</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Alpine.js</dt>
+                                <dd class="text-xs opacity-70">Control de estado interactivo en el cliente</dd>
                             </div>
                         </dl>
-
-                        <div class="mt-4">
-                            <h4 id="stack-visual" class="text-xs font-semibold opacity-60">Visual</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-visual">
-                                <div>
-                                    <dt class="text-sm font-medium">Tailwind CSS</dt>
-                                    <dd class="text-xs opacity-70">Estilos utilitarios; browser build sin Node</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">daisyUI</dt>
-                                    <dd class="text-xs opacity-70">Componentes sobre Tailwind, vendorizados</dd>
-                                </div>
-                            </dl>
-                        </div>
-
-                        <div class="mt-4">
-                            <h4 id="stack-interactividad" class="text-xs font-semibold opacity-60">Interactividad</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-interactividad">
-                                <div>
-                                    <dt class="text-sm font-medium">HTMX</dt>
-                                    <dd class="text-xs opacity-70">Intercambios HTML sin SPA</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">Alpine.js</dt>
-                                    <dd class="text-xs opacity-70">Estado en el cliente</dd>
-                                </div>
-                            </dl>
-                        </div>
                     </div>
 
-                    <div class="sm:col-span-2">
-                        <h3 id="stack-desarrollo" class="text-xs font-semibold opacity-60">Desarrollo</h3>
-                        <dl class="mt-2 grid gap-4 sm:grid-cols-2" aria-labelledby="stack-desarrollo">
+                    {# Datos & Persistencia #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-datos" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Datos & Persistencia
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-datos">
                             <div>
-                                <dt class="text-sm font-medium">PHPUnit</dt>
-                                <dd class="text-xs opacity-70">Tests unitarios y de integración</dd>
+                                <dt class="text-sm font-semibold">Eloquent ORM</dt>
+                                <dd class="text-xs opacity-70">Mapeo objeto-relacional (illuminate/database)</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">PHPStan</dt>
-                                <dd class="text-xs opacity-70">Análisis estático (PHAR)</dd>
+                                <dt class="text-sm font-semibold">SQLite</dt>
+                                <dd class="text-xs opacity-70">Base de datos embebida de cero mantenimiento</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Whoops</dt>
-                                <dd class="text-xs opacity-70">Errores en desarrollo</dd>
+                                <dt class="text-sm font-semibold">Phinx</dt>
+                                <dd class="text-xs opacity-70">Migraciones idempotentes y versionado de esquema</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    {# Calidad & Desarrollo #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-desarrollo" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Calidad & Herramientas
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-desarrollo">
+                            <div>
+                                <dt class="text-sm font-semibold">PHPUnit</dt>
+                                <dd class="text-xs opacity-70">Pruebas unitarias, funcionales y de seguridad</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Composer</dt>
-                                <dd class="text-xs opacity-70">Dependencias y scripts</dd>
+                                <dt class="text-sm font-semibold">PHPStan</dt>
+                                <dd class="text-xs opacity-70">Análisis estático de tipos nivel 5 (PHAR)</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Whoops</dt>
+                                <dd class="text-xs opacity-70">Gestor de errores detallado para desarrollo</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Composer</dt>
+                                <dd class="text-xs opacity-70">Gestor de paquetes y scripts de verificación</dd>
                             </div>
                         </dl>
                     </div>
                 </div>
             </div>
 
-            <div id="demo" class="flex flex-col gap-5 border-t border-base-300 bg-base-200 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:border-t-0 lg:p-10">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <h2 class="text-lg font-semibold">Demo de tareas</h2>
-                        <p class="mt-1 text-sm opacity-70">
-                            CRUD, cambio entre completada y pendiente, paginación y avisos
-                            HTMX sobre SQLite.
-                        </p>
+            {# Columna derecha: Demos, Scaffolds y Requisitos #}
+            <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
+                <div>
+                    <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
+                        </span>
+                        Módulos y demos
+                    </h2>
+                    <p class="mt-1 text-xs opacity-60">Scaffolds opcionales para explorar el stack o usar como base.</p>
+                </div>
+
+                {# Card Tareas #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-base font-semibold">
+                                <span class="opacity-70" aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-4 w-4'} %}
+                                </span>
+                                Demo de tareas
+                            </h3>
+                            <p class="mt-1 text-xs opacity-70">
+                                CRUD completo, cambio de estado, paginación server-side y avisos HTMX sobre SQLite.
+                            </p>
+                        </div>
+                        {% if tasks_enabled %}
+                            <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                        {% else %}
+                            <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                        {% endif %}
                     </div>
+
                     {% if tasks_enabled %}
-                        <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                        <div class="pt-1">
+                            <a href="{{ url('/tareas') }}" class="btn btn-primary btn-sm w-full gap-2">
+                                <span>Abrir tareas</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="border-t border-base-300 pt-3">
+                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:remove</code>
+                        </div>
                     {% else %}
-                        <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                        <div>
+                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:install</code>
+                        </div>
                     {% endif %}
                 </div>
 
-                {% if tasks_enabled %}
-                    <div>
-                        <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                        <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
-                    </div>
-                {% else %}
-                    <div class="space-y-3">
-                        <div>
-                            <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:install</code>
-                        </div>
-                        <div>
-                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
-                        </div>
-                    </div>
-                {% endif %}
-
-                <div class="border-t border-base-300 pt-5">
+                {# Card Contactos #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 class="text-lg font-semibold">Demo de contactos</h2>
-                            <p class="mt-1 text-sm opacity-70">
-                                CRUD de contactos con listado en Tabulator: numeración,
-                                columnas y acciones sobre SQLite.
+                            <h3 class="flex items-center gap-2 text-base font-semibold">
+                                <span class="opacity-70" aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'contacts', class: 'h-4 w-4'} %}
+                                </span>
+                                Demo de contactos
+                            </h3>
+                            <p class="mt-1 text-xs opacity-70">
+                                CRUD con listado interactivo en Tabulator 6.7.1, ordenamiento, filtrado y acciones rápidas.
                             </p>
                         </div>
                         {% if contacts_enabled %}
@@ -3522,41 +3679,59 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     </div>
 
                     {% if contacts_enabled %}
-                        <div class="mt-4">
-                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
+                        <div class="pt-1">
+                            <a href="{{ url('/contactos') }}" class="btn btn-primary btn-sm w-full gap-2">
+                                <span>Abrir contactos</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="border-t border-base-300 pt-3">
+                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:remove</code>
                         </div>
                     {% else %}
-                        <div class="mt-4 space-y-3">
-                            <div>
-                                <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
-                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:install</code>
-                            </div>
-                            <div>
-                                <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
-                            </div>
+                        <div>
+                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:install</code>
                         </div>
                     {% endif %}
                 </div>
 
-                <div class="mt-auto border-t border-base-300 pt-4">
-                    <h3 id="requirements-title" class="text-xs font-semibold opacity-60">Requisitos</h3>
-                    <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs" aria-labelledby="requirements-title">
-                        <dt class="font-medium">PHP</dt>
-                        <dd class="text-right opacity-70">8.4.1+</dd>
-                        <dt class="font-medium">Extensiones</dt>
-                        <dd class="text-right opacity-70">pdo_sqlite, sqlite3 y mbstring</dd>
-                        <dt class="font-medium">Composer</dt>
-                        <dd class="text-right opacity-70">2.x</dd>
-                        <dt class="font-medium">Navegador</dt>
-                        <dd class="text-right opacity-70">
-                            <span class="whitespace-nowrap">Chrome 111+</span>,
-                            <span class="whitespace-nowrap">Safari 16.4+</span> o
-                            <span class="whitespace-nowrap">Firefox 128+</span>
-                        </dd>
+                {# Card Requisitos #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">
+                    <h3 id="requirements-title" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                        <span class="inline-flex shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
+                        </span>
+                        Requisitos y compatibilidad
+                    </h3>
+                    <dl class="space-y-2 text-xs" aria-labelledby="requirements-title">
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Entornos</dt>
+                            <dd class="text-right opacity-70">Termux (ARM 32/64b), Windows, Linux, Mac</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">PHP</dt>
+                            <dd class="opacity-70">8.4.1+</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Extensiones</dt>
+                            <dd class="opacity-70">pdo_sqlite, sqlite3, mbstring</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Composer</dt>
+                            <dd class="opacity-70">2.x</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 pb-0.5">
+                            <dt class="font-medium">Navegadores</dt>
+                            <dd class="text-right opacity-70">
+                                <span>Chrome 111+</span>, <span>Safari 16.4+</span>, <span>Firefox 128+</span>
+                            </dd>
+                        </div>
                     </dl>
-                    <p class="mt-3 text-xs opacity-60">Sin Node, build ni CDN en runtime.</p>
+                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">Sin Node.js, sin paso de build ni CDN en runtime.</p>
                 </div>
             </div>
         </div>
@@ -3575,7 +3750,12 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
             <div>
-                <h1 class="text-2xl font-bold">Mis tareas</h1>
+                <h1 class="flex items-center gap-2 text-2xl font-bold">
+                    <span class="opacity-60" aria-hidden="true">
+                        {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
+                    </span>
+                    Mis tareas
+                </h1>
                 <p class="mt-1 text-sm opacity-70">
                     CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
                 </p>
@@ -3615,11 +3795,23 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
-        <input type="text" name="title" placeholder="Nueva tarea" aria-label="Nueva tarea" required maxlength="120"
-               class="input join-item w-full">
-        <button type="submit" class="btn btn-primary join-item">
-            Agregar
-        </button>
+        {% include 'components/form/field.twig' with {
+            id: 'task-title-new',
+            name: 'title',
+            label: 'Nueva tarea',
+            placeholder: 'Nueva tarea',
+            required: true,
+            maxlength: 120,
+            field_class: 'contents',
+            label_class: 'sr-only',
+            input_class: 'input join-item w-full'
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: 'Agregar',
+            type: 'submit',
+            icon: 'plus',
+            extra_class: 'join-item gap-2'
+        } only %}
     </form>
 
     {% include 'tasks/_panel.twig' %}
@@ -3672,14 +3864,18 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
        viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
        un aviso, un canal (ver Controller::render). #}
     {% if flash_error %}
-        <div class="alert alert-error mb-4" role="alert">
-            <span>{{ flash_error }}</span>
-        </div>
+        {% include 'components/feedback/alert.twig' with {
+            variant: 'error',
+            message: flash_error,
+            extra_class: 'mb-4'
+        } only %}
     {% endif %}
     {% if flash_success %}
-        <div class="alert alert-success mb-4" role="status">
-            <span>{{ flash_success }}</span>
-        </div>
+        {% include 'components/feedback/alert.twig' with {
+            variant: 'success',
+            message: flash_success,
+            extra_class: 'mb-4'
+        } only %}
     {% endif %}
 
     <div id="lista-tareas">
@@ -3725,7 +3921,8 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    del <script> de layouts/app.twig. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
-    empty: 'No hay tareas todavía.'
+    empty: 'No hay tareas todavía.',
+    list_class: 'space-y-2 task-list'
 } %}
     {% block row %}
         {% set task = item %}
@@ -3740,38 +3937,44 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        no el valor guardado: si no, el usuario pierde lo que
                        escribió junto con el error. Twig autoescapea, así que
                        comillas o <script> tipeados salen neutrales. #}
-                    {# Nombre accesible: un input sin label, sin aria-label y sin
-                       placeholder se anuncia solo como "campo de texto", sin
-                       decir de qué. NO se usa el título de la tarea como
-                       nombre: ya está en `value`, y nombrar el campo con su
-                       propio contenido hace que el lector lo anuncie dos
-                       veces (nombre + valor). #}
-                    <input type="text"
-                           name="title"
-                           aria-label="Título de la tarea"
-                           {# Misma clave que el boton de editar: al entrar en modo
-                              edicion ese boton desaparece y este input toma su
-                              lugar, asi que el foco del swap aterriza en el
-                              campo y no en el panel. #}
-                           data-focus-key="edit-{{ task.id }}"
-                           value="{{ editing_title is defined and editing_title is not null ? editing_title : task.title }}"
-                           required
-                           maxlength="120"
-                           class="input input-sm w-full">
-                    <button type="submit"
-                            class="btn btn-primary btn-sm"
-                            data-focus-key="save-{{ task.id }}">
-                        Guardar
-                    </button>
+                    {# El label va oculto pero existe: no se usa el título de la
+                       tarea como nombre porque ya está en `value` y el lector
+                       lo anunciaría dos veces. La misma clave que el botón de
+                       editar hace que el foco del swap aterrice en el campo. #}
+                    {% include 'components/form/field.twig' with {
+                        id: 'task-title-' ~ task.id,
+                        name: 'title',
+                        label: 'Título de la tarea',
+                        value: editing_title is defined and editing_title is not null ? editing_title : task.title,
+                        required: true,
+                        maxlength: 120,
+                        field_class: 'contents',
+                        label_class: 'sr-only',
+                        input_class: 'input input-sm w-full',
+                        data_focus_key: 'edit-' ~ task.id
+                    } only %}
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Guardar',
+                        type: 'submit',
+                        icon: 'check',
+                        icon_class: 'h-3.5 w-3.5',
+                        size: 'sm',
+                        extra_class: 'gap-1.5',
+                        data_focus_key: 'save-' ~ task.id
+                    } only %}
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
-                    <button type="button"
-                            hx-get="{{ url('/tareas') }}?{{ posicion|raw }}"
-                            hx-target="#tareas-panel"
-                            hx-swap="outerHTML"
-                            data-focus-key="cancel-{{ task.id }}"
-                            class="btn btn-ghost btn-sm">
-                        Cancelar
-                    </button>
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Cancelar',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'x',
+                        icon_class: 'h-3.5 w-3.5',
+                        extra_class: 'gap-1.5',
+                        hx_get: url('/tareas') ~ '?' ~ posicion,
+                        hx_target: '#tareas-panel',
+                        hx_swap: 'outerHTML',
+                        data_focus_key: 'cancel-' ~ task.id
+                    } only %}
                 </form>
             </li>
         {% else %}
@@ -3852,97 +4055,88 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        achicar la fila y a 320px produce scroll horizontal. #}
                     <span class="min-w-0 break-words">{{ task.title }}</span>
                 </span>
-                {# Acciones como ICONOS. Con texto, tres botones ("Completar"
-                   + "Editar" + "Eliminar") se comían media fila y en móvil
-                   empujaban el título a un renglón. Ahora el ancho es fijo
-                   (btn-square) y el texto no desaparece: sigue en aria-label
-                   (lector de pantalla) y en title (tooltip nativo). No se usa
-                   el `tooltip` de daisyUI porque tres tooltips CSS vecinos se
-                   superponen al pasar el mouse entre botones.
-                   `shrink-0`: en pantallas angostas se comprimen los iconos,
-                   no el título. Los svg son inline (mismo criterio que los
-                   iconos de estado de arriba): cero requests y heredan
-                   currentColor, así que el tema claro/oscuro es gratis. #}
+                {# Acciones como ICONOS mediante components/ui/button.twig:
+                   ancho fijo (btn-square), sin texto visible pero con
+                   aria-label/title; `shrink-0` conserva el ancho en móvil.
+                   Los iconos salen del registro compartido. #}
                 <div class="flex shrink-0 gap-1">
                     {# Botón para cambiar el estado: HTMX intercambia el panel completo.
                        `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
-                    <button
-                        hx-post="{{ url('/tareas/' ~ task.id ~ '/toggle') }}?{{ posicion|raw }}"
-                        hx-target="#tareas-panel"
-                        hx-swap="outerHTML"
-                        hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
-                        data-focus-key="toggle-{{ task.id }}"
-                        class="btn btn-square btn-ghost btn-sm size-9 {{ task.status == 'completado' ? 'icon-success' : '' }}"
-                        aria-label="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}"
-                        title="{{ task.status == 'completado' ? 'Desmarcar' : 'Completar' }}">
-                        {% if task.status == 'completado' %}
-                            {# Deshacer: flecha circular #}
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                        {% else %}
-                            {# Completar: tilde #}
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                        {% endif %}
-                    </button>
-                    <button
-                        hx-get="{{ url('/tareas/' ~ task.id ~ '/edit') }}?{{ posicion|raw }}"
-                        hx-target="#tareas-panel"
-                        hx-swap="outerHTML"
-                        data-focus-key="edit-{{ task.id }}"
-                        class="btn btn-square btn-ghost btn-sm size-9"
-                        aria-label="Editar"
-                        title="Editar">
-                        {# Lápiz #}
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-                    </button>
-                    <button
-                        class="btn btn-square btn-ghost btn-sm size-9 icon-error"
-                        aria-label="Eliminar"
-                        title="Eliminar"
-                        data-focus-key="delete-{{ task.id }}"
-                        @click="$el.closest('li').querySelector('dialog').showModal()">
-                        {# Papelera #}
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: task.status == 'completado' ? 'rotate' : 'check',
+                        extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
+                        aria_label: task.status == 'completado' ? 'Desmarcar' : 'Completar',
+                        title: task.status == 'completado' ? 'Desmarcar' : 'Completar',
+                        hx_post: url('/tareas/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
+                        hx_target: '#tareas-panel',
+                        hx_swap: 'outerHTML',
+                        hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
+                        data_focus_key: 'toggle-' ~ task.id
+                    } only %}
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'pencil',
+                        extra_class: 'btn-square size-9',
+                        aria_label: 'Editar',
+                        title: 'Editar',
+                        hx_get: url('/tareas/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
+                        hx_target: '#tareas-panel',
+                        hx_swap: 'outerHTML',
+                        data_focus_key: 'edit-' ~ task.id
+                    } only %}
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'trash',
+                        extra_class: 'btn-square size-9 icon-error',
+                        aria_label: 'Eliminar',
+                        title: 'Eliminar',
+                        data_focus_key: 'delete-' ~ task.id,
+                        onclick: "document.getElementById('task-delete-" ~ task.id ~ "').showModal()"
+                    } only %}
                 </div>
 
-            {# Confirmación con modal daisyUI en vez del confirm() nativo:
-               - <dialog> es nativo: sin JS de terceros, sin estado Alpine.
-               - Se abre por DOM (botón y dialog viven en la misma fila).
-               - Cancelar es form method=dialog y afuera es modal-backdrop.
+            {# Confirmación con el modal compartido:
+               - Se abre por DOM (el botón y el dialog viven en la misma fila).
+               - Cancelar cierra por DOM; el backdrop usa form method=dialog.
                - En éxito, el swap reemplaza #tareas-panel y el dialog sale
                  del DOM: no hay nada que cerrar a mano.
                - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
-            <dialog class="modal" aria-label="Confirmar borrado de {{ task.title }}">
-                <div class="modal-box">
-                    <h2 class="font-bold">¿Borrar esta tarea?</h2>
+            {% embed 'components/ui/modal.twig' with {
+                id: 'task-delete-' ~ task.id,
+                title: '¿Borrar esta tarea?'
+            } %}
+                {% block body %}
                     <p class="py-3 opacity-70">{{ task.title }}</p>
                     <div class="modal-action">
-                        <form method="dialog">
-                            <button class="btn btn-ghost">Cancelar</button>
-                        </form>
-                        <button
-                            hx-delete="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
-                            hx-headers="{{ {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode|e('html_attr') }}"
-                            hx-target="#tareas-panel"
-                            hx-swap="outerHTML"
-                            {# La MISMA clave que el botón de arriba, y por la
-                               misma razón: este es el botón que dispara el
-                               DELETE, así que es el que tiene que publicarla
-                               en htmx:beforeRequest. El de arriba solo abre el
-                               modal (no hace ningún request) y conserva la
-                               clave por simetría. Como la fila desaparece en
-                               el swap, esa clave no va a existir en el DOM
-                               nuevo y el layout enfoca el panel. #}
-                            data-focus-key="delete-{{ task.id }}"
-                            class="btn btn-error">
-                            Borrar
-                        </button>
+                        {% include 'components/ui/button.twig' with {
+                            label: 'Cancelar',
+                            variant: 'ghost',
+                            icon: 'x',
+                            type: 'button',
+                            extra_class: 'gap-1.5',
+                            onclick: "document.getElementById('task-delete-" ~ task.id ~ "').close()"
+                        } only %}
+                        {% include 'components/ui/button.twig' with {
+                            label: 'Borrar',
+                            variant: 'error',
+                            icon: 'trash',
+                            extra_class: 'gap-1.5',
+                            hx_delete: url('/tareas/' ~ task.id) ~ '?' ~ posicion,
+                            hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
+                            hx_target: '#tareas-panel',
+                            hx_swap: 'outerHTML',
+                            data_focus_key: 'delete-' ~ task.id
+                        } only %}
                     </div>
-                </div>
-                <form method="dialog" class="modal-backdrop">
-                    <button>Cerrar</button>
-                </form>
-            </dialog>
+                {% endblock %}
+            {% endembed %}
             </li>
         {% endif %}
     {% endblock %}
@@ -4008,7 +4202,9 @@ final class Pagination
     public const DEFAULT_PER_PAGE = 10;
 
     /** @var int[] */
-    public const ALLOWED_PER_PAGE = [5, 10, 15, 25, 50];
+    public const ALLOWED_PER_PAGE = [5, 10, 25, 50, 100];
+
+    public const WINDOW_SIZE = 5;
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
@@ -4053,45 +4249,22 @@ final class Pagination
     }
 
     /**
-     * Ventana de páginas con techo de CINCO entradas: primera, actual y
-     * última, más un ellipsis (null = "…") en cada salto. Con last <= 5
-     * entran todas y no hay nada que saltear.
+     * Ventana fija de cinco páginas consecutivas, centrada en la actual y
+     * recortada en los extremos. Es el mismo patrón de Tabulator: los saltos
+     * largos quedan cubiertos por Primera/Anterior/Siguiente/Última, así que
+     * no hacen falta puntos suspensivos.
      *
-     * Los vecinos de la actual NO se muestran a propósito: llegar a la
-     * anterior/siguiente lo cubren los botones Anterior/Siguiente, que están siempre. La
-     * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
-     * opciones visibles que aguanta un punto de decisión (R7).
-     *
-     * La deduplicación sale de las guardas, no de array_unique: current == 1
-     * o current == last no repiten el número porque el `if` que lo agrega lo
-     * excluye. array_unique con comparación laxa borraría además un ellipsis
-     * doble, que es válido cuando current está lejos de los dos extremos.
-     *
-     * @return array<int|null>
+     * @return list<int>
      */
     public static function window(int $current, int $last): array
     {
-        if ($last <= 5) {
+        if ($last <= self::WINDOW_SIZE) {
             return range(1, $last);
         }
 
-        $pages = [1];
+        $start = max(1, min($current - 2, $last - self::WINDOW_SIZE + 1));
 
-        if ($current > 2) {
-            $pages[] = null;
-        }
-
-        if ($current > 1 && $current < $last) {
-            $pages[] = $current;
-        }
-
-        if ($current < $last - 1) {
-            $pages[] = null;
-        }
-
-        $pages[] = $last;
-
-        return $pages;
+        return range($start, $start + self::WINDOW_SIZE - 1);
     }
 }
 ```
@@ -4206,6 +4379,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
                 <select class="pagination-select" name="per_page"
                         aria-label="{{ label|default('registros')|capitalize }} por página"
+                        data-focus-key="pagination-size"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"
@@ -4237,12 +4411,14 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                    href="{{ destino_primera|raw }}"
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-first"
                    aria-label="Primera página">Primera</a>
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-prev"
                    aria-label="Página anterior">Anterior</a>
             {% else %}
                 <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
@@ -4250,17 +4426,20 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
             {% endif %}
 
             {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="pagination-control pagination-control--square pagination-control--disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
-                    <span class="pagination-control pagination-control--square pagination-control--active" aria-current="page">{{ p }}</span>
+                {% if p == pagination.current_page %}
+                    {# No entra en el tab order, pero el foco programático vuelve acá
+                       después del swap para conservar la posición. #}
+                    <span class="pagination-control pagination-control--square pagination-control--active"
+                          tabindex="-1"
+                          data-focus-key="pagination-page-{{ p }}"
+                          aria-current="page">{{ p }}</span>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="pagination-control pagination-control--square"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       data-focus-key="pagination-page-{{ p }}"
                        aria-label="Página {{ p }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
@@ -4271,12 +4450,14 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-next"
                    aria-label="Página siguiente">Siguiente</a>
                 {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-last"
                    aria-label="Última página">Última</a>
             {% else %}
                 <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>
@@ -5091,11 +5272,14 @@ final class RoutingTest extends HttpTestCase
 
         self::assertStringNotContainsString('href="/login"', $html);
 
-        if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
-            self::assertStringContainsString('composer demo:tasks:install', $html);
-        }
+        $tasksInstalled = is_file(dirname(__DIR__, 2) . '/routes/tasks.php');
 
-        self::assertStringContainsString('composer demo:tasks:remove', $html);
+        if (!$tasksInstalled) {
+            self::assertStringContainsString('composer demo:tasks:install', $html);
+            self::assertStringNotContainsString('composer demo:tasks:remove', $html);
+        } else {
+            self::assertStringContainsString('composer demo:tasks:remove', $html);
+        }
     }
 
     public function test_el_boton_de_la_pagina_de_error_no_es_un_link_muerto(): void
@@ -5851,10 +6035,12 @@ final class PaginationTest extends TestCase
 
     public function test_clamp_acepta_solo_tamanos_permitidos(): void
     {
+        self::assertSame(5, Pagination::clampPerPage(5));
         self::assertSame(10, Pagination::clampPerPage(10));
-        self::assertSame(15, Pagination::clampPerPage(15));
         self::assertSame(25, Pagination::clampPerPage(25));
         self::assertSame(50, Pagination::clampPerPage(50));
+        self::assertSame(100, Pagination::clampPerPage(100));
+        self::assertSame(10, Pagination::clampPerPage(15));
         self::assertSame(10, Pagination::clampPerPage(7));
         self::assertSame(10, Pagination::clampPerPage(0));
         self::assertSame(10, Pagination::clampPerPage(-5));
@@ -5866,14 +6052,16 @@ final class PaginationTest extends TestCase
     public static function windows(): array
     {
         return [
-            'una sola'            => [1, 1, [1]],
-            'pocas sin ellipsis'  => [1, 5, [1, 2, 3, 4, 5]],
-            'inicio con ellipsis' => [1, 10, [1, null, 10]],
-            'medio con dos'       => [5, 10, [1, null, 5, null, 10]],
-            'final con una'       => [9, 10, [1, null, 9, 10]],
-            'última exacta'       => [10, 10, [1, null, 10]],
-            'vecina del inicio'   => [2, 10, [1, 2, null, 10]],
-            'seis paginas, medio' => [3, 6, [1, null, 3, null, 6]],
+            'una sola'             => [1, 1, [1]],
+            'pocas'                => [1, 5, [1, 2, 3, 4, 5]],
+            'inicio'               => [1, 10, [1, 2, 3, 4, 5]],
+            'segunda'              => [2, 10, [1, 2, 3, 4, 5]],
+            'medio'                => [5, 10, [3, 4, 5, 6, 7]],
+            'sexta'                => [6, 10, [4, 5, 6, 7, 8]],
+            'final'                => [9, 10, [6, 7, 8, 9, 10]],
+            'última exacta'        => [10, 10, [6, 7, 8, 9, 10]],
+            'seis paginas, medio'  => [3, 6, [1, 2, 3, 4, 5]],
+            'cuatro de seis'       => [4, 6, [2, 3, 4, 5, 6]],
         ];
     }
 
@@ -5884,21 +6072,22 @@ final class PaginationTest extends TestCase
     }
 
     /**
-     * R7: un punto de decisión no muestra más de cuatro opciones visibles, así
-     * que la ventana tiene que entrar en cinco entradas contando el «…».
-     * Se barre todo el espacio que la paginación real puede producir en vez de
-     * un caso suelto: el techo es la regla, no el ejemplo.
+     * La ventana es un bloque contiguo de hasta cinco páginas, centrado en la
+     * actual y recortado en los extremos. No hay ellipsis: los saltos largos
+     * quedan en Primera/Anterior/Siguiente/Última.
      */
-    public function test_la_ventana_nunca_pasa_de_cinco_entradas(): void
+    public function test_la_ventana_es_contigua_y_no_pasa_de_cinco_entradas(): void
     {
         foreach (range(1, 12) as $last) {
             foreach (range(1, $last) as $current) {
                 $pages = Pagination::window($current, $last);
                 $caso = sprintf('ventana de %d en %d', $current, $last);
 
-                self::assertLessThanOrEqual(5, count($pages), $caso);
-                self::assertSame(1, $pages[0], $caso . ': empieza en la primera');
-                self::assertSame($last, $pages[array_key_last($pages)], $caso . ': termina en la última');
+                self::assertLessThanOrEqual(Pagination::WINDOW_SIZE, count($pages), $caso);
+                self::assertSame(range($pages[0], $pages[array_key_last($pages)]), $pages, $caso . ': bloque contiguo');
+                self::assertContains($current, $pages, $caso . ': incluye la actual');
+                self::assertGreaterThanOrEqual(1, $pages[0], $caso . ': no sale por izquierda');
+                self::assertLessThanOrEqual($last, $pages[array_key_last($pages)], $caso . ': no sale por derecha');
             }
         }
     }
@@ -5987,7 +6176,7 @@ final class PaginationTest extends TestCase
 }
 ```
 
-Este archivo ya pagó su costo: la primera versión de `window()` deduplicaba con `array_unique` y borraba un ellipsis doble válido — el test `medio con dos` lo agarró antes que cualquier ojo.
+La ventana es ahora un bloque fijo de cinco páginas consecutivas, sin ellipsis, para que el paginador server-side se comporte como el de Tabulator; los saltos largos quedan cubiertos por Primera/Anterior/Siguiente/Última.
 
 `framework/scaffolds/tasks/tests/Tasks/Http/PaginationFlowTest.php` (12 filas a propósito: con pocas, todo cae en página 1 y estos tests serían verdes sin paginar nada):
 

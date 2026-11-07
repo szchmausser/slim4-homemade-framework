@@ -82,6 +82,7 @@
                 <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
                 <select class="pagination-select" name="per_page"
                         aria-label="{{ label|default('registros')|capitalize }} por página"
+                        data-focus-key="pagination-size"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"
@@ -113,12 +114,14 @@
                    href="{{ destino_primera|raw }}"
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-first"
                    aria-label="Primera página">Primera</a>
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-prev"
                    aria-label="Página anterior">Anterior</a>
             {% else %}
                 <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
@@ -126,17 +129,20 @@
             {% endif %}
 
             {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="pagination-control pagination-control--square pagination-control--disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
-                    <span class="pagination-control pagination-control--square pagination-control--active" aria-current="page">{{ p }}</span>
+                {% if p == pagination.current_page %}
+                    {# No entra en el tab order, pero el foco programático vuelve acá
+                       después del swap para conservar la posición. #}
+                    <span class="pagination-control pagination-control--square pagination-control--active"
+                          tabindex="-1"
+                          data-focus-key="pagination-page-{{ p }}"
+                          aria-current="page">{{ p }}</span>
                 {% else %}
                     {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="pagination-control pagination-control--square"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       data-focus-key="pagination-page-{{ p }}"
                        aria-label="Página {{ p }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
@@ -147,12 +153,14 @@
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-next"
                    aria-label="Página siguiente">Siguiente</a>
                 {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   data-focus-key="pagination-last"
                    aria-label="Última página">Última</a>
             {% else %}
                 <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>

@@ -4,203 +4,316 @@
 
 {% block content %}
     <section class="card overflow-hidden border border-base-300 bg-base-100" aria-labelledby="home-title">
-        <div class="flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:p-10">
-            <div class="lg:flex-1">
+        {# Header principal / Hero #}
+        <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
-                    {% include 'partials/_logo.twig' with { size: 'h-11 w-11' } %}
+                    {% include 'partials/_logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
-                        <h1 id="home-title" class="text-3xl font-bold">Mi App</h1>
-                        <p class="text-sm opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
+                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
+                        <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
                     </div>
                 </div>
-                <p class="mt-4 opacity-70">
-                    Este Framework existe para desarrollar con agentes de IA en entornos
-                    limitados o antiguos (Windows, Linux o Termux de 32 bits). Este proyecto evita
-                    las fricciones de esos entornos en su arquitectura: las vistas se
-                    renderizan en el servidor, la interactividad se resuelve con HTMX y
-                    Alpine.js en lugar de una SPA, y los recursos frontend —sin Node, bundler
-                    ni toolchain de compilación— se sirven localmente, sin CDNs ni conexión
-                    a internet. Así se mantiene un stack web moderno, maduro y al día.
-                </p>
-            </div>
-            <div class="flex flex-wrap gap-2 lg:shrink-0">
                 {% if not user_id %}
-                    <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
-                        <span>Ingresar</span>
-                        <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                        </span>
-                    </a>
-                {% elseif tasks_enabled %}
-                    <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
-                        <span>Ir a tareas</span>
-                        <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                        </span>
-                    </a>
+                    <div>
+                        <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
+                            <span>Ingresar</span>
+                            <span aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                            </span>
+                        </a>
+                    </div>
+                {% elseif tasks_enabled or contacts_enabled %}
+                    <div class="flex flex-wrap gap-2">
+                        {% if tasks_enabled %}
+                            <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
+                                <span>Ir a tareas</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        {% endif %}
+                        {% if contacts_enabled %}
+                            <a href="{{ url('/contactos') }}" class="btn btn-primary gap-2">
+                                <span>Ir a contactos</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        {% endif %}
+                    </div>
                 {% endif %}
+            </div>
+
+            <p class="text-base sm:text-lg leading-relaxed opacity-80 w-full">
+                Esqueleto optimizado para desarrollo ágil y asistido por IA en entornos acotados
+                (Windows, Linux o Termux 32 bits offline). Arquitectura limpia con renderizado en el servidor,
+                reactividad ligera sin sobrecarga de SPA, y recursos frontend servidos de forma local sin Node,
+                sin bundlers ni dependencias de CDNs externas.
+            </p>
+        </div>
+
+        {# Franja de características operativas #}
+        <div class="border-t border-base-300 bg-base-300 p-6 sm:p-8 lg:px-10 lg:py-7">
+            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">Características operativas</h2>
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
+                </div>
+
+                <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
+                    <div class="flex items-center gap-2">
+                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
+                    </div>
+                    <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
+                </div>
             </div>
         </div>
 
+        {# Grilla principal: Stack a la izquierda, Módulos/Demos a la derecha #}
         <div class="grid border-t border-base-300 lg:grid-cols-5">
+            {# Columna izquierda: Stack técnico #}
             <div class="p-6 sm:p-8 lg:col-span-3 lg:p-10">
-                <h2 class="text-sm font-semibold">Stack</h2>
-                <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:gap-8">
-                    <div>
-                        <h3 id="stack-backend" class="text-xs font-semibold opacity-60">Backend</h3>
-                        <dl class="mt-2 space-y-2" aria-labelledby="stack-backend">
+                <div class="mb-6">
+                    <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
+                        </span>
+                        Arquitectura y stack
+                    </h2>
+                    <p class="mt-1 text-xs opacity-60">Tecnologías desacopladas, estándar PSR y listas para producción sin pasos de compilación.</p>
+                </div>
+
+                <div class="grid gap-6 sm:grid-cols-2 lg:gap-8">
+                    {# Backend & Núcleo #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-backend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Núcleo & Backend
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-backend">
                             <div>
-                                <dt class="text-sm font-medium">PHP</dt>
-                                <dd class="text-xs opacity-70">Lenguaje y runtime</dd>
+                                <dt class="text-sm font-semibold">PHP 8.4+</dt>
+                                <dd class="text-xs opacity-70">Lenguaje base y runtime moderno</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Slim 4</dt>
-                                <dd class="text-xs opacity-70">Router, middleware y PSR-7</dd>
+                                <dt class="text-sm font-semibold">Slim 4</dt>
+                                <dd class="text-xs opacity-70">Router HTTP, middlewares y pipeline PSR-7/15</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">PHP-DI</dt>
-                                <dd class="text-xs opacity-70">Inyección de dependencias</dd>
+                                <dt class="text-sm font-semibold">PHP-DI</dt>
+                                <dd class="text-xs opacity-70">Contenedor de inyección de dependencias PSR-11</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">slim/csrf</dt>
-                                <dd class="text-xs opacity-70">Protección CSRF</dd>
+                                <dt class="text-sm font-semibold">slim/csrf</dt>
+                                <dd class="text-xs opacity-70">Protección contra falsificación de peticiones</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">phpdotenv</dt>
-                                <dd class="text-xs opacity-70">Variables de entorno</dd>
+                                <dt class="text-sm font-semibold">phpdotenv</dt>
+                                <dd class="text-xs opacity-70">Configuración centralizada por variables de entorno</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">respect/validation</dt>
-                                <dd class="text-xs opacity-70">Validación de entrada</dd>
+                                <dt class="text-sm font-semibold">respect/validation</dt>
+                                <dd class="text-xs opacity-70">Reglas declarativas para validación de entradas</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Monolog</dt>
-                                <dd class="text-xs opacity-70">Registro de eventos</dd>
+                                <dt class="text-sm font-semibold">Monolog</dt>
+                                <dd class="text-xs opacity-70">Registro estructurado de eventos del sistema</dd>
                             </div>
                         </dl>
-
-                        <div class="mt-4">
-                            <h4 id="stack-datos" class="text-xs font-semibold opacity-60">Datos</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-datos">
-                                <div>
-                                    <dt class="text-sm font-medium">Eloquent ORM</dt>
-                                    <dd class="text-xs opacity-70">Acceso y mapeo de datos (illuminate/database)</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">SQLite</dt>
-                                    <dd class="text-xs opacity-70">Base de datos embebida</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">Phinx</dt>
-                                    <dd class="text-xs opacity-70">Migraciones y versionado del esquema</dd>
-                                </div>
-                            </dl>
-                        </div>
                     </div>
 
-                    <div>
-                        <h3 id="stack-frontend" class="text-xs font-semibold opacity-60">Frontend</h3>
-                        <dl class="mt-2 space-y-2" aria-labelledby="stack-frontend">
+                    {# Frontend & UI #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-frontend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Frontend & Reactividad
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-frontend">
                             <div>
-                                <dt class="text-sm font-medium">Twig</dt>
-                                <dd class="text-xs opacity-70">Plantillas en servidor vía slim/twig-view</dd>
+                                <dt class="text-sm font-semibold">Twig</dt>
+                                <dd class="text-xs opacity-70">Plantillas server-rendered vía slim/twig-view</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Tailwind CSS</dt>
+                                <dd class="text-xs opacity-70">Estilos utilitarios ejecutados localmente sin Node</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">daisyUI 5</dt>
+                                <dd class="text-xs opacity-70">Componentes de interfaz vendorizados y temables</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">HTMX</dt>
+                                <dd class="text-xs opacity-70">Navegación reactiva y swaps HTML sin SPA</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Alpine.js</dt>
+                                <dd class="text-xs opacity-70">Control de estado interactivo en el cliente</dd>
                             </div>
                         </dl>
-
-                        <div class="mt-4">
-                            <h4 id="stack-visual" class="text-xs font-semibold opacity-60">Visual</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-visual">
-                                <div>
-                                    <dt class="text-sm font-medium">Tailwind CSS</dt>
-                                    <dd class="text-xs opacity-70">Estilos utilitarios; browser build sin Node</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">daisyUI</dt>
-                                    <dd class="text-xs opacity-70">Componentes sobre Tailwind, vendorizados</dd>
-                                </div>
-                            </dl>
-                        </div>
-
-                        <div class="mt-4">
-                            <h4 id="stack-interactividad" class="text-xs font-semibold opacity-60">Interactividad</h4>
-                            <dl class="mt-2 space-y-2" aria-labelledby="stack-interactividad">
-                                <div>
-                                    <dt class="text-sm font-medium">HTMX</dt>
-                                    <dd class="text-xs opacity-70">Intercambios HTML sin SPA</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium">Alpine.js</dt>
-                                    <dd class="text-xs opacity-70">Estado en el cliente</dd>
-                                </div>
-                            </dl>
-                        </div>
                     </div>
 
-                    <div class="sm:col-span-2">
-                        <h3 id="stack-desarrollo" class="text-xs font-semibold opacity-60">Desarrollo</h3>
-                        <dl class="mt-2 grid gap-4 sm:grid-cols-2" aria-labelledby="stack-desarrollo">
+                    {# Datos & Persistencia #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-datos" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Datos & Persistencia
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-datos">
                             <div>
-                                <dt class="text-sm font-medium">PHPUnit</dt>
-                                <dd class="text-xs opacity-70">Tests unitarios y de integración</dd>
+                                <dt class="text-sm font-semibold">Eloquent ORM</dt>
+                                <dd class="text-xs opacity-70">Mapeo objeto-relacional (illuminate/database)</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">PHPStan</dt>
-                                <dd class="text-xs opacity-70">Análisis estático (PHAR)</dd>
+                                <dt class="text-sm font-semibold">SQLite</dt>
+                                <dd class="text-xs opacity-70">Base de datos embebida de cero mantenimiento</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Whoops</dt>
-                                <dd class="text-xs opacity-70">Errores en desarrollo</dd>
+                                <dt class="text-sm font-semibold">Phinx</dt>
+                                <dd class="text-xs opacity-70">Migraciones idempotentes y versionado de esquema</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    {# Calidad & Desarrollo #}
+                    <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
+                        <h3 id="stack-desarrollo" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                            <span class="inline-flex shrink-0" aria-hidden="true">
+                                {% include 'partials/_icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
+                            </span>
+                            Calidad & Herramientas
+                        </h3>
+                        <dl class="space-y-3" aria-labelledby="stack-desarrollo">
+                            <div>
+                                <dt class="text-sm font-semibold">PHPUnit</dt>
+                                <dd class="text-xs opacity-70">Pruebas unitarias, funcionales y de seguridad</dd>
                             </div>
                             <div>
-                                <dt class="text-sm font-medium">Composer</dt>
-                                <dd class="text-xs opacity-70">Dependencias y scripts</dd>
+                                <dt class="text-sm font-semibold">PHPStan</dt>
+                                <dd class="text-xs opacity-70">Análisis estático de tipos nivel 5 (PHAR)</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Whoops</dt>
+                                <dd class="text-xs opacity-70">Gestor de errores detallado para desarrollo</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-semibold">Composer</dt>
+                                <dd class="text-xs opacity-70">Gestor de paquetes y scripts de verificación</dd>
                             </div>
                         </dl>
                     </div>
                 </div>
             </div>
 
-            <div id="demo" class="flex flex-col gap-5 border-t border-base-300 bg-base-200 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:border-t-0 lg:p-10">
-                <div class="flex items-start justify-between gap-3">
-                    <div>
-                        <h2 class="text-lg font-semibold">Demo de tareas</h2>
-                        <p class="mt-1 text-sm opacity-70">
-                            CRUD, cambio entre completada y pendiente, paginación y avisos
-                            HTMX sobre SQLite.
-                        </p>
+            {# Columna derecha: Demos, Scaffolds y Requisitos #}
+            <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
+                <div>
+                    <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
+                        </span>
+                        Módulos y demos
+                    </h2>
+                    <p class="mt-1 text-xs opacity-60">Scaffolds opcionales para explorar el stack o usar como base.</p>
+                </div>
+
+                {# Card Tareas #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h3 class="flex items-center gap-2 text-base font-semibold">
+                                <span class="opacity-70" aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-4 w-4'} %}
+                                </span>
+                                Demo de tareas
+                            </h3>
+                            <p class="mt-1 text-xs opacity-70">
+                                CRUD completo, cambio de estado, paginación server-side y avisos HTMX sobre SQLite.
+                            </p>
+                        </div>
+                        {% if tasks_enabled %}
+                            <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                        {% else %}
+                            <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                        {% endif %}
                     </div>
+
                     {% if tasks_enabled %}
-                        <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                        <div class="pt-1">
+                            <a href="{{ url('/tareas') }}" class="btn btn-primary btn-sm w-full gap-2">
+                                <span>Abrir tareas</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="border-t border-base-300 pt-3">
+                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:remove</code>
+                        </div>
                     {% else %}
-                        <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                        <div>
+                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:install</code>
+                        </div>
                     {% endif %}
                 </div>
 
-                {% if tasks_enabled %}
-                    <div>
-                        <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                        <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
-                    </div>
-                {% else %}
-                    <div class="space-y-3">
-                        <div>
-                            <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:install</code>
-                        </div>
-                        <div>
-                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
-                        </div>
-                    </div>
-                {% endif %}
-
-                <div class="border-t border-base-300 pt-5">
+                {# Card Contactos #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <h2 class="text-lg font-semibold">Demo de contactos</h2>
-                            <p class="mt-1 text-sm opacity-70">
-                                CRUD de contactos con listado en Tabulator: numeración,
-                                columnas y acciones sobre SQLite.
+                            <h3 class="flex items-center gap-2 text-base font-semibold">
+                                <span class="opacity-70" aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'contacts', class: 'h-4 w-4'} %}
+                                </span>
+                                Demo de contactos
+                            </h3>
+                            <p class="mt-1 text-xs opacity-70">
+                                CRUD con listado interactivo en Tabulator 6.7.1, ordenamiento, filtrado y acciones rápidas.
                             </p>
                         </div>
                         {% if contacts_enabled %}
@@ -211,41 +324,59 @@
                     </div>
 
                     {% if contacts_enabled %}
-                        <div class="mt-4">
-                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
+                        <div class="pt-1">
+                            <a href="{{ url('/contactos') }}" class="btn btn-primary btn-sm w-full gap-2">
+                                <span>Abrir contactos</span>
+                                <span aria-hidden="true">
+                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                </span>
+                            </a>
+                        </div>
+                        <div class="border-t border-base-300 pt-3">
+                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:remove</code>
                         </div>
                     {% else %}
-                        <div class="mt-4 space-y-3">
-                            <div>
-                                <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
-                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:install</code>
-                            </div>
-                            <div>
-                                <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
-                            </div>
+                        <div>
+                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:install</code>
                         </div>
                     {% endif %}
                 </div>
 
-                <div class="mt-auto border-t border-base-300 pt-4">
-                    <h3 id="requirements-title" class="text-xs font-semibold opacity-60">Requisitos</h3>
-                    <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs" aria-labelledby="requirements-title">
-                        <dt class="font-medium">PHP</dt>
-                        <dd class="text-right opacity-70">8.4.1+</dd>
-                        <dt class="font-medium">Extensiones</dt>
-                        <dd class="text-right opacity-70">pdo_sqlite, sqlite3 y mbstring</dd>
-                        <dt class="font-medium">Composer</dt>
-                        <dd class="text-right opacity-70">2.x</dd>
-                        <dt class="font-medium">Navegador</dt>
-                        <dd class="text-right opacity-70">
-                            <span class="whitespace-nowrap">Chrome 111+</span>,
-                            <span class="whitespace-nowrap">Safari 16.4+</span> o
-                            <span class="whitespace-nowrap">Firefox 128+</span>
-                        </dd>
+                {# Card Requisitos #}
+                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">
+                    <h3 id="requirements-title" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
+                        <span class="inline-flex shrink-0" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
+                        </span>
+                        Requisitos y compatibilidad
+                    </h3>
+                    <dl class="space-y-2 text-xs" aria-labelledby="requirements-title">
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Entornos</dt>
+                            <dd class="text-right opacity-70">Termux (ARM 32/64b), Windows, Linux, Mac</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">PHP</dt>
+                            <dd class="opacity-70">8.4.1+</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Extensiones</dt>
+                            <dd class="opacity-70">pdo_sqlite, sqlite3, mbstring</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
+                            <dt class="font-medium">Composer</dt>
+                            <dd class="opacity-70">2.x</dd>
+                        </div>
+                        <div class="flex justify-between gap-2 pb-0.5">
+                            <dt class="font-medium">Navegadores</dt>
+                            <dd class="text-right opacity-70">
+                                <span>Chrome 111+</span>, <span>Safari 16.4+</span>, <span>Firefox 128+</span>
+                            </dd>
+                        </div>
                     </dl>
-                    <p class="mt-3 text-xs opacity-60">Sin Node, build ni CDN en runtime.</p>
+                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">Sin Node.js, sin paso de build ni CDN en runtime.</p>
                 </div>
             </div>
         </div>

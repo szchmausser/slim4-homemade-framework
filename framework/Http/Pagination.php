@@ -16,7 +16,9 @@ final class Pagination
     public const DEFAULT_PER_PAGE = 10;
 
     /** @var int[] */
-    public const ALLOWED_PER_PAGE = [5, 10, 15, 25, 50];
+    public const ALLOWED_PER_PAGE = [5, 10, 25, 50, 100];
+
+    public const WINDOW_SIZE = 5;
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
@@ -61,44 +63,21 @@ final class Pagination
     }
 
     /**
-     * Ventana de páginas con techo de CINCO entradas: primera, actual y
-     * última, más un ellipsis (null = "…") en cada salto. Con last <= 5
-     * entran todas y no hay nada que saltear.
+     * Ventana fija de cinco páginas consecutivas, centrada en la actual y
+     * recortada en los extremos. Es el mismo patrón de Tabulator: los saltos
+     * largos quedan cubiertos por Primera/Anterior/Siguiente/Última, así que
+     * no hacen falta puntos suspensivos.
      *
-     * Los vecinos de la actual NO se muestran a propósito: llegar a la
-     * anterior/siguiente lo cubren los botones Anterior/Siguiente, que están siempre. La
-     * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
-     * opciones visibles que aguanta un punto de decisión (R7).
-     *
-     * La deduplicación sale de las guardas, no de array_unique: current == 1
-     * o current == last no repiten el número porque el `if` que lo agrega lo
-     * excluye. array_unique con comparación laxa borraría además un ellipsis
-     * doble, que es válido cuando current está lejos de los dos extremos.
-     *
-     * @return array<int|null>
+     * @return list<int>
      */
     public static function window(int $current, int $last): array
     {
-        if ($last <= 5) {
+        if ($last <= self::WINDOW_SIZE) {
             return range(1, $last);
         }
 
-        $pages = [1];
+        $start = max(1, min($current - 2, $last - self::WINDOW_SIZE + 1));
 
-        if ($current > 2) {
-            $pages[] = null;
-        }
-
-        if ($current > 1 && $current < $last) {
-            $pages[] = $current;
-        }
-
-        if ($current < $last - 1) {
-            $pages[] = null;
-        }
-
-        $pages[] = $last;
-
-        return $pages;
+        return range($start, $start + self::WINDOW_SIZE - 1);
     }
 }

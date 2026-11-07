@@ -34,18 +34,21 @@
                 label: 'Cancelar',
                 variant: 'ghost',
                 type: 'button',
+                icon: 'x',
                 onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
             } only %}
         {% else %}
             {% include 'components/ui/button.twig' with {
                 label: 'Cancelar',
                 variant: 'ghost',
-                href: cancel_href|default(url('/contactos'))
+                href: cancel_href|default(url('/contactos')),
+                icon: 'x'
             } only %}
         {% endif %}
         {% include 'components/ui/button.twig' with {
             label: submit_label|default('Guardar'),
-            type: 'submit'
+            type: 'submit',
+            icon: submit_icon|default('check')
         } only %}
     </div>
 </form>

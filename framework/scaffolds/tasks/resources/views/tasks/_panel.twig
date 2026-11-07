@@ -39,14 +39,18 @@
        viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
        un aviso, un canal (ver Controller::render). #}
     {% if flash_error %}
-        <div class="alert alert-error mb-4" role="alert">
-            <span>{{ flash_error }}</span>
-        </div>
+        {% include 'components/feedback/alert.twig' with {
+            variant: 'error',
+            message: flash_error,
+            extra_class: 'mb-4'
+        } only %}
     {% endif %}
     {% if flash_success %}
-        <div class="alert alert-success mb-4" role="status">
-            <span>{{ flash_success }}</span>
-        </div>
+        {% include 'components/feedback/alert.twig' with {
+            variant: 'success',
+            message: flash_success,
+            extra_class: 'mb-4'
+        } only %}
     {% endif %}
 
     <div id="lista-tareas">

@@ -7,7 +7,7 @@
           href="{{ url('/assets/vendor/tabulator/6.7.1/tabulator_simple.min.css') }}"
           integrity="sha384-845p0lFU615QIduQrRBstSh/4oeH8AntnsjQxQorupjL89uYj3JAryzqwGRHHsT3">
     <link rel="stylesheet" href="{{ url('/assets/css/contacts-tabulator.css') }}"
-          integrity="sha384-WtyX2LsuhOcv0SrDh0WfXue/nGaak6i0RQBGbQ3WSZUGdCjVWZqk4HvlfHQIl5un">
+          integrity="sha384-e2yUVHpj8gPawqAI6Y9x8UFdLsRlZ4Q4zB/Cq1EiNNjT/EglJcfk8Dbx0mViovdg">
 {% endblock %}
 
 {% block content %}
@@ -15,7 +15,12 @@
         <div class="card-body gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h1 class="text-2xl font-bold">Contactos</h1>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'contacts', class: 'h-5 w-5'} %}
+                        </span>
+                        Contactos
+                    </h1>
                     <p class="mt-1 text-sm opacity-70">
                         CRUD de contactos con listado en Tabulator: numeración,
                         columnas y acciones sobre SQLite.
@@ -29,7 +34,12 @@
             </div>
 
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-lg font-semibold">Listado</h2>
+                <h2 class="flex items-center gap-2 text-lg font-semibold">
+                    <span class="opacity-60" aria-hidden="true">
+                        {% include 'partials/_icon.twig' with {name: 'list', class: 'h-4 w-4'} %}
+                    </span>
+                    Listado
+                </h2>
                 <span class="badge badge-ghost">{{ contacts_count }} contactos</span>
             </div>
 
@@ -54,6 +64,7 @@
             {% include 'contacts/_form.twig' with {
                 action: url('/contactos'),
                 submit_label: 'Crear contacto',
+                submit_icon: 'plus',
                 cancel_target: 'contact-create-modal'
             } %}
         {% endblock %}
@@ -74,12 +85,14 @@
                         label: 'Cancelar',
                         variant: 'ghost',
                         type: 'button',
+                        icon: 'x',
                         onclick: "document.getElementById('contact-delete-modal').close()"
                     } only %}
                     {% include 'components/ui/button.twig' with {
                         label: 'Eliminar',
                         variant: 'error',
-                        type: 'submit'
+                        type: 'submit',
+                        icon: 'trash'
                     } only %}
                 </div>
             </form>
@@ -91,5 +104,5 @@
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
             integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
-            integrity="sha384-zcGL5N5uTRMN5VXj8Z8iZIHCFsUpLTdGGYMDLG+YIB0XOhfTOcooMrnd6+CTvCX6"></script>
+            integrity="sha384-L/nA39iF1E6FrQvbpphwPBk7hG34w3hdhSPFNfdrSuUZnMVzVhG9/Phx5LpsBCUs"></script>
 {% endblock %}

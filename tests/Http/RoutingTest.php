@@ -44,11 +44,14 @@ final class RoutingTest extends HttpTestCase
 
         self::assertStringNotContainsString('href="/login"', $html);
 
-        if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
-            self::assertStringContainsString('composer demo:tasks:install', $html);
-        }
+        $tasksInstalled = is_file(dirname(__DIR__, 2) . '/routes/tasks.php');
 
-        self::assertStringContainsString('composer demo:tasks:remove', $html);
+        if (!$tasksInstalled) {
+            self::assertStringContainsString('composer demo:tasks:install', $html);
+            self::assertStringNotContainsString('composer demo:tasks:remove', $html);
+        } else {
+            self::assertStringContainsString('composer demo:tasks:remove', $html);
+        }
     }
 
     public function test_el_boton_de_la_pagina_de_error_no_es_un_link_muerto(): void

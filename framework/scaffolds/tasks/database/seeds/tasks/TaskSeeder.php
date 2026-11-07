@@ -20,10 +20,10 @@ final class TaskSeeder extends AbstractSeed
             return;
         }
 
-        foreach (['Comprar pan', 'Regar las plantas', 'Terminar la guía'] as $title) {
-            Task::create(['title' => $title]);
+        for ($index = 1; $index <= 100; $index++) {
+            Task::create(['title' => "Tarea demo {$index}"]);
         }
 
-        echo "TaskSeeder: 3 tareas demo." . PHP_EOL;
+        echo "TaskSeeder: 100 tareas demo." . PHP_EOL;
     }
 }

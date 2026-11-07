@@ -40,8 +40,28 @@
 }
 
 #contacts-table .tabulator-header .tabulator-col {
+    align-items: center;
     background: var(--color-base-200);
     color: var(--color-base-content);
+}
+
+#contacts-table .tabulator-header .tabulator-col-content {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 .75rem;
+}
+
+#contacts-table .tabulator-header .tabulator-col[tabulator-field="number"] .tabulator-col-content {
+    justify-content: center;
+}
+
+#contacts-table .tabulator-header .tabulator-col[tabulator-field="actions"] .tabulator-col-content {
+    justify-content: flex-end;
+}
+
+#contacts-table .tabulator-header .tabulator-col-title {
+    letter-spacing: .01em;
 }
 
 #contacts-table .tabulator-row {
@@ -51,7 +71,17 @@
 }
 
 #contacts-table .tabulator-row .tabulator-cell {
+    display: inline-flex;
+    align-items: center;
     color: var(--color-base-content);
+}
+
+#contacts-table .tabulator-row .tabulator-cell[tabulator-field="number"] {
+    justify-content: center;
+}
+
+#contacts-table .tabulator-row .tabulator-cell[tabulator-field="actions"] {
+    justify-content: flex-end;
 }
 
 #contacts-table .tabulator-row.tabulator-row-even {

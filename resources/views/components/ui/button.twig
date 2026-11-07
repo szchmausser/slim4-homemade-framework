@@ -1,7 +1,9 @@
 {# Botón/enlace estándar sobre daisyUI.
    Props: label, variant (primary|ghost|outline|error), size (xs|sm|md|lg),
    href, type, onclick, icon, aria_label, title, name, value, disabled,
-   extra_class. El texto se escapa; los iconos salen del registro compartido. #}
+   extra_class. También acepta atributos HTMX opcionales (hx_get, hx_post,
+   hx_put, hx_delete, hx_target, hx_swap, hx_headers, hx_include) y
+   data_focus_key. El texto se escapa; los iconos salen del registro compartido. #}
 {% set variants = {
     'primary': 'btn-primary',
     'ghost': 'btn-ghost',
@@ -24,7 +26,17 @@
        class="{{ classes }}"
        {% if title is defined %}title="{{ title }}"{% endif %}
        {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
-       {% if target is defined %}target="{{ target }}"{% endif %}>
+       {% if target is defined %}target="{{ target }}"{% endif %}
+       {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
+       {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
+       {% if hx_get is defined %}hx-get="{{ hx_get }}"{% endif %}
+       {% if hx_post is defined %}hx-post="{{ hx_post }}"{% endif %}
+       {% if hx_put is defined %}hx-put="{{ hx_put }}"{% endif %}
+       {% if hx_delete is defined %}hx-delete="{{ hx_delete }}"{% endif %}
+       {% if hx_target is defined %}hx-target="{{ hx_target }}"{% endif %}
+       {% if hx_swap is defined %}hx-swap="{{ hx_swap }}"{% endif %}
+       {% if hx_headers is defined %}hx-headers="{{ hx_headers }}"{% endif %}
+       {% if hx_include is defined %}hx-include="{{ hx_include }}"{% endif %}>
         {{ icon_markup }}
         {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
     </a>
@@ -36,6 +48,15 @@
             {% if title is defined %}title="{{ title }}"{% endif %}
             {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
             {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
+            {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
+            {% if hx_get is defined %}hx-get="{{ hx_get }}"{% endif %}
+            {% if hx_post is defined %}hx-post="{{ hx_post }}"{% endif %}
+            {% if hx_put is defined %}hx-put="{{ hx_put }}"{% endif %}
+            {% if hx_delete is defined %}hx-delete="{{ hx_delete }}"{% endif %}
+            {% if hx_target is defined %}hx-target="{{ hx_target }}"{% endif %}
+            {% if hx_swap is defined %}hx-swap="{{ hx_swap }}"{% endif %}
+            {% if hx_headers is defined %}hx-headers="{{ hx_headers }}"{% endif %}
+            {% if hx_include is defined %}hx-include="{{ hx_include }}"{% endif %}
             {% if disabled|default(false) %}disabled{% endif %}>
         {{ icon_markup }}
         {% if label is defined and label %}<span>{{ label }}</span>{% endif %}

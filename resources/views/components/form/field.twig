@@ -1,9 +1,12 @@
 {# Campo de formulario estándar.
    Props: name, label, type, value, required, optional, maxlength,
-   autocomplete, placeholder, id. #}
+   autocomplete, placeholder, id, input_class, field_class, label_class,
+   aria_label, data_focus_key.
+   `field_class: 'contents'` + `label_class: 'sr-only'` permite integrarlo en
+   formularios compactos sin perder el label accesible. #}
 {% set input_id = id|default(name) %}
-<fieldset class="fieldset">
-    <label class="fieldset-legend" for="{{ input_id }}">
+<fieldset class="{{ field_class|default('fieldset') }}">
+    <label class="{{ label_class|default('fieldset-legend') }}" for="{{ input_id }}">
         {{ label }}
         {% if optional|default(false) %}<span class="opacity-60">(opcional)</span>{% endif %}
     </label>
@@ -11,7 +14,9 @@
            name="{{ name }}"
            type="{{ type|default('text') }}"
            value="{{ value|default('') }}"
-           class="input w-full"
+           class="{{ input_class|default('input w-full') }}"
+           {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
+           {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
            {% if required|default(false) %}required{% endif %}
            {% if maxlength is defined %}maxlength="{{ maxlength }}"{% endif %}
            {% if autocomplete is defined %}autocomplete="{{ autocomplete }}"{% endif %}

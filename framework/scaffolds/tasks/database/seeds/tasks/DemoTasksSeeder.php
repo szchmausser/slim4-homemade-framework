@@ -6,10 +6,9 @@ use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
- * 100 tareas demo para ejercitar la paginación. A propósito FUERA del
- * DatabaseSeeder (una instalación fresca no quiere 100 filas de ruido):
- * se ejecuta puntualmente con -s DemoTasksSeeder. Un `seed:run` pelado
- * también lo corre porque vive en el path de seeds. Idempotente por título.
+ * Compatibilidad y ejecución puntual de 100 tareas demo. `TaskSeeder` ya las
+ * crea al instalar el demo; este seeder queda para bases existentes o para
+ * correrlo a mano. Idempotente por título.
  */
 final class DemoTasksSeeder extends AbstractSeed
 {

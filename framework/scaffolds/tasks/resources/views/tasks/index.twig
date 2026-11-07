@@ -6,7 +6,12 @@
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
             <div>
-                <h1 class="text-2xl font-bold">Mis tareas</h1>
+                <h1 class="flex items-center gap-2 text-2xl font-bold">
+                    <span class="opacity-60" aria-hidden="true">
+                        {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
+                    </span>
+                    Mis tareas
+                </h1>
                 <p class="mt-1 text-sm opacity-70">
                     CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
                 </p>
@@ -46,11 +51,23 @@
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
         {% include 'partials/_csrf.twig' %}
-        <input type="text" name="title" placeholder="Nueva tarea" aria-label="Nueva tarea" required maxlength="120"
-               class="input join-item w-full">
-        <button type="submit" class="btn btn-primary join-item">
-            Agregar
-        </button>
+        {% include 'components/form/field.twig' with {
+            id: 'task-title-new',
+            name: 'title',
+            label: 'Nueva tarea',
+            placeholder: 'Nueva tarea',
+            required: true,
+            maxlength: 120,
+            field_class: 'contents',
+            label_class: 'sr-only',
+            input_class: 'input join-item w-full'
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: 'Agregar',
+            type: 'submit',
+            icon: 'plus',
+            extra_class: 'join-item gap-2'
+        } only %}
     </form>
 
     {% include 'tasks/_panel.twig' %}

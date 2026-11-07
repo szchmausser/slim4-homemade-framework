@@ -67,17 +67,19 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 
 ### Componentes reutilizables
 
-- `components/ui/button.twig`: botón o enlace con `variant`, `size`, `icon`, `href`, `type`, `onclick`, `aria_label` y `extra_class`.
+- `components/ui/button.twig`: botón o enlace con `variant`, `size`, `icon`, `href`, `type`, `onclick`, `aria_label`, `extra_class` y atributos HTMX/`data-focus-key` opcionales.
 - `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle` y bloque `body`.
 - `components/feedback/alert.twig`: aviso semántico con icono y `role`; variantes `error`, `success` e `info`.
-- `components/form/field.twig`: `fieldset` + label + input consistente, con `required`, `optional` y `maxlength`.
+- `components/form/field.twig`: `fieldset` + label + input consistente, con `required`, `optional`, `maxlength`, `input_class`, `field_class`, `label_class`, `aria_label` y `data_focus_key`.
 - `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty` y un bloque `row` por elemento.
 - `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-rows`) para una tabla Tabulator; el initializer de columnas vive con la tabla.
 - `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
 - `partials/_csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
 - `partials/layout/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
 
-**Composición:** una vista no arma la estructura de una lista, una tabla o una paginación a mano. Incluye el componente y aporta sólo el contrato de datos y el contenido de la fila. La lista de tareas usa `components/list/simple.twig`; la tabla de contactos usa `components/table/tabulator.twig`; la paginación de tareas usa `components/pagination/simple.twig`.
+**Capas:** `ui/`, `form/` y `feedback/` son base independiente; `list/`, `table/` y `pagination/` son compuestos opcionales. Las filas de tareas y las columnas/acciones de contactos son código de dominio del demo, no componentes universales. Un usuario puede usar sólo los botones y toasts, o sumar una lista simple, sin adoptar Tabulator ni la paginación server-side.
+
+**Composición:** una vista no arma la estructura de una lista, una tabla o una paginación a mano. Incluye el componente y aporta sólo el contrato de datos y el contenido de la fila. La lista de tareas usa `components/list/simple.twig`; la tabla de contactos usa `components/table/tabulator.twig`; la paginación de tareas usa `components/pagination/simple.twig`. Tareas también usa los componentes base para su alta, sus acciones y su modal de borrado; contactos para botones, campos, modales y toasts.
 
 ```twig
 {% embed 'components/list/simple.twig' with { items: tasks, empty: 'No hay tareas todavía.' } %}
@@ -99,7 +101,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 } %}
 ```
 
-El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa la paginación local de Tabulator (10 por página, selector 10/25/50/100, contador en español). Mezclar ambas mostraría un estado de página que no corresponde; si el demo necesita paginación remota, será otro contrato de tabla, no este componente. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
+El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa la paginación local de Tabulator (10 por página, selector 5/10/25/50/100, contador en español). Mezclar ambas mostraría un estado de página que no corresponde; si el demo necesita paginación remota, será otro contrato de tabla, no este componente. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
 
 ## Interacción
 
