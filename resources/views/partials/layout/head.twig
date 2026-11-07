@@ -1,0 +1,26 @@
+{# Head compartido por los layouts con shell y auth. Los flags permiten
+   cargar sólo lo que cada superficie usa: el login no necesita HTMX/Alpine
+   ni el pre-pintado del sidebar. `with_sidebar` es exclusivo de layouts/app. #}
+<link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
+
+{# Fija el tema antes del primer paint para evitar el flash claro/oscuro. #}
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
+{% if with_sidebar|default(false) %}
+{# Pre-pinta el sidebar plegado: si Alpine lo aplicara después, se vería abrir/cerrar en cada recarga. #}
+<script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
+{% endif %}
+
+{# Assets vendorizados con SRI: offline y sin cambio de runtime sin deploy. #}
+<link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
+      integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
+<script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
+        integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
+{% if with_htmx|default(false) %}
+<script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
+        integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
+        defer></script>
+{% endif %}
+{% if with_alpine|default(false) %}
+<script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
+        integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
+{% endif %}

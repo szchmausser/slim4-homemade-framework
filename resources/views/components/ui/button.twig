@@ -1,0 +1,43 @@
+{# Botón/enlace estándar sobre daisyUI.
+   Props: label, variant (primary|ghost|outline|error), size (xs|sm|md|lg),
+   href, type, onclick, icon, aria_label, title, name, value, disabled,
+   extra_class. El texto se escapa; los iconos salen del registro compartido. #}
+{% set variants = {
+    'primary': 'btn-primary',
+    'ghost': 'btn-ghost',
+    'outline': 'btn-outline',
+    'error': 'btn-error'
+} %}
+{% set sizes = {
+    'xs': 'btn-xs',
+    'sm': 'btn-sm',
+    'md': '',
+    'lg': 'btn-lg'
+} %}
+{% set variant_class = variants[variant|default('primary')]|default('btn-primary') %}
+{% set size_class = sizes[size|default('md')]|default('') %}
+{% set classes = ('btn ' ~ variant_class ~ ' ' ~ size_class ~ (extra_class is defined and extra_class ? ' ' ~ extra_class : ''))|trim %}
+{% set icon_markup %}{% if icon is defined and icon %}{% include 'partials/_icon.twig' with { name: icon, class: icon_class|default('h-4 w-4') } %}{% endif %}{% endset %}
+
+{% if href is defined and href %}
+    <a href="{{ href }}"
+       class="{{ classes }}"
+       {% if title is defined %}title="{{ title }}"{% endif %}
+       {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
+       {% if target is defined %}target="{{ target }}"{% endif %}>
+        {{ icon_markup }}
+        {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
+    </a>
+{% else %}
+    <button type="{{ type|default('button') }}"
+            class="{{ classes }}"
+            {% if name is defined %}name="{{ name }}"{% endif %}
+            {% if value is defined %}value="{{ value }}"{% endif %}
+            {% if title is defined %}title="{{ title }}"{% endif %}
+            {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
+            {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
+            {% if disabled|default(false) %}disabled{% endif %}>
+        {{ icon_markup }}
+        {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
+    </button>
+{% endif %}

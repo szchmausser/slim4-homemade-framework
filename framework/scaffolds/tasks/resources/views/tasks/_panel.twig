@@ -54,7 +54,7 @@
     </div>
 
     {# Paginación dentro del swap: viaja actualizada con cada acción. #}
-    {% include 'partials/_pagination.twig' with {
+    {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#tareas-panel',
         label: 'tareas'

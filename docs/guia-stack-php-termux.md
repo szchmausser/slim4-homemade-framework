@@ -1,6 +1,6 @@
 # Guía paso a paso — Framework base en Termux (Slim 4 + Eloquent + Twig + HTMX/Alpine/daisyUI)
 
-Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phinx, **respect/validation**, Twig, slim/csrf, **monolog/monolog**, whoops (solo dev), SQLite3, HTMX + Alpine.js + **daisyUI 5 as-is** (los tres vendorizados, cero CDN en producción), estructura de carpetas al estilo Laravel.
+Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phinx, **respect/validation**, Twig, slim/csrf, **monolog/monolog**, whoops (solo dev), PHPUnit/PHPStan (calidad), SQLite3, HTMX + Alpine.js + **daisyUI 5 as-is** (los tres vendorizados, cero CDN en producción), estructura de carpetas al estilo Laravel.
 
 > Nota sobre `respect/validation`: buena decisión — su repo tiene actividad reciente, a diferencia de `illuminate/validation` standalone (pesado) o alternativas abandonadas.
 >
@@ -125,12 +125,19 @@ mi-app/
 │   ├── Docs/
 │   │   └── CodeBlocks.php          # tooling de docs, no runtime
 │   └── scaffolds/
-│       └── tasks/                  # demo opcional: composer demo:install
-│           ├── app/Tasks/{Http,Models}/
-│           ├── database/{migrations,seeds}/tasks/
-│           ├── resources/views/tasks/
-│           ├── routes/tasks.php
-│           └── tests/Tasks/
+│       ├── tasks/                  # demo opcional: composer demo:install
+│       │   ├── app/Tasks/{Http,Models}/
+│       │   ├── database/{migrations,seeds}/tasks/
+│       │   ├── resources/views/tasks/
+│       │   ├── routes/tasks.php
+│       │   └── tests/Tasks/
+│       └── contacts/               # demo Tabulator: composer demo:contacts:install
+│           ├── app/Contacts/{Http,Models}/
+│           ├── database/{migrations,seeds}/contacts/
+│           ├── public/assets/{vendor/tabulator,css,js}/
+│           ├── resources/views/contacts/
+│           ├── routes/contacts.php
+│           └── tests/Contacts/
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
@@ -171,7 +178,10 @@ mi-app/
 │       ├── auth/login.twig
 │       ├── errors/error.twig       # standalone a propósito (cap. 7.1)
 │       ├── home.twig
-│       └── partials/{_csrf.twig,_logo.twig,_icon.twig,_pagination.twig}
+│       ├── components/{ui,feedback,form,list,table,pagination}/ # componentes
+│       └── partials/
+│           ├── {_csrf.twig,_logo.twig,_icon.twig}
+│           └── layout/{head.twig,sidebar.twig,header.twig,toasts.twig,footer.twig}
 ├── routes/
 │   └── web.php                     # raíz + login/logout (rutas base)
 ├── storage/                        # se autocrea; NO va a git
@@ -194,6 +204,8 @@ mi-app/
 
 El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
 
+Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
+
 ## 4. Dependencias del backend
 
 ```bash
@@ -211,7 +223,7 @@ composer require slim/csrf
 composer require "respect/validation:^2.0"
 composer require monolog/monolog
 
-composer require --dev robmorgan/phinx
+composer require robmorgan/phinx:^0.13
 composer require --dev filp/whoops
 composer require --dev phpunit/phpunit
 ```
@@ -233,9 +245,10 @@ composer require --dev phpunit/phpunit
 > seguir. No hay fallback documentado porque implicaría retroceder varios pins a la vez.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
-> corre limpio sobre PHP 8.5 (cero deprecations). Mientras no migres a 3.x
-> (`Validator` interface, sin `V::create()` ni excepciones anidadas), `^2.0` es
-> lo correcto y el capítulo 12 no se toca.
+> corre limpio sobre PHP 8.5 (cero deprecations). La línea 3.x exige **PHP >= 8.5**
+> y cambia la API (`Validator` interface, sin `V::create()` ni excepciones
+> anidadas): subirla obligaría a elevar el piso del proyecto y reescribir el
+> capítulo 12. Mientras el piso siga en 8.4.1, `^2.0` es lo correcto.
 
 `composer.json` completo (incluye scripts para Termux y autoload optimizado):
 
@@ -245,6 +258,9 @@ composer require --dev phpunit/phpunit
     "type": "project",
     "require": {
         "php": ">=8.4.1",
+        "ext-mbstring": "*",
+        "ext-pdo_sqlite": "*",
+        "ext-sqlite3": "*",
         "slim/slim": "^4.15",
         "slim/psr7": "^1.8",
         "php-di/php-di": "^7.1",
@@ -254,10 +270,10 @@ composer require --dev phpunit/phpunit
         "slim/twig-view": "^3.4",
         "slim/csrf": "^1.5",
         "respect/validation": "^2.0",
-        "monolog/monolog": "^3.12"
+        "monolog/monolog": "^3.12",
+        "robmorgan/phinx": "^0.13"
     },
     "require-dev": {
-        "robmorgan/phinx": "^0.13",
         "filp/whoops": "^2.18",
         "phpunit/phpunit": "^13.3"
     },
@@ -284,6 +300,8 @@ composer require --dev phpunit/phpunit
         "migrate:fresh": "@php scripts/migrate-fresh.php",
         "demo:install": "@php scripts/demo.php install",
         "demo:remove": "@php scripts/demo.php remove",
+        "demo:contacts:install": "@php scripts/demo.php install contacts",
+        "demo:contacts:remove": "@php scripts/demo.php remove contacts",
         "verify": [
             "@lint",
             "@docs:check",
@@ -311,9 +329,9 @@ En el teléfono, para instalar dependencias usá SIEMPRE el script low-mem (band
 ```bash
 composer install:termux
 # equivalente a: COMPOSER_MEMORY_LIMIT=1024M composer install --prefer-dist --no-scripts
-# (SIN --no-dev a propósito: en el teléfono necesitás Phinx y PHPUnit, o sea
-# las dev. --no-dev solo ahorra memoria en el SOLVER del update, y el install
-# no resuelve nada: saca las dev y te deja sin migrate ni tests.)
+# (SIN --no-dev a propósito: en el teléfono necesitás PHPUnit; Phinx ya vive
+# en require para que `composer migrate` funcione incluso en un deploy
+# --no-dev. --no-dev solo ahorra memoria en el SOLVER del update.)
 ```
 
 ## 5. Variables de entorno
@@ -482,9 +500,10 @@ return [
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
 
-        // El scaffold tasks deja routes/tasks.php al instalarse. Esa es la
+        // Los scaffolds dejan su archivo de rutas al instalarse. Esa es la
         // única fuente: si no hay rutas, las vistas base no muestran enlaces.
         $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
+        $twig->getEnvironment()->addGlobal('contacts_enabled', is_file(__DIR__ . '/../routes/contacts.php'));
 
         // Datos de ejecución para el pie del shell. No son configuración de
         // producto: describen dónde está corriendo la app ahora mismo.
@@ -622,10 +641,15 @@ $app->setBasePath(Url::base());
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);
 
-// El demo tasks es opcional: si está instalado, registra sus rutas.
+// Los demos son opcionales: cada uno registra sus rutas al instalarse.
 $tasksRoutes = __DIR__ . '/../routes/tasks.php';
 if (is_file($tasksRoutes)) {
     (require $tasksRoutes)($app);
+}
+
+$contactsRoutes = __DIR__ . '/../routes/contacts.php';
+if (is_file($contactsRoutes)) {
+    (require $contactsRoutes)($app);
 }
 
 return $app;
@@ -1360,9 +1384,12 @@ return function (App $app) {
         // Guard se resuelve acá (en request), no al registrar: al construirse
         // exige sesión iniciada y en registro todavía no hay ninguna.
         return $container->get(Twig::class)->render($response, 'home.twig', [
-            'active'     => 'home',
-            'user_id'    => Auth::id(),
-            'user_email' => Auth::user()?->getAttribute('email'),
+            'active'      => 'home',
+            'user_id'     => Auth::id(),
+            'user_email'  => Auth::user()?->getAttribute('email'),
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'icon' => 'home', 'current' => true],
+            ],
             ...CsrfTokens::fields($request, $container->get(Guard::class)),
         ]);
     });
@@ -1440,10 +1467,23 @@ abstract class Controller
             $flash = ['error' => null, 'success' => null, 'info' => null];
         }
 
+        // Opt-in para pantallas que no usan htmx pero quieren el mismo stack
+        // de toasts para el flash de una acción con redirect (p. ej. el CRUD
+        // de contactos). En htmx el canal sigue siendo HX-Trigger-After-Swap.
+        $toastItems = [];
+        if (!$request->hasHeader('HX-Request') && $this->usesToastFlash()) {
+            foreach (self::FLASH_ORDER as $type) {
+                if ($flash[$type] !== null && $flash[$type] !== '') {
+                    $toastItems[] = ['message' => $flash[$type], 'type' => $type];
+                }
+            }
+        }
+
         return $this->view->render($response, $template, [
             'flash_error'   => $flash['error'],
             'flash_success' => $flash['success'],
             'flash_info'    => $flash['info'],
+            'toast_items'   => $toastItems,
             'user_id'       => $user?->getKey(),
             'user_email'    => $user?->getAttribute('email'),
             ...$this->csrf($request),
@@ -1486,6 +1526,16 @@ abstract class Controller
             ['toasts' => ['items' => $items]],
             JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
         ));
+    }
+
+    /**
+     * Las pantallas con redirect no tienen un swap de htmx donde colgar el
+     * evento `toasts`; si lo activan, el layout recibe `toast_items` y el host
+     * los incorpora al inicializarse.
+     */
+    protected function usesToastFlash(): bool
+    {
+        return false;
     }
 
     protected function viewDefaults(): array
@@ -1568,14 +1618,20 @@ class TaskController extends Controller
      * mutación ocurre igual, pero el fragmento llega sin <head>, sin hoja de
      * estilos y sin shell, así que una acción exitosa se ve rota (S9).
      *
-     * `active => 'tareas'` lo lee el layout (menú y miga de pan) y lo ignoran
-     * los parciales, así que puede viajar en las dos formas.
+     * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
+     * así que pueden viajar en las dos formas.
      */
     private function respond(Request $request, Response $response, array $extra = []): Response
     {
         // El orden del merge importa: `pageData()` primero, así un $extra no
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
-        $data = $this->pageData($request) + $extra + ['active' => 'tareas'];
+        $data = $this->pageData($request) + $extra + [
+            'active' => 'tareas',
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'href' => Url::path('/')],
+                ['label' => 'Tareas', 'icon' => 'tasks', 'current' => true],
+            ],
+        ];
 
         $response = $this->render(
             $request,
@@ -2012,6 +2068,12 @@ if (is_dir(__DIR__ . '/database/migrations/tasks')) {
 if (is_dir(__DIR__ . '/database/seeds/tasks')) {
     $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/tasks';
 }
+if (is_dir(__DIR__ . '/database/migrations/contacts')) {
+    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/contacts';
+}
+if (is_dir(__DIR__ . '/database/seeds/contacts')) {
+    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/contacts';
+}
 
 return [
     'paths' => [
@@ -2255,6 +2317,12 @@ final class DatabaseSeeder extends AbstractSeed
         if (is_file($taskSeeder)) {
             require_once $taskSeeder;
             $seeds[] = TaskSeeder::class;
+        }
+
+        $contactSeeder = __DIR__ . '/contacts/ContactSeeder.php';
+        if (is_file($contactSeeder)) {
+            require_once $contactSeeder;
+            $seeds[] = ContactSeeder::class;
         }
 
         foreach ($seeds as $class) {
@@ -2512,7 +2580,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-`resources/views/layouts/app.twig` completo. Es el archivo que más creció: shell con sidebar plegable (overlay en móvil, icon-rail en desktop), header con breadcrumb + toggle de tema, toast CSRF, contenido y footer:
+`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copiá también esos cinco partials; acá se muestra el layout que los integra:
 
 ```twig
 <!DOCTYPE html>
@@ -2522,32 +2590,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
-    {# Favicon: el glifo de capas sobre el primario de daisyUI, en SVG plano
-       (sin build ni referencias externas). El <link> evita el 404 de
-       /favicon.ico que costaba un request fallido en cada visita. Va acá y no
-       en /assets porque el archivo vive en la raíz de public: la URL dice
-       dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
-       (~600 bytes). #}
-    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
-
-    {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
-       después y se vería un flash del tema claro en cada recarga oscura. #}
-    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
-    {# Misma idea para el sidebar: si Alpine aplicara el plegado después del
-       primer paint, con transition-all activo se vería abrir y cerrarse en
-       cada recarga. Se deja la marca acá y el CSS de abajo pre-pinta. #}
-    <script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
-
-    {# daisyUI 5.7.46 vendorizado + SRI: offline, sin cambio de runtime sin deploy. #}
-    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
-          integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
-            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
-    <script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
-            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
-            defer></script>
-    <script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
-            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
+    {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
+    {% include 'partials/layout/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
 
     <style>
         [x-cloak] { display: none !important; }
@@ -2601,6 +2645,77 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
+        .icon-info    { color: var(--ink-info); }
+
+        /* Paginación: mismo contrato visual que el footer de Tabulator. */
+        .pagination-footer {
+            margin-top: 1rem;
+            background: var(--color-base-200);
+            padding: .5rem .75rem;
+        }
+        .pagination-counter {
+            font-size: .8125rem;
+            line-height: 1.5;
+            opacity: .75;
+        }
+        .pagination-label {
+            color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .pagination-select {
+            height: 2rem;
+            padding: 0 .5rem;
+            border: .8px solid var(--color-base-300);
+            border-radius: var(--radius-field);
+            background: var(--color-base-100);
+            color: var(--color-base-content);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .pagination-control {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            height: 2rem;
+            margin: 0 2px;
+            padding: 0 .5rem;
+            border: .8px solid var(--color-base-300);
+            border-radius: var(--radius-field);
+            background: var(--color-base-100);
+            color: var(--color-base-content);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+        }
+        .pagination-control:not(:disabled):not(.pagination-control--disabled):not(.pagination-control--active):hover {
+            background: var(--color-base-300);
+        }
+        .pagination-control:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        .pagination-control--square {
+            min-width: 2rem;
+            padding: 0;
+        }
+        .pagination-control--active {
+            border-color: var(--color-primary);
+            background: var(--color-primary);
+            color: var(--color-primary-content);
+            cursor: default;
+        }
+        .pagination-control--disabled,
+        .pagination-control:disabled {
+            cursor: not-allowed;
+            opacity: .4;
+        }
 
         /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
            activa como un bloque casi negro, más pesado que cualquier otro
@@ -2765,6 +2880,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             }
         }
     </style>
+
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-base-200 text-base-content">
 {# Primer elemento tabulable de la pagina. Sin esto, con teclado hay que atravesar
@@ -2789,200 +2906,19 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop.
-       `inert` (atributo, no una clase CSS) es lo que saca de verdad los
-       enlaces del orden de tabulación: una clase con `visibility` u `opacity`
-       los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
-       layout por la animación de translate-x. En desktop `sidebarOpen`
-       arranca en true, así que ahí nunca queda inerte.
-       En desktop es CROMO FIJO, no una columna que se estira con el
-       documento: `lg:sticky lg:top-0 lg:h-dvh` la sujeta al borde superior y
-       al alto de la ventana. Con `lg:static` y una lista larga, el bloque de
-       usuario y «Salir» quedaban al final del scroll —fuera de la pantalla,
-       había que bajar hasta el pie para salir— y el carril quedaba vacío a la
-       vista. `lg:bottom-auto` neutraliza el inset inferior que fija
-       `inset-y-0`, que en sticky sujetaría las dos puntas; en móvil sigue
-       `fixed` + `inset-y-0` + translate, sin cambios. El ancho lo gobierna el
-       plegado (w-64/w-16 y el pre-pintado del <style>), que no se toca. #}
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
-           :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
-           x-bind:inert="!sidebarOpen"
-           aria-label="Navegación principal">
-        <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
-            {% include 'partials/_logo.twig' %}
-            <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
-            {# Cerrar el drawer en móvil. Sin esto no había salida visible: la
-               hamburguesa vive en el header (z-20) y el panel abierto la tapa
-               (z-40), así que en un teléfono el único cierre era acertar el
-               backdrop. `lg:hidden`: en desktop el sidebar no es un overlay y
-               no hay nada que cerrar. `ml-auto` lo empuja al extremo sin
-               tocar el logo ni la etiqueta, que el plegado pre-pintado ya
-               oculta con `.sidebar-label`. #}
-            <button type="button"
-                    class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
-                    @click="sidebarOpen = false"
-                    aria-label="Cerrar menú"
-                    title="Cerrar menú">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-        {# `overflow-y-auto` sobre el `grow`: con el sidebar de alto fijo, un
-           menú largo scrollea DENTRO del panel en vez de empujar el bloque de
-           usuario (y «Salir») fuera de la pantalla. Como el <ul> pasa a ser un
-           contenedor de scroll, su min-height automático vale 0: no hace falta
-           un `min-h-0` al lado. #}
-        <ul class="menu w-full grow gap-1 overflow-y-auto p-2">
-            <li>
-                <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   title="Inicio"
-                   aria-label="Inicio">
-                    {% include 'partials/_icon.twig' with { name: 'home' } %}
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
-                </a>
-            </li>
-            {% if tasks_enabled %}
-            <li>
-                <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   title="Tareas"
-                   aria-label="Tareas">
-                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
-                </a>
-            </li>
-            {% endif %}
-        </ul>
-        {% if user_id is defined and user_id %}
-        {# Fila de usuario sin caja: el correo a la izquierda ocupando el ancho y
-           la salida como icono a la derecha. Con fondo y borde propio el bloque
-           se leia como un boton de ancho parcial metido dentro del sidebar, y
-           el borde no separaba de nada que lo necesitara. El unico fondo que
-           queda es el del hover del icono: eso es lo que lo hace descubrible
-           sin dibujar una caja permanente.
-           `sidebar-label` oculta el correo en el plegado pre-pintado, igual que
-           las etiquetas del menu: plegado queda solo el icono, centrado. #}
-        <div class="flex h-12 shrink-0 items-center gap-2 px-2">
-            {# Disco con la inicial + dos lineas: nombre arriba y correo abajo.
-               `users` no tiene columna `name`, asi que el nombre se deriva de la
-               parte local del correo. Es una etiqueta de presentacion, no un
-               dato: el correo completo va debajo y es el que manda. #}
-            <span class="sidebar-label grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold uppercase text-primary-content"
-                  :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
-            <span class="sidebar-label min-w-0 flex-1" :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">
-                <span class="block truncate text-sm font-semibold leading-tight">{{ user_email|split('@')|first|capitalize }}</span>
-                <span class="block truncate text-xs leading-tight opacity-60">{{ user_email }}</span>
-            </span>
-            <form method="post" action="{{ url('/logout') }}" class="shrink-0"
-                  :class="sidebarMini && 'lg:mx-auto'">
-                {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-                </button>
-            </form>
-        </div>
-        {% endif %}
-    </aside>
+    {% block sidebar %}
+        {% include 'partials/layout/sidebar.twig' %}
+    {% endblock %}
 
     {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
-        <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
-            {# Abrir/cerrar en móvil. #}
-            {# `aria-expanded` dice si el drawer esta abierto: la etiqueta sola
-               cambiaba de texto, pero un lector de pantalla no anuncia un
-               boton que abre o cierra nada. Es el mismo booleano que mueve el
-               drawer (y `inert`), asi que no puede desincronizarse. #}
-            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'" :aria-expanded="sidebarOpen ? 'true' : 'false'">
-                <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            {# Plegar a iconos en desktop. #}
-            {# Un solo glyph: la rotación sale del CSS pre-pintado (data-sidebar-mini),
-               NO de una clase Alpine. rotate-180 de Tailwind v4 usa la propiedad
-               `rotate`, que SE SUMA al `transform` del fallback (180+180=360):
-               con ambos, el icono nunca cambiaba. Una sola fuente de verdad. #}
-            <button id="collapse-btn" class="btn btn-square btn-ghost hidden lg:inline-flex" @click="toggleMini()" :aria-label="sidebarMini ? 'Desplegar menú' : 'Plegar menú'">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-            </button>
-            {# Breadcrumb con el texto del menú: en Tareas, Inicio (link) / Tareas;
-               en Inicio, solo icono + texto. El logo vive en la sidebar. #}
-            <span class="flex flex-1 items-center gap-2 px-2 font-semibold">
-                {% if active is defined and active == 'tareas' %}
-                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
-                    <nav class="breadcrumbs" aria-label="Miga de pan">
-                        <ul>
-                            <li><a href="{{ url('/') }}">Inicio</a></li>
-                            <li aria-current="page">Tareas</li>
-                        </ul>
-                    </nav>
-                {% elseif active is defined and active == 'login' %}
-                    <span>Acceder</span>
-                {% else %}
-                    {% include 'partials/_icon.twig' with { name: 'home' } %}
-                    <span>Inicio</span>
-                {% endif %}
-            </span>
-            {# Toggle claro/oscuro: swap de daisyUI + estado Alpine persistido. #}
-            <label class="swap swap-rotate btn btn-square btn-ghost">
-                <input type="checkbox" :checked="theme === 'dark'" @change="theme = $event.target.checked ? 'dark' : 'light'" aria-label="Cambiar entre tema claro y oscuro" />
-                <svg class="swap-off h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05A1,1,0,0,0,5,8.71l.71-.71A1,1,0,0,0,4.29,6.64Zm12,.71a1,1,0,0,0,1.41,0l.71-.71A1,1,0,1,0,18.36,5.64l-.71.71A1,1,0,0,0,17.66,7.76ZM19,11H20a1,1,0,0,0,0,2H19A1,1,0,0,0,19,11Zm-7,7a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V19A1,1,0,0,0,12,18Zm7.36-12.36a1,1,0,0,0,0,1.41l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,19.36,5.64ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
-                <svg class="swap-on h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73,8.15,8.15,0,0,1-8.14-8.1,8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/></svg>
-            </label>
-        </header>
+        {% block header %}
+            {% include 'partials/layout/header.twig' %}
+        {% endblock %}
 
-        {# Avisos flotantes. Posición y estilos en el <style> del head: el
-           host replica la geometría de <main> para caer alineado con el <h1>.
-           Un solo componente, dos canales:
-           - @toasts.window: evento `toasts` que emite HX-Trigger-After-Swap
-             desde Controller::render() en cada acción htmx (éxito, error de
-             validación, tarea inexistente). detail.items es un ARRAY porque
-             el payload del header es un objeto; un array suelto lo envolvería
-             htmx en {value: [...]}.
-           - @csrf.window: HX-Trigger del failureHandler de slim/csrf. Ese caso
-             NO puede usar el canal de arriba: el request se corta con 400 y
-             htmx no hace swap, así que no hay After-Swap. Se lee
-             $event.detail.value porque un string se envuelve en {value}:
-             con $event.detail el aviso decía [object Object] (hay test).
-           Los items viven en un array de Alpine, NO en el DOM del panel: el
-           swap de #tareas-panel no los borra ni los duplica. #}
-        <div class="toast-host"
-             x-data="toastStack()"
-             @toasts.window="addAll($event.detail.items)"
-             @csrf.window="add({ message: String($event.detail.value ?? ''), type: 'error' })"
-             role="status"
-             aria-live="polite">
-            <div class="toast-stack">
-                <template x-for="t in items" :key="t.id">
-                    {# `bg-base-100/90` y no `/95`: el bundle precompila los pasos
-                       de opacidad de `bg-*` solo en decenas, así que `/95` no
-                       existía y la tarjeta quedaba sin fondo: el texto flotaba
-                       sobre la página. El JIT del navegador tampoco puede
-                       generarlo, porque `base-100` es un token de daisyUI y no
-                       está en la paleta que conoce. #}
-                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/90 p-3 pr-2 shadow-lg backdrop-blur"
-                         :data-type="t.type"
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 translate-x-4"
-                         x-transition:enter-end="opacity-100 translate-x-0"
-                         x-transition:leave="transition ease-in duration-150"
-                         x-transition:leave-start="opacity-100 translate-x-0"
-                         x-transition:leave-end="opacity-0 translate-x-4">
-                        <span class="toast-icon grid h-7 w-7 shrink-0 place-items-center rounded-lg">
-                            <svg x-show="t.type === 'success'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                            <svg x-show="t.type === 'error'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                            <svg x-show="t.type === 'info'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        </span>
-                        <p class="min-w-0 flex-1 pt-0.5 text-sm font-semibold leading-snug" x-text="t.message"></p>
-                        <button type="button"
-                                class="btn btn-square btn-ghost btn-xs shrink-0 opacity-50 hover:opacity-100"
-                                @click="remove(t.id)"
-                                aria-label="Cerrar aviso"
-                                title="Cerrar aviso">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                        <span class="toast-progress" aria-hidden="true" @animationend="remove(t.id)"></span>
-                    </div>
-                </template>
-            </div>
-        </div>
+        {% block toasts %}
+            {% include 'partials/layout/toasts.twig' %}
+        {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
@@ -2990,12 +2926,9 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             {% block content %}{% endblock %}
         </main>
 
-        {# El pie muestra datos de ejecución, no el stack: el stack ya está en
-           la portada. La versión de PHP y el entorno salen del container para
-           que el shell diga dónde está corriendo la app sin duplicar contenido. #}
-        <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>PHP {{ php_version }} · SQLite · entorno {{ app_env }}</aside>
-        </footer>
+        {% block footer %}
+            {% include 'partials/layout/footer.twig' %}
+        {% endblock %}
     </div>
 </div>
 
@@ -3163,7 +3096,7 @@ function notifyHtmxFailures() {
             return;
         }
 
-        notify('No se pudo completar la acción. Probá de nuevo.');
+        notify('No se pudo completar la acción. Intenta de nuevo.');
     });
 
     document.body.addEventListener('htmx:sendError', () => {
@@ -3173,6 +3106,8 @@ function notifyHtmxFailures() {
 
 notifyHtmxFailures();
 </script>
+
+{% block scripts %}{% endblock %}
 </body>
 </html>
 ```
@@ -3214,11 +3149,13 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
-   `name`: home|tasks|mail|lock|arrow-right|alert-circle|info. `class` opcional. #}
+   `name`: home|tasks|contacts|mail|lock|arrow-right|alert-circle|info|plus|pencil|trash|check-circle. `class` opcional. #}
 {% if name is defined and name == 'home' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 {% elseif name is defined and name == 'tasks' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+{% elseif name is defined and name == 'contacts' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
 {% elseif name is defined and name == 'mail' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
 {% elseif name is defined and name == 'lock' %}
@@ -3229,6 +3166,14 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
 {% elseif name is defined and name == 'info' %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+{% elseif name is defined and name == 'plus' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+{% elseif name is defined and name == 'pencil' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+{% elseif name is defined and name == 'trash' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+{% elseif name is defined and name == 'check-circle' %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee
@@ -3419,11 +3364,19 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             </div>
                             <div>
                                 <dt class="text-sm font-medium">Slim 4</dt>
-                                <dd class="text-xs opacity-70">Router y middleware HTTP</dd>
+                                <dd class="text-xs opacity-70">Router, middleware y PSR-7</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium">PHP-DI</dt>
                                 <dd class="text-xs opacity-70">Inyección de dependencias</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">slim/csrf</dt>
+                                <dd class="text-xs opacity-70">Protección CSRF</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">phpdotenv</dt>
+                                <dd class="text-xs opacity-70">Variables de entorno</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-medium">respect/validation</dt>
@@ -3440,7 +3393,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             <dl class="mt-2 space-y-2" aria-labelledby="stack-datos">
                                 <div>
                                     <dt class="text-sm font-medium">Eloquent ORM</dt>
-                                    <dd class="text-xs opacity-70">Acceso y mapeo de datos</dd>
+                                    <dd class="text-xs opacity-70">Acceso y mapeo de datos (illuminate/database)</dd>
                                 </div>
                                 <div>
                                     <dt class="text-sm font-medium">SQLite</dt>
@@ -3459,7 +3412,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         <dl class="mt-2 space-y-2" aria-labelledby="stack-frontend">
                             <div>
                                 <dt class="text-sm font-medium">Twig</dt>
-                                <dd class="text-xs opacity-70">Plantillas renderizadas en servidor</dd>
+                                <dd class="text-xs opacity-70">Plantillas en servidor vía slim/twig-view</dd>
                             </div>
                         </dl>
 
@@ -3468,11 +3421,11 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             <dl class="mt-2 space-y-2" aria-labelledby="stack-visual">
                                 <div>
                                     <dt class="text-sm font-medium">Tailwind CSS</dt>
-                                    <dd class="text-xs opacity-70">Estilos utilitarios</dd>
+                                    <dd class="text-xs opacity-70">Estilos utilitarios; browser build sin Node</dd>
                                 </div>
                                 <div>
                                     <dt class="text-sm font-medium">daisyUI</dt>
-                                    <dd class="text-xs opacity-70">Componentes sobre Tailwind</dd>
+                                    <dd class="text-xs opacity-70">Componentes sobre Tailwind, vendorizados</dd>
                                 </div>
                             </dl>
                         </div>
@@ -3490,6 +3443,28 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                                 </div>
                             </dl>
                         </div>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <h3 id="stack-desarrollo" class="text-xs font-semibold opacity-60">Desarrollo</h3>
+                        <dl class="mt-2 grid gap-4 sm:grid-cols-2" aria-labelledby="stack-desarrollo">
+                            <div>
+                                <dt class="text-sm font-medium">PHPUnit</dt>
+                                <dd class="text-xs opacity-70">Tests unitarios y de integración</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">PHPStan</dt>
+                                <dd class="text-xs opacity-70">Análisis estático (PHAR)</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">Whoops</dt>
+                                <dd class="text-xs opacity-70">Errores en desarrollo</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium">Composer</dt>
+                                <dd class="text-xs opacity-70">Dependencias y scripts</dd>
+                            </div>
+                        </dl>
                     </div>
                 </div>
             </div>
@@ -3528,6 +3503,41 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     </div>
                 {% endif %}
 
+                <div class="border-t border-base-300 pt-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold">Demo de contactos</h2>
+                            <p class="mt-1 text-sm opacity-70">
+                                CRUD de contactos con listado en Tabulator: numeración,
+                                columnas y acciones sobre SQLite.
+                            </p>
+                        </div>
+                        {% if contacts_enabled %}
+                            <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                        {% else %}
+                            <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                        {% endif %}
+                    </div>
+
+                    {% if contacts_enabled %}
+                        <div class="mt-4">
+                            <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
+                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
+                        </div>
+                    {% else %}
+                        <div class="mt-4 space-y-3">
+                            <div>
+                                <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
+                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:install</code>
+                            </div>
+                            <div>
+                                <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
+                                <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:contacts:remove</code>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
                 <div class="mt-auto border-t border-base-300 pt-4">
                     <h3 id="requirements-title" class="text-xs font-semibold opacity-60">Requisitos</h3>
                     <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs" aria-labelledby="requirements-title">
@@ -3560,7 +3570,14 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% block title %}Tareas{% endblock %}
 
 {% block content %}
-    <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-4">
+            <div>
+                <h1 class="text-2xl font-bold">Mis tareas</h1>
+                <p class="mt-1 text-sm opacity-70">
+                    CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
+                </p>
+            </div>
 
     {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
@@ -3604,6 +3621,8 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     </form>
 
     {% include 'tasks/_panel.twig' %}
+        </div>
+    </section>
 {% endblock %}
 ```
 
@@ -3666,7 +3685,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     </div>
 
     {# Paginación dentro del swap: viaja actualizada con cada acción. #}
-    {% include 'partials/_pagination.twig' with {
+    {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#tareas-panel',
         label: 'tareas'
@@ -3686,7 +3705,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
    cuatro URLs la usan tal cual, así no pueden divergir entre sí.
    Se imprime con `|raw` para que el `&` salga literal, igual que en
-   partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
+   components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
    puerta de escape: la cadena sale de dos enteros de Framework\Http\Pagination,
    nunca de texto del usuario. Dentro del atributo es válido, porque
    `&per_page` no forma una referencia de carácter (no termina en `;`).
@@ -3702,8 +3721,12 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    la tarea, lo único estable entre un render y el siguiente: el índice de la
    fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
    del <script> de layouts/app.twig. #}
-<ul class="space-y-2">
-    {% for task in tasks %}
+{% embed 'components/list/simple.twig' with {
+    items: tasks,
+    empty: 'No hay tareas todavía.'
+} %}
+    {% block row %}
+        {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
@@ -3920,10 +3943,8 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
             </dialog>
             </li>
         {% endif %}
-    {% else %}
-        <li class="opacity-60">No hay tareas todavía.</li>
-    {% endfor %}
-</ul>
+    {% endblock %}
+{% endembed %}
 ```
 
 > **`editing_id` gobierna la fila, `editing_title` conserva lo tipeado.** Sin `editing_id` la lista no sabe cuál fila va en formulario; sin `editing_title`, en fallo de validación el input se repintaría con el valor guardado y el usuario perdería lo escrito junto con el error.
@@ -3989,7 +4010,7 @@ final class Pagination
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
-     * partials/_pagination.twig. $page fuera de rango se clampena (nunca vacío
+     * components/pagination/simple.twig. $page fuera de rango se clampena (nunca vacío
      * por pedir de más).
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
@@ -4035,7 +4056,7 @@ final class Pagination
      * entran todas y no hay nada que saltear.
      *
      * Los vecinos de la actual NO se muestran a propósito: llegar a la
-     * anterior/siguiente lo cubren las flechas « », que están siempre. La
+     * anterior/siguiente lo cubren los botones Anterior/Siguiente, que están siempre. La
      * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
      * opciones visibles que aguanta un punto de decisión (R7).
      *
@@ -4096,7 +4117,7 @@ En el controlador, un método privado por ruta listada (la página y el tamaño 
 
 Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): full y swap llevan su slice al día. Ojo con el casteo `(int)`: bajo `strict_types`, pasar el string del query directo al `int` del helper es `TypeError`.
 
-`resources/views/partials/_pagination.twig` (portable: sin ids ni rutas propias, todo por params — `pagination`, `target` obligatorio, `swap`/`show_size` opcionales; así sirve en cualquier ruta sin cambios):
+`resources/views/components/pagination/simple.twig` (portable: sin ids ni rutas propias, todo por params — `pagination`, `target` obligatorio, `swap`/`show_size` opcionales; así sirve en cualquier ruta sin cambios):
 
 ```twig
 {# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
@@ -4114,7 +4135,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    enlaces que sí navegan. Ahora vive dentro de un `<form method="get">` que
    envía nativo (`per_page` es su único campo) y el submit que lo dispara está
    en un `<noscript>`: con JS manda htmx, como antes, y no aparece ningún
-   botón de más. El form no envuelve otro form: el partial entero vive dentro
+   botón de más. El form no envuelve otro form: el componente entero vive dentro
    de `#tareas-panel`.
 
    Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
@@ -4130,22 +4151,25 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    lo que se ve en el teléfono, lo que se lee y el orden de tabulación sean lo
    mismo; en escritorio la etiqueta recupera el primer lugar con
    `sm:order-first`. Se resuelve con utilidades y no duplicando markup porque
-   este partial es uno solo para los dos anchos.
+   este componente es uno solo para los dos anchos.
 
-   Todos los items del `join` llevan `btn-square`: ancho fijo de `--size`
-   (2rem con `btn-sm`) en vez de dejar que el glifo decida. `«` y `»` son
-   angostos, así que las dos flechas salían como astillas contra los números y
-   el grupo parecía roto en los extremos. Con el cuadrado las siete fichas
-   miden lo mismo; la flecha deshabilitada se sigue leyendo deshabilitada
-   (`btn-disabled` + `disabled`, que es la única sin contorno ni relleno) y la
-   página actual sigue siendo la única con relleno pleno (`btn-primary`).
+   Los controles son botones independientes, no un `join`: Tabulator separa
+   sus fichas con un gap de 8px y cada una conserva su borde y radio. Un
+   `join` las pegaba y compartía bordes, y rompía esa lectura. Los números
+   llevan `pagination-control--square` para que los glifos no
+   decidan el ancho de la ficha; Primera, Anterior, Siguiente y Última usan
+   texto, como el paginador de Tabulator, porque son acciones de salto. Los
+   controles deshabilitados se siguen leyendo deshabilitados
+   (`pagination-control--disabled` + `disabled`) y la página actual sigue
+   siendo la única con relleno pleno (`pagination-control--active`).
 
    El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era
-   la forma de pedir prestado lo que el elemento ya significa. `mt-4` mantiene
-   la separación con la lista. #}
+   la forma de pedir prestado lo que el elemento ya significa. La clase
+   `pagination-footer` mantiene la separación, el fondo y el borde del footer
+   de Tabulator. #}
 {% if pagination.total > 0 %}
-<div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-center text-sm opacity-70 sm:text-left">
+<div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="pagination-counter text-center sm:text-left">
         Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
     </p>
 
@@ -4165,54 +4189,6 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            Enter es peor que texto. Conserva las mismas clases y
            `aria-current="page"`, que es lo que la identifica como el lugar
            donde se esta parado. Todo lo demas sigue siendo accionable. #}
-        <nav class="join" aria-label="Paginación">
-            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
-               una sola fuente, así los dos no pueden apuntar a páginas
-               distintas. Se imprime con `|raw` para que el `&` salga literal,
-               como ya estaba (PaginationFlowTest lo fija así). No es una
-               puerta de escape: la cadena es la base fija del controller más
-               enteros de Framework\Http\Pagination. Dentro del atributo es
-               válido, porque `&per_page` no termina en `;` y por lo tanto no
-               es una referencia de carácter. #}
-            {% if pagination.current_page > 1 %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-square btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página anterior">«</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página anterior">«</button>
-            {% endif %}
-
-            {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
-                    <span class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</span>
-                {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm btn-square btn-outline"
-                       href="{{ destino|raw }}"
-                       hx-get="{{ destino|raw }}"
-                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-square btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página siguiente">»</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página siguiente">»</button>
-            {% endif %}
-        </nav>
-
         {% if show_size|default(true) %}
         {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
            select sin depender de que el lector de pantalla lo anuncie, y el
@@ -4221,14 +4197,12 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
            El mismo tono del contador de arriba, con `opacity-70` sólo en el
            texto, da ~6:1 y deja el select a tinta plena.
-           En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
-           en móvil queda como tercera línea, debajo de los controles. #}
-        {# `sm:order-first` pasa del label al form porque el form es ahora el
-           hijo del flex; el label conserva su fila y su `gap-2`. #}
-        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
+           Va antes de los controles en el DOM y en la pantalla, como el
+           selector de Tabulator; en móvil conserva ese orden. #}
+        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
             <label class="flex items-center gap-2">
-                <span class="text-sm opacity-70">{{ label|default('registros')|capitalize }} por página</span>
-                <select class="select select-sm w-auto" name="per_page"
+                <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
+                <select class="pagination-select" name="per_page"
                         aria-label="{{ label|default('registros')|capitalize }} por página"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
@@ -4241,10 +4215,73 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 </select>
             </label>
             <noscript>
-                <button type="submit" class="btn btn-sm">Aplicar</button>
+                <button type="submit" class="pagination-control">Aplicar</button>
             </noscript>
         </form>
         {% endif %}
+
+        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de Framework\Http\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
+            {% if pagination.current_page > 1 %}
+                {% set destino_primera = pagination.base_url ~ '?page=1&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino_primera|raw }}"
+                   hx-get="{{ destino_primera|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Primera página">Primera</a>
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">Anterior</a>
+            {% else %}
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página anterior">Anterior</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="pagination-control pagination-control--square pagination-control--disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
+                    <span class="pagination-control pagination-control--square pagination-control--active" aria-current="page">{{ p }}</span>
+                {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    <a class="pagination-control pagination-control--square"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">Siguiente</a>
+                {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino_ultima|raw }}"
+                   hx-get="{{ destino_ultima|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Última página">Última</a>
+            {% else %}
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Última página">Última</button>
+            {% endif %}
+        </nav>
+
     </div>
 </div>
 {% endif %}
@@ -4909,16 +4946,11 @@ final class CsrfFlowTest extends TasksTestCase
         // error. Test verde, producción rota.
         //
         // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocás layouts/app.twig y te llevás el @csrf.window, este test falla
-        // antes que alguien pierda una tarea en silencio.
-        $layout = file_get_contents(
-            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
-        );
-
-        self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
+        // tocás el shell y te llevás el @csrf.window, este test falla antes
+        // que alguien pierda una tarea en silencio.
         self::assertStringContainsString(
             '@csrf.',
-            $layout,
+            $this->shellSource(),
             'El failureHandler emite HX-Trigger:{csrf} pero nada lo escucha: el fallo CSRF queda silencioso.'
         );
     }
@@ -4927,12 +4959,9 @@ final class CsrfFlowTest extends TasksTestCase
     {
         // Regresión del bug 12: con `String($event.detail)` el toast mostraba
         // "[object Object]". El texto vive en `.value`, no en el objeto
-        // entero, y gretear solo `@csrf.` pasaba con las dos variantes.
-        $layout = file_get_contents(
-            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
-        );
+        // entero, y buscar solo `@csrf.` pasaba con las dos variantes.
+        $layout = $this->shellSource();
 
-        self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
         self::assertStringContainsString(
             '$event.detail.value',
             $layout,

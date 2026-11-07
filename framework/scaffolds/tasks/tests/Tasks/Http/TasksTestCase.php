@@ -27,4 +27,30 @@ abstract class TasksTestCase extends HttpTestCase
         Task::query()->delete();
         parent::tearDown();
     }
+
+    /**
+     * El shell está dividido en partials; los contratos de toast/CSRF se
+     * verifican sobre el conjunto, no sobre un único archivo.
+     */
+    protected function shellSource(): string
+    {
+        $root = dirname(__DIR__, 3);
+        $files = [
+            $root . '/resources/views/layouts/app.twig',
+            $root . '/resources/views/partials/layout/head.twig',
+            $root . '/resources/views/partials/layout/sidebar.twig',
+            $root . '/resources/views/partials/layout/header.twig',
+            $root . '/resources/views/partials/layout/toasts.twig',
+            $root . '/resources/views/partials/layout/footer.twig',
+        ];
+
+        $source = '';
+        foreach ($files as $file) {
+            $contents = file_get_contents($file);
+            self::assertNotFalse($contents, 'No se pudo leer ' . $file);
+            $source .= $contents;
+        }
+
+        return $source;
+    }
 }

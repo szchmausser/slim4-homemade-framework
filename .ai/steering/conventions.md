@@ -11,7 +11,7 @@
   - HTMX: `hx-headers` (no `hx-include`) para DELETE; `hx-on::after-request="this.reset()"` si form está fuera del swap.
   - Flash: adentro del swap HTMX.
   - Tokens CSRF: en cada form (el de edición lleva los suyos: vive dentro del swap).
-  - Paginación: `Pagination::paginate()` (nunca `get()` pelado) + partial `_pagination.twig` (params, sin hardcodear).
+  - Paginación: `Pagination::paginate()` (nunca `get()` pelado) + `components/pagination/simple.twig` (params, sin hardcodear).
 
 ## Patrones de Arquitectura
 
@@ -27,7 +27,7 @@
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
 - Respuestas HTMX devuelven HTML de la región, never redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
-- Clases daisyUI as-is; componentes compartidos a `partials/` con params.
+- Clases daisyUI as-is; componentes compartidos a `components/` con params.
 - Cada test: login inyectado si la ruta es protegida, tearDown que limpia, al menos 3 assertions (crea-OK, validación rechazo, id inexistente aviso).
 
 ## Accesibilidad / Seguridad

@@ -1,0 +1,11 @@
+{# Lista simple con estado vacío.
+   Props: items, empty, list_class, empty_class.
+   El bloque `row` se renderiza una vez por item y recibe `item`; el markup de
+   cada fila queda en el dominio que lo usa. #}
+<ul class="{{ list_class|default('space-y-2') }}">
+    {% for item in items %}
+        {% block row %}{% endblock %}
+    {% else %}
+        <li class="{{ empty_class|default('opacity-60') }}">{{ empty|default('No hay registros todavía.') }}</li>
+    {% endfor %}
+</ul>

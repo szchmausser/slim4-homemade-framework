@@ -12,17 +12,17 @@ Para quien arranca una app PHP server-rendered en un entorno sin toolchain de co
 
 ## Product Purpose
 
-Esqueleto PHP en capas para apps server-rendered: una base copiable con autenticación, paginación, avisos por HTMX y un sistema visual completo sobre Slim 4 + PHP-DI + Eloquent standalone + Phinx + Twig + HTMX + Alpine + daisyUI 5. La app de tareas es un demo opcional; el producto real es el esqueleto limpio. El éxito es que el clon arranque sin build, con tests verdes, migraciones idempotentes y una app resultante que no cargue andamiaje del demo.
+Esqueleto PHP en capas para apps server-rendered: una base copiable con autenticación, paginación, avisos por HTMX y un sistema visual completo sobre Slim 4 + PHP-DI + Eloquent standalone + Phinx + Twig + HTMX + Alpine + daisyUI 5. Los demos de tareas y contactos son opcionales; el producto real es el esqueleto limpio. El éxito es que el clon arranque sin build, con tests verdes, migraciones idempotentes y una app resultante que no cargue andamiaje de los demos.
 
 ## Positioning
 
-Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de compilación ni bundler, con autenticación, paginación y HTMX ya resueltos, y un demo instalable que se puede quitar sin dejar archivos, tablas ni filas de migración. La separación entre `framework/` reusable y `app/` de dominio permite que el usuario sea dueño de `app/` desde el primer día.
+Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de compilación ni bundler, con autenticación, paginación y HTMX ya resueltos, y demos instalables que se pueden quitar sin dejar archivos, tablas ni filas de migración. La separación entre `framework/` reusable y `app/` de dominio permite que el usuario sea dueño de `app/` desde el primer día.
 
 ## Operating Context
 
 - Entorno primario: Termux ARM 32-bit, offline; también se trabaja en 64-bit con el mismo lock.
 - El clon se instala con Composer 2, se migra con Phinx y se sirve con `php -S ... -t public`; `composer serve` no es el servidor.
-- El demo se instala con `composer demo:install` y se quita con `composer demo:remove`; la base clonada parte sin demo.
+- Los demos se instalan con `composer demo:install` (tareas) o `composer demo:contacts:install` (contactos + Tabulator) y se quitan con sus comandos `remove`; la base clonada parte sin demos.
 - `composer verify` es el gate: lint + docs-check + PHPStan nivel 5 + suite + migración fresh en SQLite temporal.
 - No hay paso de build: el CSS de utilidades lo compila el browser build de Tailwind; los assets están vendorizados con SRI.
 
@@ -33,6 +33,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 | Inicio | `/` | pública, presentación del esqueleto |
 | Acceso | `/login` | autenticación propia, fuera del shell |
 | Tareas | `/tareas` | solo si el demo está instalado; protegida, swaps HTMX, paginación y avisos |
+| Contactos | `/contactos` | solo si el demo está instalado; CRUD server-rendered y listado Tabulator client-side |
 | Error | cualquiera | autónoma, mínima, en español |
 
 ## Capabilities and Constraints
@@ -53,6 +54,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 ## Evidence on Hand
 
 - `framework/scaffolds/tasks/` contiene un demo funcional de CRUD, completar/pendiente, paginación y avisos HTMX, con migraciones, seeds y tests.
+- `framework/scaffolds/contacts/` contiene un CRUD de contactos con listado Tabulator 6.7.1 vendorizado, migración, seed y tests.
 - `README.md`, `docs/guia-stack-php-termux.md`, `DESIGN.md` y `.ai/steering/` son la documentación operativa y de decisiones.
 - La suite base y el round-trip del demo son evidencia ejecutable; los conteos exactos se leen de `composer test`, no se fijan acá.
 - No hay testimonios, clientes, benchmarks, precios ni assets de marca definitivos; no inventarlos.
@@ -61,7 +63,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 
 1. El clon debe funcionar sin build y con las decisiones de base ya tomadas.
 2. `app/` pertenece al usuario; la infraestructura reusable no vive ahí.
-3. El demo es opcional, visible y removible sin residuos en archivos ni DB.
+3. Los demos son opcionales, visibles y removibles sin residuos en archivos ni DB.
 4. La calidad se demuestra con el gate (`composer verify`) y con migraciones reales, no con claims.
 5. Seguridad, accesibilidad y compatibilidad con Termux son piso, no features opcionales.
 

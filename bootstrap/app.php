@@ -47,10 +47,15 @@ $app->setBasePath(Url::base());
 (require __DIR__ . '/../config/middleware.php')($app);
 (require __DIR__ . '/../routes/web.php')($app);
 
-// El demo tasks es opcional: si está instalado, registra sus rutas.
+// Los demos son opcionales: cada uno registra sus rutas al instalarse.
 $tasksRoutes = __DIR__ . '/../routes/tasks.php';
 if (is_file($tasksRoutes)) {
     (require $tasksRoutes)($app);
+}
+
+$contactsRoutes = __DIR__ . '/../routes/contacts.php';
+if (is_file($contactsRoutes)) {
+    (require $contactsRoutes)($app);
 }
 
 return $app;

@@ -21,6 +21,12 @@ if (is_dir(__DIR__ . '/database/migrations/tasks')) {
 if (is_dir(__DIR__ . '/database/seeds/tasks')) {
     $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/tasks';
 }
+if (is_dir(__DIR__ . '/database/migrations/contacts')) {
+    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/contacts';
+}
+if (is_dir(__DIR__ . '/database/seeds/contacts')) {
+    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/contacts';
+}
 
 return [
     'paths' => [

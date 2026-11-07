@@ -13,7 +13,7 @@
    enlaces que sí navegan. Ahora vive dentro de un `<form method="get">` que
    envía nativo (`per_page` es su único campo) y el submit que lo dispara está
    en un `<noscript>`: con JS manda htmx, como antes, y no aparece ningún
-   botón de más. El form no envuelve otro form: el partial entero vive dentro
+   botón de más. El form no envuelve otro form: el componente entero vive dentro
    de `#tareas-panel`.
 
    Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
@@ -29,22 +29,25 @@
    lo que se ve en el teléfono, lo que se lee y el orden de tabulación sean lo
    mismo; en escritorio la etiqueta recupera el primer lugar con
    `sm:order-first`. Se resuelve con utilidades y no duplicando markup porque
-   este partial es uno solo para los dos anchos.
+   este componente es uno solo para los dos anchos.
 
-   Todos los items del `join` llevan `btn-square`: ancho fijo de `--size`
-   (2rem con `btn-sm`) en vez de dejar que el glifo decida. `«` y `»` son
-   angostos, así que las dos flechas salían como astillas contra los números y
-   el grupo parecía roto en los extremos. Con el cuadrado las siete fichas
-   miden lo mismo; la flecha deshabilitada se sigue leyendo deshabilitada
-   (`btn-disabled` + `disabled`, que es la única sin contorno ni relleno) y la
-   página actual sigue siendo la única con relleno pleno (`btn-primary`).
+   Los controles son botones independientes, no un `join`: Tabulator separa
+   sus fichas con un gap de 8px y cada una conserva su borde y radio. Un
+   `join` las pegaba y compartía bordes, y rompía esa lectura. Los números
+   llevan `pagination-control--square` para que los glifos no
+   decidan el ancho de la ficha; Primera, Anterior, Siguiente y Última usan
+   texto, como el paginador de Tabulator, porque son acciones de salto. Los
+   controles deshabilitados se siguen leyendo deshabilitados
+   (`pagination-control--disabled` + `disabled`) y la página actual sigue
+   siendo la única con relleno pleno (`pagination-control--active`).
 
    El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era
-   la forma de pedir prestado lo que el elemento ya significa. `mt-4` mantiene
-   la separación con la lista. #}
+   la forma de pedir prestado lo que el elemento ya significa. La clase
+   `pagination-footer` mantiene la separación, el fondo y el borde del footer
+   de Tabulator. #}
 {% if pagination.total > 0 %}
-<div class="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
-    <p class="text-center text-sm opacity-70 sm:text-left">
+<div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="pagination-counter text-center sm:text-left">
         Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
     </p>
 
@@ -64,54 +67,6 @@
            Enter es peor que texto. Conserva las mismas clases y
            `aria-current="page"`, que es lo que la identifica como el lugar
            donde se esta parado. Todo lo demas sigue siendo accionable. #}
-        <nav class="join" aria-label="Paginación">
-            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
-               una sola fuente, así los dos no pueden apuntar a páginas
-               distintas. Se imprime con `|raw` para que el `&` salga literal,
-               como ya estaba (PaginationFlowTest lo fija así). No es una
-               puerta de escape: la cadena es la base fija del controller más
-               enteros de Framework\Http\Pagination. Dentro del atributo es
-               válido, porque `&per_page` no termina en `;` y por lo tanto no
-               es una referencia de carácter. #}
-            {% if pagination.current_page > 1 %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-square btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página anterior">«</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página anterior">«</button>
-            {% endif %}
-
-            {% for p in pagination.pages %}
-                {% if p is null %}
-                    <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-hidden="true">…</button>
-                {% elseif p == pagination.current_page %}
-                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
-                    <span class="join-item btn btn-sm btn-square btn-primary" aria-current="page">{{ p }}</span>
-                {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
-                    <a class="join-item btn btn-sm btn-square btn-outline"
-                       href="{{ destino|raw }}"
-                       hx-get="{{ destino|raw }}"
-                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
-                {% endif %}
-            {% endfor %}
-
-            {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
-                <a class="join-item btn btn-sm btn-square btn-outline"
-                   href="{{ destino|raw }}"
-                   hx-get="{{ destino|raw }}"
-                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
-                   aria-label="Página siguiente">»</a>
-            {% else %}
-                <button class="join-item btn btn-sm btn-square btn-disabled" disabled aria-label="Página siguiente">»</button>
-            {% endif %}
-        </nav>
-
         {% if show_size|default(true) %}
         {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
            select sin depender de que el lector de pantalla lo anuncie, y el
@@ -120,14 +75,12 @@
            sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
            El mismo tono del contador de arriba, con `opacity-70` sólo en el
            texto, da ~6:1 y deja el select a tinta plena.
-           En escritorio vuelve a ir antes de la paginación (`sm:order-first`);
-           en móvil queda como tercera línea, debajo de los controles. #}
-        {# `sm:order-first` pasa del label al form porque el form es ahora el
-           hijo del flex; el label conserva su fila y su `gap-2`. #}
-        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2 sm:order-first">
+           Va antes de los controles en el DOM y en la pantalla, como el
+           selector de Tabulator; en móvil conserva ese orden. #}
+        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
             <label class="flex items-center gap-2">
-                <span class="text-sm opacity-70">{{ label|default('registros')|capitalize }} por página</span>
-                <select class="select select-sm w-auto" name="per_page"
+                <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
+                <select class="pagination-select" name="per_page"
                         aria-label="{{ label|default('registros')|capitalize }} por página"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
@@ -140,10 +93,73 @@
                 </select>
             </label>
             <noscript>
-                <button type="submit" class="btn btn-sm">Aplicar</button>
+                <button type="submit" class="pagination-control">Aplicar</button>
             </noscript>
         </form>
         {% endif %}
+
+        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Paginación">
+            {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
+               una sola fuente, así los dos no pueden apuntar a páginas
+               distintas. Se imprime con `|raw` para que el `&` salga literal,
+               como ya estaba (PaginationFlowTest lo fija así). No es una
+               puerta de escape: la cadena es la base fija del controller más
+               enteros de Framework\Http\Pagination. Dentro del atributo es
+               válido, porque `&per_page` no termina en `;` y por lo tanto no
+               es una referencia de carácter. #}
+            {% if pagination.current_page > 1 %}
+                {% set destino_primera = pagination.base_url ~ '?page=1&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino_primera|raw }}"
+                   hx-get="{{ destino_primera|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Primera página">Primera</a>
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página anterior">Anterior</a>
+            {% else %}
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página anterior">Anterior</button>
+            {% endif %}
+
+            {% for p in pagination.pages %}
+                {% if p is null %}
+                    <button class="pagination-control pagination-control--square pagination-control--disabled" disabled aria-hidden="true">…</button>
+                {% elseif p == pagination.current_page %}
+                    {# Ni `disabled` ni `tabindex`: no es un control, es el dato. #}
+                    <span class="pagination-control pagination-control--square pagination-control--active" aria-current="page">{{ p }}</span>
+                {% else %}
+                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    <a class="pagination-control pagination-control--square"
+                       href="{{ destino|raw }}"
+                       hx-get="{{ destino|raw }}"
+                       hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                       aria-label="Página {{ p }}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.current_page < pagination.last_page %}
+                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino|raw }}"
+                   hx-get="{{ destino|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Página siguiente">Siguiente</a>
+                {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
+                <a class="pagination-control"
+                   href="{{ destino_ultima|raw }}"
+                   hx-get="{{ destino_ultima|raw }}"
+                   hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
+                   aria-label="Última página">Última</a>
+            {% else %}
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="Última página">Última</button>
+            {% endif %}
+        </nav>
+
     </div>
 </div>
 {% endif %}

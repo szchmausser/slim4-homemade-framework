@@ -5,32 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
-    {# Favicon: el glifo de capas sobre el primario de daisyUI, en SVG plano
-       (sin build ni referencias externas). El <link> evita el 404 de
-       /favicon.ico que costaba un request fallido en cada visita. Va acá y no
-       en /assets porque el archivo vive en la raíz de public: la URL dice
-       dónde está. SRI no aplica a rel=icon, así que la disciplina es el peso
-       (~600 bytes). #}
-    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
-
-    {# Fija el tema ANTES del primer paint: sin esto, Alpine lo corregiría
-       después y se vería un flash del tema claro en cada recarga oscura. #}
-    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
-    {# Misma idea para el sidebar: si Alpine aplicara el plegado después del
-       primer paint, con transition-all activo se vería abrir y cerrarse en
-       cada recarga. Se deja la marca acá y el CSS de abajo pre-pinta. #}
-    <script>try{if(localStorage.getItem('sidebarMini')==='1')document.documentElement.setAttribute('data-sidebar-mini','')}catch(e){}</script>
-
-    {# daisyUI 5.7.46 vendorizado + SRI: offline, sin cambio de runtime sin deploy. #}
-    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
-          integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
-            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
-    <script src="{{ url('/assets/htmx-2.0.11.min.js') }}"
-            integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg"
-            defer></script>
-    <script defer src="{{ url('/assets/alpine-3.17.4.min.js') }}"
-            integrity="sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd"></script>
+    {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
+    {% include 'partials/layout/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
 
     <style>
         [x-cloak] { display: none !important; }
@@ -84,6 +60,77 @@
         .icon-success { color: var(--ink-success); }
         .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
+        .icon-info    { color: var(--ink-info); }
+
+        /* Paginación: mismo contrato visual que el footer de Tabulator. */
+        .pagination-footer {
+            margin-top: 1rem;
+            background: var(--color-base-200);
+            padding: .5rem .75rem;
+        }
+        .pagination-counter {
+            font-size: .8125rem;
+            line-height: 1.5;
+            opacity: .75;
+        }
+        .pagination-label {
+            color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .pagination-select {
+            height: 2rem;
+            padding: 0 .5rem;
+            border: .8px solid var(--color-base-300);
+            border-radius: var(--radius-field);
+            background: var(--color-base-100);
+            color: var(--color-base-content);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+        .pagination-control {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            height: 2rem;
+            margin: 0 2px;
+            padding: 0 .5rem;
+            border: .8px solid var(--color-base-300);
+            border-radius: var(--radius-field);
+            background: var(--color-base-100);
+            color: var(--color-base-content);
+            font-size: .875rem;
+            font-weight: 700;
+            line-height: 1.5;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+        }
+        .pagination-control:not(:disabled):not(.pagination-control--disabled):not(.pagination-control--active):hover {
+            background: var(--color-base-300);
+        }
+        .pagination-control:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+        .pagination-control--square {
+            min-width: 2rem;
+            padding: 0;
+        }
+        .pagination-control--active {
+            border-color: var(--color-primary);
+            background: var(--color-primary);
+            color: var(--color-primary-content);
+            cursor: default;
+        }
+        .pagination-control--disabled,
+        .pagination-control:disabled {
+            cursor: not-allowed;
+            opacity: .4;
+        }
 
         /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
            activa como un bloque casi negro, más pesado que cualquier otro
@@ -248,6 +295,8 @@
             }
         }
     </style>
+
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-base-200 text-base-content">
 {# Primer elemento tabulable de la pagina. Sin esto, con teclado hay que atravesar
@@ -272,200 +321,19 @@
     <div x-cloak x-show="sidebarOpen" @click="sidebarOpen = false"
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
-    {# Sidebar: overlay en móvil, columna plegable a iconos en desktop.
-       `inert` (atributo, no una clase CSS) es lo que saca de verdad los
-       enlaces del orden de tabulación: una clase con `visibility` u `opacity`
-       los deja enfocables, y acá el sidebar fuera de pantalla sigue en el
-       layout por la animación de translate-x. En desktop `sidebarOpen`
-       arranca en true, así que ahí nunca queda inerte.
-       En desktop es CROMO FIJO, no una columna que se estira con el
-       documento: `lg:sticky lg:top-0 lg:h-dvh` la sujeta al borde superior y
-       al alto de la ventana. Con `lg:static` y una lista larga, el bloque de
-       usuario y «Salir» quedaban al final del scroll —fuera de la pantalla,
-       había que bajar hasta el pie para salir— y el carril quedaba vacío a la
-       vista. `lg:bottom-auto` neutraliza el inset inferior que fija
-       `inset-y-0`, que en sticky sujetaría las dos puntas; en móvil sigue
-       `fixed` + `inset-y-0` + translate, sin cambios. El ancho lo gobierna el
-       plegado (w-64/w-16 y el pre-pintado del <style>), que no se toca. #}
-    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
-           :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
-           x-bind:inert="!sidebarOpen"
-           aria-label="Navegación principal">
-        <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
-            {% include 'partials/_logo.twig' %}
-            <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
-            {# Cerrar el drawer en móvil. Sin esto no había salida visible: la
-               hamburguesa vive en el header (z-20) y el panel abierto la tapa
-               (z-40), así que en un teléfono el único cierre era acertar el
-               backdrop. `lg:hidden`: en desktop el sidebar no es un overlay y
-               no hay nada que cerrar. `ml-auto` lo empuja al extremo sin
-               tocar el logo ni la etiqueta, que el plegado pre-pintado ya
-               oculta con `.sidebar-label`. #}
-            <button type="button"
-                    class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
-                    @click="sidebarOpen = false"
-                    aria-label="Cerrar menú"
-                    title="Cerrar menú">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-        {# `overflow-y-auto` sobre el `grow`: con el sidebar de alto fijo, un
-           menú largo scrollea DENTRO del panel en vez de empujar el bloque de
-           usuario (y «Salir») fuera de la pantalla. Como el <ul> pasa a ser un
-           contenedor de scroll, su min-height automático vale 0: no hace falta
-           un `min-h-0` al lado. #}
-        <ul class="menu w-full grow gap-1 overflow-y-auto p-2">
-            <li>
-                <a href="{{ url('/') }}" class="{% if active is defined and active == 'home' %}menu-active{% endif %}"
-                   title="Inicio"
-                   aria-label="Inicio">
-                    {% include 'partials/_icon.twig' with { name: 'home' } %}
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Inicio</span>
-                </a>
-            </li>
-            {% if tasks_enabled %}
-            <li>
-                <a href="{{ url('/tareas') }}" class="{% if active is defined and active == 'tareas' %}menu-active{% endif %}"
-                   title="Tareas"
-                   aria-label="Tareas">
-                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
-                    <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Tareas</span>
-                </a>
-            </li>
-            {% endif %}
-        </ul>
-        {% if user_id is defined and user_id %}
-        {# Fila de usuario sin caja: el correo a la izquierda ocupando el ancho y
-           la salida como icono a la derecha. Con fondo y borde propio el bloque
-           se leia como un boton de ancho parcial metido dentro del sidebar, y
-           el borde no separaba de nada que lo necesitara. El unico fondo que
-           queda es el del hover del icono: eso es lo que lo hace descubrible
-           sin dibujar una caja permanente.
-           `sidebar-label` oculta el correo en el plegado pre-pintado, igual que
-           las etiquetas del menu: plegado queda solo el icono, centrado. #}
-        <div class="flex h-12 shrink-0 items-center gap-2 px-2">
-            {# Disco con la inicial + dos lineas: nombre arriba y correo abajo.
-               `users` no tiene columna `name`, asi que el nombre se deriva de la
-               parte local del correo. Es una etiqueta de presentacion, no un
-               dato: el correo completo va debajo y es el que manda. #}
-            <span class="sidebar-label grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold uppercase text-primary-content"
-                  :class="sidebarMini && 'lg:hidden'" aria-hidden="true">{{ user_email|first }}</span>
-            <span class="sidebar-label min-w-0 flex-1" :class="sidebarMini && 'lg:hidden'" title="{{ user_email }}">
-                <span class="block truncate text-sm font-semibold leading-tight">{{ user_email|split('@')|first|capitalize }}</span>
-                <span class="block truncate text-xs leading-tight opacity-60">{{ user_email }}</span>
-            </span>
-            <form method="post" action="{{ url('/logout') }}" class="shrink-0"
-                  :class="sidebarMini && 'lg:mx-auto'">
-                {% include 'partials/_csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
-                </button>
-            </form>
-        </div>
-        {% endif %}
-    </aside>
+    {% block sidebar %}
+        {% include 'partials/layout/sidebar.twig' %}
+    {% endblock %}
 
     {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
-        <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">
-            {# Abrir/cerrar en móvil. #}
-            {# `aria-expanded` dice si el drawer esta abierto: la etiqueta sola
-               cambiaba de texto, pero un lector de pantalla no anuncia un
-               boton que abre o cierra nada. Es el mismo booleano que mueve el
-               drawer (y `inert`), asi que no puede desincronizarse. #}
-            <button class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen" :aria-label="sidebarOpen ? 'Cerrar menú' : 'Abrir menú'" :aria-expanded="sidebarOpen ? 'true' : 'false'">
-                <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-            {# Plegar a iconos en desktop. #}
-            {# Un solo glyph: la rotación sale del CSS pre-pintado (data-sidebar-mini),
-               NO de una clase Alpine. rotate-180 de Tailwind v4 usa la propiedad
-               `rotate`, que SE SUMA al `transform` del fallback (180+180=360):
-               con ambos, el icono nunca cambiaba. Una sola fuente de verdad. #}
-            <button id="collapse-btn" class="btn btn-square btn-ghost hidden lg:inline-flex" @click="toggleMini()" :aria-label="sidebarMini ? 'Desplegar menú' : 'Plegar menú'">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-            </button>
-            {# Breadcrumb con el texto del menú: en Tareas, Inicio (link) / Tareas;
-               en Inicio, solo icono + texto. El logo vive en la sidebar. #}
-            <span class="flex flex-1 items-center gap-2 px-2 font-semibold">
-                {% if active is defined and active == 'tareas' %}
-                    {% include 'partials/_icon.twig' with { name: 'tasks' } %}
-                    <nav class="breadcrumbs" aria-label="Miga de pan">
-                        <ul>
-                            <li><a href="{{ url('/') }}">Inicio</a></li>
-                            <li aria-current="page">Tareas</li>
-                        </ul>
-                    </nav>
-                {% elseif active is defined and active == 'login' %}
-                    <span>Acceder</span>
-                {% else %}
-                    {% include 'partials/_icon.twig' with { name: 'home' } %}
-                    <span>Inicio</span>
-                {% endif %}
-            </span>
-            {# Toggle claro/oscuro: swap de daisyUI + estado Alpine persistido. #}
-            <label class="swap swap-rotate btn btn-square btn-ghost">
-                <input type="checkbox" :checked="theme === 'dark'" @change="theme = $event.target.checked ? 'dark' : 'light'" aria-label="Cambiar entre tema claro y oscuro" />
-                <svg class="swap-off h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5.64,17l-.71.71a1,1,0,0,0,0,1.41,1,1,0,0,0,1.41,0l.71-.71A1,1,0,0,0,5.64,17ZM5,12a1,1,0,0,0-1-1H3a1,1,0,0,0,0,2H4A1,1,0,0,0,5,12Zm7-7a1,1,0,0,0,1-1V3a1,1,0,0,0-2,0V4A1,1,0,0,0,12,5ZM5.64,7.05A1,1,0,0,0,5,8.71l.71-.71A1,1,0,0,0,4.29,6.64Zm12,.71a1,1,0,0,0,1.41,0l.71-.71A1,1,0,1,0,18.36,5.64l-.71.71A1,1,0,0,0,17.66,7.76ZM19,11H20a1,1,0,0,0,0,2H19A1,1,0,0,0,19,11Zm-7,7a1,1,0,0,0-1,1v1a1,1,0,0,0,2,0V19A1,1,0,0,0,12,18Zm7.36-12.36a1,1,0,0,0,0,1.41l.71.71a1,1,0,0,0,1.41,0,1,1,0,0,0,0-1.41l-.71-.71A1,1,0,0,0,19.36,5.64ZM12,6.5A5.5,5.5,0,1,0,17.5,12,5.51,5.51,0,0,0,12,6.5Zm0,9A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg>
-                <svg class="swap-on h-6 w-6 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21.64,13a1,1,0,0,0-1.05-.14,8.05,8.05,0,0,1-3.37.73,8.15,8.15,0,0,1-8.14-8.1,8.59,8.59,0,0,1,.25-2A1,1,0,0,0,8,2.36,10.14,10.14,0,1,0,22,14.05,1,1,0,0,0,21.64,13Zm-9.5,6.69A8.14,8.14,0,0,1,7.08,5.22v.27A10.15,10.15,0,0,0,17.22,15.63a9.79,9.79,0,0,0,2.1-.22A8.11,8.11,0,0,1,12.14,19.73Z"/></svg>
-            </label>
-        </header>
+        {% block header %}
+            {% include 'partials/layout/header.twig' %}
+        {% endblock %}
 
-        {# Avisos flotantes. Posición y estilos en el <style> del head: el
-           host replica la geometría de <main> para caer alineado con el <h1>.
-           Un solo componente, dos canales:
-           - @toasts.window: evento `toasts` que emite HX-Trigger-After-Swap
-             desde Controller::render() en cada acción htmx (éxito, error de
-             validación, tarea inexistente). detail.items es un ARRAY porque
-             el payload del header es un objeto; un array suelto lo envolvería
-             htmx en {value: [...]}.
-           - @csrf.window: HX-Trigger del failureHandler de slim/csrf. Ese caso
-             NO puede usar el canal de arriba: el request se corta con 400 y
-             htmx no hace swap, así que no hay After-Swap. Se lee
-             $event.detail.value porque un string se envuelve en {value}:
-             con $event.detail el aviso decía [object Object] (hay test).
-           Los items viven en un array de Alpine, NO en el DOM del panel: el
-           swap de #tareas-panel no los borra ni los duplica. #}
-        <div class="toast-host"
-             x-data="toastStack()"
-             @toasts.window="addAll($event.detail.items)"
-             @csrf.window="add({ message: String($event.detail.value ?? ''), type: 'error' })"
-             role="status"
-             aria-live="polite">
-            <div class="toast-stack">
-                <template x-for="t in items" :key="t.id">
-                    {# `bg-base-100/90` y no `/95`: el bundle precompila los pasos
-                       de opacidad de `bg-*` solo en decenas, así que `/95` no
-                       existía y la tarjeta quedaba sin fondo: el texto flotaba
-                       sobre la página. El JIT del navegador tampoco puede
-                       generarlo, porque `base-100` es un token de daisyUI y no
-                       está en la paleta que conoce. #}
-                    <div class="toast-card flex w-full max-w-sm items-start gap-3 rounded-xl bg-base-100/90 p-3 pr-2 shadow-lg backdrop-blur"
-                         :data-type="t.type"
-                         x-transition:enter="transition ease-out duration-200"
-                         x-transition:enter-start="opacity-0 translate-x-4"
-                         x-transition:enter-end="opacity-100 translate-x-0"
-                         x-transition:leave="transition ease-in duration-150"
-                         x-transition:leave-start="opacity-100 translate-x-0"
-                         x-transition:leave-end="opacity-0 translate-x-4">
-                        <span class="toast-icon grid h-7 w-7 shrink-0 place-items-center rounded-lg">
-                            <svg x-show="t.type === 'success'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-                            <svg x-show="t.type === 'error'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                            <svg x-show="t.type === 'info'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                        </span>
-                        <p class="min-w-0 flex-1 pt-0.5 text-sm font-semibold leading-snug" x-text="t.message"></p>
-                        <button type="button"
-                                class="btn btn-square btn-ghost btn-xs shrink-0 opacity-50 hover:opacity-100"
-                                @click="remove(t.id)"
-                                aria-label="Cerrar aviso"
-                                title="Cerrar aviso">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                        <span class="toast-progress" aria-hidden="true" @animationend="remove(t.id)"></span>
-                    </div>
-                </template>
-            </div>
-        </div>
+        {% block toasts %}
+            {% include 'partials/layout/toasts.twig' %}
+        {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
@@ -473,12 +341,9 @@
             {% block content %}{% endblock %}
         </main>
 
-        {# El pie muestra datos de ejecución, no el stack: el stack ya está en
-           la portada. La versión de PHP y el entorno salen del container para
-           que el shell diga dónde está corriendo la app sin duplicar contenido. #}
-        <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-            <aside>PHP {{ php_version }} · SQLite · entorno {{ app_env }}</aside>
-        </footer>
+        {% block footer %}
+            {% include 'partials/layout/footer.twig' %}
+        {% endblock %}
     </div>
 </div>
 
@@ -646,7 +511,7 @@ function notifyHtmxFailures() {
             return;
         }
 
-        notify('No se pudo completar la acción. Probá de nuevo.');
+        notify('No se pudo completar la acción. Intenta de nuevo.');
     });
 
     document.body.addEventListener('htmx:sendError', () => {
@@ -656,5 +521,7 @@ function notifyHtmxFailures() {
 
 notifyHtmxFailures();
 </script>
+
+{% block scripts %}{% endblock %}
 </body>
 </html>

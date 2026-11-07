@@ -52,10 +52,23 @@ abstract class Controller
             $flash = ['error' => null, 'success' => null, 'info' => null];
         }
 
+        // Opt-in para pantallas que no usan htmx pero quieren el mismo stack
+        // de toasts para el flash de una acción con redirect (p. ej. el CRUD
+        // de contactos). En htmx el canal sigue siendo HX-Trigger-After-Swap.
+        $toastItems = [];
+        if (!$request->hasHeader('HX-Request') && $this->usesToastFlash()) {
+            foreach (self::FLASH_ORDER as $type) {
+                if ($flash[$type] !== null && $flash[$type] !== '') {
+                    $toastItems[] = ['message' => $flash[$type], 'type' => $type];
+                }
+            }
+        }
+
         return $this->view->render($response, $template, [
             'flash_error'   => $flash['error'],
             'flash_success' => $flash['success'],
             'flash_info'    => $flash['info'],
+            'toast_items'   => $toastItems,
             'user_id'       => $user?->getKey(),
             'user_email'    => $user?->getAttribute('email'),
             ...$this->csrf($request),
@@ -98,6 +111,16 @@ abstract class Controller
             ['toasts' => ['items' => $items]],
             JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
         ));
+    }
+
+    /**
+     * Las pantallas con redirect no tienen un swap de htmx donde colgar el
+     * evento `toasts`; si lo activan, el layout recibe `toast_items` y el host
+     * los incorpora al inicializarse.
+     */
+    protected function usesToastFlash(): bool
+    {
+        return false;
     }
 
     protected function viewDefaults(): array

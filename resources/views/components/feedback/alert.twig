@@ -1,0 +1,15 @@
+{# Alerta semántica sobre daisyUI.
+   Props: variant (error|success|info), message, extra_class. #}
+{% set variants = {
+    'error': {class: 'alert-error', icon: 'alert-circle', ink: 'icon-error', role: 'alert'},
+    'success': {class: 'alert-success', icon: 'check-circle', ink: 'icon-success', role: 'status'},
+    'info': {class: 'alert-info', icon: 'info', ink: 'icon-info', role: 'status'}
+} %}
+{% set current = variants[variant|default('info')] %}
+
+<div class="alert {{ current.class }}{% if extra_class is defined and extra_class %} {{ extra_class }}{% endif %}" role="{{ current.role }}">
+    <span class="{{ current.ink }} shrink-0" aria-hidden="true">
+        {% include 'partials/_icon.twig' with { name: current.icon, class: 'h-5 w-5' } %}
+    </span>
+    <span>{{ message }}</span>
+</div>

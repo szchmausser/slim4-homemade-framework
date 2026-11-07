@@ -1,0 +1,19 @@
+{# Campo de formulario estándar.
+   Props: name, label, type, value, required, optional, maxlength,
+   autocomplete, placeholder, id. #}
+{% set input_id = id|default(name) %}
+<fieldset class="fieldset">
+    <label class="fieldset-legend" for="{{ input_id }}">
+        {{ label }}
+        {% if optional|default(false) %}<span class="opacity-60">(opcional)</span>{% endif %}
+    </label>
+    <input id="{{ input_id }}"
+           name="{{ name }}"
+           type="{{ type|default('text') }}"
+           value="{{ value|default('') }}"
+           class="input w-full"
+           {% if required|default(false) %}required{% endif %}
+           {% if maxlength is defined %}maxlength="{{ maxlength }}"{% endif %}
+           {% if autocomplete is defined %}autocomplete="{{ autocomplete }}"{% endif %}
+           {% if placeholder is defined %}placeholder="{{ placeholder }}"{% endif %}>
+</fieldset>

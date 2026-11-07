@@ -68,10 +68,31 @@ final class DemoInstallerTest extends TestCase
         self::assertFalse($this->hasTasksTable());
     }
 
+    public function test_remove_limpia_el_demo_contacts_sin_tocar_las_migraciones_base(): void
+    {
+        $this->createLog([
+            [2, 'CreateUsersTable'],
+            [3, 'CreateRememberTokensTable'],
+            [6, 'LoginAttempts'],
+            [8, 'CreateContactsTable'],
+        ], withContacts: true);
+
+        [$exit, $stdout, $stderr] = $this->runRemove('contacts');
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertStringContainsString('tabla contacts eliminada', $stdout);
+        self::assertSame([
+            '2:CreateUsersTable',
+            '3:CreateRememberTokensTable',
+            '6:LoginAttempts',
+        ], $this->logRows());
+        self::assertFalse($this->hasContactsTable());
+    }
+
     /**
      * @param list<array{0: int, 1: string}> $rows
      */
-    private function createLog(array $rows, bool $withTasks = false): void
+    private function createLog(array $rows, bool $withTasks = false, bool $withContacts = false): void
     {
         $pdo = new PDO('sqlite:' . $this->db, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -92,19 +113,24 @@ final class DemoInstallerTest extends TestCase
             $pdo->exec("INSERT INTO tasks (title) VALUES ('demo')");
         }
 
+        if ($withContacts) {
+            $pdo->exec('CREATE TABLE contacts (id INTEGER PRIMARY KEY, name TEXT)');
+            $pdo->exec("INSERT INTO contacts (name) VALUES ('demo')");
+        }
+
         $pdo = null;
     }
 
     /**
      * @return array{0: int, 1: string, 2: string}
      */
-    private function runRemove(): array
+    private function runRemove(string $demo = 'tasks'): array
     {
         $env = getenv();
         $env['DB_DATABASE'] = $this->db;
 
         $process = proc_open(
-            [PHP_BINARY, $this->root . '/scripts/demo.php', 'remove', '--no-files'],
+            [PHP_BINARY, $this->root . '/scripts/demo.php', 'remove', $demo, '--no-files'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $this->root,
@@ -139,6 +165,17 @@ final class DemoInstallerTest extends TestCase
         $pdo = new PDO('sqlite:' . $this->db);
         $count = (int) $pdo->query(
             "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'tasks'"
+        )->fetchColumn();
+        $pdo = null;
+
+        return $count > 0;
+    }
+
+    private function hasContactsTable(): bool
+    {
+        $pdo = new PDO('sqlite:' . $this->db);
+        $count = (int) $pdo->query(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'contacts'"
         )->fetchColumn();
         $pdo = null;
 

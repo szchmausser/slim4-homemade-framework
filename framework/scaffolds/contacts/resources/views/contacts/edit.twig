@@ -1,0 +1,26 @@
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Editar contacto{% endblock %}
+
+{% block content %}
+    <div class="mb-6">
+        {% include 'components/ui/button.twig' with {
+            label: 'Volver a contactos',
+            variant: 'ghost',
+            size: 'sm',
+            href: url('/contactos')
+        } only %}
+        <h1 class="mt-3 text-2xl font-bold">Editar contacto</h1>
+        <p class="mt-1 text-sm opacity-70">Actualizá los datos y guardá los cambios.</p>
+    </div>
+
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body">
+            {% include 'contacts/_form.twig' with {
+                action: url('/contactos/' ~ contact.id),
+                contact: contact,
+                submit_label: 'Guardar cambios'
+            } %}
+        </div>
+    </section>
+{% endblock %}

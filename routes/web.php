@@ -21,9 +21,12 @@ return function (App $app) {
         // Guard se resuelve acá (en request), no al registrar: al construirse
         // exige sesión iniciada y en registro todavía no hay ninguna.
         return $container->get(Twig::class)->render($response, 'home.twig', [
-            'active'     => 'home',
-            'user_id'    => Auth::id(),
-            'user_email' => Auth::user()?->getAttribute('email'),
+            'active'      => 'home',
+            'user_id'     => Auth::id(),
+            'user_email'  => Auth::user()?->getAttribute('email'),
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'icon' => 'home', 'current' => true],
+            ],
             ...CsrfTokens::fields($request, $container->get(Guard::class)),
         ]);
     });

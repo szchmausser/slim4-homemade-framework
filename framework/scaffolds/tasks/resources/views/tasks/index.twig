@@ -3,7 +3,14 @@
 {% block title %}Tareas{% endblock %}
 
 {% block content %}
-    <h1 class="mb-4 text-2xl font-bold">Mis tareas</h1>
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-4">
+            <div>
+                <h1 class="text-2xl font-bold">Mis tareas</h1>
+                <p class="mt-1 text-sm opacity-70">
+                    CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
+                </p>
+            </div>
 
     {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
@@ -47,4 +54,6 @@
     </form>
 
     {% include 'tasks/_panel.twig' %}
+        </div>
+    </section>
 {% endblock %}

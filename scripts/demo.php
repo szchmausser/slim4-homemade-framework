@@ -2,24 +2,43 @@
 
 declare(strict_types=1);
 
-// Instala o elimina el scaffold tasks. Uso:
-//   composer demo:install
-//   composer demo:remove
+// Instala o elimina un scaffold demo. Uso:
+//   php scripts/demo.php install [tasks|contacts]
+//   php scripts/demo.php remove  [tasks|contacts]
 //
-// El scaffold vive en framework/scaffolds/tasks/ con la MISMA estructura relativa que
-// tendrá en el repo: instalar es copiar cada archivo a su destino; eliminar es
-// borrar esos destinos. La fuente (framework/scaffolds/tasks) nunca se toca.
-//
-// Instalar también corre las migraciones pendientes y el TaskSeeder.
-// Eliminar también borra la tabla tasks y las filas de sus migraciones en
-// phinxlog. --no-db permite operar solo sobre archivos.
+// Cada demo vive en framework/scaffolds/<nombre>/ con la MISMA estructura
+// relativa que tendrá en el repo: instalar es copiar cada archivo a su destino;
+// eliminar es borrar esos destinos. La fuente nunca se toca.
 
 $root = dirname(__DIR__);
-$scaffold = $root . '/framework/scaffolds/tasks';
 $command = $argv[1] ?? '';
+$name = 'tasks';
+foreach (array_slice($argv, 2) as $argument) {
+    if (!str_starts_with($argument, '--')) {
+        $name = $argument;
+        break;
+    }
+}
 $force = in_array('--force', $argv, true);
 $noDb = in_array('--no-db', $argv, true);
 $noFiles = in_array('--no-files', $argv, true);
+
+$demos = [
+    'tasks' => [
+        'tables' => ['tasks'],
+        'migrations' => 'database/migrations/tasks',
+        'seeder' => 'TaskSeeder',
+    ],
+    'contacts' => [
+        'tables' => ['contacts'],
+        'migrations' => 'database/migrations/contacts',
+        'seeder' => 'ContactSeeder',
+    ],
+];
+
+$meta = $demos[$name] ?? null;
+$scaffold = $root . '/framework/scaffolds/' . $name;
+$commandPrefix = $name === 'tasks' ? 'demo' : 'demo:' . $name;
 
 // El runtime de tests/CI puede pasar DB_DATABASE por entorno. Se replica en
 // $_ENV para que Dotenv immutable y config/container.php usen la misma base.
@@ -29,13 +48,18 @@ if (is_string($envDb) && $envDb !== '') {
     $_SERVER['DB_DATABASE'] = $envDb;
 }
 
+if ($meta === null) {
+    fwrite(STDERR, "Demo desconocido: '{$name}'. Usá tasks o contacts.\n");
+    exit(1);
+}
+
 if (!is_dir($scaffold)) {
     fwrite(STDERR, "No existe '{$scaffold}'.\n");
     exit(1);
 }
 
 if ($command !== 'install' && $command !== 'remove') {
-    fwrite(STDERR, "Uso: php scripts/demo.php install|remove [--force] [--no-db] [--no-files]\n");
+    fwrite(STDERR, "Uso: php scripts/demo.php install|remove [tasks|contacts] [--force] [--no-db] [--no-files]\n");
     exit(1);
 }
 
@@ -45,24 +69,24 @@ if ($command === 'install') {
     if (!$noDb) {
         $autoload = $root . '/vendor/autoload.php';
         if (!is_file($autoload)) {
-            fwrite(STDERR, "Falta 'vendor/': corré composer install antes de demo:install.\n");
+            fwrite(STDERR, "Falta 'vendor/': corré composer install antes de {$commandPrefix}:install.\n");
             exit(1);
         }
 
         require_once $autoload;
 
         if (!class_exists(\Phinx\Config\Config::class)) {
-            fwrite(STDERR, "Falta Phinx en 'vendor/': instalá dependencias de desarrollo antes de demo:install.\n");
+            fwrite(STDERR, "Falta Phinx en 'vendor/': instalá dependencias de desarrollo antes de {$commandPrefix}:install.\n");
             exit(1);
         }
 
         $configuredDb = $_ENV['DB_DATABASE'] ?? (getenv('DB_DATABASE') ?: null);
         if ($configuredDb === ':memory:') {
-            fwrite(STDERR, "El demo necesita una base persistente; DB_DATABASE=:memory: no sirve para demo:install.\n");
+            fwrite(STDERR, "El demo necesita una base persistente; DB_DATABASE=:memory: no sirve para {$commandPrefix}:install.\n");
             exit(1);
         }
 
-        assertNoMigrationCollisions($root, $scaffold);
+        assertNoMigrationCollisions($root, $scaffold, $meta['migrations']);
     }
 
     $conflicts = [];
@@ -74,11 +98,11 @@ if ($command === 'install') {
     }
 
     if ($conflicts !== [] && !$force) {
-        fwrite(STDERR, "El scaffold tasks ya tiene archivos instalados:\n");
+        fwrite(STDERR, "El scaffold {$name} ya tiene archivos instalados:\n");
         foreach ($conflicts as $relative) {
             fwrite(STDERR, "  - {$relative}\n");
         }
-        fwrite(STDERR, "Usá --force para sobrescribirlos o composer demo:remove primero.\n");
+        fwrite(STDERR, "Usá --force para sobrescribirlos o composer {$commandPrefix}:remove primero.\n");
         exit(1);
     }
 
@@ -96,27 +120,27 @@ if ($command === 'install') {
     }
 
     clearTwigCache($root);
-    echo 'Scaffold tasks instalado (' . count($files) . " archivos).\n";
+    echo 'Scaffold ' . $name . ' instalado (' . count($files) . " archivos).\n";
 
     if ($noDb) {
         echo "DB: omitida por --no-db.\n";
     } else {
         try {
-            migrateAndSeed($root);
+            migrateAndSeed($root, $meta['seeder']);
         } catch (Throwable $e) {
             fwrite(STDERR, "Los archivos quedaron instalados, pero la DB falló: {$e->getMessage()}\n");
-            fwrite(STDERR, "Corregí el error y corré composer migrate && vendor/bin/phinx seed:run -s TaskSeeder.\n");
+            fwrite(STDERR, "Corregí el error y corré composer migrate && vendor/bin/phinx seed:run -s {$meta['seeder']}.\n");
             exit(1);
         }
     }
 
-    echo "Para quitarlo: composer demo:remove\n";
+    echo "Para quitarlo: composer {$commandPrefix}:remove\n";
     exit(0);
 }
 
 if (!$noDb) {
     try {
-        removeDemoDatabase($root, $scaffold);
+        removeDemoDatabase($root, $scaffold, $meta);
     } catch (Throwable $e) {
         fwrite(STDERR, "No se pudo limpiar la DB; no se borraron archivos: {$e->getMessage()}\n");
         exit(1);
@@ -141,9 +165,9 @@ if (!$noFiles) {
 
 clearTwigCache($root);
 if ($removed === 0) {
-    echo "No había archivos del scaffold tasks instalados.\n";
+    echo "No había archivos del scaffold {$name} instalados.\n";
 } else {
-    echo "Scaffold tasks removido ({$removed} archivos).\n";
+    echo "Scaffold {$name} removido ({$removed} archivos).\n";
 }
 
 if ($noDb) {
@@ -154,9 +178,9 @@ if ($noFiles) {
     echo "Archivos: omitidos por --no-files.\n";
 }
 
-echo "framework/scaffolds/tasks/ sigue disponible para reinstalar.\n";
+echo "framework/scaffolds/{$name}/ sigue disponible para reinstalar.\n";
 
-function migrateAndSeed(string $root): void
+function migrateAndSeed(string $root, string $seeder): void
 {
     require_once $root . '/vendor/autoload.php';
 
@@ -169,12 +193,15 @@ function migrateAndSeed(string $root): void
 
     $environment = $config->getDefaultEnvironment();
     $manager->migrate($environment);
-    $manager->seed($environment, 'TaskSeeder');
+    $manager->seed($environment, $seeder);
 
-    echo "DB: migraciones aplicadas y TaskSeeder ejecutado.\n";
+    echo "DB: migraciones aplicadas y {$seeder} ejecutado.\n";
 }
 
-function removeDemoDatabase(string $root, string $scaffold): void
+/**
+ * @param array{tables: list<string>, migrations: string, seeder: string} $meta
+ */
+function removeDemoDatabase(string $root, string $scaffold, array $meta): void
 {
     $database = demoDatabasePath($root);
     if ($database === null) {
@@ -195,14 +222,14 @@ function removeDemoDatabase(string $root, string $scaffold): void
         return;
     }
 
-    $migrations = demoMigrations($scaffold);
+    $migrations = demoMigrations($scaffold . '/' . $meta['migrations']);
     if ($migrations === []) {
         echo "DB: no se encontraron migraciones del scaffold; nada que limpiar.\n";
         return;
     }
 
-    // Se compara versión Y nombre: un 004 del usuario (por ejemplo
-    // CreateRecetasTable) no es una migración del demo y no debe borrarse.
+    // Se compara versión Y nombre: un 004 del usuario no es la migración 004
+    // del demo y no debe borrarse.
     $applied = [];
     foreach ($pdo->query('SELECT version, migration_name FROM phinxlog') as $row) {
         $version = (int) $row['version'];
@@ -216,17 +243,16 @@ function removeDemoDatabase(string $root, string $scaffold): void
         return;
     }
 
+    foreach ($meta['tables'] as $table) {
+        $pdo->exec('DROP TABLE IF EXISTS ' . $table);
+    }
+
     $placeholders = implode(',', array_fill(0, count($applied), '?'));
-
-    // El scaffold tasks solo posee la tabla tasks. Si en el futuro agrega más,
-    // esta lista es el punto único a actualizar.
-    $pdo->exec('DROP TABLE IF EXISTS tasks');
-
     $delete = $pdo->prepare("DELETE FROM phinxlog WHERE version IN ({$placeholders})");
     $delete->execute($applied);
 
-    echo 'DB: tabla tasks eliminada y ' . count($applied)
-        . " migraciones del demo borradas de phinxlog.\n";
+    echo 'DB: tabla ' . implode(', ', $meta['tables']) . ' eliminada y '
+        . count($applied) . " migraciones del demo borradas de phinxlog.\n";
 }
 
 function demoDatabasePath(string $root): ?string
@@ -256,9 +282,8 @@ function demoDatabasePath(string $root): ?string
 /**
  * @return array<int, string> versión => nombre de clase de la migración
  */
-function demoMigrations(string $scaffold): array
+function demoMigrations(string $directory): array
 {
-    $directory = $scaffold . '/database/migrations/tasks';
     $migrations = [];
 
     foreach (glob($directory . '/*.php') ?: [] as $file) {
@@ -275,22 +300,29 @@ function demoMigrations(string $scaffold): array
     return $migrations;
 }
 
-function assertNoMigrationCollisions(string $root, string $scaffold): void
+function assertNoMigrationCollisions(string $root, string $scaffold, string $migrationDirectory): void
 {
-    $migrations = demoMigrations($scaffold);
+    $migrations = demoMigrations($scaffold . '/' . $migrationDirectory);
     if ($migrations === []) {
         fwrite(STDERR, "El scaffold no tiene migraciones.\n");
         exit(1);
     }
 
     $existing = [];
-    foreach (glob($root . '/database/migrations/*.php') ?: [] as $file) {
-        if (preg_match('/^(\d+)_/', basename($file), $match) === 1) {
-            $existing[(int) $match[1]] = basename($file);
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($root . '/database/migrations', FilesystemIterator::SKIP_DOTS)
+    );
+
+    foreach ($iterator as $file) {
+        if (!$file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+        if (preg_match('/^(\d+)_/', $file->getFilename(), $match) === 1) {
+            $existing[(int) $match[1]] = $file->getFilename();
         }
     }
 
-    foreach ($migrations as $version => $name) {
+    foreach ($migrations as $version => $migrationName) {
         if (!isset($existing[$version])) {
             continue;
         }
@@ -298,7 +330,7 @@ function assertNoMigrationCollisions(string $root, string $scaffold): void
         fwrite(STDERR, sprintf(
             "Colisión de migraciones: la versión %d del demo (%s) ya está usada por %s.\n",
             $version,
-            $name,
+            $migrationName,
             $existing[$version]
         ));
         fwrite(STDERR, "Renumerá tu migración o el scaffold antes de instalar el demo.\n");
@@ -341,6 +373,8 @@ function removeEmptyParents(string $dir, string $root): void
         $root . '/database',
         $root . '/database/migrations',
         $root . '/database/seeds',
+        $root . '/public',
+        $root . '/public/assets',
         $root . '/resources',
         $root . '/resources/views',
         $root . '/routes',

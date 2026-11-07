@@ -5,17 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Mi App{% endblock %}</title>
 
-    {# Mismo favicon que el shell: es el mismo producto, y sin <link> el
-       navegador pide /favicon.ico y la pantalla de login pierde el icono. #}
-    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
-
-    {# Mismo pre-pintado de tema que el layout principal: si la persona ya fijó
-       oscuro, el login no puede aparecer claro un instante y corregirse despues. #}
-    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
-    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}"
-          integrity="sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill">
-    <script src="{{ url('/assets/tailwind-browser-4.3.3.js') }}"
-            integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"></script>
+    {# Favicon, pre-pintado de tema y assets vendorizados compartidos. #}
+    {% include 'partials/layout/head.twig' %}
 
     {# Sin htmx ni Alpine a proposito: el login es un POST normal y no hay
        estado de cliente que gobernar. Son ~106 KB que esta pantalla no usa. #}
@@ -95,6 +86,8 @@
             color: var(--color-base-content);
         }
     </style>
+
+    {% block head %}{% endblock %}
 </head>
 <body class="bg-base-200 text-base-content">
     {# Layout de autenticacion, sin sidebar ni header. El shell de la app
@@ -108,5 +101,7 @@
 
         {% block content %}{% endblock %}
     </main>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>

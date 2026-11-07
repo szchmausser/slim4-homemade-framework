@@ -61,14 +61,20 @@ class TaskController extends Controller
      * mutación ocurre igual, pero el fragmento llega sin <head>, sin hoja de
      * estilos y sin shell, así que una acción exitosa se ve rota (S9).
      *
-     * `active => 'tareas'` lo lee el layout (menú y miga de pan) y lo ignoran
-     * los parciales, así que puede viajar en las dos formas.
+     * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
+     * así que pueden viajar en las dos formas.
      */
     private function respond(Request $request, Response $response, array $extra = []): Response
     {
         // El orden del merge importa: `pageData()` primero, así un $extra no
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
-        $data = $this->pageData($request) + $extra + ['active' => 'tareas'];
+        $data = $this->pageData($request) + $extra + [
+            'active' => 'tareas',
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'href' => Url::path('/')],
+                ['label' => 'Tareas', 'icon' => 'tasks', 'current' => true],
+            ],
+        ];
 
         $response = $this->render(
             $request,

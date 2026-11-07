@@ -26,6 +26,12 @@ final class DatabaseSeeder extends AbstractSeed
             $seeds[] = TaskSeeder::class;
         }
 
+        $contactSeeder = __DIR__ . '/contacts/ContactSeeder.php';
+        if (is_file($contactSeeder)) {
+            require_once $contactSeeder;
+            $seeds[] = ContactSeeder::class;
+        }
+
         foreach ($seeds as $class) {
             (new $class())->setAdapter($this->getAdapter())->run();
         }

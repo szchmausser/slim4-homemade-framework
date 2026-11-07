@@ -163,11 +163,8 @@ final class ToastFlowTest extends TasksTestCase
      */
     public function test_el_layout_recibe_los_dos_eventos_en_el_stack_de_toasts(): void
     {
-        $layout = file_get_contents(
-            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
-        );
+        $layout = $this->shellSource();
 
-        self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
         self::assertStringContainsString('class="toast-host"', $layout, 'Falta el host de avisos.');
         self::assertStringContainsString('toast-progress', $layout, 'La barra de vida es la que retira el toast (animationend).');
         self::assertStringContainsString(

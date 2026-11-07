@@ -1,0 +1,14 @@
+{# Modal nativo de daisyUI. Usar con {% embed %} y el bloque body.
+   Props: id, title, subtitle. #}
+<dialog id="{{ id }}" class="modal" aria-labelledby="{{ id }}-title">
+    <div class="modal-box">
+        <h2 id="{{ id }}-title" class="font-bold">{{ title }}</h2>
+        {% if subtitle is defined and subtitle %}
+            <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
+        {% endif %}
+        {% block body %}{% endblock %}
+    </div>
+    <form method="dialog" class="modal-backdrop">
+        <button>Cerrar</button>
+    </form>
+</dialog>

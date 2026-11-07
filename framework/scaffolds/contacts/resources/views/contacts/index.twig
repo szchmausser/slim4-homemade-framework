@@ -1,0 +1,95 @@
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Contactos{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet"
+          href="{{ url('/assets/vendor/tabulator/6.7.1/tabulator_simple.min.css') }}"
+          integrity="sha384-845p0lFU615QIduQrRBstSh/4oeH8AntnsjQxQorupjL89uYj3JAryzqwGRHHsT3">
+    <link rel="stylesheet" href="{{ url('/assets/css/contacts-tabulator.css') }}"
+          integrity="sha384-WtyX2LsuhOcv0SrDh0WfXue/nGaak6i0RQBGbQ3WSZUGdCjVWZqk4HvlfHQIl5un">
+{% endblock %}
+
+{% block content %}
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold">Contactos</h1>
+                    <p class="mt-1 text-sm opacity-70">
+                        CRUD de contactos con listado en Tabulator: numeración,
+                        columnas y acciones sobre SQLite.
+                    </p>
+                </div>
+                {% include 'components/ui/button.twig' with {
+                    label: 'Agregar contacto',
+                    icon: 'plus',
+                    onclick: "document.getElementById('contact-create-modal').showModal()"
+                } only %}
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold">Listado</h2>
+                <span class="badge badge-ghost">{{ contacts_count }} contactos</span>
+            </div>
+
+            {% include 'components/table/tabulator.twig' with {
+                id: 'contacts-table',
+                rows_json: contacts_json,
+                label: 'Listado de contactos'
+            } only %}
+
+            <noscript>
+                <p class="text-sm opacity-70">Activá JavaScript para ver la tabla interactiva.</p>
+            </noscript>
+        </div>
+    </section>
+
+    {% embed 'components/ui/modal.twig' with {
+        id: 'contact-create-modal',
+        title: 'Nuevo contacto',
+        subtitle: 'Completá los datos para agregarlo al listado.'
+    } %}
+        {% block body %}
+            {% include 'contacts/_form.twig' with {
+                action: url('/contactos'),
+                submit_label: 'Crear contacto',
+                cancel_target: 'contact-create-modal'
+            } %}
+        {% endblock %}
+    {% endembed %}
+
+    {% embed 'components/ui/modal.twig' with {
+        id: 'contact-delete-modal',
+        title: 'Eliminar contacto'
+    } %}
+        {% block body %}
+            <p class="py-3 opacity-70">
+                ¿Eliminar a <strong data-contact-delete-name></strong>?
+            </p>
+            <form method="post" action="" data-contact-delete-form>
+                {% include 'partials/_csrf.twig' %}
+                <div class="modal-action">
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Cancelar',
+                        variant: 'ghost',
+                        type: 'button',
+                        onclick: "document.getElementById('contact-delete-modal').close()"
+                    } only %}
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Eliminar',
+                        variant: 'error',
+                        type: 'submit'
+                    } only %}
+                </div>
+            </form>
+        {% endblock %}
+    {% endembed %}
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
+            integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
+    <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
+            integrity="sha384-zcGL5N5uTRMN5VXj8Z8iZIHCFsUpLTdGGYMDLG+YIB0XOhfTOcooMrnd6+CTvCX6"></script>
+{% endblock %}

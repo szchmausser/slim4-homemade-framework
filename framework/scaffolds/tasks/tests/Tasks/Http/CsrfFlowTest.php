@@ -93,16 +93,11 @@ final class CsrfFlowTest extends TasksTestCase
         // error. Test verde, producción rota.
         //
         // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocás layouts/app.twig y te llevás el @csrf.window, este test falla
-        // antes que alguien pierda una tarea en silencio.
-        $layout = file_get_contents(
-            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
-        );
-
-        self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
+        // tocás el shell y te llevás el @csrf.window, este test falla antes
+        // que alguien pierda una tarea en silencio.
         self::assertStringContainsString(
             '@csrf.',
-            $layout,
+            $this->shellSource(),
             'El failureHandler emite HX-Trigger:{csrf} pero nada lo escucha: el fallo CSRF queda silencioso.'
         );
     }
@@ -111,12 +106,9 @@ final class CsrfFlowTest extends TasksTestCase
     {
         // Regresión del bug 12: con `String($event.detail)` el toast mostraba
         // "[object Object]". El texto vive en `.value`, no en el objeto
-        // entero, y gretear solo `@csrf.` pasaba con las dos variantes.
-        $layout = file_get_contents(
-            dirname(__DIR__, 3) . '/resources/views/layouts/app.twig'
-        );
+        // entero, y buscar solo `@csrf.` pasaba con las dos variantes.
+        $layout = $this->shellSource();
 
-        self::assertNotFalse($layout, 'No se pudo leer resources/views/layouts/app.twig');
         self::assertStringContainsString(
             '$event.detail.value',
             $layout,

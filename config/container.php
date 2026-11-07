@@ -96,9 +96,10 @@ return [
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
 
-        // El scaffold tasks deja routes/tasks.php al instalarse. Esa es la
+        // Los scaffolds dejan su archivo de rutas al instalarse. Esa es la
         // única fuente: si no hay rutas, las vistas base no muestran enlaces.
         $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
+        $twig->getEnvironment()->addGlobal('contacts_enabled', is_file(__DIR__ . '/../routes/contacts.php'));
 
         // Datos de ejecución para el pie del shell. No son configuración de
         // producto: describen dónde está corriendo la app ahora mismo.

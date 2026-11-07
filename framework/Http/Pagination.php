@@ -20,7 +20,7 @@ final class Pagination
 
     /**
      * Pagina un query Eloquent. Devuelve items + metadata lista para
-     * partials/_pagination.twig. $page fuera de rango se clampena (nunca vacío
+     * components/pagination/simple.twig. $page fuera de rango se clampena (nunca vacío
      * por pedir de más).
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
@@ -66,7 +66,7 @@ final class Pagination
      * entran todas y no hay nada que saltear.
      *
      * Los vecinos de la actual NO se muestran a propósito: llegar a la
-     * anterior/siguiente lo cubren las flechas « », que están siempre. La
+     * anterior/siguiente lo cubren los botones Anterior/Siguiente, que están siempre. La
      * regla vieja (current±2, hasta nueve botones) pasaba el techo de cuatro
      * opciones visibles que aguanta un punto de decisión (R7).
      *

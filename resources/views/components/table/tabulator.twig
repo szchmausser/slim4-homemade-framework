@@ -1,0 +1,12 @@
+{# Contenedor estándar de una tabla Tabulator.
+   Props: id, rows_json (JSON ya serializado), label, extra_class.
+   El initializer de cada tabla queda en su propio JS porque las columnas y
+   formatters son funciones; este componente fija el shell y el contrato de
+   datos: el consumidor lee `data-tabulator-table` y `data-rows`. #}
+<div id="{{ id }}"
+     class="min-w-0 {{ extra_class|default('') }}"
+     data-tabulator-table
+     data-rows="{{ rows_json }}"
+     role="region"
+     aria-label="{{ label|default('Tabla de datos') }}">
+</div>

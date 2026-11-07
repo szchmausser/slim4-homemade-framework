@@ -1,0 +1,184 @@
+/* Ajustes de Tabulator al sistema visual del esqueleto. El CSS del vendor
+   define estructura; acá sólo se mapean sus superficies a tokens daisyUI. */
+#contacts-table {
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+}
+
+#contacts-table .tabulator {
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    font-size: .875rem;
+    overflow: hidden;
+}
+
+#contacts-table .tabulator-header {
+    border-bottom: 1px solid var(--color-base-300);
+    background: var(--color-base-200);
+    color: var(--color-base-content);
+}
+
+@media (min-width: 640px) {
+    #contacts-table .tabulator-header,
+    #contacts-table .tabulator-header-contents,
+    #contacts-table .tabulator-header .tabulator-col,
+    #contacts-table .tabulator-header .tabulator-col-content {
+        min-height: 3.625rem;
+    }
+
+    #contacts-table .tabulator-header .tabulator-col-content {
+        display: flex;
+        align-items: center;
+    }
+}
+
+#contacts-table .tabulator-col,
+#contacts-table .tabulator-cell {
+    border-color: var(--color-base-300);
+}
+
+#contacts-table .tabulator-header .tabulator-col {
+    background: var(--color-base-200);
+    color: var(--color-base-content);
+}
+
+#contacts-table .tabulator-row {
+    background: var(--color-base-100);
+    border-bottom: 1px solid var(--color-base-300);
+    color: var(--color-base-content);
+}
+
+#contacts-table .tabulator-row .tabulator-cell {
+    color: var(--color-base-content);
+}
+
+#contacts-table .tabulator-row.tabulator-row-even {
+    background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
+}
+
+#contacts-table .tabulator-row:hover {
+    background: color-mix(in oklab, var(--color-base-200) 70%, var(--color-base-100));
+}
+
+#contacts-table .tabulator-row .tabulator-cell {
+    padding: .55rem .75rem;
+}
+
+#contacts-table .tabulator-placeholder {
+    color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+
+#contacts-table .tabulator-footer {
+    border-top: none;
+    background: var(--color-base-200);
+    color: var(--color-base-content);
+    padding: .5rem .75rem;
+}
+
+#contacts-table .tabulator-footer .tabulator-paginator {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .5rem;
+}
+
+#contacts-table .tabulator-page-counter {
+    margin-right: auto;
+    font-size: .8125rem;
+    line-height: 1.5;
+    opacity: .75;
+}
+
+#contacts-table .tabulator-footer label {
+    color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+#contacts-table .tabulator-footer .tabulator-page {
+    min-width: 2rem;
+    height: 2rem;
+    margin: 0 2px;
+    padding: 0 .5rem;
+    border: .8px solid var(--color-base-300);
+    border-radius: var(--radius-field);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+#contacts-table .tabulator-footer .tabulator-page:not(:disabled):not(.active):hover {
+    background: var(--color-base-300);
+}
+
+#contacts-table .tabulator-footer .tabulator-page.active {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-primary-content);
+}
+
+#contacts-table .tabulator-footer .tabulator-page:disabled,
+#contacts-table .tabulator-footer .tabulator-page.disabled {
+    cursor: not-allowed;
+    opacity: .4;
+}
+
+#contacts-table .tabulator-footer .tabulator-page-size {
+    height: 2rem;
+    margin: 0 2px;
+    padding: 0 .5rem;
+    border: .8px solid var(--color-base-300);
+    border-radius: var(--radius-field);
+    background: var(--color-base-100);
+    color: var(--color-base-content);
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+@media (max-width: 639px) {
+    #contacts-table .tabulator-footer {
+        padding: .75rem;
+    }
+
+    #contacts-table .tabulator-footer-contents {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: .75rem;
+    }
+
+    #contacts-table .tabulator-page-counter {
+        margin-right: 0;
+        text-align: center;
+    }
+
+    #contacts-table .tabulator-footer .tabulator-paginator {
+        width: 100%;
+        justify-content: center;
+        row-gap: .5rem;
+    }
+
+    #contacts-table .tabulator-footer .tabulator-pages {
+        display: contents;
+    }
+}
+
+#contacts-table .contact-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: .25rem;
+}
+
+#contacts-table .contact-actions form {
+    display: inline;
+    margin: 0;
+}

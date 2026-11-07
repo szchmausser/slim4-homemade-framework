@@ -10,11 +10,21 @@ Sistema visual vigente. Describe lo que el código hace hoy; si hay divergencia,
 
 | archivo | para qué | qué incluye |
 |---|---|---|
-| `layouts/app.twig` | shell de la app autenticada | sidebar plegable, header con breadcrumb y toggle de tema, host de avisos, `main` centrado, footer |
-| `layouts/auth.twig` | acceso | pre-pintado de tema, hoja + build de Tailwind, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
+| `layouts/app.twig` | composición del shell autenticado | sidebar, header, toasts, `main` y footer desde partials; bloques `head`, `header`, `sidebar`, `toasts`, `footer` y `scripts` |
+| `layouts/auth.twig` | acceso | `partials/layout/head.twig`, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
 | `errors/error.twig` | página de error | autónoma, sin `extends`, sólo el pre-pintado de tema, < 4 KB, mensaje mapeado por código |
 
-Un layout nuevo sólo se justifica si no puede ser una rama de estos tres. Hay dos layouts con el `<head>` repetido: si aparece un tercero, extraer un partial. La página de error no cuenta como tal: repite sólo el favicon y el pre-pintado, y su `<head>` es mínimo a propósito (sin build de Tailwind ni htmx/Alpine).
+### Componentes del shell
+
+| partial | responsabilidad |
+|---|---|
+| `partials/layout/head.twig` | favicon, pre-pintado de tema y assets; flags `with_sidebar`, `with_htmx`, `with_alpine` |
+| `partials/layout/sidebar.twig` | `<aside>` con navegación data-driven, usuario y logout; recibe `active` |
+| `partials/layout/header.twig` | controles del sidebar, breadcrumb data-driven y toggle de tema; recibe `breadcrumbs` |
+| `partials/layout/toasts.twig` | host y markup de avisos flotantes |
+| `partials/layout/footer.twig` | datos de ejecución del shell |
+
+Los dos layouts comparten `partials/layout/head.twig` para favicon, tema y assets; sólo el `<title>`/metadatos y el `<style>` propio quedan en cada layout. La página de error sigue siendo una excepción deliberada: su `<head>` mínimo no carga el shell.
 
 ## Color
 
@@ -53,13 +63,49 @@ daisyUI, sin capa propia de componentes: `btn`, `input`, `select`, `join`, `moda
 
 **Regla dura:** toda clase de daisyUI usada tiene que existir en `public/assets/daisyui-5.7.46.css`. Lo verifica `tests/Support/ViewClassIntegrityTest.php`, que además exige que cada clase de proyecto usada esté definida en el `<style>` del layout. Si el guard falla, se corrige la plantilla, nunca el guard.
 
-Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toast-stack`, `toast-card`, `toast-icon`, `toast-progress`, `sidebar-head`, `sidebar-label`, `icon-success`, `icon-error`, `icon-pending`. En `auth.twig`: `login-field`, `login-field-icon`, `login-input`, `login-remember` e `icon-info`.
+Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toast-stack`, `toast-card`, `toast-icon`, `toast-progress`, `sidebar-head`, `sidebar-label`, `icon-success`, `icon-error`, `icon-pending`, `icon-info`. En `auth.twig`: `login-field`, `login-field-icon`, `login-input`, `login-remember` e `icon-info`.
+
+### Componentes reutilizables
+
+- `components/ui/button.twig`: botón o enlace con `variant`, `size`, `icon`, `href`, `type`, `onclick`, `aria_label` y `extra_class`.
+- `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle` y bloque `body`.
+- `components/feedback/alert.twig`: aviso semántico con icono y `role`; variantes `error`, `success` e `info`.
+- `components/form/field.twig`: `fieldset` + label + input consistente, con `required`, `optional` y `maxlength`.
+- `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty` y un bloque `row` por elemento.
+- `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-rows`) para una tabla Tabulator; el initializer de columnas vive con la tabla.
+- `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
+- `partials/_csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
+- `partials/layout/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
+
+**Composición:** una vista no arma la estructura de una lista, una tabla o una paginación a mano. Incluye el componente y aporta sólo el contrato de datos y el contenido de la fila. La lista de tareas usa `components/list/simple.twig`; la tabla de contactos usa `components/table/tabulator.twig`; la paginación de tareas usa `components/pagination/simple.twig`.
+
+```twig
+{% embed 'components/list/simple.twig' with { items: tasks, empty: 'No hay tareas todavía.' } %}
+    {% block row %}
+        <li>{{ item.title }}</li>
+    {% endblock %}
+{% endembed %}
+
+{% include 'components/table/tabulator.twig' with {
+    id: 'contacts-table',
+    rows_json: contacts_json,
+    label: 'Listado de contactos'
+} only %}
+
+{% include 'components/pagination/simple.twig' with {
+    pagination: pagination,
+    target: '#tareas-panel',
+    label: 'tareas'
+} %}
+```
+
+El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa la paginación local de Tabulator (10 por página, selector 10/25/50/100, contador en español). Mezclar ambas mostraría un estado de página que no corresponde; si el demo necesita paginación remota, será otro contrato de tabla, no este componente. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
 
 ## Interacción
 
 - **Tema**: toggle `swap` en el header; el estado vive en `localStorage` y se refleja en `data-theme`. El sidebar plegado también se pre-pinta.
 - **Sidebar**: overlay en móvil, columna plegable en desktop. Fuera de pantalla lleva `inert`, aplicado también en un script de parseo para cubrir la ventana previa a Alpine.
-- **Avisos**: uno solo, abajo a la derecha, pila `column-reverse` (el nuevo arriba, crece hacia arriba), tope 3, vida gobernada por `animationend`, pausa al hover, `prefers-reduced-motion` conserva el fade que retira el nodo.
+- **Avisos**: un solo host, abajo a la derecha, pila `column-reverse` (el nuevo arriba, crece hacia arriba), tope 3, vida gobernada por `animationend`, pausa al hover, `prefers-reduced-motion` conserva el fade que retira el nodo. En htmx el flash viaja en `HX-Trigger-After-Swap`; las pantallas con redirect pueden optar por `usesToastFlash()` y recibir `toast_items`, que el host incorpora al inicializarse. Contactos usa esa segunda vía: su CRUD redirige a `/contactos` y muestra el mismo toast, sin banner inline.
 - **URL**: el servidor emite `HX-Push-Url` con la página que efectivamente renderizó (no se pone `hx-push-url` en las plantillas, porque `Pagination` recorta la página y el atributo mentiría).
 - **En vuelo**: `hx-disabled-elt` en el formulario de alta y en el panel, para que un doble clic no duplique la mutación.
 - **Foco**: los controles llevan `data-focus-key`; un listener lo guarda en `htmx:beforeRequest` y lo restaura en `htmx:afterSettle`. Si la fila desapareció, el foco cae en `#tareas-panel` (`tabindex="-1"`).
@@ -75,6 +121,7 @@ En los bloques `<script>` y en las expresiones de Alpine los identificadores van
 - Todo control tiene nombre accesible: iconos con `aria-label` + `title`, campos con `label` asociado o `aria-label`.
 - Foco visible siempre; nunca `outline: none` en un control interactivo.
 - La paginación es un enlace real (`href`) además de `hx-get`: sin `href` no hay rol ni foco.
+- El menú lateral es un `<nav>` con `aria-label`; el ítem activo lleva `aria-current="page"`.
 - Skip link presente: `.skip-link` es el primer elemento tabulable y apunta a `#contenido`. Va fuera de pantalla por posicion, no por `display`, para que siga recibiendo el primer Tab.
 
 ## Despliegue con prefijo de ruta
@@ -96,4 +143,4 @@ Vendorizados con SRI, servidos desde `public/assets/`. `php -S` no comprime; en 
 - Utilidades `dark:`.
 - Colores fuera de los tokens.
 - Clases de daisyUI que no existan en el bundle vendorizado.
-- JS nuevo fuera de los bloques inline existentes: los **tres** de `layouts/app.twig` (los dos de pre-pintado del `<head>` y el del final del `<body>`), el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, y el `x-data` de Alpine.
+- JS nuevo fuera de los bloques inline existentes: los **tres** de `layouts/app.twig` (los dos de pre-pintado del `<head>` y el del final del `<body>`), el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, y el `x-data` de Alpine. **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.

@@ -3,6 +3,9 @@
     "type": "project",
     "require": {
         "php": ">=8.4.1",
+        "ext-mbstring": "*",
+        "ext-pdo_sqlite": "*",
+        "ext-sqlite3": "*",
         "slim/slim": "^4.15",
         "slim/psr7": "^1.8",
         "php-di/php-di": "^7.1",
@@ -12,10 +15,10 @@
         "slim/twig-view": "^3.4",
         "slim/csrf": "^1.5",
         "respect/validation": "^2.0",
-        "monolog/monolog": "^3.12"
+        "monolog/monolog": "^3.12",
+        "robmorgan/phinx": "^0.13"
     },
     "require-dev": {
-        "robmorgan/phinx": "^0.13",
         "filp/whoops": "^2.18",
         "phpunit/phpunit": "^13.3"
     },
@@ -42,6 +45,8 @@
         "migrate:fresh": "@php scripts/migrate-fresh.php",
         "demo:install": "@php scripts/demo.php install",
         "demo:remove": "@php scripts/demo.php remove",
+        "demo:contacts:install": "@php scripts/demo.php install contacts",
+        "demo:contacts:remove": "@php scripts/demo.php remove contacts",
         "verify": [
             "@lint",
             "@docs:check",

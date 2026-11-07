@@ -1,0 +1,51 @@
+{% set values = contact|default(null) %}
+<form method="post" action="{{ action }}" class="space-y-4">
+    {% include 'partials/_csrf.twig' %}
+    {% include 'components/form/field.twig' with {
+        name: 'name',
+        label: 'Nombre',
+        type: 'text',
+        value: values ? values.name : '',
+        required: true,
+        maxlength: 120,
+        autocomplete: 'name'
+    } only %}
+    {% include 'components/form/field.twig' with {
+        name: 'email',
+        label: 'Email',
+        type: 'email',
+        value: values ? values.email : '',
+        required: true,
+        maxlength: 190,
+        autocomplete: 'email'
+    } only %}
+    {% include 'components/form/field.twig' with {
+        name: 'phone',
+        label: 'Teléfono',
+        type: 'tel',
+        value: values ? values.phone : '',
+        optional: true,
+        maxlength: 50,
+        autocomplete: 'tel'
+    } only %}
+    <div class="modal-action">
+        {% if cancel_target is defined and cancel_target %}
+            {% include 'components/ui/button.twig' with {
+                label: 'Cancelar',
+                variant: 'ghost',
+                type: 'button',
+                onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+            } only %}
+        {% else %}
+            {% include 'components/ui/button.twig' with {
+                label: 'Cancelar',
+                variant: 'ghost',
+                href: cancel_href|default(url('/contactos'))
+            } only %}
+        {% endif %}
+        {% include 'components/ui/button.twig' with {
+            label: submit_label|default('Guardar'),
+            type: 'submit'
+        } only %}
+    </div>
+</form>

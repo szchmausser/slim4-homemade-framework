@@ -2,9 +2,11 @@
 
 Esqueleto PHP en capas para apps server-rendered, pensado para correr en Termux (ARM 32-bit) sin toolchain de compilación.
 
-**Stack:** Slim 4 · PHP-DI · Eloquent (standalone) · Phinx · Twig · HTMX · Alpine.js · daisyUI 5 (vendorizado) · SQLite · respect/validation · Monolog.
+**Stack:** PHP 8.4.1+ · Slim 4.15 · PHP-DI 7.1 · Eloquent 13.33 (illuminate/database, standalone) · Phinx 0.13 · Twig 3.30 · HTMX · Alpine.js · daisyUI 5 (vendorizado) · SQLite · respect/validation 2.5 · Monolog 3.12 · slim/csrf 1.5 · phpdotenv 5.7 · PHPUnit 13.3 · PHPStan 2.3 (PHAR) · Whoops 2.18 · Composer.
 
-**Requisitos:** PHP >= 8.4.1 (`pkg install php` trae una versión vigente) y Composer 2. El piso no es capricho: el lock lo exige (`symfony/clock`, `symfony/translation` y PHPUnit piden `>=8.4.1`), y con un PHP menor el clon falla en el platform check antes de arrancar.
+**Requisitos:** PHP >= 8.4.1 (`pkg install php` trae una versión vigente), extensiones `ext-pdo_sqlite`, `ext-sqlite3` y `ext-mbstring` (declaradas en `composer.json`) y Composer 2. El piso no es capricho: el lock lo exige (`symfony/clock`, `symfony/translation` y PHPUnit piden `>=8.4.1`), y con un PHP menor el clon falla en el platform check antes de arrancar.
+
+Tailwind CSS 4 se ejecuta con el **browser build** vendorizado (`tailwind-browser-4.3.3.js`); HTMX, Alpine.js y daisyUI se sirven desde `public/assets/` con SRI. No hay Node, bundler ni CDN en runtime.
 
 **Guía completa paso a paso:** [`docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md) — instalación en Termux, cada archivo con código copiable, testing y troubleshooting.
 
@@ -40,13 +42,21 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
 | `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
 | `composer demo:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra |
-| `composer demo:remove` | Desinstala el demo y limpia la tabla `tasks` + sus filas de `phinxlog` |
+| `composer demo:remove` | Desinstala el demo de tareas y limpia la tabla `tasks` + sus filas de `phinxlog` |
+| `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
+| `composer demo:contacts:remove` | Desinstala el demo de contactos, sus assets vendorizados y su tabla |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | 32 o 64 bits |
 
+Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, `demo:*`, `install:termux`, `check:termux`) son la capa de operación del esqueleto, no paquetes del runtime.
+
 `composer verify` incluye PHPStan y docs-check. El phar dev-only (~30 MB) se descarga una vez en `storage/cache/`; para trabajar offline: `PHPSTAN_PHAR=/ruta/al/phpstan.phar composer phpstan`.
 
-Los flags del demo se pasan después de `--`: `composer demo:install -- --force` reinstala, y `composer demo:remove -- --no-db` borra solo archivos (deja la DB).
+Los flags del demo se pasan después de `--`: `composer demo:install -- --force` reinstala, y `composer demo:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
+
+El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con paginación local (10 filas por página, selector 10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
+
+`respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 
 La guía copia archivos enteros del repo. Esas copias **no se editan a mano**: `composer docs:check` compara cada bloque que declara un archivo contra el archivo real y falla si difieren; `composer docs:sync` las reescribe. Un fragmento se marca `excerpt` en el fence y queda afuera del control. Si cambiás una vista o un test que la guía copia, corré `composer docs:sync` antes de cerrar el cambio.
 
@@ -74,7 +84,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:install`). Para tu app, 
 2. **Modelo** en `app/Models/` con `$fillable` (+ `$hidden` si hay secrets).
 3. **Controlador** que extienda `Controller`: lo repetido a `viewDefaults()`, lo puntual por `$extra` en cada `render()`. Si lista, pagina con `Pagination::paginate()` (nunca `get()` pelado) y pasá `pagination` a la vista.
 4. **Rutas** en `routes/web.php` (+ `->add(RequireAuthMiddleware::class)` si es protegida, `'active'` para la nav si tiene página completa).
-5. **Vistas.** La página extiende `layouts/app.twig`. Si hay HTMX parcial: **una sola región** que devuelven tanto el full como el swap (como `_panel`), flash adentro del swap, tokens CSRF en cada form (el de edición lleva los suyos: vive dentro del swap), `hx-headers` (no `hx-include`) para DELETE, `hx-on::after-request="this.reset()"` si el form queda fuera del swap. Paginación con `partials/_pagination.twig` (params, sin hardcodear).
+5. **Vistas.** La página extiende `layouts/app.twig`. Si hay HTMX parcial: **una sola región** que devuelven tanto el full como el swap (como `_panel`), flash adentro del swap, tokens CSRF en cada form (el de edición lleva los suyos: vive dentro del swap), `hx-headers` (no `hx-include`) para DELETE, `hx-on::after-request="this.reset()"` si el form queda fuera del swap. Paginación con `components/pagination/simple.twig` (params, sin hardcodear).
 6. **Tests.** Cloná el estilo: request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida, y al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).
 7. **Seed** si hace falta dato inicial: seeder idempotente + inclusión en `DatabaseSeeder` (o en el scaffold demo si el seeder es del demo; todo seeder debe tolerar re-ejecución).
 8. **Verificá:** `composer test` en verde + smoke con `curl` (200 donde corresponde, 303/`HX-Redirect` donde la puerta cierra).
@@ -85,7 +95,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:install`). Para tu app, 
 - Toda URL de plantilla va por `url('/login')` (en PHP, `Framework\Http\Url::path()`), nunca un literal raíz-absoluto a mano: es lo único que permite servir la app desde una carpeta con `APP_BASE_PATH=/app` (vacío = raíz, sin cambios). Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo.
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
 - Assets en `public/assets/` vendorizados con SRI (nada de CDN en runtime).
-- Clases daisyUI as-is; componentes compartidos a `partials/` con params.
+- Clases daisyUI as-is; componentes compartidos a `components/` con params.
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
 - `app/Models/` es para modelos de dominio; la infraestructura del framework vive en `framework/` por componente (`Auth`, `Http`, `Validation`, `Docs`). `app/Support/` queda para helpers propios de la app.
 - El demo no se instala por defecto: `composer demo:install` copia `framework/scaffolds/tasks/`; `composer demo:remove` lo quita. La app base no debe referenciar rutas ni modelos del demo.
@@ -94,12 +104,15 @@ El CRUD de Tareas es el demo instalable (`composer demo:install`). Para tu app, 
 
 ```
 framework/                       Infraestructura (Auth, Http, Validation, Docs)
-framework/scaffolds/tasks/       Demo opcional (composer demo:install)
+framework/scaffolds/tasks/       Demo opcional de tareas (composer demo:install)
+framework/scaffolds/contacts/    Demo opcional de contactos + Tabulator (composer demo:contacts:install)
 app/Http/Controllers/            Controladores de la app (Auth/AuthController, ...)
 app/Http/Middleware/             Middleware propio de la app
 app/Models/                      Modelos de dominio (User, ...)
 app/Support/                     Helpers propios de la app
 bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
+resources/views/partials/layout/  Head, sidebar, header, toasts y footer del shell
+resources/views/components/      Button, modal, alert, field, list, table y pagination
 database/migrations/ database/seeds/  Schema versionado + datos base
 public/assets/  Frontend vendorizado con SRI
 tests/  Suite (unit + HTTP)

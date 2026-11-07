@@ -3,7 +3,7 @@
    1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
    cuatro URLs la usan tal cual, así no pueden divergir entre sí.
    Se imprime con `|raw` para que el `&` salga literal, igual que en
-   partials/_pagination.twig (PaginationFlowTest lo fija así). No es una
+   components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
    puerta de escape: la cadena sale de dos enteros de Framework\Http\Pagination,
    nunca de texto del usuario. Dentro del atributo es válido, porque
    `&per_page` no forma una referencia de carácter (no termina en `;`).
@@ -19,8 +19,12 @@
    la tarea, lo único estable entre un render y el siguiente: el índice de la
    fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
    del <script> de layouts/app.twig. #}
-<ul class="space-y-2">
-    {% for task in tasks %}
+{% embed 'components/list/simple.twig' with {
+    items: tasks,
+    empty: 'No hay tareas todavía.'
+} %}
+    {% block row %}
+        {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
@@ -237,7 +241,5 @@
             </dialog>
             </li>
         {% endif %}
-    {% else %}
-        <li class="opacity-60">No hay tareas todavía.</li>
-    {% endfor %}
-</ul>
+    {% endblock %}
+{% endembed %}
