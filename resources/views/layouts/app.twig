@@ -401,6 +401,18 @@ function shell() {
                 v ? document.documentElement.setAttribute('data-sidebar-mini', '')
                   : document.documentElement.removeAttribute('data-sidebar-mini');
             });
+
+            // R2 del sidebar: `sidebarOpen` nace leyendo el ancho UNA vez. Sin
+            // este observador, achicar o estirar la ventana dejaba el estado
+            // pegado al ancho de la carga: al pasar a escritorio el `<aside>`
+            // se ve (lg:translate-x-0 le gana el cascade) pero conserva
+            // `inert` de móvil, así que enlaces y «Salir» quedaban sin foco y
+            // sin click, y no había control que los recuperara porque el
+            // hamburguesa es lg:hidden. Al revés, en móvil el drawer quedaba
+            // abierto tapando el contenido. El breakpoint es el mismo del
+            // pre-pintado de arriba y el de la guarda de Escape: uno solo.
+            const lg = matchMedia('(min-width: 1024px)');
+            lg.addEventListener('change', e => { this.sidebarOpen = e.matches; });
         },
         toggleMini() { this.sidebarMini = !this.sidebarMini; }
     };
