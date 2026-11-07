@@ -14,7 +14,7 @@ $databaseFile = $databaseFile === '' ? null : $databaseFile;
 $migrations = ['%%PHINX_CONFIG_DIR%%/database/migrations'];
 $seeds = ['%%PHINX_CONFIG_DIR%%/database/seeds'];
 
-// El demo es opcional: sus migraciones/seeds solo existen tras demo:install.
+// El demo es opcional: sus migraciones/seeds solo existen tras demo:tasks:install.
 if (is_dir(__DIR__ . '/database/migrations/tasks')) {
     $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/tasks';
 }

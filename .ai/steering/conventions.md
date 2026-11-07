@@ -17,7 +17,7 @@
 
 - **Capas:** Controllers → Middleware → Models + Framework.
 - **Middleware pipeline:** Los middleware base viven en `framework/Http/Middleware`; `app/Http/Middleware` queda para middleware propio de la app.
-- **Demo:** `framework/scaffolds/tasks/` es la fuente; `composer demo:install` lo copia a `app/Tasks`, rutas, vistas, migraciones, seeds y tests, y `composer demo:remove` lo desinstala. La app base no referencia nada del demo.
+- **Demo:** `framework/scaffolds/tasks/` es la fuente; `composer demo:tasks:install` lo copia a `app/Tasks`, rutas, vistas, migraciones, seeds y tests, y `composer demo:tasks:remove` lo desinstala; `demo:install` / `demo:remove` quedan como alias. La app base no referencia nada del demo.
 - **Modelos:** `$fillable` + `$hidden` si hay secrets. `app/Models/` es solo para modelos de dominio; la infraestructura del framework vive en `framework/` por componente (`Auth`, `Http`, `Validation`, `Docs`) y `app/Support/` queda para helpers propios de la app. Seeder idempotente (tolerante a re-ejecución).
 - **Contrato de esquema:** `Framework\Auth` espera las tablas base `users` (002), `remember_tokens` (003) y `login_attempts` (006). Si extraés el framework a otra app, replicá esas migraciones o el contrato.
 - **Tests:** request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida. Al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).

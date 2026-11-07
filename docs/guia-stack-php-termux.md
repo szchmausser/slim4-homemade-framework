@@ -125,7 +125,7 @@ mi-app/
 │   ├── Docs/
 │   │   └── CodeBlocks.php          # tooling de docs, no runtime
 │   └── scaffolds/
-│       ├── tasks/                  # demo opcional: composer demo:install
+│       ├── tasks/                  # demo opcional: composer demo:tasks:install
 │       │   ├── app/Tasks/{Http,Models}/
 │       │   ├── database/{migrations,seeds}/tasks/
 │       │   ├── resources/views/tasks/
@@ -202,7 +202,7 @@ mi-app/
 └── phpunit.xml
 ```
 
-El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
 
 Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
@@ -298,8 +298,10 @@ composer require --dev phpunit/phpunit
         "docs:sync": "@php scripts/docs-sync.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
-        "demo:install": "@php scripts/demo.php install",
-        "demo:remove": "@php scripts/demo.php remove",
+        "demo:tasks:install": "@php scripts/demo.php install tasks",
+        "demo:tasks:remove": "@php scripts/demo.php remove tasks",
+        "demo:install": "@php scripts/demo.php install tasks",
+        "demo:remove": "@php scripts/demo.php remove tasks",
         "demo:contacts:install": "@php scripts/demo.php install contacts",
         "demo:contacts:remove": "@php scripts/demo.php remove contacts",
         "verify": [
@@ -2061,7 +2063,7 @@ $databaseFile = $databaseFile === '' ? null : $databaseFile;
 $migrations = ['%%PHINX_CONFIG_DIR%%/database/migrations'];
 $seeds = ['%%PHINX_CONFIG_DIR%%/database/seeds'];
 
-// El demo es opcional: sus migraciones/seeds solo existen tras demo:install.
+// El demo es opcional: sus migraciones/seeds solo existen tras demo:tasks:install.
 if (is_dir(__DIR__ . '/database/migrations/tasks')) {
     $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/tasks';
 }
@@ -3300,7 +3302,7 @@ Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto 
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-> El demo es opcional. `composer demo:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
+> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
 
 La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/tasks/index.twig`.
 
@@ -3488,17 +3490,17 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                 {% if tasks_enabled %}
                     <div>
                         <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                        <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:remove</code>
+                        <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
                     </div>
                 {% else %}
                     <div class="space-y-3">
                         <div>
                             <p class="mb-1 text-xs font-medium opacity-70">Instalar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:install</code>
+                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:install</code>
                         </div>
                         <div>
                             <p class="mb-1 text-xs font-medium opacity-70">Quitar</p>
-                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:remove</code>
+                            <code class="block overflow-x-auto rounded-box border border-base-300 bg-base-100 px-3 py-2 font-mono text-xs">composer demo:tasks:remove</code>
                         </div>
                     </div>
                 {% endif %}
@@ -5090,10 +5092,10 @@ final class RoutingTest extends HttpTestCase
         self::assertStringNotContainsString('href="/login"', $html);
 
         if (!is_file(dirname(__DIR__, 2) . '/routes/tasks.php')) {
-            self::assertStringContainsString('composer demo:install', $html);
+            self::assertStringContainsString('composer demo:tasks:install', $html);
         }
 
-        self::assertStringContainsString('composer demo:remove', $html);
+        self::assertStringContainsString('composer demo:tasks:remove', $html);
     }
 
     public function test_el_boton_de_la_pagina_de_error_no_es_un_link_muerto(): void
@@ -6109,7 +6111,7 @@ En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprobá con `
 Dos casos que el mensaje no cubre, a saber:
 
 1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si el demo dice `no such table: tasks` justo después de migrar, es esto: o borrá la variable (default relativo para ambos) o migrá consciente del path.
-2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Corré `composer demo:install` (copia, migra y siembra) o, si solo querés las tablas base, `composer migrate`.
+2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Corré `composer demo:tasks:install` (copia, migra y siembra) o, si solo querés las tablas base, `composer migrate`.
 
 ```bash
 ls -la database/                # ¿existe el archivo? ¿cuánto pesa?

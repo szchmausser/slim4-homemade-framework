@@ -46,7 +46,7 @@
 
 ## Decisiones Arquitectónicas
 
-- **Capas separadas:** `app/Http/Controllers/` y `app/Http/Middleware/` (app-owned), `app/Models/` (solo dominio), `framework/` (infraestructura por componente: `Auth`, `Http`, `Http\Middleware`, `Validation`, `Docs`) y `app/Support/` (helpers propios). El demo vive aparte en `framework/scaffolds/tasks/` y se instala con `composer demo:install`.
+- **Capas separadas:** `app/Http/Controllers/` y `app/Http/Middleware/` (app-owned), `app/Models/` (solo dominio), `framework/` (infraestructura por componente: `Auth`, `Http`, `Http\Middleware`, `Validation`, `Docs`) y `app/Support/` (helpers propios). El demo vive aparte en `framework/scaffolds/tasks/` y se instala con `composer demo:tasks:install` (`composer demo:install` queda como alias).
 - **PDO/SQLite** como driver de base de datos (via illuminate/database).
 - **Sesión + CSRF** manejados por middleware Slim built-in.
 - **Tests** con body raw + URI absoluta + login inyectado para rutas protegidas.

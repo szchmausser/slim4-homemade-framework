@@ -43,8 +43,10 @@
         "docs:sync": "@php scripts/docs-sync.php",
         "phpstan": "@php scripts/phpstan.php",
         "migrate:fresh": "@php scripts/migrate-fresh.php",
-        "demo:install": "@php scripts/demo.php install",
-        "demo:remove": "@php scripts/demo.php remove",
+        "demo:tasks:install": "@php scripts/demo.php install tasks",
+        "demo:tasks:remove": "@php scripts/demo.php remove tasks",
+        "demo:install": "@php scripts/demo.php install tasks",
+        "demo:remove": "@php scripts/demo.php remove tasks",
         "demo:contacts:install": "@php scripts/demo.php install contacts",
         "demo:contacts:remove": "@php scripts/demo.php remove contacts",
         "verify": [

@@ -5,6 +5,8 @@ declare(strict_types=1);
 // Instala o elimina un scaffold demo. Uso:
 //   php scripts/demo.php install [tasks|contacts]
 //   php scripts/demo.php remove  [tasks|contacts]
+// Comandos Composer: demo:tasks:install/remove y demo:contacts:install/remove.
+// demo:install/remove quedan como aliases compatibles de tasks.
 //
 // Cada demo vive en framework/scaffolds/<nombre>/ con la MISMA estructura
 // relativa que tendrá en el repo: instalar es copiar cada archivo a su destino;
@@ -38,7 +40,7 @@ $demos = [
 
 $meta = $demos[$name] ?? null;
 $scaffold = $root . '/framework/scaffolds/' . $name;
-$commandPrefix = $name === 'tasks' ? 'demo' : 'demo:' . $name;
+$commandPrefix = 'demo:' . $name;
 
 // El runtime de tests/CI puede pasar DB_DATABASE por entorno. Se replica en
 // $_ENV para que Dotenv immutable y config/container.php usen la misma base.

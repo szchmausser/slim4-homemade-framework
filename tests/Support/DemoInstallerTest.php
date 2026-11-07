@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Regresión del removedor del scaffold: no debe confiar solo en el número de
  * versión de phinxlog. Una migración propia con la versión 004 no es la
- * migración 004 del demo y debe sobrevivir a `demo:remove`.
+ * migración 004 del demo y debe sobrevivir a `demo:tasks:remove`.
  */
 final class DemoInstallerTest extends TestCase
 {

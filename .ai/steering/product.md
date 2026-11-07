@@ -15,7 +15,7 @@ Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin toolchain 
 ## Propuesta de Valor
 
 - **Separación de contextos:** `framework/` contiene la infraestructura reusable (`Auth`, `Http`, `Validation`, `Docs`); `app/` queda para modelos, controladores y helpers del dominio; `framework/scaffolds/tasks/` y `framework/scaffolds/contacts/` son los demos instalables.
-- **Demos opcionales y removibles:** `composer demo:install` / `composer demo:remove` operan sobre tareas; `composer demo:contacts:install` / `composer demo:contacts:remove` sobre contactos + Tabulator. Ambos limpian archivos, tablas y filas de `phinxlog`.
+- **Demos opcionales y removibles:** `composer demo:tasks:install` / `composer demo:tasks:remove` operan sobre tareas (`demo:install` / `demo:remove` siguen como alias); `composer demo:contacts:install` / `composer demo:contacts:remove` sobre contactos + Tabulator. Ambos limpian archivos, tablas y filas de `phinxlog`.
 - **Sin CDN en runtime:** assets vendorizados con SRI en `public/assets/`; sin build de CSS ni bundler.
 - **Gate de calidad:** `composer verify` ejecuta lint, docs-check, PHPStan nivel 5, suite y migración fresh sobre SQLite temporal.
 - **Servidor dev fuera de Composer:** `php -S 0.0.0.0:8080 -t public`; `composer serve` quedó como guarda que explica el comando correcto.
@@ -28,7 +28,7 @@ Esqueleto PHP full-stack optimizado para **Termux (ARM 32-bit)**, sin toolchain 
 - Autenticación, paginación, avisos HTMX, migraciones y seeds.
 - Infraestructura reusable en `framework/` y código app-owned en `app/`.
 - Demo de tareas y demo de contactos con listado Tabulator, ambos instalables y removibles.
-- Testing con PHPUnit (unit + HTTP) y comandos Composer acotados (`migrate`, `test`, `verify`, `docs:check`, `docs:sync`, `db:backup`, `demo:install`, `demo:remove`, `demo:contacts:install`, `demo:contacts:remove`, `check:termux`).
+- Testing con PHPUnit (unit + HTTP) y comandos Composer acotados (`migrate`, `test`, `verify`, `docs:check`, `docs:sync`, `db:backup`, `demo:tasks:install`, `demo:tasks:remove`, `demo:contacts:install`, `demo:contacts:remove`, `check:termux`).
 - Despliegue con prefijo de ruta mediante `APP_BASE_PATH`.
 
 ### Fuera de Scope

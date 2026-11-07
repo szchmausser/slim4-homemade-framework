@@ -22,7 +22,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 
 - Entorno primario: Termux ARM 32-bit, offline; también se trabaja en 64-bit con el mismo lock.
 - El clon se instala con Composer 2, se migra con Phinx y se sirve con `php -S ... -t public`; `composer serve` no es el servidor.
-- Los demos se instalan con `composer demo:install` (tareas) o `composer demo:contacts:install` (contactos + Tabulator) y se quitan con sus comandos `remove`; la base clonada parte sin demos.
+- Los demos se instalan con `composer demo:tasks:install` (tareas) o `composer demo:contacts:install` (contactos + Tabulator) y se quitan con sus comandos `remove`; `demo:install` / `demo:remove` quedan como alias de tareas. La base clonada parte sin demos.
 - `composer verify` es el gate: lint + docs-check + PHPStan nivel 5 + suite + migración fresh en SQLite temporal.
 - No hay paso de build: el CSS de utilidades lo compila el browser build de Tailwind; los assets están vendorizados con SRI.
 

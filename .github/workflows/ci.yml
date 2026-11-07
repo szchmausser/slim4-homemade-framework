@@ -56,7 +56,7 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Install demo
-        run: composer demo:install
+        run: composer demo:tasks:install
 
       - name: Test with demo
         run: composer test
@@ -65,7 +65,7 @@ jobs:
         run: composer phpstan
 
       - name: Remove demo
-        run: composer demo:remove
+        run: composer demo:tasks:remove
 
       - name: Test after removal
         run: composer test

@@ -45,7 +45,7 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 - `Validation/`: `Validator`.
 - `Docs/`: `CodeBlocks` (tooling de la guía).
 - `App\Support/` queda para helpers propios de la app; hoy no tiene clases.
-- El demo de tareas vive en `framework/scaffolds/tasks/` y se instala/desinstala con `composer demo:install` / `composer demo:remove`.
+- El demo de tareas vive en `framework/scaffolds/tasks/` y se instala/desinstala con `composer demo:tasks:install` / `composer demo:tasks:remove` (`demo:install` / `demo:remove` quedan como alias).
 
 ### 5. Middleware (`Framework\Http\Middleware`)
 - `Session`, `SecurityHeaders`, `RememberMe`, `RequireAuth`.

@@ -18,7 +18,7 @@ Tailwind CSS 4 se ejecuta con el **browser build** vendorizado (`tailwind-browse
 cp .env.example .env
 composer install:termux     # en 64-bit: composer install
 composer dump-autoload -o
-composer demo:install       # opcional: copia, migra y siembra el demo de tareas
+composer demo:tasks:install       # opcional: copia, migra y siembra el demo de tareas
 ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
 php -S 0.0.0.0:8080 -t public   # http://localhost:8080 (no `composer serve`, ver abajo)
 composer test               # suite completa (el conteo lo imprime el comando)
@@ -41,8 +41,9 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer docs:sync` | Reescribe las copias de archivos de la guía desde el repo (`docs-check` es el que verifica) |
 | `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
 | `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
-| `composer demo:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra |
-| `composer demo:remove` | Desinstala el demo de tareas y limpia la tabla `tasks` + sus filas de `phinxlog` |
+| `composer demo:tasks:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra |
+| `composer demo:tasks:remove` | Desinstala el demo de tareas y limpia la tabla `tasks` + sus filas de `phinxlog` |
+| `composer demo:install` / `demo:remove` | Alias compatibles de `demo:tasks:install` / `demo:tasks:remove` |
 | `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
 | `composer demo:contacts:remove` | Desinstala el demo de contactos, sus assets vendorizados y su tabla |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
@@ -52,7 +53,7 @@ Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, 
 
 `composer verify` incluye PHPStan y docs-check. El phar dev-only (~30 MB) se descarga una vez en `storage/cache/`; para trabajar offline: `PHPSTAN_PHAR=/ruta/al/phpstan.phar composer phpstan`.
 
-Los flags del demo se pasan después de `--`: `composer demo:install -- --force` reinstala, y `composer demo:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
+Los flags del demo se pasan después de `--`: `composer demo:tasks:install -- --force` reinstala, y `composer demo:tasks:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
 
 El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con paginación local (10 filas por página, selector 10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
 
@@ -78,7 +79,7 @@ php -S 0.0.0.0:8080 -t public
 
 ## Receta: nuevo CRUD en N pasos
 
-El CRUD de Tareas es el demo instalable (`composer demo:install`). Para tu app, replicá el patrón en las capas app-owned (`app/Models`, `app/Http/Controllers`, `routes/web.php`, `resources/views`):
+El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu app, replicá el patrón en las capas app-owned (`app/Models`, `app/Http/Controllers`, `routes/web.php`, `resources/views`):
 
 1. **Migración.** `vendor/bin/phinx create CreateRecetasTable`, completala y **renombrala a secuencial** (`007_...`: los timestamps saturan int32 y el scaffold `tasks` reserva `001/004/005`, ver guía 11.1). `composer migrate`.
 2. **Modelo** en `app/Models/` con `$fillable` (+ `$hidden` si hay secrets).
@@ -98,13 +99,13 @@ El CRUD de Tareas es el demo instalable (`composer demo:install`). Para tu app, 
 - Clases daisyUI as-is; componentes compartidos a `components/` con params.
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
 - `app/Models/` es para modelos de dominio; la infraestructura del framework vive en `framework/` por componente (`Auth`, `Http`, `Validation`, `Docs`). `app/Support/` queda para helpers propios de la app.
-- El demo no se instala por defecto: `composer demo:install` copia `framework/scaffolds/tasks/`; `composer demo:remove` lo quita. La app base no debe referenciar rutas ni modelos del demo.
+- El demo no se instala por defecto: `composer demo:tasks:install` copia `framework/scaffolds/tasks/`; `composer demo:tasks:remove` lo quita. La app base no debe referenciar rutas ni modelos del demo.
 
 ## Estructura
 
 ```
 framework/                       Infraestructura (Auth, Http, Validation, Docs)
-framework/scaffolds/tasks/       Demo opcional de tareas (composer demo:install)
+framework/scaffolds/tasks/       Demo opcional de tareas (composer demo:tasks:install)
 framework/scaffolds/contacts/    Demo opcional de contactos + Tabulator (composer demo:contacts:install)
 app/Http/Controllers/            Controladores de la app (Auth/AuthController, ...)
 app/Http/Middleware/             Middleware propio de la app
