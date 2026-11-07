@@ -76,6 +76,40 @@ final class ComponentContractTest extends TestCase
         self::assertStringContainsString('data-focus-key="edit-3"', $html);
     }
 
+    public function test_field_marca_el_campo_invalido_y_ata_el_mensaje(): void
+    {
+        $html = $this->twig->render('components/form/field.twig', [
+            'id' => 'task-title-7',
+            'name' => 'title',
+            'label' => 'Título de la tarea',
+            'error' => 'No puede superar los 120 caracteres.',
+        ]);
+
+        // `aria-invalid` declara el estado y `aria-describedby` ata el mensaje
+        // al input: sin eso el lector de pantalla lee el error como texto
+        // suelto y no como la razón del campo (S4).
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringContainsString('aria-describedby="task-title-7-error"', $html);
+        self::assertStringContainsString(
+            '<p id="task-title-7-error" class="text-error text-sm" role="alert">No puede superar los 120 caracteres.</p>',
+            $html
+        );
+    }
+
+    public function test_field_sin_error_no_marca_el_campo_invalido(): void
+    {
+        // Contrato previo: un campo válido no anuncia estado de error ni crea
+        // un mensaje vacío con `role="alert"` que hable de la nada.
+        $html = $this->twig->render('components/form/field.twig', [
+            'name' => 'title',
+            'label' => 'Título de la tarea',
+        ]);
+
+        self::assertStringNotContainsString('aria-invalid', $html);
+        self::assertStringNotContainsString('aria-describedby', $html);
+        self::assertStringNotContainsString('role="alert"', $html);
+    }
+
     public function test_alert_conserva_variante_y_rol_semantico(): void
     {
         $html = $this->twig->render('components/feedback/alert.twig', [

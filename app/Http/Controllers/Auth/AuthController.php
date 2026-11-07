@@ -51,11 +51,14 @@ class AuthController extends Controller
         ]);
 
         if ($validator->fails()) {
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-
+            // Errores por campo y NO flash: el aviso tiene que quedar pegado al
+            // input que lo causó, que es lo único que dice qué corregir. El
+            // flash sigue siendo el canal de credenciales y de throttling,
+            // que no son un campo del formulario.
             return $this->render($request, $response, 'auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
+                'errors' => $validator->errors(),
             ]);
         }
 

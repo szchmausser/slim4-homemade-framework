@@ -1,10 +1,16 @@
 {# Campo de formulario estándar.
    Props: name, label, type, value, required, optional, maxlength,
    autocomplete, placeholder, id, input_class, field_class, label_class,
-   aria_label, data_focus_key.
+   aria_label, data_focus_key, error, error_class.
    `field_class: 'contents'` + `label_class: 'sr-only'` permite integrarlo en
-   formularios compactos sin perder el label accesible. #}
+   formularios compactos sin perder el label accesible.
+   `error` es el mensaje que ya tradujo Validator (campo => mensaje): cuando
+   llega, el input declara `aria-invalid` y ata el mensaje con
+   `aria-describedby`, y el <p> con `role="alert"` lo anuncia sin mover el foco
+   al mensaje cuando el usuario sigue escribiendo (S4). Sin `error` el campo
+   sale exactamente como antes: sin aria de error y sin nodo vacío. #}
 {% set input_id = id|default(name) %}
+{% set error_message = error|default('') %}
 <fieldset class="{{ field_class|default('fieldset') }}">
     <label class="{{ label_class|default('fieldset-legend') }}" for="{{ input_id }}">
         {{ label }}
@@ -15,10 +21,14 @@
            type="{{ type|default('text') }}"
            value="{{ value|default('') }}"
            class="{{ input_class|default('input w-full') }}"
+           {% if error_message %}aria-invalid="true" aria-describedby="{{ input_id }}-error"{% endif %}
            {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
            {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
            {% if required|default(false) %}required{% endif %}
            {% if maxlength is defined %}maxlength="{{ maxlength }}"{% endif %}
            {% if autocomplete is defined %}autocomplete="{{ autocomplete }}"{% endif %}
            {% if placeholder is defined %}placeholder="{{ placeholder }}"{% endif %}>
+    {% if error_message %}
+        <p id="{{ input_id }}-error" class="{{ error_class|default('text-error text-sm') }}" role="alert">{{ error_message }}</p>
+    {% endif %}
 </fieldset>

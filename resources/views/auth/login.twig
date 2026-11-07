@@ -3,6 +3,12 @@
 {% block title %}Acceder{% endblock %}
 
 {% block content %}
+    {# Errores por campo que devuelve Validator (campo => mensaje). Van
+       pegados al input que los causó: el flash es un solo aviso y no dice cuál
+       de los dos campos corregir. `default('')` cubre el render inicial, donde
+       `errors` no existe. #}
+    {% set email_error = errors.email|default('') %}
+    {% set password_error = errors.password|default('') %}
     {# `w-full` y no `mx-auto`: el layout de auth ya centra en columna, asi el
        card aprovecha el ancho en movil en vez de quedar flotando. #}
     <div class="w-full max-w-sm">
@@ -56,9 +62,17 @@
                             </span>
                             <input id="login-email" type="email" name="email" required autocomplete="username"
                                    value="{{ email|default('') }}"
+                                   {% if email_error %}aria-invalid="true" aria-describedby="login-email-error"{% endif %}
                                    placeholder="tu@ejemplo.com"
                                    class="input login-input h-11 w-full pl-10">
                         </div>
+                        {# El mensaje va FUERA de `.login-field`: ese div es el
+                           contenedor `relative` del icono y `inset-y-0` lo
+                           estira a todo el alto, asi que un <p> adentro lo
+                           bajaría del centro del input. #}
+                        {% if email_error %}
+                            <p id="login-email-error" class="text-error text-sm" role="alert">{{ email_error }}</p>
+                        {% endif %}
                     </fieldset>
                     <fieldset class="fieldset">
                         <label class="fieldset-legend" for="login-password">Clave</label>
@@ -67,9 +81,13 @@
                                 {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-password" type="password" name="password" required autocomplete="current-password"
+                                   {% if password_error %}aria-invalid="true" aria-describedby="login-password-error"{% endif %}
                                    placeholder="••••••••"
                                    class="input login-input h-11 w-full pl-10">
                         </div>
+                        {% if password_error %}
+                            <p id="login-password-error" class="text-error text-sm" role="alert">{{ password_error }}</p>
+                        {% endif %}
                     </fieldset>
                     <label class="label login-remember cursor-pointer justify-start gap-2.5 text-sm">
                         <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">

@@ -28,10 +28,13 @@
         {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
+                {# `flex-wrap`: el mensaje de error del título viaja en su
+                   propia línea (`w-full`) en vez de robarle ancho al input y a
+                   los botones en móvil. #}
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
-                      class="flex items-center gap-2">
+                      class="flex flex-wrap items-center gap-2">
                     {% include 'partials/_csrf.twig' %}
                     {# En fallo de validación se repinta lo TIPEADO (editing_title),
                        no el valor guardado: si no, el usuario pierde lo que
@@ -41,6 +44,12 @@
                        tarea como nombre porque ya está en `value` y el lector
                        lo anunciaría dos veces. La misma clave que el botón de
                        editar hace que el foco del swap aterrice en el campo. #}
+                    {# El error se pasa EXPLÍCITO: el include usa `only`, así que
+                       `errors` del contexto no llega solo. `error_class` con
+                       `w-full` lo manda a su propia línea del form.
+                       `errors.title` sólo existe tras un fallo de validación;
+                       en el resto de los renders queda en null y el campo sale
+                       como siempre. #}
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
@@ -51,7 +60,9 @@
                         field_class: 'contents',
                         label_class: 'sr-only',
                         input_class: 'input input-sm w-full',
-                        data_focus_key: 'edit-' ~ task.id
+                        data_focus_key: 'edit-' ~ task.id,
+                        error: errors.title|default(null),
+                        error_class: 'text-error text-sm w-full'
                     } only %}
                     {% include 'components/ui/button.twig' with {
                         label: 'Guardar',

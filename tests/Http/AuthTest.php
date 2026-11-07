@@ -44,6 +44,32 @@ final class AuthTest extends HttpTestCase
         self::assertStringContainsString('name="remember"', $html);
     }
 
+    /**
+     * Un campo vacío no es un fallo de credenciales: el mensaje va pegado al
+     * input que lo causó (per-field, con aria) y NO por el flash genérico.
+     * El flash queda para credenciales y throttling, que no son un campo.
+     */
+    public function test_login_con_datos_invalidos_muestra_el_error_por_campo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', ['email' => '', 'password' => ''] + $token)
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+
+        self::assertStringContainsString('id="login-email-error"', $html);
+        self::assertStringContainsString('id="login-password-error"', $html);
+        self::assertStringContainsString('aria-invalid="true"', $html);
+        self::assertStringContainsString('aria-describedby="login-email-error"', $html);
+        self::assertStringContainsString('Este campo es obligatorio.', $html);
+        // El canal de credenciales no se usa para validación de campos.
+        self::assertStringNotContainsString('Credenciales inválidas.', $html);
+    }
+
     public function test_dummy_hash_es_un_bcrypt_valido_de_coste_12(): void
     {
         $info = password_get_info(AuthController::DUMMY_HASH);

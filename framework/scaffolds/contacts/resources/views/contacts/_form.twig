@@ -1,6 +1,11 @@
-{% set values = contact|default(null) %}
+{# `form_values` gana sobre el contacto guardado: en un fallo de validación el
+   formulario se repinta con lo que el usuario tipeó, no con lo que hay en
+   base, y con el mensaje de cada campo (S7). #}
+{% set values = form_values|default(contact|default(null)) %}
 <form method="post" action="{{ action }}" class="space-y-4">
     {% include 'partials/_csrf.twig' %}
+    {# `error` se pasa EXPLÍCITO en cada include: los tres usan `only`, así que
+       `errors` del contexto no llega solo y el mensaje nunca aparecería (S4). #}
     {% include 'components/form/field.twig' with {
         name: 'name',
         label: 'Nombre',
@@ -8,7 +13,8 @@
         value: values ? values.name : '',
         required: true,
         maxlength: 120,
-        autocomplete: 'name'
+        autocomplete: 'name',
+        error: errors.name|default(null)
     } only %}
     {% include 'components/form/field.twig' with {
         name: 'email',
@@ -17,7 +23,8 @@
         value: values ? values.email : '',
         required: true,
         maxlength: 190,
-        autocomplete: 'email'
+        autocomplete: 'email',
+        error: errors.email|default(null)
     } only %}
     {% include 'components/form/field.twig' with {
         name: 'phone',
@@ -26,7 +33,8 @@
         value: values ? values.phone : '',
         optional: true,
         maxlength: 50,
-        autocomplete: 'tel'
+        autocomplete: 'tel',
+        error: errors.phone|default(null)
     } only %}
     <div class="modal-action">
         {% if cancel_target is defined and cancel_target %}
