@@ -132,29 +132,6 @@
             opacity: .4;
         }
 
-        /* Mismo criterio de filas alternadas que la tabla de contactos, con la
-           primera fila en el tono oscuro. */
-        .task-list > li:nth-child(odd) {
-            background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
-        }
-        .task-list > li:hover {
-            background: var(--color-base-300);
-        }
-
-        /* El input de alta de tareas usaba el borde/outline de base-content;
-           en oscuro se veía como un contorno blanco. El foco sigue visible,
-           pero con el color primary del sistema. */
-        #alta-tarea input {
-            border-color: var(--color-base-300);
-        }
-        #alta-tarea input:focus,
-        #alta-tarea input:focus-visible {
-            outline: 2px solid var(--color-primary) !important;
-            outline-offset: 2px;
-            border-color: var(--color-primary) !important;
-            box-shadow: none !important;
-        }
-
         /* `menu-active` de daisyUI usa `neutral`: en claro eso pinta la página
            activa como un bloque casi negro, más pesado que cualquier otro
            elemento de la pantalla. Se cambia por un tinte suave del propio
@@ -312,12 +289,16 @@
                toast sigue corriendo como fade (regla de arriba). */
             #sidebar,        /* plegado (w-64/w-16) y entrada del overlay móvil */
             .toast-host,     /* acompaña el plegado del sidebar */
-            .toast-card,     /* x-transition enter/leave del toast */
-            .tooltip-estado { /* x-transition.opacity del tooltip de estado */
+            .toast-card {    /* x-transition enter/leave del toast */
                 transition: none !important;
             }
         }
     </style>
+
+    {# CSS de un módulo opcional. El layout no define reglas de ningún demo:
+       cuando el demo se desinstala, acá no queda nada huérfano. El módulo trae
+       las suyas en este bloque, que sólo se renderiza en sus páginas. #}
+    {% block styles %}{% endblock %}
 
     {% block head %}{% endblock %}
 </head>

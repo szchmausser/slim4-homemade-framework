@@ -10,7 +10,7 @@ Sistema visual vigente. Describe lo que el código hace hoy; si hay divergencia,
 
 | archivo | para qué | qué incluye |
 |---|---|---|
-| `layouts/app.twig` | composición del shell autenticado | sidebar, header, toasts, `main` y footer desde partials; bloques `head`, `header`, `sidebar`, `toasts`, `footer` y `scripts` |
+| `layouts/app.twig` | composición del shell autenticado | sidebar, header, toasts, `main` y footer desde partials; bloques `head`, `styles`, `header`, `sidebar`, `toasts`, `footer` y `scripts` |
 | `layouts/auth.twig` | acceso | `partials/layout/head.twig`, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
 | `errors/error.twig` | página de error | autónoma, sin `extends`, sólo el pre-pintado de tema, < 4 KB, mensaje mapeado por código |
 
@@ -25,6 +25,8 @@ Sistema visual vigente. Describe lo que el código hace hoy; si hay divergencia,
 | `partials/layout/footer.twig` | datos de ejecución del shell |
 
 Los dos layouts comparten `partials/layout/head.twig` para favicon, tema y assets; sólo el `<title>`/metadatos y el `<style>` propio quedan en cada layout. La página de error sigue siendo una excepción deliberada: su `<head>` mínimo no carga el shell.
+
+El `<style>` del layout no contiene reglas de ningún demo. Un módulo opcional inyecta las suyas por el bloque `styles`, que sólo se renderiza en sus páginas y viaja con el scaffold: al correr `demo:tasks:remove` se borran el archivo y sus reglas, sin dejar CSS huérfano en el shell. `tasks/_styles.twig` es el caso vivo.
 
 ## Color
 
