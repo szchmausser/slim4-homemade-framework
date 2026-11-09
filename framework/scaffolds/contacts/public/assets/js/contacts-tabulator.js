@@ -63,10 +63,50 @@
         });
     }
 
-    new Tabulator(root, {
+    const table = new Tabulator(root, {
         ajaxURL: url,
         layout: 'fitColumns',
-        responsiveLayout: false,
+        // En móvil no hay ancho para cuatro columnas de texto. `false` (lo que
+        // había) dejaba que la tabla scrolleara en horizontal dentro de la
+        // tarjeta y Teléfono/Acciones quedaban fuera de vista sin pista de que
+        // existían. `collapse` mueve las columnas que no entran a una sección
+        // expandible de la fila: todo sigue alcanzable, un toque más abajo.
+        responsiveLayout: 'collapse',
+        // El bundle 6.7.1 trae `collapseStartOpen` en true: sin esto cada fila
+        // nace abierta y la lista se vuelve una columna de pares campo/valor
+        // en vez de una tabla. Cerrada por defecto, la fila se lee de un
+        // vistazo y el detalle está a un toque.
+        responsiveLayoutCollapseStartOpen: false,
+        responsiveLayoutCollapseFormatter: (collapsed) => {
+            const list = document.createElement('dl');
+            list.className = 'grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1.5 py-2 text-sm';
+
+            collapsed.forEach((item) => {
+                if (item.value === '' || item.value === null || item.value === undefined) {
+                    return;
+                }
+
+                const term = document.createElement('dt');
+                term.className = 'font-medium opacity-70';
+                term.textContent = item.title;
+
+                const detail = document.createElement('dd');
+                detail.className = 'min-w-0 break-words';
+
+                if (item.field === 'actions') {
+                    // Único innerHTML del archivo: el formatter de acciones ya
+                    // escapa cada valor con esc() y es markup propio, no texto
+                    // que venga de la base sin escapar.
+                    detail.innerHTML = item.value;
+                } else {
+                    detail.textContent = String(item.value);
+                }
+
+                list.append(term, detail);
+            });
+
+            return list;
+        },
         placeholder: 'No hay contactos todavía.',
         // Remoto en las dos direcciones: la página y el orden los resuelve el
         // servidor sobre la tabla completa. Paginar u ordenar acá las diez
@@ -109,6 +149,18 @@
             },
         },
         columns: [
+            // Afordancia para expandir la fila en móvil. `responsive: 0` la
+            // excluye del colapso: si ella misma se ocultara, no habría forma
+            // de abrir la sección que muestra el resto de los datos. Tabulator
+            // la esconde sola en escritorio, cuando no hay nada colapsado.
+            {
+                formatter: 'responsiveCollapse',
+                width: 40,
+                minWidth: 40,
+                hozAlign: 'center',
+                headerSort: false,
+                responsive: 0,
+            },
             // `#` lo numera el servidor: es la posición en el orden visible, así
             // que no se puede ordenar (el id no es lo que se ve en la columna).
             {title: '#', field: 'number', hozAlign: 'center', headerHozAlign: 'center', width: 60, headerSort: false},
@@ -130,5 +182,43 @@
                 formatter: (cell) => actions(cell.getRow().getData()),
             },
         ],
+    });
+
+    // El toggle de colapso que dibuja Tabulator es un <div> sin nombre ni
+    // teclado. Se le da rol, foco y estado, y se sincroniza `aria-expanded`
+    // cada vez que la fila se abre o se cierra (incluido después de cada
+    // página remota).
+    const decorateCollapseToggles = () => {
+        root.querySelectorAll('.tabulator-responsive-collapse-toggle').forEach((toggle) => {
+            if (!toggle.hasAttribute('role')) {
+                toggle.setAttribute('role', 'button');
+                toggle.setAttribute('tabindex', '0');
+                toggle.setAttribute('aria-label', 'Mostrar u ocultar los datos de la fila');
+            }
+            toggle.setAttribute('aria-expanded', toggle.classList.contains('open') ? 'true' : 'false');
+        });
+    };
+
+    table.on('tableBuilt', decorateCollapseToggles);
+    table.on('dataProcessed', decorateCollapseToggles);
+
+    // Tabulator alterna la fila desde un handler propio sobre el toggle y no
+    // garantiza que el click llegue a este contenedor, así que escuchar el
+    // evento era frágil: el `aria-expanded` quedaba clavado en false. Se
+    // observa la clase `open` del propio toggle, que es la fuente de verdad, y
+    // se copia al atributo ARIA.
+    new MutationObserver(decorateCollapseToggles).observe(root, {
+        attributes: true,
+        attributeFilter: ['class'],
+        subtree: true,
+    });
+
+    root.addEventListener('keydown', (event) => {
+        const toggle = event.target.closest('.tabulator-responsive-collapse-toggle');
+        if (!toggle || (event.key !== 'Enter' && event.key !== ' ')) {
+            return;
+        }
+        event.preventDefault();
+        toggle.click();
     });
 })();
