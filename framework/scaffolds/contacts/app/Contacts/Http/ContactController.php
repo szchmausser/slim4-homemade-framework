@@ -41,7 +41,7 @@ final class ContactController extends Controller
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
-        $errors = $this->errors($data);
+        $errors = $this->validationErrors($data);
 
         if ($errors !== []) {
             // S7: nada de redirect. El modal de alta vuelve ABIERTO, con los
@@ -84,7 +84,7 @@ final class ContactController extends Controller
         }
 
         $data = (array) $request->getParsedBody();
-        $errors = $this->errors($data);
+        $errors = $this->validationErrors($data);
 
         if ($errors !== []) {
             // S7: esto era un 303 a /contactos, que descartaba la pantalla de
@@ -187,10 +187,15 @@ final class ContactController extends Controller
      * vista necesita para marcar el input (S4)— se perdían. Quien llama decide
      * qué hacer con ellos.
      *
+     * El nombre NO es `errors()` a propósito: `Validator::errors()` es un
+     * accesor de sólo lectura y este helper valida (construye un validador y
+     * recorre reglas). Dos cosas con el mismo nombre y distinto costo invitan a
+     * leerlo como gratis.
+     *
      * @param array<string, mixed> $data
      * @return array<string, string> campo => mensaje
      */
-    private function errors(array $data): array
+    private function validationErrors(array $data): array
     {
         return Validator::make($data, [
             'name' => 'required|max:120',

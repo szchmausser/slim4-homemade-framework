@@ -14,6 +14,12 @@ use PHPUnit\Framework\TestCase;
  * verifica el mecanismo, no el efecto visual. Es una guarda de regresión y se
  * lee como tal; si alguien cambia la forma de sincronizar el estado, actualiza
  * la guarda con el mismo criterio con el que cambia el layout.
+ *
+ * Las aserciones de JS se hacen sobre el CUERPO de la función, extraído por
+ * nombre, y no sobre el archivo entero con ventanas de longitud. Una ventana
+ * (`[\s\S]{0,900}`) se rompe por un comentario nuevo, una línea movida o un
+ * rename cosmético, y el que llega después no distingue "el JS está mal" de
+ * "el número quedó corto".
  */
 final class LayoutContractTest extends TestCase
 {
@@ -37,6 +43,45 @@ final class LayoutContractTest extends TestCase
     }
 
     /**
+     * Devuelve el cuerpo de `function <name>(...) { ... }` contando llaves.
+     *
+     * Alcanza para las funciones de este layout, que no tienen llaves dentro de
+     * strings ni de comentarios. Si alguna vez las tiene, el conteo hay que
+     * hacerlo con un tokenizador, no con esta función: la guarda avisaría con
+     * un cuerpo truncado en vez de mentir en silencio.
+     */
+    private static function jsFunction(string $source, string $name): string
+    {
+        $start = strpos($source, 'function ' . $name . '(');
+        self::assertNotFalse($start, "no encontré la función {$name}() en el layout");
+
+        $open = strpos($source, '{', $start);
+        self::assertNotFalse($open, "la función {$name}() no tiene cuerpo");
+
+        $depth = 0;
+        $length = strlen($source);
+
+        for ($i = $open; $i < $length; $i++) {
+            if ($source[$i] === '{') {
+                $depth++;
+                continue;
+            }
+
+            if ($source[$i] !== '}') {
+                continue;
+            }
+
+            $depth--;
+
+            if ($depth === 0) {
+                return substr($source, $open, $i - $open + 1);
+            }
+        }
+
+        self::fail("la función {$name}() tiene las llaves desbalanceadas");
+    }
+
+    /**
      * S1: `sidebarOpen` se inicializa leyendo `window.innerWidth` UNA vez. Sin
      * un observador del breakpoint, achicar o estirar la ventana deja el estado
      * pegado al ancho con el que se cargó la página: al pasar a escritorio el
@@ -47,18 +92,18 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_sidebar_sigue_el_breakpoint_cuando_cambia_el_viewport(): void
     {
-        $script = self::view('resources/views/layouts/app.twig');
+        $shell = self::jsFunction(self::view('resources/views/layouts/app.twig'), 'shell');
 
         self::assertPattern(
-            "/matchMedia\\(\\s*'\\(min-width:\\s*1024px\\)'\\s*\\)/",
-            $script,
-            'app.twig no observa el breakpoint lg: sidebarOpen queda atado al ancho inicial y el sidebar se vuelve inalcanzable al cruzar 1024px.'
+            "/matchMedia\(\s*'\(min-width:\s*1024px\)'\s*\)/",
+            $shell,
+            'shell() no observa el breakpoint lg: sidebarOpen queda atado al ancho inicial y el sidebar se vuelve inalcanzable al cruzar 1024px.'
         );
 
         self::assertPattern(
-            "/addEventListener\\(\\s*'change'[\\s\\S]{0,240}sidebarOpen/",
-            $script,
-            'el observador del breakpoint tiene que escribir sidebarOpen; si sólo lee el media query, no sincroniza nada.'
+            "/addEventListener\(\s*'change'[\s\S]*sidebarOpen\s*=\s*e\.matches/",
+            $shell,
+            'el observador del breakpoint tiene que escribir sidebarOpen con el resultado del media query; si sólo lo lee, no sincroniza nada.'
         );
     }
 
@@ -95,12 +140,30 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_layout_permite_el_swap_de_un_422(): void
     {
-        $script = self::view('resources/views/layouts/app.twig');
+        $allow = self::jsFunction(self::view('resources/views/layouts/app.twig'), 'allowValidationSwap');
 
         self::assertPattern(
-            "/addEventListener\(\s*'htmx:beforeSwap'[\s\S]{0,900}xhr\.status\s*!==\s*422[\s\S]{0,400}shouldSwap\s*=\s*true[\s\S]{0,400}isError\s*=\s*false/",
-            $script,
-            'app.twig tiene que habilitar el swap del 422 (shouldSwap + isError): sin eso htmx descarta el cuerpo y el mensaje por campo no se ve nunca.'
+            "/addEventListener\(\s*'htmx:beforeSwap'/",
+            $allow,
+            'allowValidationSwap() tiene que escuchar htmx:beforeSwap; sin ese evento htmx ya decidió descartar el cuerpo del 422.'
+        );
+
+        self::assertPattern(
+            '/xhr\.status\s*!==\s*422/',
+            $allow,
+            'el handler tiene que acotarse al 422: los demás 4xx conservan el canal de error de htmx.'
+        );
+
+        self::assertPattern(
+            '/shouldSwap\s*=\s*true/',
+            $allow,
+            'un 422 sin shouldSwap = true no se intercambia y el mensaje por campo no se ve nunca.'
+        );
+
+        self::assertPattern(
+            '/isError\s*=\s*false/',
+            $allow,
+            'isError tiene que quedar en false: si no, htmx emite htmx:responseError y el toast genérico denuncia un fallo que el formulario ya explica.'
         );
     }
 
@@ -122,12 +185,12 @@ final class LayoutContractTest extends TestCase
             'el alta tiene que limpiarse sólo con un 200: en un 422 el texto tipeado es lo único que el usuario tiene para corregir.'
         );
 
-        self::assertPattern(
-            '/hx-on::after-request="([^"]*)"/',
-            $form,
-            'no encontré el handler hx-on::after-request del formulario de alta.'
-        );
+        // La condición se juzga en el ATRIBUTO, no en el archivo: el comentario
+        // de arriba nombra `event.detail.successful` justamente para explicar
+        // por qué no se usa, y buscarlo en todo el template daría un falso
+        // positivo por documentación.
         preg_match('/hx-on::after-request="([^"]*)"/', $form, $handler);
+        self::assertArrayHasKey(1, $handler, 'no encontré el handler hx-on::after-request del alta.');
 
         self::assertStringNotContainsString(
             'successful',

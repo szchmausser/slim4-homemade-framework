@@ -22,6 +22,8 @@ S7 — Un fallo de alta o edición en contactos re-renderiza el formulario con l
 S8 — Las guardas de clases cubren las dos demos y toda la familia de clases de proyecto, no sólo `icon-`. `framework/scaffolds/contacts/resources/views` deja de estar fuera de `ViewClassIntegrityTest`.
 Alcance real de la guarda: las familias se derivan del CSS propio, así que detecta la clase borrada y el typo dentro de una familia que conserva al menos una definición. No detecta el borrado de una familia entera cuyo nombre no sea raíz de daisyUI (`error-`, `login-`, `pagination-`, `sidebar-`, `skip-`, `task-`), ni reglas que no declaran clase propia (`.modal[open]`, `.modal-box`, `--modal-scrim`).
 
+S9 — Las tres sugerencias de legibilidad de la revisión nativa quedan atendidas antes de entregar: una sola fuente por regla en `Validator`, guardas aferradas al cuerpo de la función en vez de ventanas de longitud, y el helper de contactos nombrado por lo que hace.
+
 ## Tasks
 
 | id | spec | route | estado |
@@ -33,6 +35,7 @@ Alcance real de la guarda: las familias se derivan del CSS propio, así que dete
 | T5 | S7 | inline | hecho |
 | T6 | S8 | inline | hecho |
 | T7 | verificación | inline | hecho |
+| T10 | S9 | inline | hecho |
 
 ## Log
 
@@ -47,3 +50,5 @@ L4 — Propuesta aceptada, items 1-4: (1) sidebar con `matchMedia`/`resize` + te
 L5 — Evidencia de la verificación adversarial: `sidebarOpen` se inicializa leyendo `window.innerWidth` una vez y no hay listener de `resize`/`matchMedia`; `Validator` ejecutado con `'requird|mxa:120'` devuelve `fails() === false`; mensajes reales de Respect filtrados a `Flash::set`; `TaskController::store` devuelve 200 en fallo mientras el comentario de `tasks/index.twig:22` afirma que es false en un 400.
 
 L6 — T6 entregado: la guarda barre 26 plantillas (20 de `resources/views` + 3 de tareas + 3 de contactos) y 257 clases referenciadas, sin clases muertas. Limitación registrada en S8: la derivación de familias deja pasar el borrado de una familia entera que no sea raíz de daisyUI. Es el precio de derivar en vez de mantener una lista a mano; se acepta consciente.
+
+L7 — Selección del operador sobre las 3 sugerencias de legibilidad de la revisión nativa (`R2-guard-regex-magic-windows`, `R2-validator-triplicate-dispatch`, `R2-errors-name-overload`): corregirlas antes del push, en un commit aparte, y después mergear y pushear. La revisión externa de esos commits no cierra por un tope de tiempo del relay de revisores (936 s), no por hallazgos pendientes.
