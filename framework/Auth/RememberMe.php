@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace Framework\Auth;
 
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Connection;
+
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
  * cualquier cambio acá merece relectura y sus tests (AuthTest) en verde.
  *
  * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
  *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
- * - Rotación en cada uso: el token presentado muere y nace otro. Achica la
- *   ventana de replay de un token copiado.
+ * - Rotación en cada uso: el token presentado muere y nace otro, las dos
+ *   sentencias en UNA transacción (ver `resumeFromCookie`). Achica la ventana
+ *   de replay de un token copiado.
  * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
  * - Selector conocido + validator que NO matchea: posible robo → se queman
  *   TODOS los tokens del usuario y se borra la cookie.
@@ -94,10 +98,42 @@ final class RememberMe
             return self::cookieHeader(clear: true);
         }
 
-        $row->delete();
-        Auth::login((int) $user->getKey());
+        $userId = (int) $user->getKey();
 
-        return self::cookieHeader(self::create((int) $user->getKey()));
+        // Rotación atómica (S8). El delete de la fila presentada y el insert
+        // del reemplazo tienen que entrar JUNTOS: si el proceso cae entre las
+        // dos sentencias, la fila vieja ya no está y la nueva no existe, la
+        // cookie del browser deja de resolver y el usuario queda deslogueado en
+        // silencio (no hay error que ver: un selector desconocido simplemente
+        // se ignora). `transaction()` va por la MISMA conexión que usan los
+        // modelos —Eloquent ya está booteado sobre este Capsule, ver
+        // config/container.php—, así que el delete del modelo y el create del
+        // reemplazo caen los dos adentro. La closure recibe esa conexión y no
+        // la usa —los modelos ya están en ella—: el tipo está para dejar
+        // explícito cuál es la conexión y que acá no se abre una aparte.
+        //
+        // La sesión se abre DESPUÉS del commit a propósito: si la transacción
+        // revierte, no queda una sesión abierta sin cookie que la respalde.
+        // El par que sale de acá es el mismo `selector:validator` de siempre y
+        // el header lo arma `cookieHeader()`, que no cambió.
+        //
+        // Lo que este cambio NO trae es un test de la atomicidad, y no es un
+        // olvido: la atomicidad no se puede verificar de forma directa sin
+        // inyectar una falla justo entre las dos sentencias, y no hay hook
+        // público para abortar ahí sin tocar el código de producción. AuthTest
+        // fija el contrato observable —rotación, header idéntico, conexión sin
+        // transacción abierta al salir— y no simula el corte.
+        $pair = Capsule::connection()->transaction(
+            static function (Connection $connection) use ($row, $userId): string {
+                $row->delete();
+
+                return self::create($userId);
+            }
+        );
+
+        Auth::login($userId);
+
+        return self::cookieHeader($pair);
     }
 
     public static function clearUser(int $userId): void

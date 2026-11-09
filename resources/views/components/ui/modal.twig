@@ -11,14 +11,32 @@
 
    Sirve para re-renderizar desde el servidor un formulario inválido con su
    modal abierto (S7), sin JS y sin perder lo tipeado. Ojo: un `<dialog open>`
-   no es modal (no entra al top layer), así que Escape no lo cierra; el cierre
-   queda en los botones, que llaman a `close()` como siempre. #}
-<dialog id="{{ id }}" class="modal"{% if open|default(false) %} open{% endif %} aria-labelledby="{{ id }}-title">
+   no es modal (no entra al top layer), así que Escape no lo cierra. Por eso
+   el modal trae su propio control de cierre: un `<form method="dialog">`
+   dentro del `modal-box` que cierra el diálogo que lo contiene sin JS. Los
+   botones de cada demo siguen llamando a `close()` como siempre.
+
+   Con `subtitle`, el párrafo recibe un id y el `<dialog>` lo anuncia por
+   `aria-describedby`: la descripción pertenece al diálogo, no es texto suelto
+   que el lector de pantalla lee cuando quiere. #}
+<dialog id="{{ id }}" class="modal"{% if open|default(false) %} open{% endif %} aria-labelledby="{{ id }}-title"{% if subtitle is defined and subtitle %} aria-describedby="{{ id }}-subtitle"{% endif %}>
     <div class="modal-box">
-        <h2 id="{{ id }}-title" class="font-bold">{{ title }}</h2>
-        {% if subtitle is defined and subtitle %}
-            <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
-        {% endif %}
+        {# El encabezado es una fila propia para que el cierre no dependa de
+           `position: absolute`: el bundle de daisyUI no declara `relative` en
+           `.modal-box`, así que un `absolute right-2 top-2` se anclaría al
+           `<dialog>` y el botón caería en la esquina de la ventana. El form va
+           fuera del bloque body para no anidar el form de cada demo. #}
+        <div class="flex items-start justify-between gap-3">
+            <div class="min-w-0">
+                <h2 id="{{ id }}-title" class="font-bold">{{ title }}</h2>
+                {% if subtitle is defined and subtitle %}
+                    <p id="{{ id }}-subtitle" class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
+                {% endif %}
+            </div>
+            <form method="dialog" class="shrink-0">
+                <button class="btn btn-sm btn-circle btn-ghost" aria-label="Cerrar">✕</button>
+            </form>
+        </div>
         {% block body %}{% endblock %}
     </div>
     <form method="dialog" class="modal-backdrop">

@@ -82,6 +82,21 @@ final class LayoutContractTest extends TestCase
     }
 
     /**
+     * Devuelve la etiqueta de apertura completa (`<button …>`, `<label …>`)
+     * que matchea `$pattern`.
+     *
+     * Los atributos de un control se juzgan sobre SU etiqueta y no sobre el
+     * header entero: buscar `x-cloak` o `aria-label` en todo el archivo da
+     * verde con el control de al lado bien hecho y éste sin nada.
+     */
+    private static function openingTag(string $source, string $pattern, string $message): string
+    {
+        self::assertSame(1, preg_match($pattern, $source, $match), $message);
+
+        return $match[0];
+    }
+
+    /**
      * S1: `sidebarOpen` se inicializa leyendo `window.innerWidth` UNA vez. Sin
      * un observador del breakpoint, achicar o estirar la ventana deja el estado
      * pegado al ancho con el que se cargó la página: al pasar a escritorio el
@@ -196,6 +211,144 @@ final class LayoutContractTest extends TestCase
             'successful',
             $handler[1],
             'con el swap del 422 habilitado, successful es true en un fallo: la condición tiene que ser el status.'
+        );
+    }
+
+    /**
+     * S2: el nombre accesible del header no puede depender de Alpine.
+     *
+     * `:aria-label` es una directiva, no un atributo ARIA: antes de que Alpine
+     * arranque —y con JS apagado, para siempre— el HTML no tiene `aria-label`
+     * ni texto hijo, así que el lector de pantalla anuncia sólo «botón». El
+     * sidebar ya resolvió esto con `aria-label` estático; el header tiene que
+     * hacer lo mismo. La directiva se conserva: Alpine sobrescribe el atributo
+     * en runtime y el estático es únicamente el valor de arranque.
+     */
+    public function test_el_header_expone_nombres_accesibles_estaticos(): void
+    {
+        $header = self::view('resources/views/partials/layout/header.twig');
+
+        $hamburger = self::openingTag(
+            $header,
+            '/<button\b[^>]*@click="sidebarOpen = !sidebarOpen"[^>]*>/',
+            'no encontré el hamburguesa (@click="sidebarOpen = !sidebarOpen") en el header.'
+        );
+
+        self::assertPattern(
+            '/\saria-label="Abrir menú"/',
+            $hamburger,
+            'el hamburguesa no tiene aria-label estático: hasta que Alpine arranca, y sin JS, el botón no anuncia nada y el lector de pantalla dice sólo «botón».'
+        );
+
+        $collapse = self::openingTag(
+            $header,
+            '/<button\b[^>]*@click="toggleMini\(\)"[^>]*>/',
+            'no encontré el botón de plegar (@click="toggleMini()") en el header.'
+        );
+
+        self::assertPattern(
+            '/\saria-label="Plegar menú"/',
+            $collapse,
+            'el botón de plegar no tiene aria-label estático: con el menú desplegado, el control que lo pliega queda sin nombre hasta que Alpine arranca.'
+        );
+    }
+
+    /**
+     * S2 (la otra mitad): un control que sólo funciona con Alpine no puede
+     * pintarse como si ya funcionara. Sin `x-cloak` el hamburguesa, el de
+     * plegar y el toggle de tema aparecen antes de que Alpine arranque y, con
+     * JS apagado, quedan para siempre. El toggle es el peor de los tres:
+     * cambia sol/luna y no toca `data-theme`, así que parece que hace algo y no
+     * hace nada.
+     */
+    public function test_los_controles_que_dependen_de_alpine_se_ocultan_antes_de_arrancar(): void
+    {
+        $header = self::view('resources/views/partials/layout/header.twig');
+
+        $controls = [
+            'el hamburguesa' => '/<button\b[^>]*@click="sidebarOpen = !sidebarOpen"[^>]*>/',
+            'el botón de plegar' => '/<button\b[^>]*@click="toggleMini\(\)"[^>]*>/',
+            'el toggle de tema' => '/<label\b[^>]*\bswap-rotate\b[^>]*>/',
+        ];
+
+        foreach ($controls as $name => $pattern) {
+            $tag = self::openingTag($header, $pattern, "no encontré {$name} en el header.");
+
+            self::assertPattern(
+                '/\sx-cloak[\s>]/',
+                $tag,
+                "{$name} no lleva x-cloak: se pinta antes de que Alpine arranque y, con JS apagado, queda a la vista un control que no hace nada."
+            );
+        }
+
+        self::assertPattern(
+            '/\[x-cloak\]\s*\{\s*display:\s*none\s*!important;?\s*\}/',
+            self::view('resources/views/layouts/app.twig'),
+            'app.twig no define [x-cloak] { display: none !important; }: sin la regla el atributo no oculta nada y los tres controles se ven igual que antes.'
+        );
+    }
+
+    /**
+     * Los bindings que ya estaban no se mudan al atributo estático: Alpine
+     * sigue siendo dueño del estado en runtime. Si alguien borra la directiva,
+     * el nombre deja de seguir al estado y el toggle deja de escribir `theme`.
+     */
+    public function test_los_controles_del_header_conservan_sus_bindings_de_alpine(): void
+    {
+        $header = self::view('resources/views/partials/layout/header.twig');
+
+        $hamburger = self::openingTag(
+            $header,
+            '/<button\b[^>]*@click="sidebarOpen = !sidebarOpen"[^>]*>/',
+            'no encontré el hamburguesa (@click="sidebarOpen = !sidebarOpen") en el header.'
+        );
+
+        self::assertPattern(
+            '/:aria-label="sidebarOpen \? \'Cerrar menú\' : \'Abrir menú\'"/',
+            $hamburger,
+            'el hamburguesa perdió su :aria-label: el nombre tiene que seguir al estado abierto/cerrado en runtime.'
+        );
+
+        self::assertPattern(
+            '/:aria-expanded="sidebarOpen \? \'true\' : \'false\'"/',
+            $hamburger,
+            'el hamburguesa perdió :aria-expanded y el estado del menú deja de anunciarse.'
+        );
+
+        $collapse = self::openingTag(
+            $header,
+            '/<button\b[^>]*@click="toggleMini\(\)"[^>]*>/',
+            'no encontré el botón de plegar (@click="toggleMini()") en el header.'
+        );
+
+        self::assertPattern(
+            '/:aria-label="sidebarMini \? \'Desplegar menú\' : \'Plegar menú\'"/',
+            $collapse,
+            'el botón de plegar perdió su :aria-label: el nombre tiene que seguir al estado plegado/desplegado en runtime.'
+        );
+
+        $theme = self::openingTag(
+            $header,
+            '/<input\b[^>]*>/',
+            'no encontré el checkbox del toggle de tema en el header.'
+        );
+
+        self::assertPattern(
+            '/\saria-label="Cambiar entre tema claro y oscuro"/',
+            $theme,
+            'el toggle de tema perdió su aria-label estático y queda sin nombre accesible.'
+        );
+
+        self::assertPattern(
+            '/:checked="theme === \'dark\'"/',
+            $theme,
+            'el checkbox del tema perdió :checked y deja de reflejar el tema activo.'
+        );
+
+        self::assertPattern(
+            '/@change="theme = \$event\.target\.checked \? \'dark\' : \'light\'"/',
+            $theme,
+            'el checkbox del tema perdió el @change que escribe theme; el sol/luna cambiaría y data-theme no.'
         );
     }
 }

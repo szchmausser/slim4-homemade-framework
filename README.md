@@ -55,7 +55,7 @@ Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, 
 
 Los flags del demo se pasan después de `--`: `composer demo:tasks:install -- --force` reinstala, y `composer demo:tasks:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
 
-El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con paginación local (10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
+El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con **paginación y ordenamiento resueltos en el servidor** (`GET /contactos/datos`, 10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
 
 `respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 
@@ -106,10 +106,10 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 La reutilización está separada en capas para no forzar una arquitectura:
 
 - **Base independiente:** `components/ui/button.twig`, `modal.twig`, `components/form/field.twig`, `components/feedback/alert.twig`, `partials/_icon.twig`, `_csrf.twig`, `_logo.twig` y `partials/layout/toasts.twig`.
-- **Compuestos opcionales:** `components/list/simple.twig` para listas server-rendered, `components/pagination/simple.twig` para paginación HTMX y `components/table/tabulator.twig` para tablas avanzadas locales.
+- **Compuestos opcionales:** `components/list/simple.twig` para listas server-rendered, `components/pagination/simple.twig` para paginación HTMX y `components/table/tabulator.twig` para tablas avanzadas con datos remotos.
 - **Dominio del demo:** las filas, estados y acciones de tareas; las columnas y formatters de contactos. Son ejemplos de implementación, no componentes universales.
 
-Los demos usan estas piezas como referencia real: tareas usa lista, paginación, botones, modal y alertas; contactos usa botones, campos, modales, tabla, toasts e iconos. Tabulator conserva su paginación local porque no corresponde mezclarla con la paginación server-side.
+Los demos usan estas piezas como referencia real: tareas usa lista, paginación, botones, modal y alertas; contactos usa botones, campos, modales, tabla, toasts e iconos. Tabulator trabaja en **modo remoto**: pide la página y el orden al servidor, que los resuelve con `Pagination::paginate` y una whitelist de columnas ordenables. No es mezclar los dos modelos: es el modo remoto de Tabulator con el servidor como única autoridad sobre qué filas y en qué orden.
 
 ### Ejemplos de uso
 

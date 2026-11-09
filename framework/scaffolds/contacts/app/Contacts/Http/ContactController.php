@@ -7,8 +7,10 @@ namespace App\Contacts\Http;
 use App\Contacts\Models\Contact;
 use Framework\Http\Controller;
 use Framework\Http\Flash;
+use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
+use Illuminate\Database\Eloquent\Builder;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpNotFoundException;
@@ -17,6 +19,20 @@ final class ContactController extends Controller
 {
     private const JSON_FLAGS = JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT
         | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
+
+    /**
+     * Columnas por las que se puede ordenar: campo del request => columna SQL.
+     *
+     * Es un mapa y no una lista de nombres permitidos porque el valor que
+     * llega se usa SÓLO como clave: la columna que entra al `orderBy` sale de
+     * acá, nunca del request. Un `password_hash`, un `id` o una expresión
+     * inventada no matchean ninguna clave y no llegan a la query ni siquiera
+     * para ser rechazados por la base. Validar el nombre con una regex deja
+     * abierta la puerta que este mapa cierra.
+     *
+     * @var array<string, string>
+     */
+    private const SORTABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
 
     /**
      * Las acciones de contactos que completan su trabajo redirigen a
@@ -119,6 +135,46 @@ final class ContactController extends Controller
         return $this->back($response);
     }
 
+    /**
+     * Listado del modo remoto de Tabulator: `{last_page, data}` con la página y
+     * el orden resueltos en el servidor.
+     *
+     * La página y el tamaño se leen con los nombres que ya usa el resto de la
+     * app (`page`, `per_page`) y se delegan a Pagination::paginate, que cuenta,
+     * clampea y recorta. No hay una segunda paginación acá: duplicarla era
+     * parte del defecto que este endpoint cierra.
+     */
+    public function data(Request $request, Response $response): Response
+    {
+        $query = $request->getQueryParams();
+
+        $listing = Pagination::paginate(
+            $this->sortedContacts($query['sort'] ?? null),
+            (int) ($query['page'] ?? 1),
+            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            Url::path('/contactos/datos')
+        );
+
+        // `#` es la posición en el orden que se está viendo, no el id: con un
+        // sorter activo la primera fila de la página 2 sigue siendo la 11.
+        // Sale del offset de la página, así que el cliente no lo recalcula ni
+        // puede desincronizarse del slice que recibió.
+        $offset = ($listing['current_page'] - 1) * $listing['per_page'];
+
+        $rows = [];
+        foreach ($listing['items'] as $index => $contact) {
+            /** @var Contact $contact */
+            $rows[] = ['number' => $offset + $index + 1] + $this->row($contact);
+        }
+
+        $response->getBody()->write(json_encode([
+            'last_page' => $listing['last_page'],
+            'data'      => $rows,
+        ], self::JSON_FLAGS));
+
+        return $response->withHeader('Content-Type', 'application/json');
+    }
+
     private function back(Response $response): Response
     {
         return $response->withStatus(303)->withHeader('Location', Url::path('/contactos'));
@@ -133,16 +189,12 @@ final class ContactController extends Controller
      */
     private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
-        $rows = [];
-        foreach (Contact::query()->orderByDesc('id')->get() as $contact) {
-            /** @var Contact $contact */
-            $rows[] = $this->row($contact);
-        }
-
         $response = $this->render($request, $response, 'contacts/index.twig', [
             'active' => 'contacts',
-            'contacts_count' => count($rows),
-            'contacts_json' => json_encode($rows, self::JSON_FLAGS),
+            // El badge cuenta en la base: las filas ya no viajan en el HTML, así
+            // que un `count($rows)` sobre un array local ya no existe. El
+            // listado completo lo pide la tabla a /contactos/datos.
+            'contacts_count' => Contact::query()->count(),
             'breadcrumbs' => [
                 ['label' => 'Inicio', 'href' => Url::path('/')],
                 ['label' => 'Contactos', 'icon' => 'contacts', 'current' => true],
@@ -177,6 +229,50 @@ final class ContactController extends Controller
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);
+    }
+
+    /**
+     * Query ordenada según los sorters del request.
+     *
+     * Tabulator 6.7.1 manda `sort[i][field]` y `sort[i][dir]` como arrays
+     * anidados en el query string: el generador de URLs del bundle serializa
+     * los objetos de parámetros con corchetes (`sort%5B0%5D%5Bfield%5D`), así
+     * que acá llega `[['field' => 'name', 'dir' => 'asc']]`.
+     *
+     * Se aplican TODOS los campos de la whitelist, en orden de llegada: con
+     * shift+click el usuario arma un orden compuesto y quedarse con el primero
+     * lo rompería. Un sorter fuera de la whitelist se descarta en silencio —sin
+     * error y sin orden— porque el cliente no tiene por qué romperse por una
+     * columna asumida y el servidor no tiene por qué adivinar qué quiso decir.
+     * Sin ningún sorter válido el default es el listado de siempre: id
+     * descendente, lo último arriba.
+     *
+     * @return Builder<Contact>
+     */
+    private function sortedContacts(mixed $sorters): Builder
+    {
+        $query = Contact::query();
+
+        $applied = 0;
+
+        foreach (is_array($sorters) ? $sorters : [] as $sorter) {
+            if (!is_array($sorter)) {
+                continue;
+            }
+
+            $field = $sorter['field'] ?? null;
+            $column = is_string($field) ? (self::SORTABLE[$field] ?? null) : null;
+
+            if ($column === null) {
+                continue;
+            }
+
+            // La dirección no se interpola: se normaliza a dos literales.
+            $query->orderBy($column, ($sorter['dir'] ?? null) === 'desc' ? 'desc' : 'asc');
+            $applied++;
+        }
+
+        return $applied === 0 ? $query->orderByDesc('id') : $query;
     }
 
     /**

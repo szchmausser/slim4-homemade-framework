@@ -33,7 +33,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 | Inicio | `/` | pública, presentación del esqueleto |
 | Acceso | `/login` | autenticación propia, fuera del shell |
 | Tareas | `/tareas` | solo si el demo está instalado; protegida, swaps HTMX, paginación y avisos |
-| Contactos | `/contactos` | solo si el demo está instalado; CRUD server-rendered y listado Tabulator client-side |
+| Contactos | `/contactos` | solo si el demo está instalado; CRUD server-rendered y listado Tabulator con paginación y orden resueltos en el servidor (`/contactos/datos`) |
 | Error | cualquiera | autónoma, mínima, en español |
 
 ## Capabilities and Constraints

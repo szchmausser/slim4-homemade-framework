@@ -5,6 +5,15 @@
         return;
     }
 
+    // El endpoint viaja en el markup: sin URL no hay de dónde traer las filas,
+    // así que la tabla no se inicializa (mejor ninguna tabla que una vacía que
+    // parece "no hay contactos").
+    const url = root.dataset.url;
+
+    if (!url) {
+        return;
+    }
+
     const esc = (value) => String(value).replace(/[&<>"']/g, (character) => ({
         '&': '&amp;',
         '<': '&lt;',
@@ -31,21 +40,11 @@
             </button>
         </div>`;
 
-    let contacts;
-    try {
-        contacts = JSON.parse(root.dataset.rows || '[]');
-    } catch (error) {
-        return;
-    }
-
-    const rows = contacts.map((contact, index) => ({
-        ...contact,
-        number: index + 1,
-        actions: actions(contact),
-    }));
-
     const deleteModal = document.getElementById('contact-delete-modal');
     if (deleteModal) {
+        // Delegado en el contenedor, no en cada botón: las filas llegan por
+        // AJAX y se reemplazan al cambiar de página, así que un listener por
+        // fila moriría en el primer swap y el borrado dejaría de abrir el modal.
         root.addEventListener('click', (event) => {
             const trigger = event.target.closest('[data-contact-delete]');
             if (!trigger) {
@@ -65,14 +64,24 @@
     }
 
     new Tabulator(root, {
-        data: rows,
+        ajaxURL: url,
         layout: 'fitColumns',
         responsiveLayout: false,
         placeholder: 'No hay contactos todavía.',
+        // Remoto en las dos direcciones: la página y el orden los resuelve el
+        // servidor sobre la tabla completa. Paginar u ordenar acá las diez
+        // filas que llegaron sería un cliente simulando lo que el server ya
+        // hizo, y con datos reales mostraría un orden que no es el de nadie.
         pagination: true,
-        paginationMode: 'local',
+        paginationMode: 'remote',
+        sortMode: 'remote',
         paginationSize: 10,
         paginationSizeSelector: [5, 10, 25, 50, 100],
+        // El bundle 6.7.1 manda el tamaño como `size` y el nombre del query
+        // string se fija con `dataSendParams` (el viejo `paginationSizeParameter`
+        // ya no existe en esta versión). Así el cliente y el servidor hablan el
+        // mismo vocabulario del resto de la app: `page` y `per_page`.
+        dataSendParams: {size: 'per_page'},
         paginationCounter: 'rows',
         paginationButtonCount: 5,
         locale: 'es',
@@ -100,20 +109,25 @@
             },
         },
         columns: [
+            // `#` lo numera el servidor: es la posición en el orden visible, así
+            // que no se puede ordenar (el id no es lo que se ve en la columna).
             {title: '#', field: 'number', hozAlign: 'center', headerHozAlign: 'center', width: 60, headerSort: false},
-            {title: 'Nombre', field: 'name', minWidth: 140, headerSort: false},
-            {title: 'Email', field: 'email', minWidth: 180, headerSort: false},
-            {title: 'Teléfono', field: 'phone', minWidth: 140, headerSort: false},
+            {title: 'Nombre', field: 'name', minWidth: 140},
+            {title: 'Email', field: 'email', minWidth: 180},
+            {title: 'Teléfono', field: 'phone', minWidth: 140},
             {
                 title: 'Acciones',
                 field: 'actions',
-                formatter: 'html',
                 hozAlign: 'right',
                 headerHozAlign: 'right',
                 width: 104,
                 minWidth: 100,
                 maxWidth: 104,
                 headerSort: false,
+                // Las acciones se pintan desde los datos de la fila: en modo
+                // remoto el JSON trae el contacto, no un campo `actions`
+                // precalculado por el cliente.
+                formatter: (cell) => actions(cell.getRow().getData()),
             },
         ],
     });

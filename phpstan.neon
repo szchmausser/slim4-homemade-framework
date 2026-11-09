@@ -1,10 +1,29 @@
 # PHPStan dev-only, nivel 5. Sin baseline: si aparece un error nuevo se
 # arregla en el código, no se esconde en un archivo de supresiones.
+#
+# El alcance creció para cubrir lo que lint ya parseaba y PHPStan no analizaba:
+# bootstrap/, config/, routes/ y scripts/ estaban fuera del análisis, así que un
+# error de tipo ahí pasaba con el gate en verde.
+#
+# LÍMITE CONOCIDO Y DELIBERADO: framework/scaffolds/**, database/ y tests/ NO
+# se analizan. El motivo es concreto, no comodidad: usan los estáticos mágicos
+# de Eloquent (`Task::count()`, `User::create()`, `RememberToken::where()`), que
+# viven en `__callStatic` y PHPStan no puede resolver sin una extensión tipo
+# Larastan. Este proyecto corre PHPStan como PHAR para no agregar dependencias
+# de Composer ni exigir compilación en Termux, así que sumar esa extensión
+# contradice una decisión de producto. Con el alcance amplio esos 25 errores son
+# todos falsos positivos y taparlos con baseline sería peor que no analizarlos.
+# La alternativa real, si se quiere cubrir los demos, es declarar los `@method`
+# que cada modelo usa, no aflojar el gate.
 parameters:
     level: 5
     paths:
         - app
+        - bootstrap
+        - config
         - framework/Auth
+        - framework/Docs
         - framework/Http
         - framework/Validation
-        - framework/Docs
+        - routes
+        - scripts

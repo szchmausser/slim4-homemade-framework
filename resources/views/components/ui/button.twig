@@ -1,9 +1,21 @@
 {# Botón/enlace estándar sobre daisyUI.
    Props: label, variant (primary|ghost|outline|error), size (xs|sm|md|lg),
-   href, type, onclick, icon, aria_label, title, name, value, disabled,
-   extra_class. También acepta atributos HTMX opcionales (hx_get, hx_post,
-   hx_put, hx_delete, hx_target, hx_swap, hx_headers, hx_include) y
-   data_focus_key. El texto se escapa; los iconos salen del registro compartido. #}
+   href, type, onclick, icon, icon_class, aria_label, title, name, value,
+   disabled, target, extra_class. También acepta atributos HTMX opcionales
+   (hx_get, hx_post, hx_put, hx_delete, hx_target, hx_swap, hx_headers,
+   hx_include) y data_focus_key. El texto se escapa; los iconos salen del
+   registro compartido.
+
+   `href` elige la etiqueta: con `href` sale un `<a>`, sin `href` un
+   `<button>`. Todos los atributos salen de UN solo bloque compartido: antes
+   cada rama repetía las mismas 13 guardas y se desincronizaban entre sí (el
+   enlace ignoraba `disabled` en silencio, el botón ignoraba `target`).
+
+   Cada prop tiene efecto en la etiqueta que le corresponde: `type`, `name` y
+   `value` sólo existen en `<button>` (un enlace no envía formularios) y
+   `target` sólo en `<a>` (un botón no navega). `disabled` funciona en las
+   dos: en el botón es el atributo nativo y en el enlace quita el `href`,
+   porque un enlace con `href` navega aunque se lo marque deshabilitado. #}
 {% set variants = {
     'primary': 'btn-primary',
     'ghost': 'btn-ghost',
@@ -20,33 +32,15 @@
 {% set size_class = sizes[size|default('md')]|default('') %}
 {% set classes = ('btn ' ~ variant_class ~ ' ' ~ size_class ~ (extra_class is defined and extra_class ? ' ' ~ extra_class : ''))|trim %}
 {% set icon_markup %}{% if icon is defined and icon %}{% include 'partials/_icon.twig' with { name: icon, class: icon_class|default('h-4 w-4') } %}{% endif %}{% endset %}
-
-{% if href is defined and href %}
-    <a href="{{ href }}"
-       class="{{ classes }}"
-       {% if title is defined %}title="{{ title }}"{% endif %}
-       {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
-       {% if target is defined %}target="{{ target }}"{% endif %}
-       {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
-       {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
-       {% if hx_get is defined %}hx-get="{{ hx_get }}"{% endif %}
-       {% if hx_post is defined %}hx-post="{{ hx_post }}"{% endif %}
-       {% if hx_put is defined %}hx-put="{{ hx_put }}"{% endif %}
-       {% if hx_delete is defined %}hx-delete="{{ hx_delete }}"{% endif %}
-       {% if hx_target is defined %}hx-target="{{ hx_target }}"{% endif %}
-       {% if hx_swap is defined %}hx-swap="{{ hx_swap }}"{% endif %}
-       {% if hx_headers is defined %}hx-headers="{{ hx_headers }}"{% endif %}
-       {% if hx_include is defined %}hx-include="{{ hx_include }}"{% endif %}>
-        {{ icon_markup }}
-        {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
-    </a>
-{% else %}
-    <button type="{{ type|default('button') }}"
+{% set is_link = href is defined and href %}
+{% set is_disabled = disabled|default(false) %}
+    <{{ is_link ? 'a' : 'button' }}{% if is_link and not is_disabled %} href="{{ href }}"{% endif %}{% if not is_link %} type="{{ type|default('button') }}"{% endif %}{% if is_link and is_disabled %} aria-disabled="true" tabindex="-1"{% endif %}
             class="{{ classes }}"
-            {% if name is defined %}name="{{ name }}"{% endif %}
-            {% if value is defined %}value="{{ value }}"{% endif %}
+            {% if not is_link and name is defined %}name="{{ name }}"{% endif %}
+            {% if not is_link and value is defined %}value="{{ value }}"{% endif %}
             {% if title is defined %}title="{{ title }}"{% endif %}
             {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
+            {% if is_link and target is defined %}target="{{ target }}"{% endif %}
             {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
             {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
             {% if hx_get is defined %}hx-get="{{ hx_get }}"{% endif %}
@@ -57,8 +51,7 @@
             {% if hx_swap is defined %}hx-swap="{{ hx_swap }}"{% endif %}
             {% if hx_headers is defined %}hx-headers="{{ hx_headers }}"{% endif %}
             {% if hx_include is defined %}hx-include="{{ hx_include }}"{% endif %}
-            {% if disabled|default(false) %}disabled{% endif %}>
+            {% if not is_link and is_disabled %}disabled{% endif %}>
         {{ icon_markup }}
         {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
-    </button>
-{% endif %}
+    </{{ is_link ? 'a' : 'button' }}>

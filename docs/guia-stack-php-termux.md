@@ -1219,14 +1219,18 @@ declare(strict_types=1);
 
 namespace Framework\Auth;
 
+use Illuminate\Database\Capsule\Manager as Capsule;
+use Illuminate\Database\Connection;
+
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
  * cualquier cambio acá merece relectura y sus tests (AuthTest) en verde.
  *
  * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
  *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
- * - Rotación en cada uso: el token presentado muere y nace otro. Achica la
- *   ventana de replay de un token copiado.
+ * - Rotación en cada uso: el token presentado muere y nace otro, las dos
+ *   sentencias en UNA transacción (ver `resumeFromCookie`). Achica la ventana
+ *   de replay de un token copiado.
  * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
  * - Selector conocido + validator que NO matchea: posible robo → se queman
  *   TODOS los tokens del usuario y se borra la cookie.
@@ -1309,10 +1313,42 @@ final class RememberMe
             return self::cookieHeader(clear: true);
         }
 
-        $row->delete();
-        Auth::login((int) $user->getKey());
+        $userId = (int) $user->getKey();
 
-        return self::cookieHeader(self::create((int) $user->getKey()));
+        // Rotación atómica (S8). El delete de la fila presentada y el insert
+        // del reemplazo tienen que entrar JUNTOS: si el proceso cae entre las
+        // dos sentencias, la fila vieja ya no está y la nueva no existe, la
+        // cookie del browser deja de resolver y el usuario queda deslogueado en
+        // silencio (no hay error que ver: un selector desconocido simplemente
+        // se ignora). `transaction()` va por la MISMA conexión que usan los
+        // modelos —Eloquent ya está booteado sobre este Capsule, ver
+        // config/container.php—, así que el delete del modelo y el create del
+        // reemplazo caen los dos adentro. La closure recibe esa conexión y no
+        // la usa —los modelos ya están en ella—: el tipo está para dejar
+        // explícito cuál es la conexión y que acá no se abre una aparte.
+        //
+        // La sesión se abre DESPUÉS del commit a propósito: si la transacción
+        // revierte, no queda una sesión abierta sin cookie que la respalde.
+        // El par que sale de acá es el mismo `selector:validator` de siempre y
+        // el header lo arma `cookieHeader()`, que no cambió.
+        //
+        // Lo que este cambio NO trae es un test de la atomicidad, y no es un
+        // olvido: la atomicidad no se puede verificar de forma directa sin
+        // inyectar una falla justo entre las dos sentencias, y no hay hook
+        // público para abortar ahí sin tocar el código de producción. AuthTest
+        // fija el contrato observable —rotación, header idéntico, conexión sin
+        // transacción abierta al salir— y no simula el corte.
+        $pair = Capsule::connection()->transaction(
+            static function (Connection $connection) use ($row, $userId): string {
+                $row->delete();
+
+                return self::create($userId);
+            }
+        );
+
+        Auth::login($userId);
+
+        return self::cookieHeader($pair);
     }
 
     public static function clearUser(int $userId): void
@@ -3329,53 +3365,44 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
-   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package. `class` opcional. #}
-{% if name is defined and name == 'home' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-{% elseif name is defined and name == 'tasks' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-{% elseif name is defined and name == 'contacts' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-{% elseif name is defined and name == 'mail' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
-{% elseif name is defined and name == 'lock' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-{% elseif name is defined and name == 'arrow-right' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
-{% elseif name is defined and name == 'arrow-left' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-{% elseif name is defined and name == 'check' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m20 6-11 11-5-5"/></svg>
-{% elseif name is defined and name == 'x' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-{% elseif name is defined and name == 'rotate' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-{% elseif name is defined and name == 'list' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-{% elseif name is defined and name == 'alert-circle' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/></svg>
-{% elseif name is defined and name == 'info' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
-{% elseif name is defined and name == 'plus' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-{% elseif name is defined and name == 'pencil' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-{% elseif name is defined and name == 'trash' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-{% elseif name is defined and name == 'check-circle' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>
-{% elseif name is defined and name == 'layers' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.5-8.58 3.91a2 2 0 0 1-1.66 0L3 12.5"/><path d="m22 17.5-8.58 3.91a2 2 0 0 1-1.66 0L3 17.5"/></svg>
-{% elseif name is defined and name == 'server' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>
-{% elseif name is defined and name == 'monitor' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
-{% elseif name is defined and name == 'database' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg>
-{% elseif name is defined and name == 'wrench' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-{% elseif name is defined and name == 'package' %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package. `class` opcional.
+
+   Un solo wrapper `<svg>` y un mapa nombre → contenido interno: antes cada
+   nombre repetía los mismos 8 atributos del wrapper en su propia rama, así que
+   agregar o corregir uno era acordarse de tocarlo 23 veces. El mapa deja una
+   única definición por icono y un wrapper único; el contenido va con `|raw`
+   porque es markup propio del registro, no dato de usuario.
+
+   El path del lápiz es el mismo que pinta el formatter de
+   `contacts-tabulator.js` (que va con SRI y no se puede editar): si divergen,
+   el mismo icono se ve distinto según quién lo dibuje. #}
+{% set icons = {
+    'home': '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+    'tasks': '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    'contacts': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    'mail': '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    'lock': '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    'arrow-right': '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+    'arrow-left': '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+    'check': '<path d="m20 6-11 11-5-5"/>',
+    'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    'rotate': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+    'list': '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
+    'alert-circle': '<circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><path d="M12 17h.01"/>',
+    'info': '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/>',
+    'plus': '<path d="M12 5v14"/><path d="M5 12h14"/>',
+    'pencil': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    'trash': '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+    'check-circle': '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+    'layers': '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.5-8.58 3.91a2 2 0 0 1-1.66 0L3 12.5"/><path d="m22 17.5-8.58 3.91a2 2 0 0 1-1.66 0L3 17.5"/>',
+    'server': '<rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><line x1="6" y1="7" x2="6.01" y2="7"/><line x1="6" y1="17" x2="6.01" y2="17"/>',
+    'monitor': '<rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>',
+    'database': '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>',
+    'wrench': '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    'package': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>'
+} %}
+{% if name is defined and icons[name] is defined %}
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}">{{ icons[name]|raw }}</svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee
@@ -3842,7 +3869,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                                 Demo de contactos
                             </h3>
                             <p class="mt-1 text-xs opacity-70">
-                                CRUD con listado interactivo en Tabulator 6.7.1, ordenamiento, filtrado y acciones rápidas.
+                                CRUD con listado paginado y ordenado desde el servidor en Tabulator 6.7.1 y acciones rápidas.
                             </p>
                         </div>
                         {% if contacts_enabled %}
@@ -3911,6 +3938,53 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         </div>
     </section>
 {% endblock %}
+```
+
+`framework/scaffolds/tasks/resources/views/tasks/_styles.twig`:
+
+```twig
+{# CSS propio del demo de tareas.
+
+   Vive acá y no en `layouts/app.twig` a propósito: `composer demo:tasks:remove`
+   borra este archivo junto con el resto del scaffold, así que el shell no queda
+   con CSS huérfano de un módulo que ya no existe. El layout sólo aporta el
+   bloque `styles`, y estas reglas se cargan únicamente en las páginas del demo.
+
+   El panel (`_panel.twig`) se swapea por HTMX y no trae estilos: cuando llega
+   el fragmento, la página ya cargó estas reglas desde el <head>. #}
+<style>
+    /* Mismo criterio de filas alternadas que la tabla de contactos, con la
+       primera fila en el tono oscuro. */
+    .task-list > li:nth-child(odd) {
+        background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
+    }
+    .task-list > li:hover {
+        background: var(--color-base-300);
+    }
+
+    /* El input de alta usaba el borde/outline de base-content; en oscuro se
+       veía como un contorno blanco. El foco sigue visible, pero con el color
+       primary del sistema. */
+    #alta-tarea input {
+        border-color: var(--color-base-300);
+    }
+    #alta-tarea input:focus,
+    #alta-tarea input:focus-visible {
+        outline: 2px solid var(--color-primary) !important;
+        outline-offset: 2px;
+        border-color: var(--color-primary) !important;
+        box-shadow: none !important;
+    }
+
+    /* Con "reducir movimiento" el tooltip de estado también pierde la
+       transición. `!important` por el mismo motivo que la regla del layout:
+       Alpine aplica las x-transition como inline sobre el nodo. */
+    @media (prefers-reduced-motion: reduce) {
+        .tooltip-estado {
+            transition: none !important;
+        }
+    }
+</style>
 ```
 
 `framework/scaffolds/tasks/resources/views/tasks/index.twig`:
@@ -4198,10 +4272,21 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
                        renglón (24px de alto). Sin esto, con `items-start` el
                        icono quedaría 2px por debajo del centro óptico. #}
+                    {# Cierre al perder el foco: el teclado se va al control
+                       siguiente y el cartel se quedaba abierto en la fila que
+                       ya no tenía el foco. Peor: `@keydown.escape` de este
+                       wrapper sólo escucha mientras el foco está adentro, así
+                       que una vez que se iba ni Escape lo cerraba — sólo un
+                       click afuera. `focusout` burbujea, así que un handler acá
+                       cubre al botón; el guard `$el.contains(...)` evita cerrar
+                       cuando el foco se mueve entre dos nodos de adentro
+                       (`relatedTarget` es null si el foco se fue a la nada, y
+                       `contains(null)` da false: ahí cerrar es lo correcto). #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ open: false }"
                           @click.outside="open = false"
-                          @keydown.escape="open = false">
+                          @keydown.escape="open = false"
+                          @focusout="if (!$el.contains($event.relatedTarget)) open = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
                            igual que un click, sin listeners de teclado a mano.
                            El anillo de foco va SIN color a propósito: daisyUI
@@ -4232,10 +4317,15 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                            <style> del layout porque Alpine aplica la
                            transición sobre el nodo, y una clase de proyecto
                            es la única forma de apuntarle sin depender de sus
-                           atributos internos. #}
+                           atributos internos.
+                           `role="tooltip"` documenta qué es el recuadro; el
+                           `aria-hidden` se queda porque el texto ya viaja en
+                           el `aria-label` del botón y el lector lo anunciaría
+                           dos veces. #}
                         <span x-cloak
                               x-show="open"
                               x-transition.opacity.duration.150ms
+                              role="tooltip"
                               aria-hidden="true"
                               class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
                             {{ estado_texto }}
@@ -6098,9 +6188,11 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use Framework\Auth\RememberMe;
 use Framework\Auth\RememberToken;
 use App\Http\Controllers\Auth\AuthController;
 use App\Models\User;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
@@ -6279,6 +6371,69 @@ final class AuthTest extends HttpTestCase
 
         $newPair = $this->rememberPair($response);
         self::assertNotSame($pair, $newPair);
+    }
+
+    /**
+     * S8 (PRESERVE): la rotación pasa a ser delete + insert dentro de una
+     * transacción, pero lo que ve el browser no cambia: la respuesta renueva la
+     * MISMA cookie `selector:validator` con el MISMO formato de siempre, y el
+     * par nuevo tiene que volver a entrar en el request siguiente. Si el insert
+     * quedara a medias, la cookie saldría igual y no resolvería nada: el usuario
+     * se enteraría recién al pedir la próxima página.
+     */
+    public function test_remember_rota_y_la_cookie_nueva_sigue_entrando(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        $_SESSION = [];
+        $rotacion = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        // Formato completo del header, igual que antes de la transacción.
+        // SESSION_SECURE no está activo en la suite, así que no hay `; Secure`.
+        self::assertMatchesRegularExpression(
+            '/^remember=[0-9a-f]{24}:[0-9a-f]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age='
+                . RememberMe::TTL . '$/',
+            'remember=' . $this->rememberRaw($rotacion)
+        );
+
+        // El par rotado es real: con él y sin sesión se vuelve a entrar.
+        $_SESSION = [];
+        $reintento = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $this->rememberPair($rotacion)])
+        );
+
+        self::assertSame(200, $reintento->getStatusCode());
+        self::assertSame($user->id, $_SESSION['user_id'] ?? null, 'La cookie rotada no reanudó la sesión.');
+    }
+
+    /**
+     * S8: al salir de la rotación la conexión tiene que quedar FUERA de la
+     * transacción. Un `beginTransaction` sin cerrar retiene el lock de escritura
+     * de SQLite: el request que rota el token pasaría, y la escritura siguiente
+     * del mismo proceso se quedaría esperando para siempre.
+     *
+     * Esto NO prueba la atomicidad, y conviene decirlo: probarla de verdad pide
+     * inyectar una falla justo entre el delete y el insert, y no hay hook
+     * público para abortar ahí sin tocar el código de producción. Lo que sí se
+     * puede observar desde afuera es que la transacción se abre y se cierra, y
+     * que la rotación igual terminó (queda una sola fila, la nueva).
+     */
+    public function test_remember_rota_y_no_deja_la_conexion_en_transaccion(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        $_SESSION = [];
+        $response = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(0, Capsule::connection()->transactionLevel(), 'quedó una transacción abierta.');
+        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
     }
 
     public function test_remember_adulterado_no_entra_y_quema_todo(): void

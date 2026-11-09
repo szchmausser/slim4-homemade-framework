@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use Framework\Auth\RememberMe;
 use Framework\Auth\RememberToken;
 use App\Http\Controllers\Auth\AuthController;
 use App\Models\User;
+use Illuminate\Database\Capsule\Manager as Capsule;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Support\HttpTestCase;
 
@@ -185,6 +187,69 @@ final class AuthTest extends HttpTestCase
 
         $newPair = $this->rememberPair($response);
         self::assertNotSame($pair, $newPair);
+    }
+
+    /**
+     * S8 (PRESERVE): la rotación pasa a ser delete + insert dentro de una
+     * transacción, pero lo que ve el browser no cambia: la respuesta renueva la
+     * MISMA cookie `selector:validator` con el MISMO formato de siempre, y el
+     * par nuevo tiene que volver a entrar en el request siguiente. Si el insert
+     * quedara a medias, la cookie saldría igual y no resolvería nada: el usuario
+     * se enteraría recién al pedir la próxima página.
+     */
+    public function test_remember_rota_y_la_cookie_nueva_sigue_entrando(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        $_SESSION = [];
+        $rotacion = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        // Formato completo del header, igual que antes de la transacción.
+        // SESSION_SECURE no está activo en la suite, así que no hay `; Secure`.
+        self::assertMatchesRegularExpression(
+            '/^remember=[0-9a-f]{24}:[0-9a-f]{64}; Path=\/; HttpOnly; SameSite=Lax; Max-Age='
+                . RememberMe::TTL . '$/',
+            'remember=' . $this->rememberRaw($rotacion)
+        );
+
+        // El par rotado es real: con él y sin sesión se vuelve a entrar.
+        $_SESSION = [];
+        $reintento = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $this->rememberPair($rotacion)])
+        );
+
+        self::assertSame(200, $reintento->getStatusCode());
+        self::assertSame($user->id, $_SESSION['user_id'] ?? null, 'La cookie rotada no reanudó la sesión.');
+    }
+
+    /**
+     * S8: al salir de la rotación la conexión tiene que quedar FUERA de la
+     * transacción. Un `beginTransaction` sin cerrar retiene el lock de escritura
+     * de SQLite: el request que rota el token pasaría, y la escritura siguiente
+     * del mismo proceso se quedaría esperando para siempre.
+     *
+     * Esto NO prueba la atomicidad, y conviene decirlo: probarla de verdad pide
+     * inyectar una falla justo entre el delete y el insert, y no hay hook
+     * público para abortar ahí sin tocar el código de producción. Lo que sí se
+     * puede observar desde afuera es que la transacción se abre y se cierra, y
+     * que la rotación igual terminó (queda una sola fila, la nueva).
+     */
+    public function test_remember_rota_y_no_deja_la_conexion_en_transaccion(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        $_SESSION = [];
+        $response = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame(0, Capsule::connection()->transactionLevel(), 'quedó una transacción abierta.');
+        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
     }
 
     public function test_remember_adulterado_no_entra_y_quema_todo(): void

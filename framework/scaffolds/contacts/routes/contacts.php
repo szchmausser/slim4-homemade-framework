@@ -9,6 +9,7 @@ use Slim\App;
 return function (App $app) {
     $app->group('/contactos', function ($group) {
         $group->get('', [ContactController::class, 'index']);
+        $group->get('/datos', [ContactController::class, 'data']);
         $group->post('', [ContactController::class, 'store']);
         $group->get('/{id}/edit', [ContactController::class, 'edit']);
         $group->post('/{id}', [ContactController::class, 'update']);

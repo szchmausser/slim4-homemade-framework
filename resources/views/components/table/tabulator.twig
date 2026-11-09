@@ -1,12 +1,14 @@
-{# Contenedor estándar de una tabla Tabulator.
-   Props: id, rows_json (JSON ya serializado), label, extra_class.
+{# Contenedor estándar de una tabla Tabulator en modo remoto.
+   Props: id, url (endpoint que devuelve `{last_page, data}`), label, extra_class.
    El initializer de cada tabla queda en su propio JS porque las columnas y
    formatters son funciones; este componente fija el shell y el contrato de
-   datos: el consumidor lee `data-tabulator-table` y `data-rows`. #}
+   datos: el consumidor lee `data-tabulator-table` y `data-url`, y la tabla
+   pagina y ordena contra ese endpoint. No hay prop para pasar filas: con una
+   tabla remota, las filas no viajan en el HTML. #}
 <div id="{{ id }}"
      class="min-w-0 {{ extra_class|default('') }}"
      data-tabulator-table
-     data-rows="{{ rows_json }}"
+     data-url="{{ url }}"
      role="region"
      aria-label="{{ label|default('Tabla de datos') }}">
 </div>

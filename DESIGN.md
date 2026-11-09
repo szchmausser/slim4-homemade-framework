@@ -74,7 +74,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - `components/feedback/alert.twig`: aviso semántico con icono y `role`; variantes `error`, `success` e `info`.
 - `components/form/field.twig`: `fieldset` + label + input consistente, con `error`, `error_class`, `required`, `optional`, `maxlength`, `input_class`, `field_class`, `label_class`, `aria_label` y `data_focus_key`. Con `error` el input sale con `aria-invalid="true"` y `aria-describedby` apuntando al mensaje, que se renderiza debajo con `role="alert"`: un error por campo se lee donde se cometió, no como un aviso flotante que desaparece.
 - `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty` y un bloque `row` por elemento.
-- `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-rows`) para una tabla Tabulator; el initializer de columnas vive con la tabla.
+- `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-url`) para una tabla Tabulator en modo remoto; el initializer de columnas vive con la tabla y las filas las sirve el endpoint de `url`.
 - `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
 - `partials/_csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
 - `partials/layout/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
@@ -92,7 +92,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 
 {% include 'components/table/tabulator.twig' with {
     id: 'contacts-table',
-    rows_json: contacts_json,
+    url: url('/contactos/datos'),
     label: 'Listado de contactos'
 } only %}
 
@@ -103,7 +103,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 } %}
 ```
 
-El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa la paginación local de Tabulator (10 por página, selector 5/10/25/50/100, contador en español). Mezclar ambas mostraría un estado de página que no corresponde; si el demo necesita paginación remota, será otro contrato de tabla, no este componente. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
+El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa el modo remoto de Tabulator contra `GET /contactos/datos`, que devuelve `{last_page, data}` para la `page` y el `per_page` pedidos (10 por página, selector 5/10/25/50/100, contador en español). El orden también es remoto: los encabezados mandan `sort[i][field]`/`sort[i][dir]` y el servidor los resuelve contra una whitelist explícita, así que el `#` es la posición en el orden visible. **Modo remoto no es mezclar los dos modelos de paginación**: Tabulator no pagina ni ordena una copia local, sólo pide páginas y muestra lo que llega, y el servidor es el único que cuenta, recorta y ordena sobre la tabla completa. Mezclar sería lo otro —filas locales paginadas por el cliente sobre un dataset que el servidor ya recortó— y ahí el estado de página no correspondería con los datos. Por eso el HTML de `/contactos` no embebe ninguna fila. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
 
 ## Interacción
 

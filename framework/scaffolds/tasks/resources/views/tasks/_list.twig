@@ -118,10 +118,21 @@
                     {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
                        renglón (24px de alto). Sin esto, con `items-start` el
                        icono quedaría 2px por debajo del centro óptico. #}
+                    {# Cierre al perder el foco: el teclado se va al control
+                       siguiente y el cartel se quedaba abierto en la fila que
+                       ya no tenía el foco. Peor: `@keydown.escape` de este
+                       wrapper sólo escucha mientras el foco está adentro, así
+                       que una vez que se iba ni Escape lo cerraba — sólo un
+                       click afuera. `focusout` burbujea, así que un handler acá
+                       cubre al botón; el guard `$el.contains(...)` evita cerrar
+                       cuando el foco se mueve entre dos nodos de adentro
+                       (`relatedTarget` es null si el foco se fue a la nada, y
+                       `contains(null)` da false: ahí cerrar es lo correcto). #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ open: false }"
                           @click.outside="open = false"
-                          @keydown.escape="open = false">
+                          @keydown.escape="open = false"
+                          @focusout="if (!$el.contains($event.relatedTarget)) open = false">
                         {# Es un <button> de verdad: focus + Enter/Space lo abren
                            igual que un click, sin listeners de teclado a mano.
                            El anillo de foco va SIN color a propósito: daisyUI
@@ -152,10 +163,15 @@
                            <style> del layout porque Alpine aplica la
                            transición sobre el nodo, y una clase de proyecto
                            es la única forma de apuntarle sin depender de sus
-                           atributos internos. #}
+                           atributos internos.
+                           `role="tooltip"` documenta qué es el recuadro; el
+                           `aria-hidden` se queda porque el texto ya viaja en
+                           el `aria-label` del botón y el lector lo anunciaría
+                           dos veces. #}
                         <span x-cloak
                               x-show="open"
                               x-transition.opacity.duration.150ms
+                              role="tooltip"
                               aria-hidden="true"
                               class="tooltip-estado pointer-events-none absolute left-0 top-full z-20 mt-1 whitespace-nowrap rounded-box border border-base-300 bg-base-100 px-2 py-1 text-xs shadow-md">
                             {{ estado_texto }}

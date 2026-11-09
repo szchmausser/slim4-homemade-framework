@@ -13,6 +13,12 @@ declare(strict_types=1);
 // eliminar es borrar esos destinos. La fuente nunca se toca.
 
 $root = dirname(__DIR__);
+
+// `$argv` sólo existe en CLI. PHPStan lo marca como indefinido en el ámbito
+// global, y tiene razón: este script puede incluirse desde otro contexto. Se
+// lee de `$_SERVER`, que es el superglobal que el SAPI siempre puebla, y se cae
+// a un array vacío para que el script explique su uso en vez de romper.
+$argv = $_SERVER['argv'] ?? [];
 $command = $argv[1] ?? '';
 $name = 'tasks';
 foreach (array_slice($argv, 2) as $argument) {

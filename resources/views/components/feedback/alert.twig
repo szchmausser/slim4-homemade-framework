@@ -1,11 +1,17 @@
 {# Alerta semántica sobre daisyUI.
-   Props: variant (error|success|info), message, extra_class. #}
+   Props: variant (error|success|info), message, extra_class.
+
+   Una variante desconocida (typo, valor nuevo sin entrada en el mapa) hacía
+   que `variants[...]` devolviera null: salía `class="alert "` y `role=""`, que
+   es ARIA inválido, y el slot de color quedaba vacío y sin icono. Sin
+   `strict_variables` Twig lo tapaba. Ahora cae a `info`, el default
+   documentado del componente: el rol siempre es válido y la alerta se ve. #}
 {% set variants = {
     'error': {class: 'alert-error', icon: 'alert-circle', ink: 'icon-error', role: 'alert'},
     'success': {class: 'alert-success', icon: 'check-circle', ink: 'icon-success', role: 'status'},
     'info': {class: 'alert-info', icon: 'info', ink: 'icon-info', role: 'status'}
 } %}
-{% set current = variants[variant|default('info')] %}
+{% set current = variants[variant|default('info')]|default(variants.info) %}
 
 <div class="alert {{ current.class }}{% if extra_class is defined and extra_class %} {{ extra_class }}{% endif %}" role="{{ current.role }}">
     <span class="{{ current.ink }} shrink-0" aria-hidden="true">
