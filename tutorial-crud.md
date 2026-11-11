@@ -94,7 +94,9 @@ la portada y en el header aparece tu usuario.
 
 - `phinx seed:run` aborta con un mensaje sobre `ADMIN_EMAIL` y `ADMIN_PASSWORD`: no pasaste las
   variables o la contraseña tiene menos de 8 caracteres.
-- El login vuelve al formulario sin mensaje: revisá que el email sea exactamente el que sembraste.
+- El login vuelve al formulario con el aviso «Credenciales inválidas.»: el email o la contraseña no
+  coinciden con el admin que sembraste. El mensaje es genérico a propósito —no dice cuál de los dos
+  falló, para no revelar qué cuentas existen—, así que revisá los dos.
 - `php -S` arranca pero el navegador da 404: estás abriendo la ruta sin `-t public`, o el servidor
   corre en otro directorio.
 
@@ -262,15 +264,18 @@ Después, registralo en `bootstrap/app.php`, junto a los otros archivos de rutas
 (require __DIR__ . '/../routes/notas.php')($app);
 ```
 
-**Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**,
-así que lo esperado es una página de error del propio framework, no un 404 del servidor web ni una
-pantalla en blanco. Esa diferencia es la que confirma que la ruta existe.
+**Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
+que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
+`NotaController` no existe. Una página grande, con stack trace.
+
+Esa diferencia es la que confirma que la ruta existe: la ruta se resolvió y falló al instanciar el
+controlador.
 
 **Falla si**:
 
-- Ves el 404 del servidor de desarrollo de PHP (`No route found for...` a secas): el archivo de rutas
-  no se está registrando; revisá la línea que agregaste en `bootstrap/app.php`.
-- Te devuelve al login aunque hayas iniciado sesión: el grupo está protegido, y la sesión se perdió.
+- Ves la **página 404 del framework**, chica, sin stack trace: el archivo de rutas no se está
+  registrando. Revisá la línea que agregaste en `bootstrap/app.php`.
+- Te devuelve al login aunque hayas iniciado sesión: el grupo está protegido y la sesión se perdió.
   Volvé al paso 1.
 
 **Qué no prueba**: que la ruta haga algo. Prueba que el registro funciona y que la protección está
@@ -498,7 +503,9 @@ mensaje de error **junto al campo del título**, y lo que habías escrito en el 
 
 **Falla si**:
 
-- El POST responde 400: falta el `{% include 'partials/_csrf.twig' %}` dentro del formulario.
+- El POST te devuelve al login con «Tu sesión expiró. Volvé a iniciar sesión.»: falta el
+  `{% include 'partials/_csrf.twig' %}` dentro del formulario. Sin HTMX el rechazo de CSRF es un 303
+  al login con ese aviso (el del handler de `config/container.php`), no un 400.
 - El formulario se limpia al fallar la validación: estás devolviendo la vista sin los valores
   `titulo` y `cuerpo`, o sin el status 422.
 - La nota se crea pero no aparece: la lista no se volvió a leer después de guardar.
@@ -894,8 +901,10 @@ headers y no en el cuerpo.
 
 **Falla si**:
 
-- Cualquiera de los dos transportes da 400: el token no está llegando, o el par de claves no coincide
-  con el que emite `partials/_csrf.twig`.
+- Con HTMX recibís 400 y el evento `csrf` («Tu sesión expiró. Recargá la página.»): el token no está
+  llegando, o el par de claves no coincide con el que emite `partials/_csrf.twig`.
+- Sin HTMX, el mismo fallo se ve como 303 al login con «Tu sesión expiró. Volvé a iniciar sesión.»:
+  es el mismo rechazo por otro canal, no otro problema.
 - El botón suelto funciona pero el formulario no: estás en el caso inverso; revisá que el `include`
   esté **dentro** del `<form>`.
 
@@ -950,7 +959,8 @@ listado y alta; una entidad con relaciones, borrado o edición necesita más pie
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| POST responde 400 | Falta el token de CSRF | `{% include 'partials/_csrf.twig' %}` dentro del `<form>` |
+| POST con HTMX responde 400 y avisa «Tu sesión expiró» | Falta el token de CSRF | `{% include 'partials/_csrf.twig' %}` dentro del `<form>`, o `hx-headers` si es un botón suelto |
+| POST sin HTMX te manda al login con «Tu sesión expiró» | El mismo rechazo de CSRF, otro canal | Igual que arriba |
 | El login vuelve al formulario | Credenciales que no coinciden con el admin sembrado | Volvé a sembrar con las mismas variables |
 | `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status`, revisá `DB_DATABASE` |
 | Página entera dentro del panel | El controlador devolvió la vista completa a HTMX | Elegí la plantilla con `hasHeader('HX-Request')` |
