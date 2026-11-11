@@ -258,7 +258,6 @@ return function (App $app) {
     $app->group('/notas', function ($group) {
         $group->get('', [NotaController::class, 'index']);
         $group->post('', [NotaController::class, 'store']);
-        $group->get('/{id}', [NotaController::class, 'show']);
     })->add(RequireAuthMiddleware::class);
 };
 ```
@@ -268,6 +267,9 @@ Después, registralo en `bootstrap/app.php`, junto a los otros archivos de rutas
 ```php
 (require __DIR__ . '/../routes/notas.php')($app);
 ```
+
+Sólo dos rutas por ahora: `index` y `store`. Las de editar y borrar se suman en los pasos 8 y 9, cuando
+exista la acción que las atiende. Una ruta sin acción es una promesa que el framework no puede cumplir.
 
 **Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
 que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
@@ -381,7 +383,9 @@ a renderizar una vista.
 </html>
 ```
 
-Y el controlador:
+Y el controlador. Sumá `use App\Models\Nota;` arriba, junto a los otros `use`: desde acá la clase se usa
+y sin el import el error es `Class "App\Http\Controllers\Nota" not found`, que parece un problema de
+rutas y no lo es.
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -530,8 +534,12 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 ### 7.1 Un diálogo nativo con campos a mano
 
-**Acción**: al final de `index.twig`, **fuera** del `<section>`, un `<dialog>` nativo con el formulario
-a mano:
+**Acción**: al final de `index.twig`, **dentro del bloque `content`** y después del `</section>`, un
+`<dialog>` nativo con el formulario a mano.
+
+> El modal va **adentro** de `{% block content %}`. Si lo ponés después de `{% endblock %}`, Twig lo
+> ignora sin error: el archivo se ve bien y el botón no abre nada. Es el error más silencioso de este
+> paso.
 
 ```twig
 <dialog id="nota-create-modal" class="modal">
@@ -557,7 +565,14 @@ a mano:
 </dialog>
 ```
 
-Y `store()` en el controlador:
+Y `store()` en el controlador. Vas a necesitar tres `use` más arriba del archivo, junto a los que ya
+están:
+
+```php
+use Framework\Http\Flash;
+use Framework\Http\Url;
+use Framework\Validation\Validator;
+```
 
 ```php
     public function store(Request $request, Response $response): Response
@@ -641,12 +656,16 @@ Cambiá también los dos `hidden` de CSRF por el partial que los emite:
             {% include 'partials/_csrf.twig' %}
 ```
 
-**Comprobación**: los campos se ven igual, pero el HTML ahora tiene `aria-invalid` y
-`aria-describedby` cuando hay error, el input queda asociado a su label, y el campo opcional dice
-«(opcional)» en vez de no decir nada. Mirá el HTML con el inspector: `label for` coincide con `id`.
+**Comprobación**: los campos se ven igual, pero el HTML ahora es un `fieldset` con su
+`label.fieldset-legend` asociado por `for`/`id`, el campo opcional dice «(opcional)» y se mantienen
+`required` y `maxlength`. Mirá el HTML con el inspector: `label for` coincide con el `id` del input.
 
-**Qué ganaste**: el error por campo, la asociación con el label y el marcado de opcional. Eso antes no
-existía.
+> Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
+> error**, y eso llega en el paso 7.3, cuando el controlador empieza a devolver `errors`. En este paso
+> el formulario todavía no tiene cómo producirlos.
+
+**Qué ganaste**: el campo como una unidad con su label, su marca de opcional y el lugar donde irá el
+mensaje. Eso antes no existía: tenías un `label` y un `input` sueltos que se podían desincronizar.
 
 **Pieza — `components/form/field.twig`**: resuelve el campo con su label, su mensaje y sus atributos
 de accesibilidad. Usalo en vez de `<input>` sueltos. Evita el error que no queda pegado al campo que lo
@@ -720,7 +739,7 @@ Y en `index.twig`, reemplazá el `<dialog>` completo por:
             submit_label: 'Crear nota',
             submit_icon: 'plus',
             cancel_target: 'nota-create-modal'
-        } only %}
+        } %}
     {% endblock %}
 {% endembed %}
 ```
@@ -739,6 +758,11 @@ Por último, el alta inválida reusa el mismo render con el modal abierto y lo t
             ])->withStatus(422);
         }
 ```
+
+> **Sin `only` en ese include, a propósito.** `only` aisla el contexto: si lo usás, `_form.twig` se queda
+> sin `csrf_name_key`, `csrf_value_key`, `errors` ni `form_values`, y el token sale con `name=""`. El
+> síntoma es un POST rechazado por CSRF que termina en el login, y no un error de Twig. Los `field`
+> internos sí usan `only` porque reciben todo lo que necesitan por parámetro.
 
 **Comprobación**: tocá «Agregar nota»: abre igual que antes. Guardá con un título: todo sigue igual.
 Ahora, para el caso inválido, mandá el POST sin pasar por el navegador —el campo lleva `required`, así
@@ -825,13 +849,16 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
                 </div>
 ```
 
-Y sumá las rutas al archivo de rutas:
+Y sumá las rutas al archivo de rutas, que queda con cinco:
 
 ```php
         $group->get('/{id}/edit', [NotaController::class, 'edit']);
         $group->post('/{id}', [NotaController::class, 'update']);
         $group->post('/{id}/delete', [NotaController::class, 'destroy']);
 ```
+
+`edit` se implementa en el paso 9 y `update`/`destroy` en los pasos 9 y 10: hasta entonces, tocar el
+lápiz da error, y eso es lo esperado en este punto.
 
 **Comprobación**: los iconos se ven igual, pero cada control ahora se anuncia como «Editar <título>» y
 «Borrar <título>». El lápiz navega a `/notas/{id}/edit`; la papelera todavía no abre nada, porque el
