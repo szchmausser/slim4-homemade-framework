@@ -39,6 +39,12 @@ recorrido necesita fijar para no improvisar durante la implementación.
 - **Rationale**: reproduce la convención real de `tests/Http/` y cumple FR-009: los tests reemplazan las comprobaciones manuales que el lector ya hizo, no las repiten con otra sintaxis.
 - **Alternatives considered**: un harness propio del recorrido (rechazado en clarify); tests desde el principio (rechazado: interrumpe la progresión manual).
 
+## Validación sin contaminar el repositorio
+
+- **Decision**: el recorrido se valida siguiéndolo en una copia descartable del repositorio (clon local en un directorio temporal), no en la working tree. La entidad de ejemplo nunca queda en el árbol de trabajo.
+- **Rationale**: validar en la working tree dejaría `notas` en `app/`, `routes/`, `resources/` y `tests/`, es decir, agregaría código de producción que la spec no autoriza (FR-011) y rompería el supuesto de «el artefacto no agrega código». Una copia descartable permite seguir el recorrido literalmente, incluida la migración y la siembra, sin dejar rastro.
+- **Alternatives considered**: validar y limpiar con `git clean -fd` (rechazada: borra trabajo no relacionado si alguien tiene cambios sueltos); validar sólo leyendo (rechazada: no es validación, es relectura); dejar la entidad de ejemplo instalada como demo (rechazada: convierte el tutorial en un tercer demo).
+
 ## Descubribilidad
 
 - **Decision**: una única línea en el índice de guías del `README.md`, con enlace relativo a `tutorial-crud.md`.
