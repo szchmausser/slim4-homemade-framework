@@ -8,6 +8,16 @@
 
 **Input**: User description: handoff de `.specify/assessments/tutorial-crud/decision.md` (veredicto `go`, opción B). Problema: quien adopta el framework no tiene un recorrido corto y ordenado de «cloné el repo» a «mi entidad funciona». El material existente construye el framework o entrega código terminado; ninguno muestra el orden de creación. Alcance: recorrido canónico con verificación por paso, en un artefacto nuevo fuera de `docs/`, sin modificar la guía ni los demos.
 
+## Clarifications
+
+### Session 2026-11-11
+
+- Q: ¿Qué cuenta como comprobación suficiente por paso? → A: una acción concreta del lector con resultado esperado explícito: petición HTTP a la ruta nueva con su respuesta JSON, o la ruta abierta en el navegador con lo que debe verse. Sin harness propio del tutorial.
+- Q: ¿Dónde vive el artefacto? → A: en la raíz del repositorio, como `tutorial-crud.md`, fuera de los directorios que escanea el gate.
+- Q: ¿La suite de la entidad va dentro de los pasos o al cierre? → A: al cierre. El recorrido verifica a mano y el cierre enseña a escribir los tests que reemplazan esas comprobaciones manuales.
+- Q: ¿Se permite tocar el README para que el material sea descubrible? → A: sí, una única línea de enlace en el índice de guías; la guía y los demos siguen intocables.
+
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Llegar a una entidad funcionando, paso por paso (Priority: P1)
@@ -97,14 +107,15 @@ está logrado.
 - **FR-006**: El recorrido MUST construir una entidad nueva, escrita por el lector, y no copiada de un demo existente.
 - **FR-007**: El recorrido MUST usar el idioma vigente del framework para listar, dar de alta, validar y avisar, en lugar de una variante propia.
 - **FR-008**: Cada pieza reutilizable presentada MUST explicarse con qué resuelve, cuándo usarla y qué se evita al usarla.
-- **FR-009**: El recorrido MUST incluir la suite mínima de la entidad: alta correcta, validación que rechaza, y aviso ante un identificador inexistente.
+- **FR-009**: El cierre del recorrido MUST enseñar a escribir la suite mínima de la entidad —alta correcta, validación que rechaza y aviso ante un identificador inexistente— y MUST presentarla como el reemplazo automatizado de las comprobaciones manuales hechas durante el recorrido.
 - **FR-010**: El cierre del recorrido MUST dejar el patrón explícito para aplicarlo a una entidad distinta de la del ejemplo.
-- **FR-011**: El artefacto MUST vivir fuera de `docs/`, `.ai/` y el README, y MUST poder agregarse sin romper el gate del proyecto.
-- **FR-012**: El artefacto MUST NOT modificar la guía existente, el README, ni los demos.
+- **FR-011**: El artefacto MUST vivir en un archivo en la raíz del repositorio, fuera de `docs/`, `.ai/` y del README, y MUST poder agregarse sin romper el gate del proyecto.
+- **FR-012**: El artefacto MUST NOT modificar la guía existente ni los demos, y MUST agregar una única línea de enlace en el índice de guías del README.
 - **FR-013**: El recorrido MUST NOT enseñar a construir el framework (instalación de PHP/Termux, contenedor de dependencias, middlewares, auth, assets) ni a modificar sus piezas; MUST explicarlas para usarlas, y sí incluye el arranque de la aplicación hasta una sesión iniciada porque sin sesión no hay ruta protegida que ver.
-- **FR-014**: Las comprobaciones por paso MUST usar [NEEDS CLARIFICATION: qué cuenta como comprobación suficiente — ¿una instrucción manual que el lector ejecuta, un comando del proyecto, un test propio del recorrido, o una combinación?]
-- **FR-015**: El artefacto MUST ubicarse en [NEEDS CLARIFICATION: ruta concreta dentro del árbol, sabiendo que `docs/`, `.ai/` y el README quedan excluidos]
-- **FR-016**: La suite de la entidad MUST escribirse [NEEDS CLARIFICATION: dentro de los pasos, a medida que aparece cada comportamiento, o como cierre al final del recorrido]
+- **FR-014**: Cada paso MUST declarar una comprobación manual que el lector ejecuta y cuyo resultado esperado está escrito antes de ejecutarla: una petición HTTP a la ruta recién creada con su respuesta esperada, o la ruta abierta en el navegador con lo que debe verse.
+- **FR-015**: El artefacto MUST ubicarse en `tutorial-crud.md`, en la raíz del repositorio.
+- **FR-016**: El recorrido MUST introducir cada capacidad junto con su comprobación manual observable, y MUST NOT pedirle al lector que automatice nada antes del cierre.
+- **FR-017**: La primera capacidad del recorrido MUST exponerse con una respuesta simple verificable por petición directa, antes de introducir vistas.
 
 ### Key Entities
 
@@ -117,7 +128,7 @@ está logrado.
 ### Measurable Outcomes
 
 - **SC-001**: Una persona que nunca vio el repositorio llega a una entidad propia que lista y persiste, siguiendo el recorrido sin abrir la guía ni `framework/scaffolds/`.
-- **SC-002**: El 100% de los pasos declara una comprobación que falla cuando el paso no se hizo.
+- **SC-002**: El 100% de los pasos declara una comprobación que el lector puede ejecutar a mano y cuyo resultado esperado está escrito de antemano, de modo que un paso no hecho se detecta antes de seguir.
 - **SC-003**: El lector agrega una segunda entidad propia, con otro nombre y otro campo, sin releer el recorrido completo.
 - **SC-004**: El gate del proyecto sigue en verde después de agregar el artefacto.
 - **SC-005**: El recorrido no exige ningún prerrequisito que un clon del repositorio no traiga ya, y el arranque hasta una sesión iniciada está incluido en sus pasos.
@@ -129,3 +140,5 @@ está logrado.
 - El demo de tareas puede usarse como contraste, pero el recorrido no depende de que esté instalado.
 - Las convenciones vigentes del proyecto son la autoridad: un recorrido que las contradiga es un error del recorrido, no una alternativa válida.
 - El artefacto se lee de arriba abajo, en orden; no está pensado como material de consulta salteada.
+- El lector dispone de un cliente HTTP (curl o equivalente) y de un navegador para ejecutar las comprobaciones manuales.
+- El artefacto es un archivo único en la raíz; si el recorrido creciera hasta necesitar imágenes o adjuntos, esa decisión se revisa en el plan.
