@@ -1273,7 +1273,12 @@ Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada 
     {
         $data = $this->pageData($request);
 
-        return $this->render($request, $response, 'notas/index.twig', $data + $extra + [
+        // Con HX-Request va SÓLO la región. Si devolvés la página entera, el
+        // swap mete el shell del layout adentro del panel: dos sidebars, dos
+        // headers y el contenido duplicado.
+        $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
+
+        return $this->render($request, $response, $template, $data + $extra + [
             'active' => 'notas',
         ])->withStatus($status)
             ->withHeader('HX-Push-Url', Url::path('/notas')
@@ -1320,12 +1325,18 @@ actualiza:
 
 Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
 la última página con las filas que queden; «Anterior» y «Primera» retroceden; en los extremos, los
-botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga**.
+botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga** y queda
+**un solo** sidebar y **un solo** header.
+
+Comprobalo con el inspector después de paginar: dentro de `#notas-panel` no puede haber ni `<aside>` ni
+`<header>`; si los hay, el servidor mandó la página entera en vez de la región.
 
 **Falla si**:
 
 - La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
 - Paginás y la URL no cambia: falta `HX-Push-Url`.
+- Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
+  request de HTMX, y el shell entró dentro del panel. Es el error más visible de este paso.
 - Cambiás el tamaño y volvés a la página 1: es lo esperado al cambiar el tamaño; si no querés eso, se decide en otra parte del código.
 - Todo aparece en una página: no estás pasando `pagination` a la vista.
 
