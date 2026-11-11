@@ -511,8 +511,21 @@ aparece en la lista.
 Guardá otra **sin cuerpo**: también tiene que entrar. Si te la rechaza, el campo opcional está tratado
 como requerido.
 
-Después probá el rechazo: guardá con el título vacío. Esperado: seguís en el formulario, con un
-mensaje de error **junto al campo del título**, y lo que habías escrito en el cuerpo sigue ahí.
+Después probá el rechazo del servidor. **Ojo**: el campo lleva `required`, así que con el título vacío
+el navegador ni envía el formulario — vas a ver su propio cartel, no el del servidor. Para ver el
+rechazo de verdad, mandá el POST sin pasar por el navegador:
+
+```bash
+# con la sesión de tu navegador en la variable COOKIE, o haciéndolo desde la consola del navegador
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "Cookie: $COOKIE" \
+  -d "csrf_name=$N" -d "csrf_value=$V" -d "titulo=" \
+  http://localhost:8080/notas
+```
+
+Esperado: `422`, y si mirás el cuerpo, el mensaje **junto al campo del título** con el cuerpo tipeado
+conservado. Que el navegador y el servidor validen lo mismo es a propósito: el navegador ahorra el
+viaje, el servidor es el que decide.
 
 **Falla si**:
 
@@ -727,14 +740,31 @@ su propia versión del arranque.
 
 **Estado de partida**: paso 9 hecho; la entidad funciona con navegación clásica.
 
-**Acción**: separá la lista en un parcial. Creá `resources/views/notas/_panel.twig` y mové ahí el
-`<ul>` completo. En `index.twig`, reemplazalo por:
+**Acción**: separá la lista en un parcial, y el parcial **se envuelve a sí mismo**. Creá
+`resources/views/notas/_panel.twig` con el `<ul>` completo adentro de su propio `div`:
 
 ```twig
-    <div id="notas-panel">
-        {% include 'notas/_panel.twig' %}
-    </div>
+<div id="notas-panel">
+    <ul class="space-y-2">
+        {% for nota in notas %}
+            {# … las filas, igual que antes … #}
+        {% else %}
+            <li class="opacity-60">No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
+</div>
 ```
+
+En `index.twig`, el `<ul>` se reemplaza por el include, **sin** envolverlo:
+
+```twig
+    {% include 'notas/_panel.twig' %}
+```
+
+El `div` con el id va adentro del parcial y no en la página, por una razón concreta: el `hx-swap` es
+`outerHTML`, así que la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en
+`index.twig`, el primer swap lo borraría junto con su id, y todo lo que apunte a `#notas-panel`
+—la paginación, por ejemplo— quedaría apuntando a algo que ya no existe.
 
 Después, el formulario pasa a mandar por HTMX:
 
@@ -743,6 +773,7 @@ Después, el formulario pasa a mandar por HTMX:
       hx-post="{{ url('/notas') }}"
       hx-target="#notas-panel"
       hx-swap="outerHTML"
+      hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
       class="flex flex-col gap-3">
 ```
 
@@ -761,7 +792,20 @@ Y el controlador elige qué devolver según el request:
 ```
 
 `index()` devuelve `$this->respond($request, $response)`. `store()` usa `respond()` en el rechazo y,
-en el éxito, responde con el panel y el aviso. Sumá `use Framework\Http\Flash;` arriba del archivo:
+en el éxito, responde con el panel y el aviso. Sumá `use Framework\Http\Flash;` arriba del archivo.
+
+El rechazo cambia: el formulario vive **fuera** del panel, así que el swap no lo toca y ningún
+mensaje por campo puede quedar pegado al input. El aviso pasa a ser el único canal dentro del swap:
+
+```php
+            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
+
+            return $this->respond($request, $response, [
+                'errors' => $validator->errors(),
+                'titulo' => (string) ($data['titulo'] ?? ''),
+                'cuerpo' => (string) ($data['cuerpo'] ?? ''),
+            ], 422);
+```
 
 ```php
         Flash::set('success', 'Nota creada.');
@@ -772,8 +816,10 @@ en el éxito, responde con el panel y el aviso. Sumá `use Framework\Http\Flash;
 **Comprobación**: en `/notas`, guardá una nota. Esperado: la lista se actualiza **sin recargar la
 página**, el formulario se vacía y aparece un aviso flotante abajo a la derecha.
 
-Después repetí el rechazo (título vacío). Esperado: la lista sigue igual, el mensaje de error aparece
-junto al campo y **lo que escribiste no se borra**.
+Después repetí el rechazo. Con `required` puesto el navegador no deja enviar, así que para provocarlo
+usá el `curl` del paso 7 con el header `HX-Request: true`. Esperado: `422`, la lista no cambia y el
+aviso de error llega como toast. Lo que habías tipeado sigue en el formulario, porque el swap no
+reemplaza el form: reemplaza el panel.
 
 **Falla si**:
 
@@ -781,7 +827,10 @@ junto al campo y **lo que escribiste no se borra**.
   `index.twig` a un request de HTMX. El `hasHeader('HX-Request')` no está tomando.
 - Guarda bien pero el aviso no aparece: el flash se está mostrando por el canal de página completa en
   vez del de HTMX (lo resuelve el shell, no tu código).
-- El formulario se limpia en el rechazo: el status tiene que ser 422, no 200.
+- El formulario se limpia tras el rechazo: el `hx-on::after-request` está reseteando sin mirar el
+  status, o el status no es 422.
+- El formulario **no** se limpia tras un alta exitosa: falta el `hx-on::after-request` con la
+  condición de status 200 (el form está fuera del swap, nadie más lo limpia).
 
 **Qué no prueba**: que funcione sin JavaScript. El shell está pensado para que el `href` y la
 navegación clásica sigan andando, pero eso se comprueba apagando JS.
@@ -864,7 +913,24 @@ use Framework\Http\Url;
     }
 ```
 
-`respond()` pasa a usar `$this->pageData($request) + $extra + [...]`, y en el parcial, al final:
+`respond()` pasa a usar `$this->pageData($request) + $extra + [...]`. Además tiene que decirle al
+navegador qué página renderizó, o la barra de direcciones sigue mintiendo después de paginar:
+
+```php
+        $data = $this->pageData($request);
+
+        return $this->render($request, $response, $template, $data + $extra + [
+            'active' => 'notas',
+        ])->withStatus($status)
+            ->withHeader('HX-Push-Url', Url::path('/notas')
+                . '?page=' . $data['pagination']['current_page']
+                . '&per_page=' . $data['pagination']['per_page']);
+```
+
+La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
+alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
+
+Y en el parcial, al final:
 
 ```twig
 {% include 'components/pagination/simple.twig' with {
@@ -876,9 +942,19 @@ use Framework\Http\Url;
 **Comprobación**: creá más de diez notas. Esperado: la lista muestra diez y aparece la paginación
 debajo; al pasar de página, cambia la lista sin recargar la página entera.
 
+Para que crear no te devuelva a la página 1 con el tamaño viejo, el form arrastra su posición:
+
+```twig
+<form method="post" action="{{ url('/notas') }}?page=1&per_page={{ pagination.per_page }}"
+```
+
+Se vuelve a la 1 a propósito: la nota nueva queda primera, así que mostrarla es lo esperado.
+
 **Falla si**:
 
-- La paginación muestra números pero no navega: falta `target` o el panel no tiene ese `id`.
+- La paginación muestra números pero no navega: falta `target`, o el `div` con el id quedó fuera del
+  parcial y el primer swap se lo llevó.
+- Paginás y la URL no cambia: falta la cabecera `HX-Push-Url`.
 - Al crear una nota desde la página 2 volvés a la 1: el formulario no está arrastrando `page` y
   `per_page` en su URL.
 - Todo aparece en una página: no estás pasando `pagination` a la vista.
@@ -914,10 +990,12 @@ página se degrada en silencio: anda perfecto con veinte filas y se cae con dos 
 </button>
 ```
 
-**Comprobación**: en `/notas`, con el formulario de alta, guardá una nota (transporte de formulario).
-Después, agregá temporalmente el botón de arriba a una fila y comprobá que el request sale con el
-token en la cabecera: en las herramientas del navegador, la petición tiene el par `csrf` en los
-headers y no en el cuerpo.
+**Comprobación**: en `/notas`, guardá una nota con el formulario (transporte de formulario) y mirá en
+las herramientas del navegador: el par `csrf` viaja en el **cuerpo**, no en las cabeceras.
+
+El botón suelto de arriba es el patrón, no parte de `notas`: la entidad no tiene ruta de borrado, así
+que si lo pegás y lo tocás vas a recibir un 405 del framework. El patrón se usa cuando agregues una
+mutación sin formulario; ahí el par viaja en la cabecera, que es lo que el middleware también acepta.
 
 **Falla si**:
 
