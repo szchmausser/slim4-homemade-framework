@@ -1,0 +1,18 @@
+# Machine-local Spec Kit state — not meant to be shared.
+# Managed by the Specify CLI; safe to edit (your changes are preserved on refresh).
+
+# Local pointer to the current feature directory. Rewritten every time you
+# switch features, so it is per-checkout state rather than something to share.
+feature.json
+
+# Per-machine extension config overrides.
+extensions/*/local-config.yml
+
+# Catalog cache written by `specify extension search|info`: metadata that is
+# rebuilt on demand, not project configuration.
+extensions/.cache/
+
+# Executable adapter packages and their per-checkout provenance registry.
+# Execution consent is stored separately in the user's local trust registry.
+integrations/packages/
+integrations/packages.json
