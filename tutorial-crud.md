@@ -262,18 +262,12 @@ return function (App $app) {
 };
 ```
 
-Después, registralo en `bootstrap/app.php`, junto a los otros archivos de rutas:
-
-```php
-(require __DIR__ . '/../routes/notas.php')($app);
-```
+**Y nada más.** No hay que registrar el archivo en ningún lado: el arranque de la app carga `web.php`
+primero y después el resto de `routes/*.php` por orden alfabético. Dejar el archivo en `routes/` es todo
+lo que hace falta, y por eso agregar una entidad no toca `bootstrap/app.php`.
 
 Sólo dos rutas por ahora: `index` y `store`. Las de editar y borrar se suman en los pasos 8 y 9, cuando
 exista la acción que las atiende. Una ruta sin acción es una promesa que el framework no puede cumplir.
-
-> **Ojo con el gate:** `bootstrap/app.php` está copiado entero en `docs/guia-stack-php-termux.md`, y esa
-> copia se verifica. Al agregar tu línea, `composer docs:check` empieza a fallar con «la copia de
-> `bootstrap/app.php` difiere del archivo real». Es esperado: ver «Problemas frecuentes».
 
 **Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
 que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
@@ -284,18 +278,18 @@ controlador.
 
 **Falla si**:
 
-- Ves la **página 404 del framework**, chica, sin stack trace: el archivo de rutas no se está
-  registrando. Revisá la línea que agregaste en `bootstrap/app.php`.
+- Ves la **página 404 del framework**, chica, sin stack trace: el archivo no está en `routes/` con
+  extensión `.php`, o su `return function (App $app) { … };` no está devolviendo el closure.
 - Te devuelve al login aunque hayas iniciado sesión: el grupo está protegido y la sesión se perdió.
   Volvé al paso 1.
 
 **Qué no prueba**: que la ruta haga algo. Prueba que el registro funciona y que la protección está
 activa.
 
-**Pieza — el archivo de rutas y su registro**: resuelve la separación entre «la ruta existe» y «el
-arranque de la app». Cada entidad tiene su archivo y una línea de registro. Evita meter rutas de
-dominio dentro de `bootstrap/app.php`, que es arranque del framework y no tuyo. Sin esta pieza
-tendrías todas las rutas del proyecto en un archivo que crece sin límite.
+**Pieza — un archivo de rutas por entidad, cargado por convención**: resuelve la separación entre «la
+ruta existe» y «el arranque de la app». Cada entidad tiene su archivo y el arranque los levanta solo.
+Evita meter rutas de dominio dentro de `bootstrap/app.php`, que es arranque del framework y no tuyo.
+Sin esta pieza tendrías todas las rutas del proyecto en un archivo que crece sin límite.
 
 **Pieza — `RequireAuthMiddleware`**: resuelve la puerta de entrada a las rutas privadas. Se aplica al
 grupo, no ruta por ruta, para que no se te olvide ninguna. Evita el clásico «me olvidé de proteger el
@@ -1392,7 +1386,7 @@ filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 
 1. `database/migrations/NNN_create_<entidad>_table.php`
 2. `app/Models/<Entidad>.php`
-3. `routes/<entidad>.php` + una línea en `bootstrap/app.php`
+3. `routes/<entidad>.php` (el arranque lo carga solo)
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`
@@ -1427,7 +1421,6 @@ Eso es otra conversación, y necesita más piezas.
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
 | Paginás y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |
-| `composer docs:check` falla con «la copia de `bootstrap/app.php` difiere del archivo real» | Registraste tu archivo de rutas en `bootstrap/app.php`, y la guía del stack copia ese archivo entero | Es esperado mientras tu entidad esté puesta: esa copia documenta el framework, no tu app. Dos salidas: convivir con el gate en rojo mientras desarrollás, o correr `composer docs:sync` para reescribir la copia —y aceptar que la documentación del framework pase a mostrar tu `notas` |
 
 ## Qué demuestra este recorrido
 
