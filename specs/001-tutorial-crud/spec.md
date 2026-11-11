@@ -12,24 +12,27 @@
 
 ### User Story 1 - Llegar a una entidad funcionando, paso por paso (Priority: P1)
 
-Una persona que acaba de clonar el repositorio y nunca lo vio antes sigue un recorrido de pasos
-atómicos y llega a tener una entidad propia que se lista, se da de alta, valida sus datos y
-persiste. En cada paso sabe qué hizo, por qué, y cómo comprobar que quedó bien antes de seguir.
+Una persona que acaba de clonar el repositorio y nunca lo vio antes arranca la aplicación hasta
+tener una sesión iniciada y, desde ahí, sigue un recorrido de pasos atómicos que la lleva a una
+entidad propia que se lista, se da de alta, valida sus datos y persiste. En cada paso sabe qué hizo, por qué, y cómo comprobar que quedó bien antes de seguir.
 
 **Why this priority**: es el problema entero. Sin esto no hay artefacto que entregar a un usuario
 nuevo, y las otras dos historias no tienen sobre qué apoyarse.
 
 **Independent Test**: con un clon limpio y sin abrir la guía ni `framework/scaffolds/`, seguir el
-recorrido de punta a punta y terminar con la entidad listando y persistiendo datos reales. Se
+recorrido de punta a punta: arrancar la app, iniciar sesión y terminar con la entidad listando y
+persistiendo datos reales. Se
 considera logrado cuando el lector puede señalar, en cada paso, la comprobación que hizo y su
 resultado.
 
 **Acceptance Scenarios**:
 
-1. **Given** un clon recién instalado, **When** el lector sigue el recorrido desde el primer paso, **Then** al terminar el último ve su entidad listada y puede dar de alta un registro que persiste tras recargar.
-2. **Given** un paso cualquiera del recorrido, **When** el lector ejecuta la comprobación que el paso declara, **Then** obtiene un resultado observable que distingue «quedó bien» de «no quedó».
-3. **Given** un lector que se salteó un paso, **When** ejecuta la comprobación del paso siguiente, **Then** la comprobación falla y el recorrido indica cómo volver al estado esperado.
-4. **Given** el estado final del recorrido, **When** el lector intenta dar de alta un registro con datos inválidos, **Then** el sistema lo rechaza y el mensaje aparece junto al campo que lo causó.
+1. **Given** un clon recién instalado, **When** el lector ejecuta el arranque que el recorrido indica, **Then** la aplicación responde en su navegador y puede iniciar sesión con el administrador sembrado.
+2. **Given** una sesión iniciada, **When** el lector abre una ruta protegida, **Then** accede sin que el sistema lo devuelva al login.
+3. **Given** un clon recién instalado, **When** el lector sigue el recorrido desde el primer paso, **Then** al terminar el último ve su entidad listada y puede dar de alta un registro que persiste tras recargar.
+4. **Given** un paso cualquiera del recorrido, **When** el lector ejecuta la comprobación que el paso declara, **Then** obtiene un resultado observable que distingue «quedó bien» de «no quedó».
+5. **Given** un lector que se salteó un paso, **When** ejecuta la comprobación del paso siguiente, **Then** la comprobación falla y el recorrido indica cómo volver al estado esperado.
+6. **Given** el estado final del recorrido, **When** el lector intenta dar de alta un registro con datos inválidos, **Then** el sistema lo rechaza y el mensaje aparece junto al campo que lo causó.
 
 ---
 
@@ -78,25 +81,30 @@ está logrado.
 - El repositorio puede estar con los demos instalados o sin ellos; el recorrido no puede depender de ese estado.
 - El lector ya tiene una entidad parecida y arranca a mitad de camino: cada paso debe declarar el estado de partida que asume.
 - Una comprobación que pasa por el motivo equivocado (por ejemplo, la ruta responde pero no persistió nada): el recorrido debe declarar qué NO prueba cada comprobación.
+- El lector no logra iniciar sesión porque no hay administrador sembrado o no definió las credenciales: el recorrido debe decirlo antes de que el lector crea que su entidad está mal.
+- Las credenciales del administrador no cumplen el mínimo exigido por el proyecto: el recorrido debe anticipar el rechazo en lugar de dejar que aparezca como error del paso siguiente.
+- El lector abre una ruta protegida sin sesión y el sistema lo devuelve al login: el recorrido debe explicar el desvío en vez de dejarlo como sorpresa.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: El recorrido MUST partir de un clon recién instalado y declarar sus prerrequisitos sin enseñarlos.
-- **FR-002**: Cada paso MUST declarar una comprobación observable, ejecutable por el lector, que distinga el éxito del fracaso.
-- **FR-003**: Cada paso MUST declarar el estado de partida que asume y el estado en que deja el sistema.
-- **FR-004**: El recorrido MUST construir una entidad nueva, escrita por el lector, y no copiada de un demo existente.
-- **FR-005**: El recorrido MUST usar el idioma vigente del framework para listar, dar de alta, validar y avisar, en lugar de una variante propia.
-- **FR-006**: Cada pieza reutilizable presentada MUST explicarse con qué resuelve, cuándo usarla y qué se evita al usarla.
-- **FR-007**: El recorrido MUST incluir la suite mínima de la entidad: alta correcta, validación que rechaza, y aviso ante un identificador inexistente.
-- **FR-008**: El cierre del recorrido MUST dejar el patrón explícito para aplicarlo a una entidad distinta de la del ejemplo.
-- **FR-009**: El artefacto MUST vivir fuera de `docs/`, `.ai/` y el README, y MUST poder agregarse sin romper el gate del proyecto.
-- **FR-010**: El artefacto MUST NOT modificar la guía existente, el README, ni los demos.
-- **FR-011**: El recorrido MUST NOT enseñar a construir el framework ni a modificar sus piezas; sólo a usarlas.
-- **FR-012**: Las comprobaciones por paso MUST usar [NEEDS CLARIFICATION: qué cuenta como comprobación suficiente — ¿una instrucción manual que el lector ejecuta, un comando del proyecto, un test propio del recorrido, o una combinación?]
-- **FR-013**: El artefacto MUST ubicarse en [NEEDS CLARIFICATION: ruta concreta dentro del árbol, sabiendo que `docs/`, `.ai/` y el README quedan excluidos]
-- **FR-014**: La suite de la entidad MUST escribirse [NEEDS CLARIFICATION: dentro de los pasos, a medida que aparece cada comportamiento, o como cierre al final del recorrido]
+- **FR-002**: El recorrido MUST incluir el arranque mínimo de la aplicación hasta una sesión iniciada contra una ruta protegida: variables de entorno, dependencias, migraciones, usuario administrador y servidor de desarrollo.
+- **FR-003**: Las credenciales del administrador MUST provenir del entorno y MUST NOT quedar escritas en el artefacto.
+- **FR-004**: Cada paso MUST declarar una comprobación observable, ejecutable por el lector, que distinga el éxito del fracaso.
+- **FR-005**: Cada paso MUST declarar el estado de partida que asume y el estado en que deja el sistema.
+- **FR-006**: El recorrido MUST construir una entidad nueva, escrita por el lector, y no copiada de un demo existente.
+- **FR-007**: El recorrido MUST usar el idioma vigente del framework para listar, dar de alta, validar y avisar, en lugar de una variante propia.
+- **FR-008**: Cada pieza reutilizable presentada MUST explicarse con qué resuelve, cuándo usarla y qué se evita al usarla.
+- **FR-009**: El recorrido MUST incluir la suite mínima de la entidad: alta correcta, validación que rechaza, y aviso ante un identificador inexistente.
+- **FR-010**: El cierre del recorrido MUST dejar el patrón explícito para aplicarlo a una entidad distinta de la del ejemplo.
+- **FR-011**: El artefacto MUST vivir fuera de `docs/`, `.ai/` y el README, y MUST poder agregarse sin romper el gate del proyecto.
+- **FR-012**: El artefacto MUST NOT modificar la guía existente, el README, ni los demos.
+- **FR-013**: El recorrido MUST NOT enseñar a construir el framework (instalación de PHP/Termux, contenedor de dependencias, middlewares, auth, assets) ni a modificar sus piezas; MUST explicarlas para usarlas, y sí incluye el arranque de la aplicación hasta una sesión iniciada porque sin sesión no hay ruta protegida que ver.
+- **FR-014**: Las comprobaciones por paso MUST usar [NEEDS CLARIFICATION: qué cuenta como comprobación suficiente — ¿una instrucción manual que el lector ejecuta, un comando del proyecto, un test propio del recorrido, o una combinación?]
+- **FR-015**: El artefacto MUST ubicarse en [NEEDS CLARIFICATION: ruta concreta dentro del árbol, sabiendo que `docs/`, `.ai/` y el README quedan excluidos]
+- **FR-016**: La suite de la entidad MUST escribirse [NEEDS CLARIFICATION: dentro de los pasos, a medida que aparece cada comportamiento, o como cierre al final del recorrido]
 
 ### Key Entities
 
@@ -112,11 +120,11 @@ está logrado.
 - **SC-002**: El 100% de los pasos declara una comprobación que falla cuando el paso no se hizo.
 - **SC-003**: El lector agrega una segunda entidad propia, con otro nombre y otro campo, sin releer el recorrido completo.
 - **SC-004**: El gate del proyecto sigue en verde después de agregar el artefacto.
-- **SC-005**: El recorrido no exige ningún prerrequisito que un clon del repositorio no traiga ya.
+- **SC-005**: El recorrido no exige ningún prerrequisito que un clon del repositorio no traiga ya, y el arranque hasta una sesión iniciada está incluido en sus pasos.
 
 ## Assumptions
 
-- El lector puede ejecutar Composer, las migraciones y el servidor de desarrollo; el recorrido no enseña a instalarlos.
+- El recorrido cubre el arranque de la aplicación hasta una sesión iniciada, pero no enseña a instalar PHP, Composer ni Termux: eso queda en la guía.
 - La entidad de ejemplo es nueva y su nombre no colisiona con las entidades que ya existen en el repositorio.
 - El demo de tareas puede usarse como contraste, pero el recorrido no depende de que esté instalado.
 - Las convenciones vigentes del proyecto son la autoridad: un recorrido que las contradiga es un error del recorrido, no una alternativa válida.

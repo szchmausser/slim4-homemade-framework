@@ -31,12 +31,13 @@ El lector objetivo parte de un **clon del repo**, no de una aplicación ya en ma
 - Que el camino respete las restricciones vigentes del proyecto (Termux ARM 32-bit sin toolchain, assets con SRI, tema por `data-theme`).
 - Que el recorrido sea **transferible**: al terminarlo, el lector pueda repetirlo con su propia entidad y no sólo haber llegado a una entidad de ejemplo — [source: decisión del solicitante, 2026-11-11].
 - Que el recorrido **explique las piezas reutilizables** que el framework ya ofrece, en el momento en que aparecen: para qué sirven, cuándo usarlas y qué se evita al usarlas — [source: decisión del solicitante, 2026-11-11].
+- Que el recorrido deje al lector con **una sesión iniciada contra una ruta protegida** antes de crear nada: sus rutas van protegidas, así que sin ese arranque no puede ver lo que construye — [source: observación del solicitante, 2026-11-11].
 
 ## Non-Goals
 
 - No es documentación viva ni parte del funcionamiento de la app: queda fuera de `docs:check` y, en consecuencia, fuera de `docs/`, `.ai/` y el README — [source: decisión del solicitante, 2026-11-11].
 - No reemplaza **ni modifica** `docs/guia-stack-php-termux.md` (incluido su capítulo 16) ni los demos instalables — [source: decisión del solicitante, 2026-11-11].
-- No enseña a construir el framework (Termux, Composer, DI, middlewares, auth, assets): eso ya está en la guía. Las piezas reutilizables se explican **para usarlas**, no para modificarlas ni para reimplementarlas.
+- No enseña a construir el framework (Termux, Composer, DI, middlewares, auth, assets): eso ya está en la guía. Las piezas reutilizables se explican **para usarlas**, no para modificarlas ni para reimplementarlas. Sí incluye el arranque de la aplicación hasta una sesión iniciada, porque sin sesión no hay ruta protegida que ver — [source: observación del solicitante, 2026-11-11].
 - No propone arquitectura nueva ni cambia decisiones del sistema visual documentadas en `DESIGN.md`.
 - No es un curso del flujo SDD: eso es `docs/tutorial-de-uso-spec-kit.md`.
 - No cubre despliegue ni exposición pública; hay material propio para eso.

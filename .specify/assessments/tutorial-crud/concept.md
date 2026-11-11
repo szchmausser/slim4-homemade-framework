@@ -25,7 +25,7 @@
 
 ### Option B — Camino canónico con verificación por paso
 
-- **Sketch**: un recorrido que lleva al lector desde un clon hasta una entidad propia funcionando,
+- **Sketch**: un recorrido que lleva al lector desde un clon hasta una entidad propia funcionando, pasando primero por el arranque mínimo de la app y una sesión iniciada —sin la cual no puede ver ninguna ruta protegida—,
   escrita por él y no copiada de un demo, siguiendo el idioma que el repositorio ya usa: listado en
   la región de la página con intercambio HTMX, avisos que aparecen en el lugar correcto, paginación
   del servidor, protección de los formularios y una suite mínima de tests de la entidad. Explica cada pieza
@@ -78,8 +78,9 @@ No recomiendo C: no resuelve el problema y su versión mínima es el primer paso
 
 ## Out of Scope (for the recommended option)
 
-- Construir el framework: Termux, Composer, contenedor de dependencias, middlewares, auth, assets. Las piezas reutilizables se explican para usarlas, no para
-  modificarlas ni reimplementarlas.
+- Construir el framework: instalación de PHP/Termux, Composer, contenedor de dependencias, middlewares, auth, assets. Las piezas reutilizables se explican para
+  usarlas, no para modificarlas ni reimplementarlas. El arranque de la app hasta una sesión iniciada
+  está **dentro**: es el estado desde el que se puede ver algo de lo que se construye.
 - Despliegue, exposición pública y backup.
 - La tabla avanzada en modo remoto y cualquier variante de paginación del cliente.
 - El flujo de trabajo de SDD y sus comandos.
