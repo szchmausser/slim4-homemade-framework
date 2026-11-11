@@ -45,17 +45,22 @@ $app = AppFactory::create();
 $app->setBasePath(Url::base());
 
 (require __DIR__ . '/../config/middleware.php')($app);
-(require __DIR__ . '/../routes/web.php')($app);
 
-// Los demos son opcionales: cada uno registra sus rutas al instalarse.
-$tasksRoutes = __DIR__ . '/../routes/tasks.php';
-if (is_file($tasksRoutes)) {
-    (require $tasksRoutes)($app);
+// Las rutas se registran por convención: web.php primero (es el arranque del
+// framework) y después el resto por orden alfabético. Agregar una entidad es
+// dejar su archivo en routes/, sin editar este archivo: este archivo está
+// copiado en docs/, y editarlo obligaba a correr docs:sync cada vez.
+$routeFiles = glob(__DIR__ . '/../routes/*.php') ?: [];
+sort($routeFiles);
+
+$web = __DIR__ . '/../routes/web.php';
+if (is_file($web)) {
+    (require $web)($app);
+    $routeFiles = array_values(array_filter($routeFiles, static fn (string $f): bool => $f !== $web));
 }
 
-$contactsRoutes = __DIR__ . '/../routes/contacts.php';
-if (is_file($contactsRoutes)) {
-    (require $contactsRoutes)($app);
+foreach ($routeFiles as $routeFile) {
+    (require $routeFile)($app);
 }
 
 return $app;
