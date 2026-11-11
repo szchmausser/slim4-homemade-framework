@@ -13,7 +13,8 @@ Necesitás:
 - PHP 8.4.1 o superior con `pdo_sqlite`, `mbstring` y `sqlite3`.
 - Composer 2.
 - Un navegador.
-- `curl` (opcional: se usa una sola vez, y hay alternativa con el navegador).
+- `curl` (opcional). Todas las comprobaciones se pueden hacer desde el navegador; `curl` sólo sirve
+  si preferís ver los cuerpos crudos.
 
 **Lo que este recorrido no enseña**: instalar PHP, Composer ni Termux; el contenedor de dependencias;
 los middlewares; la autenticación; los assets y el sistema visual; el despliegue. Todo eso está en
@@ -161,6 +162,11 @@ migración listada como aplicada, sin pendientes.
 **Qué no prueba**: que el modelo use esta tabla ni que los campos alcancen. La migración sólo prueba
 que el esquema se puede crear y revertir.
 
+> **Por qué `titulo` no es `NOT NULL`**: si mirás la tabla vas a ver `VARCHAR(120)` que acepta nulos.
+> La obligatoriedad la impone el validador (paso 7), no la base. Es la convención del proyecto: el
+> mensaje de error lo da la capa de validación, que es la que puede explicarle al usuario qué
+> corregir.
+
 **Pieza — migraciones Phinx con numeración secuencial**: resuelven el versionado del esquema sin
 depender de un ORM que lo adivine. Usalas siempre que cambie el esquema. Evitan el problema de los
 timestamps, que saturan enteros de 32 bits en bases grandes. Sin esta pieza tendrías que aplicar SQL
@@ -209,13 +215,14 @@ class Nota extends Model
 composer lint
 ```
 
-Esperado: sin errores, con `app/` entre los directorios revisados.
+Esperado: `Lint OK (N archivos)`, con un archivo **más** que en la corrida anterior a crear el
+modelo.
 
 **Falla si**:
 
 - El lint reporta un error de sintaxis: revisá llaves y `;`.
-- El lint no revisa tu archivo: no está en `app/Models/`, así que la ruta y el `namespace` no van a
-  coincidir.
+- El total de archivos no subió respecto de la corrida anterior: el archivo no está donde el lint
+  mira. Anotá el total antes de crearlo y compará.
 
 **Qué no prueba**: que el modelo conecte con la tabla. El lint sólo verifica sintaxis; la prueba real
 llega en el paso 7, cuando creás la primera nota. Si el modelo apunta a una tabla inexistente, el
@@ -353,7 +360,8 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 
 **Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON.
 
-**Acción**: cambiá `index()` para renderizar una vista y crear `resources/views/notas/index.twig`:
+**Acción**: sumá `use App\Models\Nota;` arriba del archivo, cambiá `index()` para renderizar una vista
+y creá `resources/views/notas/index.twig`:
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -423,11 +431,10 @@ cometió el error.
 
 **Estado de partida**: paso 6 hecho; la lista se ve vacía.
 
-**Acción**: agregá `store()` al controlador. Vas a necesitar cuatro `use` más, arriba del archivo:
+**Acción**: agregá `store()` al controlador. Vas a necesitar dos `use` más, arriba del archivo (el de
+`Nota` ya entró en el paso 6):
 
 ```php
-use App\Models\Nota;
-use Framework\Http\Flash;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
 ```
@@ -438,6 +445,11 @@ Y la acción:
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
+
+        // El validador no tiene regla «optional»: evaluar `max:2000` sobre null
+        // hace fallar el campo cuando no viene. Normalizar primero es lo que
+        // mantiene `cuerpo` realmente opcional.
+        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
 
         $validator = Validator::make($data, [
             'titulo' => 'required|max:120',
@@ -456,10 +468,8 @@ Y la acción:
 
         Nota::create([
             'titulo' => (string) $data['titulo'],
-            'cuerpo' => (string) ($data['cuerpo'] ?? '') !== '' ? (string) $data['cuerpo'] : null,
+            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
         ]);
-
-        Flash::set('success', 'Nota creada.');
 
         return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
     }
@@ -495,8 +505,11 @@ Y sumá el formulario arriba de la lista en `notas/index.twig`:
             </form>
 ```
 
-**Comprobación**: en `/notas`, escribí un título y guardá. Esperado: volvés a `/notas` con la nota
-en la lista y un aviso de éxito.
+**Comprobación**: en `/notas`, escribí un título y guardá. Esperado: volvés a `/notas` y la nota
+aparece en la lista.
+
+Guardá otra **sin cuerpo**: también tiene que entrar. Si te la rechaza, el campo opcional está tratado
+como requerido.
 
 Después probá el rechazo: guardá con el título vacío. Esperado: seguís en el formulario, con un
 mensaje de error **junto al campo del título**, y lo que habías escrito en el cuerpo sigue ahí.
@@ -506,12 +519,19 @@ mensaje de error **junto al campo del título**, y lo que habías escrito en el 
 - El POST te devuelve al login con «Tu sesión expiró. Volvé a iniciar sesión.»: falta el
   `{% include 'partials/_csrf.twig' %}` dentro del formulario. Sin HTMX el rechazo de CSRF es un 303
   al login con ese aviso (el del handler de `config/container.php`), no un 400.
+- Guardás sin cuerpo y te rechaza con «No puede superar los 2000 caracteres.»: falta la línea de
+  normalización de arriba.
 - El formulario se limpia al fallar la validación: estás devolviendo la vista sin los valores
   `titulo` y `cuerpo`, o sin el status 422.
 - La nota se crea pero no aparece: la lista no se volvió a leer después de guardar.
 
-**Qué no prueba**: que el título largo se rechace en el servidor y no sólo en el navegador. El
-`maxlength` de la interfaz se puede saltear.
+**Qué no prueba**: que el título largo se rechace en el servidor y no sólo en el navegador —el
+`maxlength` de la interfaz se puede saltear—, ni que aparezca un aviso de éxito.
+
+> **No hay aviso de éxito todavía, y es correcto.** `Flash::set()` necesita un consumidor: el login lo
+> tiene (renderiza `flash_error`), pero tus pantallas no renderizan flash y el toast necesita HTMX.
+> Si agregás el flash acá, se consume y se descarta sin que se vea nada. El aviso llega en el paso
+> 10, cuando la respuesta pasa por HTMX.
 
 **Pieza — `Framework\Validation\Validator`**: resuelve la validación en el servidor con reglas
 declarativas. Usalo en toda acción que reciba datos. Evita validar a mano campo por campo, que es
@@ -741,7 +761,7 @@ Y el controlador elige qué devolver según el request:
 ```
 
 `index()` devuelve `$this->respond($request, $response)`. `store()` usa `respond()` en el rechazo y,
-en el éxito, responde con el panel y el aviso:
+en el éxito, responde con el panel y el aviso. Sumá `use Framework\Http\Flash;` arriba del archivo:
 
 ```php
         Flash::set('success', 'Nota creada.');
