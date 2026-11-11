@@ -87,7 +87,7 @@ php -S 0.0.0.0:8080 -t public
 
 **Comprobación**: abrí `http://localhost:8080/login` en el navegador. Tenés que ver el formulario de
 acceso. Entrá con el email y la contraseña que sembraste: después del login el navegador te lleva a
-la portada y en el header aparece tu usuario.
+la portada y en el pie del sidebar aparece tu usuario, con tu email debajo.
 
 **Falla si**:
 
@@ -270,6 +270,10 @@ Después, registralo en `bootstrap/app.php`, junto a los otros archivos de rutas
 
 Sólo dos rutas por ahora: `index` y `store`. Las de editar y borrar se suman en los pasos 8 y 9, cuando
 exista la acción que las atiende. Una ruta sin acción es una promesa que el framework no puede cumplir.
+
+> **Ojo con el gate:** `bootstrap/app.php` está copiado entero en `docs/guia-stack-php-termux.md`, y esa
+> copia se verifica. Al agregar tu línea, `composer docs:check` empieza a fallar con «la copia de
+> `bootstrap/app.php` difiere del archivo real». Es esperado: ver «Problemas frecuentes».
 
 **Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
 que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
@@ -489,7 +493,8 @@ cada entidad tiene su propia versión con variaciones accidentales.
 
 ### 6.4 El encabezado con la acción y el contador
 
-**Acción**: en `index.twig`, arriba del include del panel:
+**Acción**: en `index.twig`, reemplazá el `<h1 class="text-2xl font-bold">Notas</h1>` que dejó el paso
+6.2 —el bloque de abajo ya trae ese mismo `h1`— y dejá esto arriba del include del panel:
 
 ```twig
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -807,14 +812,18 @@ verdad.
 
 ### 8.1 Primero, el atajo que no se debe dejar
 
-**Acción**: en el bloque `row` del parcial, agregá dos enlaces con emoji:
+**Acción**: en el bloque `row` del parcial, la fila pasa a ser flex —si no, las acciones caen debajo del
+título en vez de quedar a la derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
 
 ```twig
-                <div class="flex shrink-0 items-center gap-1">
-                    <a class="btn btn-ghost btn-sm" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">✏️</a>
-                    <button class="btn btn-ghost btn-sm"
-                            onclick="document.getElementById('nota-delete-' ~ item.id ~ ')">🗑️</button>
-                </div>
+<li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+    <span class="font-semibold">{{ item.titulo }}</span>
+    <div class="flex shrink-0 items-center gap-1">
+        <a class="btn btn-ghost btn-sm" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">✏️</a>
+        <button class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('nota-delete-{{ item.id }}')">🗑️</button>
+    </div>
+</li>
 ```
 
 **Comprobación**: se ven dos iconos por fila. Y si abrís el inspector o pasás el lector de pantalla,
@@ -822,6 +831,9 @@ los dos controles **no tienen nombre**: el enlace se anuncia como «✏️» y e
 alguien que no ve la pantalla, son dos botones indistinguibles.
 
 **Qué no prueba**: nada bueno. Sirve para ver el problema antes de arreglarlo.
+
+> El `onclick` está interpolado con `{{ item.id }}` a propósito: sin interpolar, el botón no haría nada
+> y parecería que el problema del paso es el JavaScript, cuando el problema es que **no tiene nombre**.
 
 ### 8.2 Ahora, el botón del proyecto
 
@@ -880,7 +892,13 @@ resto de la app.
 
 **Estado de partida**: paso 8 hecho; el lápiz navega a una ruta que todavía no existe.
 
-**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda:
+**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda. Sumá
+arriba el import de la excepción, junto a los otros `use` —sin él el error que ves es
+`Class "App\Http\Controllers\HttpNotFoundException" not found`, un 500 que parece un problema de rutas:
+
+```php
+use Slim\Exception\HttpNotFoundException;
+```
 
 ```php
     public function edit(Request $request, Response $response, array $args): Response
@@ -954,7 +972,7 @@ cuando hay nota::
                 action: url('/notas/' ~ nota.id),
                 submit_label: 'Guardar cambios',
                 cancel_target: 'nota-edit-modal'
-            } only %}
+            } %}
         {% endblock %}
     {% endembed %}
 {% endif %}
@@ -1328,8 +1346,11 @@ la última página con las filas que queden; «Anterior» y «Primera» retroced
 botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga** y queda
 **un solo** sidebar y **un solo** header.
 
-Comprobalo con el inspector después de paginar: dentro de `#notas-panel` no puede haber ni `<aside>` ni
-`<header>`; si los hay, el servidor mandó la página entera en vez de la región.
+Comprobalo con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
+un solo `<header>` y dos `<aside>` (el sidebar y el de avisos), y `#notas-panel` tiene que seguir
+existiendo con la paginación adentro. Si ves dos headers y cuatro asides, el servidor mandó la página
+completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
+muestra nada raro y el bug pasa igual.
 
 **Falla si**:
 
@@ -1406,6 +1427,7 @@ Eso es otra conversación, y necesita más piezas.
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
 | Paginás y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |
+| `composer docs:check` falla con «la copia de `bootstrap/app.php` difiere del archivo real» | Registraste tu archivo de rutas en `bootstrap/app.php`, y la guía del stack copia ese archivo entero | Es esperado mientras tu entidad esté puesta: esa copia documenta el framework, no tu app. Dos salidas: convivir con el gate en rojo mientras desarrollás, o correr `composer docs:sync` para reescribir la copia —y aceptar que la documentación del framework pase a mostrar tu `notas` |
 
 ## Qué demuestra este recorrido
 
