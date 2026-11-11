@@ -39,7 +39,7 @@ Verificado el 2026-11-11 sobre `specify 1.4.1.dev0`:
 | Comandos SDD | `constitution`, `specify`, `clarify`, `checklist`, `plan`, `tasks`, `analyze`, `implement`, `converge` |
 | Extensión `assess` | v1.0.2, enabled → `assess.intake`, `assess.research`, `assess.define`, `assess.shape`, `assess.decide` |
 | Extensión `bug` | v1.0.2, enabled → `bug.assess`, `bug.fix`, `bug.test` |
-| Constitución | **plantilla sin llenar** (`[PRINCIPLE_1_NAME]`) |
+| Constitución | ratificada **v1.0.0** (`.specify/memory/constitution.md`) |
 | `specs/` | **no existe todavía** |
 
 Tres comprobaciones rápidas para no adivinar:
@@ -59,34 +59,64 @@ agente no recargó: cerrarlo y volver a abrirlo (no `/clear`).
 
 ## 1. Tres procesos, no una cascada
 
-Spec Kit no es una única cadena obligatoria: son tres puertas de entrada independientes.
+Spec Kit no ofrece un pipeline único por el que pasa todo. Ofrece **tres procesos que responden tres
+preguntas distintas** y que escriben en tres carpetas distintas. Lo único que comparten es la
+constitución y el agente que los ejecuta.
 
-```
-                    ┌──────────────────────────────────────────┐
-   ¿vale la pena?   │ assess.intake → research → define →       │  go
-   ────────────────►│ shape → decide                           ├──────┐
-                    └──────────────────────────────────────────┘      │
-                                   │ kill / needs-clarification      │
-                                   ▼                                 ▼
-                              cerrado con razón           ┌──────────────────────────┐
-                                                          │ specify → clarify → plan │
-   hay que          ┌──────────────────────────┐          │ → checklist → tasks →    │
-   construirlo ────►│ SDD (core)               │◄─────────│ analyze → implement →    │
-                    └──────────────────────────┘  handoff │ converge                │
-   hay que          ┌──────────────────────────┐          └──────────────────────────┘
-   repararlo ──────►│ bug.assess → fix → test  │
-                    └──────────────────────────┘
+```text
+CONSTITUCIÓN   ← gobierna los tres; no pertenece a ninguno
+
+  A · assess            B · SDD                 C · bug
+  ¿vale la pena?        ¿cómo lo construyo?     ¿por qué está roto?
+
+  intake                specify                 assess
+  research              clarify                 fix
+  define                plan                    test
+  shape                 checklist
+  decide                tasks                   → verified
+                        analyze                   | partial
+  → go | needs-clar     implement                 | failed
+    | kill              converge  ⟲
+                        → código
+
+  .specify/assessments/  specs/NNN-slug/        .specify/bugs/
 ```
 
-| Pregunta | Proceso | Artefactos | Veredicto |
+La diferencia no es cosmética. Una cascada única obliga a que toda entrada tenga la misma forma, y
+entonces pasan dos cosas:
+
+- **Un fix de veinte líneas** entra por `specify` y sale con spec, plan, research y tasks para
+  cambiar un condicional. El trámite cuesta más que el arreglo, y el proceso se abandona en el
+  segundo intento.
+- **Una idea sin validar** entra por `specify` y sale con una especificación impecable de algo que
+  quizá no había que construir. Peor: el documento la hace parecer decidida, porque trae user
+  stories priorizadas, criterios de aceptación y métricas.
+
+Por eso cada puerta tiene su criterio de entrada y su propia salida:
+
+| Puerta | Entrás cuando… | Salís con… | Escribe en |
 |---|---|---|---|
-| ¿Esta idea merece inversión? | `assess` | `.specify/assessments/<slug>/` | `go` / `needs-clarification` / `kill` |
-| ¿Cómo lo construimos? | SDD | `specs/NNN-slug/` | no hay veredicto: hay gates de revisión |
-| ¿Por qué está roto? | `bug` | `.specify/bugs/<slug>/` | `verified` / `partial` / `failed` |
+| **A · assess** | tenés una idea y no sabés si conviene | un veredicto `go` / `needs-clarification` / `kill`, con la razón escrita | `.specify/assessments/<slug>/` |
+| **B · SDD** | sabés qué querés y te falta el cómo explícito | código, más spec / plan / tasks que lo describen | `specs/NNN-slug/` |
+| **C · bug** | un comportamiento se desvía de lo esperado | un reporte con veredicto `verified` / `partial` / `failed` | `.specify/bugs/<slug>/` |
 
-La distinción importa: **discovery responde "¿hay que hacerlo?" y delivery responde "¿cómo?"**.
-Si le pasás una idea cruda a `specify`, obtenés una especificación prolija de algo que quizá no
-había que construir — y el documento la hace parecer decidida.
+En una línea: **discovery responde "¿hay que hacerlo?", delivery responde "¿cómo?", y triage
+responde "¿por qué difiere de lo acordado?"**.
+
+**Cuándo no usar cada una:**
+
+- `assess` no decide *cómo* se construye ni diseña nada. Si ya sabés que hay que hacerlo y sólo te
+  falta el alcance, entrá directo por SDD.
+- SDD no es para explorar. Comparando opciones, `shape` es más barato y más honesto que `plan`.
+- `bug` no cubre alcance nuevo. Si el comportamiento esperado no figura en ninguna spec, no es un
+  bug: es una feature sin especificar (y eso se decide en §6).
+
+**Ninguna puerta llama a otra.** Cada proceso escribe sólo dentro de su carpeta, y el traspaso es un
+documento más una decisión tuya. Los tres empalmes —`go` → spec, spec → reporte de bug, y bug
+cerrado → spec enmendada o intacta— están en la §6.
+
+Y en la práctica se solapan sin conflicto: una idea nueva el lunes (`assess`), una feature acordada
+el martes (`specify`), un 500 el jueves (`bug`). Ninguna necesita que las otras hayan terminado.
 
 ## 2. Antes de la primera spec: tres decisiones
 
