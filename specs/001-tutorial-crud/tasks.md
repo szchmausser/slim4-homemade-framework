@@ -34,9 +34,9 @@
 
 **Purpose**: esqueleto del artefacto y convención de escritura de cada paso
 
-- [ ] T001 Crear `tutorial-crud.md` en la raíz con la estructura del contrato: título, propósito, prerrequisitos, índice de pasos y cierre, según `specs/001-tutorial-crud/contracts/tutorial-contract.md`
-- [ ] T002 [P] Escribir el bloque de prerrequisitos en `tutorial-crud.md` § Prerrequisitos: PHP 8.4.1, Composer, cliente HTTP, navegador, y la lista explícita de lo que el recorrido **no** enseña
-- [ ] T003 Escribir la convención interna que repite cada paso en `tutorial-crud.md`: objetivo, estado de partida, acción, resultado esperado, señal de falla, qué no prueba y pieza presentada (si hay)
+- [x] T001 Crear `tutorial-crud.md` en la raíz con la estructura del contrato: título, propósito, prerrequisitos, índice de pasos y cierre, según `specs/001-tutorial-crud/contracts/tutorial-contract.md`
+- [x] T002 [P] Escribir el bloque de prerrequisitos en `tutorial-crud.md` § Prerrequisitos: PHP 8.4.1, Composer, cliente HTTP, navegador, y la lista explícita de lo que el recorrido **no** enseña
+- [x] T003 Escribir la convención interna que repite cada paso en `tutorial-crud.md`: objetivo, estado de partida, acción, resultado esperado, señal de falla, qué no prueba y pieza presentada (si hay)
 
 **Checkpoint**: el esqueleto existe y cualquier paso que se agregue ya tiene forma fija
 
@@ -48,11 +48,11 @@
 
 **⚠️ CRITICAL**: ninguna historia puede escribirse sin estos valores fijados
 
-- [ ] T004 Verificar el número de migración libre en `database/migrations/` y escribir en `tutorial-crud.md` § migración el **criterio** para calcularlo, con el número actual como ejemplo y no como constante
-- [ ] T005 Verificar el punto de registro de rutas en `bootstrap/app.php:48` y el patrón de `routes/web.php`; dejar elegidos los extractos que se van a citar en `tutorial-crud.md`
-- [ ] T006 Fijar en `tutorial-crud.md` los literales de la primera comprobación: método, URL, `Content-Type`, cuerpo exacto `{"status":"ok","recurso":"notas"}` y código de estado
-- [ ] T007 [P] Confirmar en `tests/Support/HttpTestCase.php` el patrón de login inyectado, `setUp`/`tearDown` y limpieza que el cierre va a enseñar; dejar el extracto elegido
-- [ ] T008 [P] Definir en `specs/001-tutorial-crud/quickstart.md` § validación el procedimiento de la copia descartable (clon local en directorio temporal) y el criterio para dar por válido un recorrido seguido de punta a punta
+- [x] T004 Verificar el número de migración libre en `database/migrations/` y escribir en `tutorial-crud.md` § migración el **criterio** para calcularlo, con el número actual como ejemplo y no como constante
+- [x] T005 Verificar el punto de registro de rutas en `bootstrap/app.php:48` y el patrón de `routes/web.php`; dejar elegidos los extractos que se van a citar en `tutorial-crud.md`
+- [x] T006 Fijar en `tutorial-crud.md` los literales de la primera comprobación: método, URL, `Content-Type`, cuerpo exacto `{"status":"ok","recurso":"notas"}` y código de estado
+- [x] T007 [P] Confirmar en `tests/Support/HttpTestCase.php` el patrón de login inyectado, `setUp`/`tearDown` y limpieza que el cierre va a enseñar; dejar el extracto elegido
+- [x] T008 [P] Definir en `specs/001-tutorial-crud/quickstart.md` § validación el procedimiento de la copia descartable (clon local en directorio temporal) y el criterio para dar por válido un recorrido seguido de punta a punta
 
 **Checkpoint**: el documento tiene todos los valores reales que necesita; nada queda a inventar durante la redacción
 
@@ -64,16 +64,16 @@
 
 **Independent Test**: seguir el recorrido completo en la copia descartable, sin abrir la guía ni `framework/scaffolds/`, y terminar con `notas` listando y persistiendo datos reales.
 
-- [ ] T009 [US1] Escribir en `tutorial-crud.md` el paso de arranque: `.env`, dependencias, autoload, migraciones, siembra del administrador con `ADMIN_EMAIL`/`ADMIN_PASSWORD` desde el entorno, servidor de desarrollo e inicio de sesión en `/login`; incluir esperado, señal de falla y qué no prueba
-- [ ] T010 [US1] Escribir el paso de migración de `notas` en `tutorial-crud.md`, citando los constraints textuales de `data-model.md`: `titulo` requerido 1–120, `cuerpo` opcional hasta 2000, timestamps
-- [ ] T011 [US1] Escribir el paso del modelo `Nota` en `tutorial-crud.md`, con `$fillable` y la relación con la tabla; explicar por qué el modelo no valida y quién valida
-- [ ] T012 [US1] Escribir el paso de rutas en `tutorial-crud.md`: archivo `routes/notas.php` completo y el registro en `bootstrap/app.php`, explicando por qué existe el registro y no sólo el archivo
-- [ ] T013 [US1] Escribir el paso de la primera ruta JSON en `tutorial-crud.md` con la comprobación `http` completa: comando copiable, cuerpo esperado literal, código de estado y señal de falla
-- [ ] T014 [US1] Escribir el paso del listado en `tutorial-crud.md`: vista que extiende `layouts/app.twig` con `{% block content %}`, sin HTMX todavía, y comprobación por navegador con lo que debe verse y lo que no (depende de T013: FR-017 exige la respuesta simple verificada antes de introducir vistas)
-- [ ] T015 [US1] Escribir el paso del alta con validación en `tutorial-crud.md`: rechazo por título vacío y por exceder 120, con el mensaje junto al campo; comprobación por navegador y señal de falla
-- [ ] T016 [US1] Escribir el paso de persistencia comprobable en `tutorial-crud.md`: dar de alta, recargar y ver la fila; declarar explícitamente qué **no** prueba esa comprobación
-- [ ] T017 [US1] Escribir el cierre de US1 en `tutorial-crud.md` § Tests: tres casos sobre `Tests\Support\HttpTestCase` —alta correcta, validación que rechaza, identificador inexistente que avisa— presentados como el reemplazo de las comprobaciones manuales; no adelantar tests ni pistas de automatización en los pasos anteriores (FR-016)
-- [ ] T018 [US1] Validar US1: seguir el recorrido en la copia descartable, registrar cada desvío entre lo esperado y lo obtenido, y corregir `tutorial-crud.md` hasta que no haya desvíos; confirmar además que cada paso declara estado de partida y de llegada (FR-005) y que ningún paso reproduce literalmente código de `framework/scaffolds/` (FR-006)
+- [x] T009 [US1] Escribir en `tutorial-crud.md` el paso de arranque: `.env`, dependencias, autoload, migraciones, siembra del administrador con `ADMIN_EMAIL`/`ADMIN_PASSWORD` desde el entorno, servidor de desarrollo e inicio de sesión en `/login`; incluir esperado, señal de falla y qué no prueba
+- [x] T010 [US1] Escribir el paso de migración de `notas` en `tutorial-crud.md`, citando los constraints textuales de `data-model.md`: `titulo` requerido 1–120, `cuerpo` opcional hasta 2000, timestamps
+- [x] T011 [US1] Escribir el paso del modelo `Nota` en `tutorial-crud.md`, con `$fillable` y la relación con la tabla; explicar por qué el modelo no valida y quién valida
+- [x] T012 [US1] Escribir el paso de rutas en `tutorial-crud.md`: archivo `routes/notas.php` completo y el registro en `bootstrap/app.php`, explicando por qué existe el registro y no sólo el archivo
+- [x] T013 [US1] Escribir el paso de la primera ruta JSON en `tutorial-crud.md` con la comprobación `http` completa: comando copiable, cuerpo esperado literal, código de estado y señal de falla
+- [x] T014 [US1] Escribir el paso del listado en `tutorial-crud.md`: vista que extiende `layouts/app.twig` con `{% block content %}`, sin HTMX todavía, y comprobación por navegador con lo que debe verse y lo que no (depende de T013: FR-017 exige la respuesta simple verificada antes de introducir vistas)
+- [x] T015 [US1] Escribir el paso del alta con validación en `tutorial-crud.md`: rechazo por título vacío y por exceder 120, con el mensaje junto al campo; comprobación por navegador y señal de falla
+- [x] T016 [US1] Escribir el paso de persistencia comprobable en `tutorial-crud.md`: dar de alta, recargar y ver la fila; declarar explícitamente qué **no** prueba esa comprobación
+- [x] T017 [US1] Escribir el cierre de US1 en `tutorial-crud.md` § Tests: tres casos sobre `Tests\Support\HttpTestCase` —alta correcta, validación que rechaza, identificador inexistente que avisa— presentados como el reemplazo de las comprobaciones manuales; no adelantar tests ni pistas de automatización en los pasos anteriores (FR-016)
+- [x] T018 [US1] Validar US1: seguir el recorrido en la copia descartable, registrar cada desvío entre lo esperado y lo obtenido, y corregir `tutorial-crud.md` hasta que no haya desvíos; confirmar además que cada paso declara estado de partida y de llegada (FR-005) y que ningún paso reproduce literalmente código de `framework/scaffolds/` (FR-006)
 
 **Checkpoint**: US1 funciona sola. El recorrido produce una entidad que lista, persiste y tiene suite propia
 
@@ -85,12 +85,12 @@
 
 **Independent Test**: pedir a alguien que siguió el recorrido que nombre las piezas que usó y qué evita cada una, sin releerlo.
 
-- [ ] T019 [US2] Definir en `tutorial-crud.md` la lista de piezas que el recorrido presenta y en qué paso aparece cada una, sin presentar ninguna antes de que el lector la necesite
-- [ ] T020 [US2] Completar en `tutorial-crud.md`, en cada paso que presenta una pieza, los cuatro campos del contrato: qué resuelve, cuándo usarla, qué evita y cómo se haría sin ella
-- [ ] T021 [US2] Escribir en `tutorial-crud.md` la sección del listado como región HTMX: qué se intercambia, dónde aparece el aviso y qué no prueba la comprobación visual
-- [ ] T022 [US2] Escribir en `tutorial-crud.md` la sección de paginación del servidor: por qué el servidor cuenta y recorta, y qué se evita frente a traer todo el conjunto
-- [ ] T023 [US2] Escribir en `tutorial-crud.md` la sección de protección de formularios: los dos transportes —campo oculto dentro del formulario y cabecera en un botón suelto— explicados como uso, sin entrar en cómo se construyen
-- [ ] T024 [US2] Validar US2: ejecutar el test de P2 (nombrar y justificar las piezas usadas) y ajustar `tutorial-crud.md` donde la explicación no alcance
+- [x] T019 [US2] Definir en `tutorial-crud.md` la lista de piezas que el recorrido presenta y en qué paso aparece cada una, sin presentar ninguna antes de que el lector la necesite
+- [x] T020 [US2] Completar en `tutorial-crud.md`, en cada paso que presenta una pieza, los cuatro campos del contrato: qué resuelve, cuándo usarla, qué evita y cómo se haría sin ella
+- [x] T021 [US2] Escribir en `tutorial-crud.md` la sección del listado como región HTMX: qué se intercambia, dónde aparece el aviso y qué no prueba la comprobación visual
+- [x] T022 [US2] Escribir en `tutorial-crud.md` la sección de paginación del servidor: por qué el servidor cuenta y recorta, y qué se evita frente a traer todo el conjunto
+- [x] T023 [US2] Escribir en `tutorial-crud.md` la sección de protección de formularios: los dos transportes —campo oculto dentro del formulario y cabecera en un botón suelto— explicados como uso, sin entrar en cómo se construyen
+- [x] T024 [US2] Validar US2: ejecutar el test de P2 (nombrar y justificar las piezas usadas) y ajustar `tutorial-crud.md` donde la explicación no alcance
 
 **Checkpoint**: el recorrido ya no se lee como receta: cada pieza tiene razón y alternativa
 
@@ -102,8 +102,8 @@
 
 **Independent Test**: agregar una segunda entidad con otro nombre y otro campo usando el recorrido sólo como consulta.
 
-- [ ] T025 [US3] Escribir en `tutorial-crud.md` § Transferencia la guía de aplicación a otra entidad: qué cambia (nombre, campos, archivos) y qué no cambia (orden, comprobaciones, cierre)
-- [ ] T026 [US3] Validar US3: crear la segunda entidad en la copia descartable usando el recorrido como consulta, anotar cuántas relecturas hicieron falta y ajustar `tutorial-crud.md` § Transferencia
+- [x] T025 [US3] Escribir en `tutorial-crud.md` § Transferencia la guía de aplicación a otra entidad: qué cambia (nombre, campos, archivos) y qué no cambia (orden, comprobaciones, cierre)
+- [x] T026 [US3] Validar US3: crear la segunda entidad en la copia descartable usando el recorrido como consulta, anotar cuántas relecturas hicieron falta y ajustar `tutorial-crud.md` § Transferencia
 
 **Checkpoint**: las tres historias se sostienen por separado y el patrón es repetible
 
@@ -113,12 +113,12 @@
 
 **Purpose**: descubribilidad y verificación de que no se tocó lo intocable
 
-- [ ] T027 [P] Agregar una única línea de enlace a `tutorial-crud.md` en el índice de guías de `README.md`
-- [ ] T028 [P] Verificar que `git status` sólo muestre `tutorial-crud.md` nuevo y una línea en `README.md`; nada en `docs/`, `framework/scaffolds/` ni `DESIGN.md`
-- [ ] T029 Ejecutar `composer verify` y `composer docs:check`; confirmar el mismo resultado que antes del artefacto (23 markdown, 44 fuentes, 57 copias)
-- [ ] T030 Recorrer `specs/001-tutorial-crud/checklists/verificacion.md` y resolver o registrar explícitamente CHK007, CHK010 y CHK023
-- [ ] T031 [P] Verificar que `tutorial-crud.md` no contiene credenciales ni valores de `.env` reales: la siembra del administrador debe mostrar la lectura desde el entorno, nunca un valor concreto (FR-003)
-- [ ] T032 Verificar que `tutorial-crud.md` no introduce utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX (FR-018)
+- [x] T027 [P] Agregar una única línea de enlace a `tutorial-crud.md` en el índice de guías de `README.md`
+- [x] T028 [P] Verificar que `git status` sólo muestre `tutorial-crud.md` nuevo y una línea en `README.md`; nada en `docs/`, `framework/scaffolds/` ni `DESIGN.md`
+- [x] T029 Ejecutar `composer verify` y `composer docs:check`; confirmar el mismo resultado que antes del artefacto (23 markdown, 44 fuentes, 57 copias)
+- [x] T030 Recorrer `specs/001-tutorial-crud/checklists/verificacion.md` y resolver o registrar explícitamente CHK007, CHK010 y CHK023
+- [x] T031 [P] Verificar que `tutorial-crud.md` no contiene credenciales ni valores de `.env` reales: la siembra del administrador debe mostrar la lectura desde el entorno, nunca un valor concreto (FR-003)
+- [x] T032 Verificar que `tutorial-crud.md` no introduce utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX (FR-018)
 
 ---
 
@@ -165,3 +165,29 @@
 - El entregable **no** se valida con un gate: se valida siguiéndolo. Una tarea de validación que no registra desvíos no valida nada
 - Toda comprobación que se escriba sin señal de falla está incompleta, aunque el paso se lea bien
 - La copia descartable es obligatoria: si la entidad de ejemplo queda en la working tree, se contamina el repositorio y se rompe el supuesto de "el artefacto no agrega código"
+
+---
+
+## Cierre
+
+Todas las tareas quedaron cumplidas. La guía se escribió, se siguió de punta a punta **dos veces** en
+worktrees descartables (una por mí, otra por un revisor independiente con el prompt de revisión) y se
+corrigió con la evidencia de cada corrida.
+
+| Fase | Evidencia |
+|---|---|
+| 1 · Setup (T001–T003) | `tutorial-crud.md` existe en la raíz con prerrequisitos, índice y la convención de paso (objetivo / estado de partida / acción / esperado / falla si / qué no prueba / pieza). |
+| 2 · Fundación (T004–T008) | Migración `007` verificada en `phinx status`; `bootstrap/app.php` y el patrón de `routes/*.php` revisados; literales de la primera comprobación fijados (`{"status":"ok","recurso":"notas"}`); patrón de `tests/Support/HttpTestCase.php` confirmado; procedimiento de copia descartable escrito en `quickstart.md`. |
+| 3 · US1 (T009–T018) | Recorrido seguido dos veces: arranque con sesión, migración, modelo, rutas, JSON, lista, alta en modal, edición, borrado, y 5 tests en verde. Desvíos corregidos: import faltante en 6.1 y 9, `<dialog>` fuera del bloque, `only` en dos includes, dos `<h1>` en 6.4, email del usuario en el sidebar y no en el header. |
+| 4 · US2 (T019–T024) | Cada pieza se presenta cuando hace falta, con qué resuelve, cuándo usarla, qué evita y alternativa manual (revisado en el texto). El test de P2 con un lector nuevo queda para la validación humana. |
+| 5 · US3 (T025–T026) | Repetido con `libros` usando sólo el inventario de seis archivos: pantalla con modal, dos acciones por fila y paginación, con 5 tests en verde y ninguna mención a `notas` en piezas compartidas. |
+| 6 · Polish (T027–T032) | Línea única en el índice de guías del README; `git status` con sólo `tutorial-crud.md` y esa línea; `composer docs:check` en verde; checklist revisado (CHK007 y CHK010 cerrados en `contracts/`, CHK023 documentado en el plan); sin credenciales reales, sin utilidades `dark:`, sin assets nuevos, sin 303 para HTMX. |
+
+**Cambio de alcance durante la ejecución:** el paso 4 ya no edita `bootstrap/app.php`. Con
+`feat(routing): registrar routes/*.php por convención`, agregar una entidad es dejar su archivo en
+`routes/`, así que seguir el recorrido ya no rompe `composer docs:check` (antes fallaba porque ese
+archivo está copiado en la guía del stack).
+
+**Pendiente fuera de estas tareas:** la validación humana —que alguien sin conocimiento del repo siga
+la guía de punta a punta—. Es el único test que no puede hacer un agente, porque los agentes ya saben
+dónde está cada archivo.

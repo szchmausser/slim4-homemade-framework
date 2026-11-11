@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-11
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: handoff de `.specify/assessments/tutorial-crud/decision.md` (veredicto `go`, opción B). Problema: quien adopta el framework no tiene un recorrido corto y ordenado de «cloné el repo» a «mi entidad funciona». El material existente construye el framework o entrega código terminado; ninguno muestra el orden de creación. Alcance: recorrido canónico con verificación por paso, en un artefacto nuevo fuera de `docs/`, sin modificar la guía ni los demos.
 
