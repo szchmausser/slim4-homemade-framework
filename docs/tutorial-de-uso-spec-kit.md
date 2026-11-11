@@ -16,13 +16,14 @@ de terminal son los de instalación y verificación.
 - [3. Track A · Debatir una idea](#3-track-a--debatir-una-idea)
 - [4. Track B · Construir](#4-track-b--construir)
 - [5. Track C · Reparar](#5-track-c--reparar)
-- [6. Anatomía de los artefactos](#6-anatomía-de-los-artefactos)
-- [7. Cómo escribir el input de cada comando](#7-cómo-escribir-el-input-de-cada-comando)
-- [8. Errores comunes](#8-errores-comunes)
-- [9. Rutina diaria y cadencia](#9-rutina-diaria-y-cadencia)
-- [10. Checklists](#10-checklists)
-- [11. Troubleshooting](#11-troubleshooting)
-- [12. Lo que dicen los tutoriales viejos y ya no aplica](#12-lo-que-dicen-los-tutoriales-viejos-y-ya-no-aplica)
+- [6. Handoffs: cómo se conectan los tracks](#6-handoffs-cómo-se-conectan-los-tracks)
+- [7. Anatomía de los artefactos](#7-anatomía-de-los-artefactos)
+- [8. Cómo escribir el input de cada comando](#8-cómo-escribir-el-input-de-cada-comando)
+- [9. Errores comunes](#9-errores-comunes)
+- [10. Rutina diaria y cadencia](#10-rutina-diaria-y-cadencia)
+- [11. Checklists](#11-checklists)
+- [12. Troubleshooting](#12-troubleshooting)
+- [13. Lo que dicen los tutoriales viejos y ya no aplica](#13-lo-que-dicen-los-tutoriales-viejos-y-ya-no-aplica)
 - [Fuentes](#fuentes)
 
 ## 0. Estado de esta instalación
@@ -225,7 +226,111 @@ red de seguridad, así que conviene decirlo explícito:
 Artefactos en `.specify/bugs/<slug>/`. No requiere ciclo SDD previo: pedirle spec + plan + tasks
 a un fix de veinte líneas es exactamente cómo la gente abandona el proceso.
 
-## 6. Anatomía de los artefactos
+## 6. Handoffs: cómo se conectan los tracks
+
+Los tres tracks no comparten estado y no se invocan entre sí. Cada extensión escribe **solo dentro
+de su carpeta** (`.specify/assessments/<slug>/`, `.specify/bugs/<slug>/`) y el core escribe **solo**
+en `specs/NNN-slug/`. No hay un comando que enlace un veredicto con una spec: el enlace es un
+documento más una decisión tuya. Es deliberado —nada se muta a escondidas— y tiene una consecuencia
+práctica: cada borde externo necesita un protocolo explícito, porque no lo vas a encontrar escrito
+en ningún artefacto automático.
+
+### La regla de routing
+
+Antes de elegir track, una sola pregunta: **¿el comportamiento esperado ya está en una spec
+aceptada?**
+
+| Situación | Track | Por qué |
+|---|---|---|
+| Está en la spec y el código no lo cumple | C · `bug` | Defecto contra una intención acordada |
+| No está en ninguna spec: nadie lo definió | B · SDD | No es un bug, es alcance nuevo o especificación faltante |
+| Está en la spec, pero la spec estaba equivocada | B · SDD (enmienda) | Arreglar solo el código reintroduce la spec vieja |
+| La idea dejó de tener sentido | A · `assess` | Cerrar con razón escrita, no parchear |
+
+### A → B: el handoff de `decide`
+
+`decide` no ejecuta `specify`. Deja escrito en `decision.md` un bloque para que lo uses como input:
+
+```text
+## If go — Handoff to /speckit.specify
+
+- **Problem**: <una línea>
+- **Chosen approach**: <la opción recomendada>
+- **In scope / out of scope**: <resumen>
+- **Success metrics**: <resumen>
+- **Carried-forward open questions**: <lista>
+```
+
+El traspaso es que ese bloque viaja como **argumento** de `specify`. Receta que funciona:
+
+```text
+/speckit.specify Leé .specify/assessments/exportar-contactos/{decision,problem,concept}.md y usá la
+sección "If go — Handoff" como descripción de la feature. Proveniencia: assessment
+exportar-contactos. No agregues alcance fuera de ese handoff.
+```
+
+Qué te llevás con eso: la evidencia de `research.md`, los **non-goals** de `problem.md` y las
+opciones descartadas en `concept.md` quedan disponibles para el agente, y la procedencia queda
+registrada en la línea `**Input**` del `spec.md`.
+
+Qué perdés si arrancás de cero: el alcance se re-inventa, los non-goals desaparecen, y el `kill` o
+`needs-clarification` que discutiste queda huérfano de su origen.
+
+El directorio del assessment **no se borra ni se mueve**: es el registro de por qué se hizo. `specify`
+no lo toca, y nada posterior lo reescribe.
+
+### B → C: llevar la spec al bug
+
+`bug.assess` no lee `specs/`: triagea el reporte contra el **código**. Así que la spec viaja dentro
+del reporte, nombrando la user story o el escenario que falla:
+
+```text
+/speckit.bug.assess "Falla el escenario 2 de US1 en specs/003-exportar-contactos/spec.md: con
+filtros aplicados el CSV trae todas las filas. Esperado: solo las filtradas." slug=export-filtros
+```
+
+`assess` escribe `.specify/bugs/export-filtros/assessment.md`, `fix` agrega `fix.md`, `test` agrega
+`test.md`. Nada más: no toca `specs/`, ni `tasks.md`, ni el código más allá del parche.
+
+Si `fix` descubre que el diagnóstico era otro, **se detiene**, lo documenta en "Deviations from
+Assessment" y recomienda re-correr `bug.assess`. No sigue parchando sobre una hipótesis descartada.
+
+### C → B: el regreso, que es el borde que falta
+
+Un bug cerrado deja tres documentos en `.specify/bugs/` y **ningún cambio en la spec**. Eso está
+bien si el defecto era solo de código. Tenés que clasificar cuál de los tres casos es:
+
+| Caso | Qué se hace | Con qué |
+|---|---|---|
+| El código estaba mal y la spec era correcta | Nada que reconciliar; el registro del bug alcanza | `converge`, para ver si queda spec sin construir |
+| La spec no decía esa regla (silencio) | Enmendar `spec.md` con la regla que el fix reveló | editar `spec.md` → `analyze` |
+| El fix creció más allá del reporte | Promoverlo a feature propia | `specify` de la corrección |
+
+Y acá conviene saber qué **no** hace el core, porque el silencio es lo que confunde: la doc oficial
+dice que no hay comando que reconcilie artefactos.
+
+> "Core has no dedicated command that automatically reconciles differences among `spec.md`,
+> `plan.md`, and `tasks.md`. Analyze reports inconsistencies without editing artifacts."
+
+`converge` es la otra mitad: es **append-only**. Su única escritura es agregar una sección
+`## Phase N: Convergence` al final de `tasks.md`, y no modifica `spec.md` ni `plan.md`. Sirve para
+detectar spec sin construir, no para decidir quién tenía razón.
+
+La regla de gobierno cierra el borde: cuando código y spec divergen, se corrige uno de los dos **y
+se dice cuál** (constitución, §Flujo de Desarrollo). Lo único prohibido es dejar una intención nueva
+viviendo solo en `fix.md` mientras la spec sigue afirmando otra cosa.
+
+### Resumen de bordes
+
+| Borde | Qué viaja | Lo escribe | Lo lee | Comando |
+|---|---|---|---|---|
+| A → B | bloque de handoff (problema, opción, alcance, métricas) | `decision.md` | `specify`, como argumento | `/speckit.specify` |
+| B → C | referencia al escenario que falla + síntoma | el reporte del bug | `bug.assess` | `/speckit.bug.assess` |
+| C → B | nada automático: clasificación y enmienda | vos | `spec.md` / `analyze` | editar o `/speckit.specify` |
+| B → B′ | spec nueva de la corrección | `specify` | `analyze` | `/speckit.specify` |
+| A → A | `needs-clarification` con etapa a revisar | `decision.md` | la etapa nombrada | `/speckit.assess.<etapa>` |
+
+## 7. Anatomía de los artefactos
 
 ### 6.1 `spec.md`
 
@@ -273,7 +378,7 @@ del archivo. Una task sin ruta no es ejecutable.
 Fases: setup → foundational → una fase por user story → polish. Eso permite entregar P1 sin
 terminar P2.
 
-## 7. Cómo escribir el input de cada comando
+## 8. Cómo escribir el input de cada comando
 
 El argumento es texto libre, y la calidad del artefacto depende de él. El patrón que mejor
 funciona en este repo es un **preámbulo corto y literal**, repetido al inicio de cada comando:
@@ -305,7 +410,7 @@ autorización actuales; exportar solo lo que el usuario ve. No cambiar las respu
 ni la paginación servidor. Duda abierta: ¿descarga sincrónica o job en background con aviso?
 ```
 
-## 8. Errores comunes
+## 9. Errores comunes
 
 | Error | Síntoma | Arreglo |
 |---|---|---|
@@ -318,7 +423,7 @@ ni la paginación servidor. Duda abierta: ¿descarga sincrónica o job en backgr
 | Comando sin feature activa | `Feature directory not found` | Empezar por `/speckit.specify` |
 | Contradicción en vez de refinar | `clarify` no cierra nunca | Editar el artefacto; `clarify` es para preguntas, no para arreglar redacción |
 
-## 9. Rutina diaria y cadencia
+## 10. Rutina diaria y cadencia
 
 Tiempos reales de una sesión, adaptados de un taller de dos horas a trabajo normal:
 
@@ -351,7 +456,7 @@ git add specs/001-exportar-contactos && git commit -m "docs(spec): 001 exportar 
 `.specify/feature.json` está en `.gitignore` a propósito: es estado por checkout. La caché de
 catálogo (`.specify/extensions/.cache/`) no lo está — ruido que conviene ignorar localmente.
 
-## 10. Checklists
+## 11. Checklists
 
 Antes de implementar:
 
@@ -370,7 +475,7 @@ Después de implementar:
 - [ ] `composer verify` (lint + docs-check + PHPStan + suite + fresh)
 - [ ] Los artefactos quedaron actualizados si cambió una decisión
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 | Síntoma | Causa | Solución |
 |---|---|---|
@@ -380,9 +485,9 @@ Después de implementar:
 | `specify: command not found` | PATH sin el binario de `uv tool` | `uv tool update-shell` o terminal nueva |
 | El agente dice que no hay plantilla | Override local roto | `pwsh .specify/scripts/powershell/resolve-template.ps1 spec-template -Json` |
 | Un comando escribe en inglés | Templates en inglés | Pedir español en el argumento o sobrescribir `.specify/templates/` |
-| `docs:check` falla al agregar docs | Cifras de tests hardcodeadas o copias de archivo desactualizadas | Ver sección 12 y `composer docs:sync` |
+| `docs:check` falla al agregar docs | Cifras de tests hardcodeadas o copias de archivo desactualizadas | Ver sección 13 y `composer docs:sync` |
 
-## 12. Lo que dicen los tutoriales viejos y ya no aplica
+## 13. Lo que dicen los tutoriales viejos y ya no aplica
 
 Los materiales didácticos que circulan (incluidos los de la sección Fuentes) son de la era 0.7 y
 arrastran diferencias que rompen el primer intento. Esta tabla evita esa pérdida de tiempo:
@@ -415,7 +520,7 @@ Compuesto y corregido a partir de:
 - **`github.com/github/spec-kit`** (README, `docs/`, extensión `assess`) — fuente de verdad para nombres de comandos, artefactos, veredictos, reglas del `decide` y estructura de directorios.
 - Los scripts del propio repo (`scripts/docs-check.php`, `framework/Docs/CodeBlocks.php`) — para que este documento pase `composer docs:check`.
 
-Las afirmaciones de estado (§0) y las correcciones (§12) están verificadas contra el CLI instalado,
+Las afirmaciones de estado (§0) y las correcciones (§13) están verificadas contra el CLI instalado,
 no copiadas de las fuentes.
 
 ## Siguiente paso
