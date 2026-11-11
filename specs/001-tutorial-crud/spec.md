@@ -43,6 +43,8 @@ resultado.
 4. **Given** un paso cualquiera del recorrido, **When** el lector ejecuta la comprobación que el paso declara, **Then** obtiene un resultado observable que distingue «quedó bien» de «no quedó».
 5. **Given** un lector que se salteó un paso, **When** ejecuta la comprobación del paso siguiente, **Then** la comprobación falla y el recorrido indica cómo volver al estado esperado.
 6. **Given** el estado final del recorrido, **When** el lector intenta dar de alta un registro con datos inválidos, **Then** el sistema lo rechaza y el mensaje aparece junto al campo que lo causó.
+7. **Given** una nota en la lista, **When** el lector la edita y guarda, **Then** la fila muestra los datos nuevos y el aviso de éxito.
+8. **Given** una nota en la lista, **When** el lector pide borrarla, **Then** aparece un diálogo de confirmación y la fila sólo desaparece después de confirmar.
 
 ---
 
@@ -117,6 +119,11 @@ está logrado.
 - **FR-016**: El recorrido MUST introducir cada capacidad junto con su comprobación manual observable, y MUST NOT pedirle al lector que automatice nada antes del cierre.
 - **FR-017**: La primera capacidad del recorrido MUST exponerse con una respuesta simple verificable por petición directa, antes de introducir vistas.
 - **FR-018**: El recorrido MUST NOT introducir utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX: muestra y usa el mecanismo vigente del proyecto — `data-theme`, assets vendorizados con SRI y HTML de región.
+- **FR-019**: El alta MUST abrirse en un diálogo modal, disparado por un botón de acción en el encabezado del listado.
+- **FR-020**: Cada fila MUST ofrecer acciones de editar y borrar como botones con nombre accesible.
+- **FR-021**: Borrar MUST pedir confirmación explícita en un diálogo; MUST NOT borrar con un solo clic.
+- **FR-022**: Un alta o una edición inválidas MUST reabrir el diálogo con lo tipeado y el mensaje junto al campo.
+- **FR-023**: Toda acción que muta MUST dejar su aviso por el canal del shell, incluido el caso con redirect.
 
 ### Key Entities
 

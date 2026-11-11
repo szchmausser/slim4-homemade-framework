@@ -42,21 +42,19 @@ Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que es
 3. [El modelo `Nota`](#3-el-modelo-nota)
 4. [Registrar la entidad en las rutas](#4-registrar-la-entidad-en-las-rutas)
 5. [La primera ruta: JSON verificable](#5-la-primera-ruta-json-verificable)
-6. [El listado](#6-el-listado)
-7. [El alta con validación](#7-el-alta-con-validación)
-8. [Consultar una nota y avisar del inexistente](#8-consultar-una-nota-y-avisar-del-inexistente)
-9. [Tests que reemplazan lo que hiciste a mano](#9-tests-que-reemplazan-lo-que-hiciste-a-mano)
-10. [La lista como región HTMX](#10-la-lista-como-región-htmx)
-11. [El componente de lista](#11-el-componente-de-lista)
+6. [La pantalla del listado: del HTML crudo al shell](#6-la-pantalla-del-listado-del-html-crudo-al-shell)
+7. [El alta: del formulario crudo al modal del proyecto](#7-el-alta-del-formulario-crudo-al-modal-del-proyecto)
+8. [Las acciones por fila: del icono mudo al botón accesible](#8-las-acciones-por-fila-del-icono-mudo-al-botón-accesible)
+9. [Editar en el mismo modal](#9-editar-en-el-mismo-modal)
+10. [Borrar: del confirm del navegador al diálogo del proyecto](#10-borrar-del-confirm-del-navegador-al-diálogo-del-proyecto)
+11. [Tests que reemplazan lo que hacías a mano](#11-tests-que-reemplazan-lo-que-hacías-a-mano)
 12. [Paginación del servidor](#12-paginación-del-servidor)
-13. [Los dos transportes de CSRF](#13-los-dos-transportes-de-csrf)
-14. [Repetir el patrón con otra entidad](#14-repetir-el-patrón-con-otra-entidad)
+13. [Repetir el patrón con otra entidad](#13-repetir-el-patrón-con-otra-entidad)
 
-Los pasos 1 a 9 son el recorrido mínimo: al terminarlos tenés una entidad funcionando y verificada
-con tests. Del 10 en adelante la entidad pasa a hablar el idioma del framework, y el 14 te deja el
-patrón para aplicar a otra entidad tuya.
-
----
+Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo, `<dialog>` nativo,
+`confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del proyecto, con
+lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa; el 12 la vuelve usable
+cuando crece, y el 13 te deja el patrón para otra entidad tuya.
 
 ## 1. Arrancar la app hasta tener sesión
 
@@ -354,24 +352,55 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 
 ---
 
-## 6. El listado
+## 6. La pantalla del listado: del HTML crudo al shell
 
-**Objetivo**: ver las notas guardadas en una página real del shell.
+**Objetivo**: llegar a la pantalla del listado entendiendo qué aporta cada pieza, empezando por lo
+básico.
 
-**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON.
+**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba. Sacá esa ruta: `index()` pasa
+a renderizar una vista.
 
-**Acción**: sumá `use App\Models\Nota;` arriba del archivo, cambiá `index()` para renderizar una vista
-y creá `resources/views/notas/index.twig`:
+### 6.1 Primero, un HTML cualquiera
+
+**Acción**: creá `resources/views/notas/index.twig` con HTML suelto, sin nada del proyecto:
+
+```twig
+<!DOCTYPE html>
+<html lang="es">
+<head><title>Notas</title></head>
+<body>
+    <h1>Notas</h1>
+    <ul>
+        {% for nota in notas %}
+            <li>{{ nota.titulo }}</li>
+        {% else %}
+            <li>No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
+```
+
+Y el controlador:
 
 ```php
     public function index(Request $request, Response $response): Response
     {
         return $this->render($request, $response, 'notas/index.twig', [
-            'notas'  => Nota::orderByDesc('id')->get(),
-            'active' => 'notas',
+            'notas' => Nota::orderByDesc('id')->get(),
         ]);
     }
 ```
+
+**Comprobación**: abrí `http://localhost:8080/notas`. Vas a ver el título y el texto «No hay notas
+todavía.», **sin sidebar, sin header, sin tema oscuro y sin nada de la aplicación alrededor**. Es una
+página suelta.
+
+**Qué no prueba**: nada del proyecto. Prueba que tu ruta, tu controlador y tu vista se hablan.
+
+### 6.2 Ahora sí, el shell del proyecto
+
+**Acción**: reemplazá todo el archivo por esto:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -382,14 +411,10 @@ y creá `resources/views/notas/index.twig`:
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
             <h1 class="text-2xl font-bold">Notas</h1>
-
             <ul class="space-y-2">
                 {% for nota in notas %}
                     <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                        <a class="font-semibold" href="{{ url('/notas/' ~ nota.id) }}">{{ nota.titulo }}</a>
-                        {% if nota.cuerpo %}
-                            <p class="text-sm opacity-70">{{ nota.cuerpo }}</p>
-                        {% endif %}
+                        <span class="font-semibold">{{ nota.titulo }}</span>
                     </li>
                 {% else %}
                     <li class="opacity-60">No hay notas todavía.</li>
@@ -400,55 +425,144 @@ y creá `resources/views/notas/index.twig`:
 {% endblock %}
 ```
 
-**Comprobación**: abrí `http://localhost:8080/notas`. Tenés que ver el shell completo (sidebar,
-header con tu usuario) y, dentro, el título «Notas» y el texto «No hay notas todavía.».
+**Comprobación**: recargá `/notas`. Ahora está el sidebar, el header con tu usuario, el tema y el
+contenido dentro de una tarjeta. **El `<body>`, el `<head>` y los assets ya no son tuyos.**
+
+**Qué no prueba**: que los modales y los avisos funcionen; eso lo da el mismo layout, más adelante.
+
+**Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
+assets con SRI) una sola vez. Usalo en toda página tuya y escribí sólo el bloque `content`. Evita
+rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
+header, y el tema se rompería en la que te olvidaras.
+
+### 6.3 Sustituir la lista a mano por el componente
+
+La lista de arriba funciona, pero el `{% for %} … {% else %}` es exactamente el markup que el proyecto
+ya tiene empaquetado. Es el momento de reemplazarlo.
+
+**Acción**: dejá el parcial envolviéndose a sí mismo, `resources/views/notas/_panel.twig`:
+
+```twig
+<div id="notas-panel">
+    {% embed 'components/list/simple.twig' with {
+        items: notas,
+        empty: 'No hay notas todavía.'
+    } %}
+        {% block row %}
+            <li class="rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-semibold">{{ item.titulo }}</span>
+            </li>
+        {% endblock %}
+    {% endembed %}
+</div>
+```
+
+En `index.twig`, cambiá el `<ul>` por el include, **sin** envolverlo:
+
+```twig
+            {% include 'notas/_panel.twig' %}
+```
+
+El `div` con el id va adentro del parcial por una razón concreta: cuando más adelante el panel se
+intercambie con HTMX y `outerHTML`, la respuesta **reemplaza** al elemento apuntado. Si el `div`
+viviera en `index.twig`, el primer swap se lo llevaría junto con su id, y todo lo que apunte a
+`#notas-panel` quedaría apuntando a algo que ya no existe.
+
+**Comprobación**: la lista se ve **idéntica** a la de 6.2, con y sin notas.
+
+**Qué ganaste**: el estado vacío, el `<ul>` y el recorrido ya no están en tu archivo; tu bloque dice
+sólo cómo se ve **una fila**. Y cuando en el paso 12 entre la paginación, el mismo componente la
+respeta sin cambios.
 
 **Falla si**:
 
-- Ves sólo el título sin el shell: la vista no está extendiendo `layouts/app.twig`, o el bloque se
-  llama distinto de `content`.
-- Error de Twig «Unable to find template»: la ruta del archivo no coincide con la que pasaste a
-  `render()` (`notas/index.twig` → `resources/views/notas/index.twig`).
+- La lista aparece vacía teniendo notas: `items` no está llegando; revisá el nombre de la variable.
+- Error de Twig sobre `item`: dentro del bloque `row` la variable se llama `item`, no `nota`.
 
-**Qué no prueba**: que puedas crear nada. La lista está vacía y no hay formulario todavía.
+**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Usalo
+para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
+cada entidad tiene su propia versión con variaciones accidentales.
 
-**Pieza — `layouts/app.twig` y los bloques**: resuelve el armado del shell (sidebar, header, avisos,
-tema) una sola vez. Usalo en toda página tuya y escribí sólo el bloque `content`. Evita rearmar el
-shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el header y el
-tema se rompería en la que te olvidaras.
+### 6.4 El encabezado con la acción y el contador
 
-**Pieza — `Controller::render()`**: resuelve el pasaje de datos a la vista, e inyecta lo que el shell
-necesita (usuario, tokens de formulario, avisos). Usalo en vez de llamar a Twig directamente. Evita
-olvidarte del token de formulario, que es lo que hace fallar los POST con 400 sin explicación. Sin
-esta pieza tendrías que pasar a mano cinco variables en cada acción, y alguna vez olvidarías una.
+**Acción**: en `index.twig`, arriba del include del panel:
+
+```twig
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold">Notas</h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    Agregar nota
+                </button>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold">Listado</h2>
+                <span class="badge badge-ghost">{{ total }} notas</span>
+            </div>
+```
+
+Y sumá el total en el controlador:
+
+```php
+            'total'  => Nota::query()->count(),
+```
+
+**Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha, el badge «0 notas» y la
+lista vacía. El botón todavía no abre nada: el modal es el paso 7.
+
+**Falla si**:
+
+- El badge dice 0 con filas en la tabla: `total` no está llegando a la vista.
+- El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
+
+**Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
 ---
 
-## 7. El alta con validación
+## 7. El alta: del formulario crudo al modal del proyecto
 
-**Objetivo**: crear notas desde la interfaz, rechazando datos inválidos con el mensaje donde se
-cometió el error.
+**Objetivo**: crear notas desde un diálogo, entendiendo qué aporta cada componente en el camino.
 
-**Estado de partida**: paso 6 hecho; la lista se ve vacía.
+**Estado de partida**: paso 6 hecho; el botón «Agregar nota» existe y no abre nada.
 
-**Acción**: agregá `store()` al controlador. Vas a necesitar dos `use` más, arriba del archivo (el de
-`Nota` ya entró en el paso 6):
+### 7.1 Un diálogo nativo con campos a mano
 
-```php
-use Framework\Http\Url;
-use Framework\Validation\Validator;
+**Acción**: al final de `index.twig`, **fuera** del `<section>`, un `<dialog>` nativo con el formulario
+a mano:
+
+```twig
+<dialog id="nota-create-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="text-lg font-bold">Nueva nota</h3>
+        <form method="post" action="{{ url('/notas') }}" class="space-y-4">
+            <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
+            <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
+
+            <label class="label" for="titulo">Título</label>
+            <input id="titulo" name="titulo" class="input w-full" required maxlength="120">
+
+            <label class="label" for="cuerpo">Cuerpo</label>
+            <input id="cuerpo" name="cuerpo" class="input w-full" maxlength="2000">
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('nota-create-modal').close()">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Crear nota</button>
+            </div>
+        </form>
+    </div>
+</dialog>
 ```
 
-Y la acción:
+Y `store()` en el controlador:
 
 ```php
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
-
-        // El validador no tiene regla «optional»: evaluar `max:2000` sobre null
-        // hace fallar el campo cuando no viene. Normalizar primero es lo que
-        // mantiene `cuerpo` realmente opcional.
         $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
 
         $validator = Validator::make($data, [
@@ -459,9 +573,7 @@ Y la acción:
         if ($validator->fails()) {
             return $this->render($request, $response, 'notas/index.twig', [
                 'notas'  => Nota::orderByDesc('id')->get(),
-                'errors' => $validator->errors(),
-                'titulo' => (string) ($data['titulo'] ?? ''),
-                'cuerpo' => (string) ($data['cuerpo'] ?? ''),
+                'total'  => Nota::query()->count(),
                 'active' => 'notas',
             ])->withStatus(422);
         }
@@ -471,107 +583,280 @@ Y la acción:
             'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
         ]);
 
+        Flash::set('success', 'Nota creada.');
+
         return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
     }
 ```
 
-Y sumá el formulario arriba de la lista en `notas/index.twig`:
+Y para que el aviso llegue en una pantalla con redirect, el controlador opta por el toast del shell:
+
+```php
+    protected function usesToastFlash(): bool
+    {
+        return true;
+    }
+```
+
+**Comprobación**: tocá «Agregar nota»: se abre el diálogo nativo. Guardá con un título: volvés a
+`/notas`, la nota aparece y el aviso «Nota creada.» sale abajo a la derecha.
+
+**Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este
+formulario repinta la página y **pierde lo tipeado y el modal abierto**.
+
+### 7.2 Sustituir los campos a mano por el del proyecto
+
+**Acción**: cambiá los dos pares `label` + `input` por el componente, que trae label, error asociado y
+atributos de accesibilidad:
 
 ```twig
-            <form method="post" action="{{ url('/notas') }}" class="flex flex-col gap-3">
-                {% include 'partials/_csrf.twig' %}
+{% set values = form_values|default(null) %}
 
-                {% include 'components/form/field.twig' with {
-                    name: 'titulo',
-                    label: 'Título',
-                    value: titulo|default(''),
-                    required: true,
-                    maxlength: 120,
-                    error: errors.titulo|default(null)
-                } only %}
+{% include 'components/form/field.twig' with {
+    name: 'titulo',
+    label: 'Título',
+    value: values ? values.titulo : '',
+    required: true,
+    maxlength: 120,
+    error: errors.titulo|default(null)
+} only %}
 
-                {% include 'components/form/field.twig' with {
-                    name: 'cuerpo',
-                    label: 'Cuerpo (opcional)',
-                    value: cuerpo|default(''),
-                    maxlength: 2000,
-                    error: errors.cuerpo|default(null)
-                } only %}
-
-                {% include 'components/ui/button.twig' with {
-                    label: 'Guardar',
-                    type: 'submit'
-                } only %}
-            </form>
+{% include 'components/form/field.twig' with {
+    name: 'cuerpo',
+    label: 'Cuerpo',
+    value: values ? values.cuerpo : '',
+    optional: true,
+    maxlength: 2000,
+    error: errors.cuerpo|default(null)
+} only %}
 ```
 
-**Comprobación**: en `/notas`, escribí un título y guardá. Esperado: volvés a `/notas` y la nota
-aparece en la lista.
+`values` es lo que el usuario tipeó cuando el render viene de un rechazo; si no vino, cae a vacío. Con
+`|default('')` sobre cada campo, un título vacío tipeado a propósito volvería al valor guardado, y
+el usuario vería el dato viejo en el campo que acaba de borrar.
 
-Guardá otra **sin cuerpo**: también tiene que entrar. Si te la rechaza, el campo opcional está tratado
-como requerido.
+Cambiá también los dos `hidden` de CSRF por el partial que los emite:
 
-Después probá el rechazo del servidor. **Ojo**: el campo lleva `required`, así que con el título vacío
-el navegador ni envía el formulario — vas a ver su propio cartel, no el del servidor. Para ver el
-rechazo de verdad, mandá el POST sin pasar por el navegador:
+```twig
+            {% include 'partials/_csrf.twig' %}
+```
+
+**Comprobación**: los campos se ven igual, pero el HTML ahora tiene `aria-invalid` y
+`aria-describedby` cuando hay error, el input queda asociado a su label, y el campo opcional dice
+«(opcional)» en vez de no decir nada. Mirá el HTML con el inspector: `label for` coincide con `id`.
+
+**Qué ganaste**: el error por campo, la asociación con el label y el marcado de opcional. Eso antes no
+existía.
+
+**Pieza — `components/form/field.twig`**: resuelve el campo con su label, su mensaje y sus atributos
+de accesibilidad. Usalo en vez de `<input>` sueltos. Evita el error que no queda pegado al campo que lo
+causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apuntando al mensaje.
+
+**Pieza — `partials/_csrf.twig`**: resuelve los dos campos ocultos del token. Va **dentro** de todo
+`<form>` que mute datos. Evita el rechazo con redirect al login que no explica nada.
+
+### 7.3 Sustituir el `<dialog>` crudo por el modal del proyecto
+
+El diálogo de 7.1 funciona, pero no reabre con un error del servidor y no tiene el tratamiento de tema
+y telón del proyecto. Ese es exactamente el problema que resuelve el componente.
+
+**Acción**: primero extraé el formulario a `resources/views/notas/_form.twig`:
+
+```twig
+{# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
+   usuario tipeó, no lo que hay en la base. #}
+{% set values = form_values|default(nota|default(null)) %}
+
+<form method="post" action="{{ action }}" class="space-y-4">
+    {% include 'partials/_csrf.twig' %}
+
+    {% include 'components/form/field.twig' with {
+        name: 'titulo',
+        label: 'Título',
+        value: values ? values.titulo : '',
+        required: true,
+        maxlength: 120,
+        error: errors.titulo|default(null)
+    } only %}
+
+    {% include 'components/form/field.twig' with {
+        name: 'cuerpo',
+        label: 'Cuerpo',
+        value: values ? values.cuerpo : '',
+        optional: true,
+        maxlength: 2000,
+        error: errors.cuerpo|default(null)
+    } only %}
+
+    <div class="modal-action">
+        {% include 'components/ui/button.twig' with {
+            label: 'Cancelar',
+            variant: 'ghost',
+            type: 'button',
+            icon: 'x',
+            onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: submit_label|default('Guardar'),
+            type: 'submit',
+            icon: submit_icon|default('check')
+        } only %}
+    </div>
+</form>
+```
+
+Y en `index.twig`, reemplazá el `<dialog>` completo por:
+
+```twig
+{% embed 'components/ui/modal.twig' with {
+    id: 'nota-create-modal',
+    title: 'Nueva nota',
+    subtitle: 'Poné un título; el cuerpo es opcional.',
+    open: open_create_modal|default(false)
+} %}
+    {% block body %}
+        {% include 'notas/_form.twig' with {
+            action: url('/notas'),
+            submit_label: 'Crear nota',
+            submit_icon: 'plus',
+            cancel_target: 'nota-create-modal'
+        } only %}
+    {% endblock %}
+{% endembed %}
+```
+
+Por último, el alta inválida reusa el mismo render con el modal abierto y lo tipeado:
+
+```php
+        if ($validator->fails()) {
+            return $this->render($request, $response, 'notas/index.twig', [
+                'notas'             => Nota::orderByDesc('id')->get(),
+                'total'             => Nota::query()->count(),
+                'errors'            => $validator->errors(),
+                'form_values'       => $data,
+                'open_create_modal' => true,
+                'active'            => 'notas',
+            ])->withStatus(422);
+        }
+```
+
+**Comprobación**: tocá «Agregar nota»: abre igual que antes. Guardá con un título: todo sigue igual.
+Ahora, para el caso inválido, mandá el POST sin pasar por el navegador —el campo lleva `required`, así
+que la pantalla no te deja— y mirá el HTML:
 
 ```bash
-# con la sesión de tu navegador en la variable COOKIE, o haciéndolo desde la consola del navegador
-curl -s -o /dev/null -w "%{http_code}\n" \
-  -H "Cookie: $COOKIE" \
-  -d "csrf_name=$N" -d "csrf_value=$V" -d "titulo=" \
-  http://localhost:8080/notas
+curl -s -H "Cookie: $COOKIE" \
+  -d "csrf_name=$N" -d "csrf_value=$V" -d "titulo=" -d "cuerpo=Quiero conservar esto" \
+  http://localhost:8080/notas | grep -E "open|Quiero conservar|obligatorio"
 ```
 
-Esperado: `422`, y si mirás el cuerpo, el mensaje **junto al campo del título** con el cuerpo tipeado
-conservado. Que el navegador y el servidor validen lo mismo es a propósito: el navegador ahorra el
-viaje, el servidor es el que decide.
+Esperado: `422`, y el HTML vuelve con el modal **abierto**, el mensaje «Este campo es obligatorio.»
+junto al campo y «Quiero conservar esto» en el cuerpo. Eso es lo que el `<dialog>` crudo no hacía.
 
 **Falla si**:
 
-- El POST te devuelve al login con «Tu sesión expiró. Volvé a iniciar sesión.»: falta el
-  `{% include 'partials/_csrf.twig' %}` dentro del formulario. Sin HTMX el rechazo de CSRF es un 303
-  al login con ese aviso (el del handler de `config/container.php`), no un 400.
-- Guardás sin cuerpo y te rechaza con «No puede superar los 2000 caracteres.»: falta la línea de
-  normalización de arriba.
-- El formulario se limpia al fallar la validación: estás devolviendo la vista sin los valores
-  `titulo` y `cuerpo`, o sin el status 422.
-- La nota se crea pero no aparece: la lista no se volvió a leer después de guardar.
+- El modal abre y no se ve el botón de guardar: falta el bloque `modal-action` dentro del form.
+- Tras un alta inválida el modal sale cerrado: no estás pasando `open_create_modal`.
+- Error de Twig por `cancel_target`: el include usa `only` y no lo está recibiendo.
+- El aviso de éxito no aparece: falta `usesToastFlash()`.
 
-**Qué no prueba**: que el título largo se rechace en el servidor y no sólo en el navegador —el
-`maxlength` de la interfaz se puede saltear—, ni que aparezca un aviso de éxito.
+**Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al
+top layer, así que lo cierra el botón «Cancelar», no Escape.
 
-> **No hay aviso de éxito todavía, y es correcto.** `Flash::set()` necesita un consumidor: el login lo
-> tiene (renderiza `flash_error`), pero tus pantallas no renderizan flash y el toast necesita HTMX.
-> Si agregás el flash acá, se consume y se descarta sin que se vea nada. El aviso llega en el paso
-> 10, cuando la respuesta pasa por HTMX.
+**Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
+`open` que permite reabrirlo desde el servidor. Usalo para todo alta, edición y confirmación. Evita
+armar `<dialog>` a mano y pelear con el foco, el telón y el tema oscuro. Sin él, cada modal se comporta
+distinto.
 
-**Pieza — `Framework\Validation\Validator`**: resuelve la validación en el servidor con reglas
-declarativas. Usalo en toda acción que reciba datos. Evita validar a mano campo por campo, que es
-donde se cuelan los `if` incompletos. Sin él, cada acción tendría su propia versión de «el título no
-puede estar vacío» y alguna sería distinta.
-
-**Pieza — `partials/_csrf.twig`**: resuelve la protección de los formularios. Incluilo en **todo**
-formulario que modifique datos. Evita el 400 sin mensaje que se lleva horas de diagnóstico. Sin él, el
-middleware rechaza el POST y no hay nada en pantalla que explique por qué.
-
-**Pieza — `Flash` + redirección**: resuelve el mensaje que sobrevive al redirect. Usalo cuando la
-acción termina navegando. Evita el «se guardó pero no sé si se guardó». Sin él, el mensaje se pierde
-al cambiar de página.
+**Pieza — `components/ui/button.twig`**: resuelve el botón con variantes, iconos y atributos. Usalo en
+vez de `<button class="btn …">`. Evita que cada pantalla tenga su propia idea de qué es un botón
+primario, y con `href` emite un `<a>` en vez de un `<button>`, que es lo que necesita un enlace de
+verdad.
 
 ---
 
-## 8. Consultar una nota y avisar del inexistente
+## 8. Las acciones por fila: del icono mudo al botón accesible
 
-**Objetivo**: que un identificador que no existe dé un aviso legible, no un 404 mudo ni un 500.
+**Objetivo**: que cada fila ofrezca editar y borrar, con nombre accesible.
 
-**Estado de partida**: paso 7 hecho; podés crear y listar.
+**Estado de partida**: paso 7 hecho; hay al menos una nota en la lista.
 
-**Acción**: agregá `use Slim\Exception\HttpNotFoundException;` arriba, `show()` en el controlador y
-su vista:
+### 8.1 Primero, el atajo que no se debe dejar
+
+**Acción**: en el bloque `row` del parcial, agregá dos enlaces con emoji:
+
+```twig
+                <div class="flex shrink-0 items-center gap-1">
+                    <a class="btn btn-ghost btn-sm" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">✏️</a>
+                    <button class="btn btn-ghost btn-sm"
+                            onclick="document.getElementById('nota-delete-' ~ item.id ~ ')">🗑️</button>
+                </div>
+```
+
+**Comprobación**: se ven dos iconos por fila. Y si abrís el inspector o pasás el lector de pantalla,
+los dos controles **no tienen nombre**: el enlace se anuncia como «✏️» y el botón como «🗑️». Para
+alguien que no ve la pantalla, son dos botones indistinguibles.
+
+**Qué no prueba**: nada bueno. Sirve para ver el problema antes de arreglarlo.
+
+### 8.2 Ahora, el botón del proyecto
+
+**Acción**: reemplazá los dos por el componente, con icono del registro compartido y nombre accesible:
+
+```twig
+                <div class="flex shrink-0 items-center gap-1">
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'pencil',
+                        aria_label: 'Editar ' ~ item.titulo,
+                        href: url('/notas/' ~ item.id ~ '/edit')
+                    } only %}
+
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'trash',
+                        aria_label: 'Borrar ' ~ item.titulo,
+                        onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').showModal()"
+                    } only %}
+                </div>
+```
+
+Y sumá las rutas al archivo de rutas:
 
 ```php
-    public function show(Request $request, Response $response, array $args): Response
+        $group->get('/{id}/edit', [NotaController::class, 'edit']);
+        $group->post('/{id}', [NotaController::class, 'update']);
+        $group->post('/{id}/delete', [NotaController::class, 'destroy']);
+```
+
+**Comprobación**: los iconos se ven igual, pero cada control ahora se anuncia como «Editar <título>» y
+«Borrar <título>». El lápiz navega a `/notas/{id}/edit`; la papelera todavía no abre nada, porque el
+diálogo llega en el paso 10.
+
+**Qué ganaste**: nombre accesible, icono del registro compartido y el mismo tratamiento visual que el
+resto de la app.
+
+**Falla si**:
+
+- Los botones aparecen como cuadrados vacíos: falta el `icon`, o el nombre no existe en el registro.
+- El lápiz no navega: `href` no llega (con `href` el componente emite `<a>`).
+
+---
+
+## 9. Editar en el mismo modal
+
+**Objetivo**: editar una nota reusando el formulario y el diálogo del alta.
+
+**Estado de partida**: paso 8 hecho; el lápiz navega a una ruta que todavía no existe.
+
+**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda:
+
+```php
+    public function edit(Request $request, Response $response, array $args): Response
     {
         $nota = Nota::find((int) $args['id']);
 
@@ -579,59 +864,208 @@ su vista:
             throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
         }
 
-        return $this->render($request, $response, 'notas/show.twig', [
-            'nota'   => $nota,
-            'active' => 'notas',
+        return $this->render($request, $response, 'notas/index.twig', [
+            'notas'          => Nota::orderByDesc('id')->get(),
+            'total'          => Nota::query()->count(),
+            'nota'           => $nota,
+            'open_edit_modal' => true,
+            'active'         => 'notas',
         ]);
+    }
+
+    public function update(Request $request, Response $response, array $args): Response
+    {
+        $nota = Nota::find((int) $args['id']);
+
+        if ($nota === null) {
+            throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
+        }
+
+        $data = (array) $request->getParsedBody();
+        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
+
+        $validator = Validator::make($data, [
+            'titulo' => 'required|max:120',
+            'cuerpo' => 'max:2000',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->render($request, $response, 'notas/index.twig', [
+                'notas'           => Nota::orderByDesc('id')->get(),
+                'total'           => Nota::query()->count(),
+                'errors'          => $validator->errors(),
+                'form_values'     => $data,
+                'nota'            => $nota,
+                'open_edit_modal' => true,
+                'active'          => 'notas',
+            ])->withStatus(422);
+        }
+
+        $nota->fill([
+            'titulo' => (string) $data['titulo'],
+            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
+        ])->save();
+
+        Flash::set('success', 'Nota actualizada.');
+
+        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
     }
 ```
 
+Y el segundo modal, también al final de `index.twig`, que sólo se renderiza cuando hay nota:
+
 ```twig
-{% extends 'layouts/app.twig' %}
-
-{% block title %}{{ nota.titulo }}{% endblock %}
-
-{% block content %}
-    <section class="card border border-base-300 bg-base-100">
-        <div class="card-body gap-3">
-            <h1 class="text-2xl font-bold">{{ nota.titulo }}</h1>
-            {% if nota.cuerpo %}
-                <p class="opacity-80">{{ nota.cuerpo }}</p>
-            {% else %}
-                <p class="opacity-60">Esta nota no tiene cuerpo.</p>
-            {% endif %}
-            <a class="link" href="{{ url('/notas') }}">Volver a notas</a>
-        </div>
-    </section>
-{% endblock %}
+{% if nota is defined %}
+    {% embed 'components/ui/modal.twig' with {
+        id: 'nota-edit-modal',
+        title: 'Editar nota',
+        open: open_edit_modal|default(false)
+    } %}
+        {% block body %}
+            {% include 'notas/_form.twig' with {
+                action: url('/notas/' ~ nota.id),
+                submit_label: 'Guardar cambios',
+                cancel_target: 'nota-edit-modal'
+            } only %}
+        {% endblock %}
+    {% endembed %}
+{% endif %}
 ```
 
-**Comprobación**: desde la lista, hacé clic en el título de una nota. Esperado: la ves sola, con su
-cuerpo o el aviso de que no tiene.
+**Comprobación**: tocá el lápiz de una nota. Esperado: se abre un diálogo con el título y el cuerpo ya
+cargados. Cambiá el título y guardá: volvés a la lista, la fila muestra el título nuevo y el aviso
+«Nota actualizada.».
 
-Después, en la barra de direcciones, pedí una que no existe: `http://localhost:8080/notas/99999`.
-Esperado: la página de error del framework, con código 404. **No** esperes el mensaje que escribiste
-en la excepción: esa página se arma por código HTTP, no por mensaje (mirá
-`resources/views/errors/error.twig`).
+Un id que no existe (`/notas/99999/edit`) tiene que dar la página 404 del framework, no un error de
+PHP.
 
 **Falla si**:
 
-- Ves una pantalla en blanco: se lanzó una excepción que no está mapeada a la página de error.
-- Ves el 404 crudo del servidor de PHP: la ruta no está registrada con `{id}`.
+- El modal abre vacío: `nota` no está llegando, o el `_form.twig` no está leyendo `nota`/`form_values`.
+- Guardar no cambia nada: el `action` del formulario no apunta a `/notas/{id}`, o el controlador no hace `save()`.
+- El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
 
-**Qué no prueba**: que el mensaje sea el que escribiste, ni el comportamiento con HTMX. Lo segundo
-importa: cuando en el paso 10 tu detalle pase a ser una región, un 404 dentro del panel metería la
-página de error **adentro** del panel. El demo de tareas resuelve ese caso con un flash en lugar de un
-404; si vas a consultar desde la región, tomá esa decisión a conciencia.
+**Qué no prueba**: que dos personas editando a la vez no se pisen. No hay control de concurrencia, y
+este recorrido no lo agrega.
+
+**Pieza — reusar el modal para alta y edición**: resuelve el formulario una sola vez y evita dos
+pantallas con reglas que se desincronizan. Usalo cuando los campos son los mismos. Sin esto, el alta
+y la edición validan distinto y una de las dos se olvida de algo.
 
 ---
 
-## 9. Tests que reemplazan lo que hiciste a mano
+## 10. Borrar: del confirm del navegador al diálogo del proyecto
 
-**Objetivo**: convertir en automático lo que venías comprobando a mano. Después de este paso, un
-cambio futuro que rompa la entidad falla en la suite y no en tu navegador.
+**Objetivo**: que borrar pida confirmación, entendiendo por qué el atajo del navegador no alcanza.
 
-**Estado de partida**: pasos 1 a 8 hechos y comprobados a mano.
+**Estado de partida**: paso 9 hecho; la papelera no hace nada.
+
+### 10.1 Primero, el atajo
+
+**Acción**: envolvé la papelera en un formulario con el `confirm` del navegador:
+
+```twig
+<form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+      onsubmit="return confirm('¿Borrar esta nota?')">
+    {% include 'partials/_csrf.twig' %}
+    <button class="btn btn-ghost btn-sm" aria-label="Borrar {{ item.titulo }}">🗑️</button>
+</form>
+```
+
+Y `destroy()`:
+
+```php
+    public function destroy(Request $request, Response $response, array $args): Response
+    {
+        $nota = Nota::find((int) $args['id']);
+
+        if ($nota === null) {
+            throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
+        }
+
+        $nota->delete();
+
+        Flash::set('success', 'Nota borrada.');
+
+        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+    }
+```
+
+**Comprobación**: tocá la papelera. Aparece el cartel del navegador «¿Borrar esta nota?». Si aceptás,
+la fila desaparece y el aviso «Nota borrada.» sale abajo a la derecha.
+
+Funciona. **Y sin embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar,
+no respeta el tema, no dice **qué** nota estás borrando y bloquea el hilo del navegador. Por eso el
+proyecto usa un diálogo.
+
+### 10.2 Ahora, el diálogo de confirmación
+
+**Acción**: sacá el `onsubmit` y el formulario de la fila, y poné el diálogo dentro del bloque `row`,
+después del contenido:
+
+```twig
+            {% embed 'components/ui/modal.twig' with {
+                id: 'nota-delete-' ~ item.id,
+                title: 'Borrar nota'
+            } %}
+                {% block body %}
+                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}">
+                        {% include 'partials/_csrf.twig' %}
+                        <div class="modal-action">
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Cancelar',
+                                variant: 'ghost',
+                                type: 'button',
+                                icon: 'x',
+                                onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').close()"
+                            } only %}
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Borrar',
+                                variant: 'error',
+                                type: 'submit',
+                                icon: 'trash'
+                            } only %}
+                        </div>
+                    </form>
+                {% endblock %}
+            {% endembed %}
+```
+
+La papelera del paso 8 ya apunta a ese diálogo con `showModal()`.
+
+**Comprobación**: tocá la papelera de una nota. Esperado: se abre un diálogo que dice **qué nota** vas
+a borrar —«¿Borrar «Comprar pan»? No se puede deshacer.»—, con «Cancelar» y «Borrar». «Cancelar» no
+hace nada; «Borrar» elimina la fila y muestra el aviso.
+
+**Qué ganaste**: el texto dice qué se borra, el diálogo respeta el tema y el foco, y cancelar es una
+acción explícita en vez de cerrar un cartel del sistema.
+
+**Falla si**:
+
+- La papelera no abre nada: el `onclick` apunta a un id que no existe (el id lleva el número de fila).
+- Cancelar borra igual: el botón de cancelar tiene que ser `type: 'button'`; con `submit` el formulario
+  se envía.
+- El borrado responde 400: falta el `{% include 'partials/_csrf.twig' %}` dentro del formulario del modal.
+
+**Qué no prueba**: que el borrado sea reversible, ni que exista borrado lógico. Borra la fila.
+
+**Pieza — confirmación en un diálogo antes de mutar**: resuelve el «¿estás seguro?» con el idioma del
+proyecto. Usala en toda acción destructiva. Evita el borrado por accidente y el cartel del sistema que
+no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuelta atrás.
+
+> **Por qué un diálogo por fila y no uno solo**: el demo de contactos usa un único modal y le cambia
+> el `action` por JavaScript. Acá el diálogo vive en cada fila para no agregar JS: es más markup, pero
+> es server-rendered y no depende de estado del cliente. Con decenas de filas, el modal único con JS
+> vuelve a tener sentido.
+
+---
+
+## 11. Tests que reemplazan lo que hacías a mano
+
+**Objetivo**: convertir en automático lo que venías comprobando a mano.
+
+**Estado de partida**: pasos 1 a 10 hechos y comprobados en pantalla.
 
 **Acción**: creá `tests/Http/NotaTest.php`:
 
@@ -659,9 +1093,13 @@ final class NotaTest extends HttpTestCase
         parent::tearDown();
     }
 
+    private function crear(array $datos = []): Nota
+    {
+        return Nota::create(['titulo' => 'De prueba'] + $datos);
+    }
+
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
     {
-        // El POST necesita el par CSRF que emite la página, igual que un formulario.
         $token = self::token('/notas');
 
         $response = self::app()->handle(self::request('POST', '/notas', [
@@ -679,7 +1117,7 @@ final class NotaTest extends HttpTestCase
         self::assertStringContainsString('Primera nota', (string) $lista->getBody());
     }
 
-    public function test_rechaza_un_titulo_vacio(): void
+    public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
     {
         $token = self::token('/notas');
 
@@ -687,20 +1125,53 @@ final class NotaTest extends HttpTestCase
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => '',
+            'cuerpo'     => 'Texto que quiero conservar',
         ]));
+        $html = (string) $response->getBody();
 
         self::assertSame(422, $response->getStatusCode());
         self::assertSame(0, Nota::query()->count());
+        self::assertStringContainsString('Este campo es obligatorio.', $html);
+        self::assertStringContainsString('Texto que quiero conservar', $html);
+        self::assertMatchesRegularExpression('/nota-create-modal[^>]*open/', $html);
+    }
+
+    public function test_edita_una_nota(): void
+    {
+        $nota = $this->crear(['titulo' => 'Antes']);
+        $token = self::token('/notas');
+
+        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id, [
+            'csrf_name'  => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'titulo'     => 'Después',
+        ]));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('Después', (string) Nota::find($nota->id)?->titulo);
+    }
+
+    public function test_borra_una_nota_con_confirmacion(): void
+    {
+        $nota = $this->crear();
+        $token = self::token('/notas');
+
+        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id . '/delete', [
+            'csrf_name'  => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+        ]));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertNull(Nota::find($nota->id));
     }
 
     public function test_avisa_cuando_el_identificador_no_existe(): void
     {
-        $response = self::app()->handle(self::request('GET', '/notas/99999'));
+        $response = self::app()->handle(self::request('GET', '/notas/99999/edit'));
         $html = (string) $response->getBody();
 
         self::assertSame(404, $response->getStatusCode());
         self::assertNotSame('', $html, 'Un 404 mudo no avisa nada.');
-        // La página de error se arma por código, no por mensaje: sin asserts sobre el texto.
         self::assertLessThan(4096, strlen($html), 'Un 404 no debería gastar la página de depuración.');
     }
 }
@@ -712,173 +1183,23 @@ final class NotaTest extends HttpTestCase
 vendor/bin/phpunit --filter NotaTest
 ```
 
-Esperado: tres tests, todos en verde.
+Esperado: cinco tests en verde.
 
 **Falla si**:
 
-- El POST responde 400: el token no está llegando. `HttpTestCase::token()` te da el par; si el GET no
-  renderiza el partial de CSRF, no hay token que extraer.
-- El 404 devuelve 200: no estás lanzando `HttpNotFoundException`, o la ruta `{id}` no está registrada.
-- La suite completa falla después de estos tests: falta el `tearDown` que limpia `notas`.
+- El POST responde 400: el token no está llegando. `HttpTestCase::token()` te da el par.
+- El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo; revisá `open_create_modal`.
+- La suite completa falla después: falta el `tearDown` que limpia `notas`.
 
-**Qué no prueba**: que la interfaz se vea bien, ni que el flujo con HTMX funcione. Prueba el contrato
-HTTP de la entidad: qué código devuelve, qué guarda y qué mensaje da.
+**Qué no prueba**: que la pantalla se vea bien, ni que los diálogos abran. Prueba el contrato HTTP:
+qué código, qué guarda y qué mensaje.
 
-> **Checkpoint**: acá tenés una entidad completa y verificable. Si esto no funciona, lo que sigue no
-> lo va a arreglar. Es un buen momento para parar.
+> **Checkpoint**: acá tenés la entidad completa —crear, editar, borrar con confirmación y tests—. Si
+> esto no funciona, lo que sigue no lo arregla.
 
-**Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app en un test, la sesión
-inyectada y el request con cuerpo de formulario. Usalo como base de todos tus tests HTTP. Evita
-tests que arman el entorno a mano y se rompen cuando cambia el bootstrap. Sin él, cada test tendría
-su propia versión del arranque.
-
----
-
-## 10. La lista como región HTMX
-
-**Objetivo**: que guardar una nota no recargue la página, y que el aviso aparezca donde corresponde.
-
-**Estado de partida**: paso 9 hecho; la entidad funciona con navegación clásica.
-
-**Acción**: separá la lista en un parcial, y el parcial **se envuelve a sí mismo**. Creá
-`resources/views/notas/_panel.twig` con el `<ul>` completo adentro de su propio `div`:
-
-```twig
-<div id="notas-panel">
-    <ul class="space-y-2">
-        {% for nota in notas %}
-            {# … las filas, igual que antes … #}
-        {% else %}
-            <li class="opacity-60">No hay notas todavía.</li>
-        {% endfor %}
-    </ul>
-</div>
-```
-
-En `index.twig`, el `<ul>` se reemplaza por el include, **sin** envolverlo:
-
-```twig
-    {% include 'notas/_panel.twig' %}
-```
-
-El `div` con el id va adentro del parcial y no en la página, por una razón concreta: el `hx-swap` es
-`outerHTML`, así que la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en
-`index.twig`, el primer swap lo borraría junto con su id, y todo lo que apunte a `#notas-panel`
-—la paginación, por ejemplo— quedaría apuntando a algo que ya no existe.
-
-Después, el formulario pasa a mandar por HTMX:
-
-```twig
-<form method="post" action="{{ url('/notas') }}"
-      hx-post="{{ url('/notas') }}"
-      hx-target="#notas-panel"
-      hx-swap="outerHTML"
-      hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
-      class="flex flex-col gap-3">
-```
-
-Y el controlador elige qué devolver según el request:
-
-```php
-    private function respond(Request $request, Response $response, array $extra = [], int $status = 200): Response
-    {
-        $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
-
-        return $this->render($request, $response, $template, $extra + [
-            'notas'  => Nota::orderByDesc('id')->get(),
-            'active' => 'notas',
-        ])->withStatus($status);
-    }
-```
-
-`index()` devuelve `$this->respond($request, $response)`. `store()` usa `respond()` en el rechazo y,
-en el éxito, responde con el panel y el aviso. Sumá `use Framework\Http\Flash;` arriba del archivo.
-
-El rechazo cambia: el formulario vive **fuera** del panel, así que el swap no lo toca y ningún
-mensaje por campo puede quedar pegado al input. El aviso pasa a ser el único canal dentro del swap:
-
-```php
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
-
-            return $this->respond($request, $response, [
-                'errors' => $validator->errors(),
-                'titulo' => (string) ($data['titulo'] ?? ''),
-                'cuerpo' => (string) ($data['cuerpo'] ?? ''),
-            ], 422);
-```
-
-```php
-        Flash::set('success', 'Nota creada.');
-
-        return $this->respond($request, $response);
-```
-
-**Comprobación**: en `/notas`, guardá una nota. Esperado: la lista se actualiza **sin recargar la
-página**, el formulario se vacía y aparece un aviso flotante abajo a la derecha.
-
-Después repetí el rechazo. Con `required` puesto el navegador no deja enviar, así que para provocarlo
-usá el `curl` del paso 7 con el header `HX-Request: true`. Esperado: `422`, la lista no cambia y el
-aviso de error llega como toast. Lo que habías tipeado sigue en el formulario, porque el swap no
-reemplaza el form: reemplaza el panel.
-
-**Falla si**:
-
-- Aparece la página entera dentro del panel (dos headers, dos títulos): el controlador devolvió
-  `index.twig` a un request de HTMX. El `hasHeader('HX-Request')` no está tomando.
-- Guarda bien pero el aviso no aparece: el flash se está mostrando por el canal de página completa en
-  vez del de HTMX (lo resuelve el shell, no tu código).
-- El formulario se limpia tras el rechazo: el `hx-on::after-request` está reseteando sin mirar el
-  status, o el status no es 422.
-- El formulario **no** se limpia tras un alta exitosa: falta el `hx-on::after-request` con la
-  condición de status 200 (el form está fuera del swap, nadie más lo limpia).
-
-**Qué no prueba**: que funcione sin JavaScript. El shell está pensado para que el `href` y la
-navegación clásica sigan andando, pero eso se comprueba apagando JS.
-
-**Pieza — región de HTMX**: resuelve el intercambio de una parte de la página sin recargar. Usalo
-cuando la acción cambia un bloque y el resto no. Evita re-renderizar el shell entero para una fila
-nueva. Sin él, cada guardado cuesta una recarga y pierdes el estado de la página.
-
----
-
-## 11. El componente de lista
-
-**Objetivo**: dejar de escribir a mano el markup de la lista y el estado vacío.
-
-**Estado de partida**: paso 10 hecho; el panel ya es una región.
-
-**Acción**: reemplazá el `<ul>` del parcial por el componente:
-
-```twig
-{% embed 'components/list/simple.twig' with {
-    items: notas,
-    empty: 'No hay notas todavía.'
-} %}
-    {% block row %}
-        <li class="rounded-box border border-base-300 bg-base-100 p-3">
-            <a class="font-semibold" href="{{ url('/notas/' ~ item.id) }}">{{ item.titulo }}</a>
-            {% if item.cuerpo %}
-                <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
-            {% endif %}
-        </li>
-    {% endblock %}
-{% endembed %}
-```
-
-**Comprobación**: la lista se ve **exactamente** igual que antes, con y sin notas. Si borraste todas,
-tiene que aparecer «No hay notas todavía.».
-
-**Falla si**:
-
-- La lista aparece vacía teniendo notas: `items` no está llegando; revisá el nombre de la variable.
-- Error de Twig sobre `item`: dentro del bloque `row` la variable se llama `item`, no `nota`.
-
-**Qué no prueba**: que el componente cubra todos los casos. Cubre lista, estado vacío y clases; no
-cubre paginación, que es el paso siguiente.
-
-**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Usalo
-para cualquier listado simple. Evita repetir el `{% for %} … {% else %}` en cada pantalla y olvidarte
-del vacío. Sin él tenés el mismo markup copiado en cada entidad, con variaciones accidentales.
+**Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el
+request con cuerpo de formulario y los tokens (`token()`). Usalo como base de todos tus tests HTTP.
+Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 ---
 
@@ -888,13 +1209,9 @@ del vacío. Sin él tenés el mismo markup copiado en cada entidad, con variacio
 
 **Estado de partida**: paso 11 hecho; con muchas notas la página se vuelve larga.
 
-**Acción**: en el controlador, sumá `use Framework\Http\Pagination;` y `use Framework\Http\Url;`, y
-reemplazá la lectura directa por la paginación:
+**Acción**: en el controlador, sumá `use Framework\Http\Pagination;` y centralizá la lectura:
 
 ```php
-use Framework\Http\Pagination;
-use Framework\Http\Url;
-
     private function pageData(Request $request): array
     {
         $query = $request->getQueryParams();
@@ -908,29 +1225,14 @@ use Framework\Http\Url;
 
         return [
             'notas'      => $paginacion['items'],
+            'total'      => $paginacion['total'],
             'pagination' => $paginacion,
         ];
     }
 ```
 
-`respond()` pasa a usar `$this->pageData($request) + $extra + [...]`. Además tiene que decirle al
-navegador qué página renderizó, o la barra de direcciones sigue mintiendo después de paginar:
-
-```php
-        $data = $this->pageData($request);
-
-        return $this->render($request, $response, $template, $data + $extra + [
-            'active' => 'notas',
-        ])->withStatus($status)
-            ->withHeader('HX-Push-Url', Url::path('/notas')
-                . '?page=' . $data['pagination']['current_page']
-                . '&per_page=' . $data['pagination']['per_page']);
-```
-
-La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
-alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
-
-Y en el parcial, al final:
+`index()`, `edit()` y el render del `422` pasan a usar `$this->pageData($request) + [...]`. Y al final
+del parcial:
 
 ```twig
 {% include 'components/pagination/simple.twig' with {
@@ -939,96 +1241,59 @@ Y en el parcial, al final:
 } %}
 ```
 
-**Comprobación**: creá más de diez notas. Esperado: la lista muestra diez y aparece la paginación
-debajo; al pasar de página, cambia la lista sin recargar la página entera.
+Para que la barra de direcciones no mienta, el servidor emite la página que efectivamente recortó:
 
-Para que crear no te devuelva a la página 1 con el tamaño viejo, el form arrastra su posición:
+```php
+        $data = $this->pageData($request);
 
-```twig
-<form method="post" action="{{ url('/notas') }}?page=1&per_page={{ pagination.per_page }}"
+        return $this->render($request, $response, 'notas/index.twig', $data + $extra + [
+            'active' => 'notas',
+        ])->withStatus($status)
+            ->withHeader('HX-Push-Url', Url::path('/notas')
+                . '?page=' . $data['pagination']['current_page']
+                . '&per_page=' . $data['pagination']['per_page']);
 ```
 
-Se vuelve a la 1 a propósito: la nota nueva queda primera, así que mostrarla es lo esperado.
+**Comprobación**: creá más de diez notas. Esperado: se ven diez, con los controles debajo
+(Primera/Anterior, números, Siguiente/Última) y el selector de tamaño.
+
+Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
+la última página con las filas que queden; «Anterior» y «Primera» retroceden; en los extremos, los
+botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga**.
 
 **Falla si**:
 
-- La paginación muestra números pero no navega: falta `target`, o el `div` con el id quedó fuera del
-  parcial y el primer swap se lo llevó.
-- Paginás y la URL no cambia: falta la cabecera `HX-Push-Url`.
-- Al crear una nota desde la página 2 volvés a la 1: el formulario no está arrastrando `page` y
-  `per_page` en su URL.
+- La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
+- Paginás y la URL no cambia: falta `HX-Push-Url`.
+- Cambiás el tamaño y volvés a la página 1: es lo esperado al cambiar el tamaño; si no querés eso, se decide en otra parte del código.
 - Todo aparece en una página: no estás pasando `pagination` a la vista.
 
-**Qué no prueba**: que el orden de las filas sea el correcto entre páginas. Prueba que el servidor
-cuenta, recorta y navega; el orden lo define el `orderBy` que elegiste.
+**Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`. Tampoco prueba
+la navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>` del selector es
+otra cosa.
 
-**Pieza — `Framework\Http\Pagination` + `components/pagination/simple.twig`**: resuelven el conteo,
-el recorte y los controles, del lado del servidor. Usalos en toda lista que pueda crecer. Evitan el
-`get()` pelado, que trae toda la tabla y funciona hasta que deja de funcionar. Sin esta pieza la
-página se degrada en silencio: anda perfecto con veinte filas y se cae con dos mil.
+**Pieza — `Framework\Http\Pagination` + `components/pagination/simple.twig`**: resuelven conteo,
+recorte y controles del lado del servidor. Usalos en toda lista que pueda crecer. Evitan el `get()`
+pelado, que funciona con veinte filas y se cae con dos mil.
 
----
-
-## 13. Los dos transportes de CSRF
-
-**Objetivo**: entender por qué hay dos formas de mandar el token, y cuándo va cada una.
-
-**Estado de partida**: paso 12 hecho.
-
-**Acción**: no hay código nuevo. Es la lectura de lo que ya tenés:
-
-- **Dentro de un formulario**: los campos ocultos de `partials/_csrf.twig`. Es el caso del alta.
-- **Fuera de un formulario**: un botón suelto que dispara una mutación manda el par por cabecera,
-  con `hx-headers`.
-
-```twig
-<button class="btn btn-error"
-        hx-delete="{{ url('/notas/' ~ item.id) }}"
-        hx-target="#notas-panel"
-        hx-headers='{"{{ csrf_name_key }}": "{{ csrf_name }}", "{{ csrf_value_key }}": "{{ csrf_value }}"}'>
-    Borrar
-</button>
-```
-
-**Comprobación**: en `/notas`, guardá una nota con el formulario (transporte de formulario) y mirá en
-las herramientas del navegador: el par `csrf` viaja en el **cuerpo**, no en las cabeceras.
-
-El botón suelto de arriba es el patrón, no parte de `notas`: la entidad no tiene ruta de borrado, así
-que si lo pegás y lo tocás vas a recibir un 405 del framework. El patrón se usa cuando agregues una
-mutación sin formulario; ahí el par viaja en la cabecera, que es lo que el middleware también acepta.
-
-**Falla si**:
-
-- Con HTMX recibís 400 y el evento `csrf` («Tu sesión expiró. Recargá la página.»): el token no está
-  llegando, o el par de claves no coincide con el que emite `partials/_csrf.twig`.
-- Sin HTMX, el mismo fallo se ve como 303 al login con «Tu sesión expiró. Volvé a iniciar sesión.»:
-  es el mismo rechazo por otro canal, no otro problema.
-- El botón suelto funciona pero el formulario no: estás en el caso inverso; revisá que el `include`
-  esté **dentro** del `<form>`.
-
-**Qué no prueba**: que el token no se pueda reutilizar ni nada de seguridad avanzada. Prueba que el
-middleware recibe el token por el canal que el disparador usa.
-
-**Pieza — los dos transportes**: resuelven el mismo problema con dos disparadores distintos. Usá
-formulario cuando hay campos, cabecera cuando es un botón suelto. Evitan el 400 que aparece sólo en
-algunas acciones y no en otras. Sin esta distinción, la mitad de tus mutaciones falla y la otra mitad
-funciona, que es el peor escenario para diagnosticar.
+**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap. Usalo en toda región paginada o
+filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 
 ---
 
-## 14. Repetir el patrón con otra entidad
+## 13. Repetir el patrón con otra entidad
 
-**Objetivo**: aplicar el mismo camino a una entidad propia, sin releer todo.
+**Objetivo**: aplicar el mismo camino a una entidad propia.
 
-**Estado de partida**: pasos 1 a 13 hechos.
+**Estado de partida**: pasos 1 a 12 hechos.
 
 | Qué cambia | Qué no cambia |
 |---|---|
 | El nombre de la entidad y de la tabla | El orden de los pasos |
-| Los campos y sus reglas de validación | Los dos transportes de CSRF |
-| La vista y el parcial del panel | El patrón de `respond()` con `HX-Request` |
-| Los textos visibles | La paginación del servidor |
-| Los tests: qué datos usás | El `tearDown` que limpia |
+| Los campos y sus reglas de validación | Los modales de alta, edición y borrado |
+| El contenido de la fila | Las acciones por fila con nombre accesible |
+| Los textos visibles | La paginación del servidor y `HX-Push-Url` |
+| Los datos de los tests | Los cinco casos del cierre |
 
 **Los archivos a tocar**, en orden:
 
@@ -1036,20 +1301,21 @@ funciona, que es el peor escenario para diagnosticar.
 2. `app/Models/<Entidad>.php`
 3. `routes/<entidad>.php` + una línea en `bootstrap/app.php`
 4. `app/Http/Controllers/<Entidad>Controller.php`
-5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `show.twig`
+5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`
 
-**Comprobación**: elegí una entidad distinta (por ejemplo `libros`, con `titulo` y `anio`) y recorré
-esa lista. Esperado: al terminar, lista, crea, valida y responde por identificador, igual que
-`notas`.
+**Comprobación**: elegí otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorré esa lista.
+Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
+confirmación, paginación y cinco tests en verde.
 
 **Falla si**:
 
-- Se repite el error de CSRF: te salteaste el `include` dentro del formulario.
-- La lista aparece dentro de la página entera: te salteaste el `respond()` con `HX-Request`.
+- El modal de borrado no abre: `onclick` apunta a un id sin el número de fila.
+- El alta inválida no reabre el modal: falta pasar `open_create_modal`.
+- La paginación deja de funcionar después del primer guardado: el `div` del panel quedó fuera del parcial.
 
-**Qué no prueba**: que el patrón sirva para cualquier entidad. Sirve para entidades simples con
-listado y alta; una entidad con relaciones, borrado o edición necesita más piezas y más decisiones.
+**Qué no prueba**: que el patrón sirva para entidades con relaciones, permisos por fila o adjuntos.
+Eso es otra conversación, y necesita más piezas.
 
 ---
 
@@ -1057,21 +1323,29 @@ listado y alta; una entidad con relaciones, borrado o edición necesita más pie
 
 | Síntoma | Causa probable | Solución |
 |---|---|---|
-| POST con HTMX responde 400 y avisa «Tu sesión expiró» | Falta el token de CSRF | `{% include 'partials/_csrf.twig' %}` dentro del `<form>`, o `hx-headers` si es un botón suelto |
-| POST sin HTMX te manda al login con «Tu sesión expiró» | El mismo rechazo de CSRF, otro canal | Igual que arriba |
-| El login vuelve al formulario | Credenciales que no coinciden con el admin sembrado | Volvé a sembrar con las mismas variables |
-| `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status`, revisá `DB_DATABASE` |
-| Página entera dentro del panel | El controlador devolvió la vista completa a HTMX | Elegí la plantilla con `hasHeader('HX-Request')` |
-| El formulario se limpia al fallar | Falta el 422 o los valores de vuelta | Devolvé `errors`, `titulo` y `cuerpo` con status 422 |
+| El POST te devuelve al login con «Tu sesión expiró» | Falta el token de CSRF en el formulario | `{% include 'partials/_csrf.twig' %}` dentro del `<form>` |
+| El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Volvé a sembrar con las mismas variables; el mensaje es genérico a propósito |
+| `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisá `DB_DATABASE` |
+| El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasá el método a `true` |
+| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pasalo en `true` en el render del 422 |
+| El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasá `error: errors.<campo>|default(null)` |
+| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.3) |
+| La papelera no abre el diálogo | El `onclick` apunta a un id sin el número de fila | Usá `nota-delete-{id}` en el modal y en el `onclick` |
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
-| 404 mudo en el detalle | No se lanza `HttpNotFoundException` con mensaje | Paso 8 |
+| Paginás y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
+| Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |
 
 ## Qué demuestra este recorrido
 
 Que agregar una entidad a este framework tiene un orden, y que ese orden tiene comprobaciones. Las
-piezas que usaste —migraciones, modelo, archivo de rutas, `render()`, validador, CSRF, lista,
-paginación, `HttpTestCase`— no son opcionales: son el idioma del proyecto. El recorrido no las
-inventa, las presenta cuando hacen falta.
+piezas que usaste —migraciones, modelo, archivo de rutas, `render()`, validador, CSRF, `layouts/app.twig`,
+`components/list`, `components/form`, `components/ui/{button,modal}`, paginación, `HttpTestCase`— no
+son opcionales: son el idioma del proyecto.
 
-Lo que queda pendiente y por qué: editar y borrar (agregan pasos sin enseñar nada nuevo), relaciones
-entre entidades (otra conversación), y despliegue (tiene su propio material).
+Y que ese idioma se aprende por contraste: cada pieza apareció primero en su versión básica y después
+en la del proyecto, con lo que se gana y lo que se evita. El HTML crudo, el `<dialog>` nativo, el
+`confirm()` del navegador y los emojis sin nombre no son pasos en falso: son la razón por la que los
+componentes existen.
+
+Lo que queda pendiente y por qué: relaciones entre entidades (necesitan otra conversación), permisos
+por fila y adjuntos (más piezas), y despliegue (tiene su propio material).

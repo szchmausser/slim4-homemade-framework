@@ -45,6 +45,12 @@ recorrido necesita fijar para no improvisar durante la implementación.
 - **Rationale**: cada pieza aparece cuando el problema que resuelve ya se sintió; presentarlas antes las vuelve obligatorias y el lector no aprende cuándo usarlas (criterio del contrato de pieza). Escribir la lista a mano primero es lo que hace visible qué aporta el componente. Los dos canales de aviso (campo y toast) son los que el proyecto ya usa, así que enseñarlos no inventa un patrón.
 - **Alternatives considered**: paginar desde el primer paso (rechazada: la paginación sin problema visible es ceremonia); Tabulator (rechazada: fuera de alcance en `concept.md`, y es una isla avanzada con demo propio); sólo `titulo` (rechazada: pierde el contraste requerido/opcional); un solo canal de aviso (rechazada: el proyecto usa dos y el lector los va a encontrar igual).
 
+## Idioma de UI (reemplaza la decisión de «sólo listar y crear»)
+
+- **Decision**: el recorrido enseña la pantalla como la escriben los demos: botón de acción en el encabezado que abre un modal de alta, acciones por fila como botones con icono y nombre accesible, edición en modal y borrado con confirmación en un diálogo. La lista usa `components/list/simple.twig` desde el principio y no un `<ul>` escrito a mano.
+- **Rationale**: la versión anterior enseñaba a armar una pantalla con un formulario arriba de la lista, que no es lo que hace este proyecto. El objetivo del artefacto es que alguien pueda escribir una pantalla como las que ya existen, no una variante propia. La recomendación anterior de escribir la lista a mano «para ver qué aporta el componente» se descarta por el mismo motivo.
+- **Alternatives considered**: mantener sólo listar+crear (rechazada: no enseña acciones ni confirmación, que es justo el idioma); Tabulator con acciones en la grilla (rechazada: sigue fuera de alcance y agrega un vendor); edición inline como el demo de tareas (rechazada: el patrón con modales es el que el solicitante señaló como propio del proyecto).
+
 ## Validación sin contaminar el repositorio
 
 - **Decision**: el recorrido se valida siguiéndolo en una copia descartable del repositorio (clon local en un directorio temporal), no en la working tree. La entidad de ejemplo nunca queda en el árbol de trabajo.

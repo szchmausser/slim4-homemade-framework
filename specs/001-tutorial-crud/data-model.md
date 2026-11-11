@@ -53,9 +53,10 @@ sigue el tutorial.
 | `cuerpo` | texto, nulo permitido | Opcional, hasta 2000 caracteres |
 | `created_at` / `updated_at` | timestamps | Los que el proyecto ya usa en sus modelos |
 
-**Transiciones**: no hay estados. Se crea, se lista y se consulta una nota por identificador
-—para poder demostrar el aviso ante un id inexistente—; editar y borrar quedan fuera del recorrido
-(la entidad existe para enseñar el camino, no para cubrir un CRUD completo).
+**Transiciones**: no hay estados. Se crea y se edita desde un diálogo modal, se borra con
+confirmación explícita y se consulta por identificador —para poder demostrar el aviso ante un id
+inexistente—. Editar y borrar entran en el recorrido porque son el idioma de UI del proyecto: una
+lista sin acciones de fila no enseña cómo se construye una pantalla acá.
 
 **Validaciones que el recorrido demuestra**: título vacío → rechazo con mensaje junto al campo;
 título de más de 120 caracteres → rechazo; identificador inexistente → aviso legible, nunca 404 mudo
