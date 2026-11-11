@@ -61,11 +61,11 @@
 - [ ] T011 [US1] Escribir el paso del modelo `Nota` en `tutorial-crud.md`, con `$fillable` y la relación con la tabla; explicar por qué el modelo no valida y quién valida
 - [ ] T012 [US1] Escribir el paso de rutas en `tutorial-crud.md`: archivo `routes/notas.php` completo y el registro en `bootstrap/app.php`, explicando por qué existe el registro y no sólo el archivo
 - [ ] T013 [US1] Escribir el paso de la primera ruta JSON en `tutorial-crud.md` con la comprobación `http` completa: comando copiable, cuerpo esperado literal, código de estado y señal de falla
-- [ ] T014 [US1] Escribir el paso del listado en `tutorial-crud.md`: vista que extiende `layouts/app.twig` con `{% block content %}`, sin HTMX todavía, y comprobación por navegador con lo que debe verse y lo que no
+- [ ] T014 [US1] Escribir el paso del listado en `tutorial-crud.md`: vista que extiende `layouts/app.twig` con `{% block content %}`, sin HTMX todavía, y comprobación por navegador con lo que debe verse y lo que no (depende de T013: FR-017 exige la respuesta simple verificada antes de introducir vistas)
 - [ ] T015 [US1] Escribir el paso del alta con validación en `tutorial-crud.md`: rechazo por título vacío y por exceder 120, con el mensaje junto al campo; comprobación por navegador y señal de falla
 - [ ] T016 [US1] Escribir el paso de persistencia comprobable en `tutorial-crud.md`: dar de alta, recargar y ver la fila; declarar explícitamente qué **no** prueba esa comprobación
-- [ ] T017 [US1] Escribir el cierre de US1 en `tutorial-crud.md` § Tests: tres casos sobre `Tests\Support\HttpTestCase` —alta correcta, validación que rechaza, identificador inexistente que avisa— presentados como el reemplazo de las comprobaciones manuales
-- [ ] T018 [US1] Validar US1: seguir el recorrido en la copia descartable, registrar cada desvío entre lo esperado y lo obtenido, y corregir `tutorial-crud.md` hasta que no haya desvíos
+- [ ] T017 [US1] Escribir el cierre de US1 en `tutorial-crud.md` § Tests: tres casos sobre `Tests\Support\HttpTestCase` —alta correcta, validación que rechaza, identificador inexistente que avisa— presentados como el reemplazo de las comprobaciones manuales; no adelantar tests ni pistas de automatización en los pasos anteriores (FR-016)
+- [ ] T018 [US1] Validar US1: seguir el recorrido en la copia descartable, registrar cada desvío entre lo esperado y lo obtenido, y corregir `tutorial-crud.md` hasta que no haya desvíos; confirmar además que cada paso declara estado de partida y de llegada (FR-005) y que ningún paso reproduce literalmente código de `framework/scaffolds/` (FR-006)
 
 **Checkpoint**: US1 funciona sola. El recorrido produce una entidad que lista, persiste y tiene suite propia
 
@@ -109,6 +109,8 @@
 - [ ] T028 [P] Verificar que `git status` sólo muestre `tutorial-crud.md` nuevo y una línea en `README.md`; nada en `docs/`, `framework/scaffolds/` ni `DESIGN.md`
 - [ ] T029 Ejecutar `composer verify` y `composer docs:check`; confirmar el mismo resultado que antes del artefacto (23 markdown, 44 fuentes, 57 copias)
 - [ ] T030 Recorrer `specs/001-tutorial-crud/checklists/verificacion.md` y resolver o registrar explícitamente CHK007, CHK010 y CHK023
+- [ ] T031 [P] Verificar que `tutorial-crud.md` no contiene credenciales ni valores de `.env` reales: la siembra del administrador debe mostrar la lectura desde el entorno, nunca un valor concreto (FR-003)
+- [ ] T032 Verificar que `tutorial-crud.md` no introduce utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX (FR-018)
 
 ---
 

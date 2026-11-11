@@ -42,6 +42,22 @@ Un paso sin comprobación, o con comprobación sin resultado esperado, no cumple
 Ninguna comprobación puede depender de que el lector «vea que funciona». Si el resultado no se puede
 escribir de antemano, la comprobación está mal diseñada.
 
+## Criterio de suficiencia de «qué no prueba»
+
+La frase es suficiente sólo si nombra **el modo de falla que la comprobación no detecta** y **el
+efecto observable de ese fallo**. Sin esas dos piezas, el campo es decorativo.
+
+| Frase | ¿Cumple? | Por qué |
+|---|---|---|
+| «No prueba todo» | No | No dice qué falla queda oculta |
+| «La ruta responde 200 aunque no se haya persistido nada» | Sí | Nombra el modo de falla y su efecto |
+
+## Criterio de «patrón explícito» (FR-010)
+
+El cierre es verificable si incluye **una tabla de qué cambia y qué no** al aplicar el patrón a otra
+entidad, y si un lector puede enumerar los archivos a tocar sin releer los pasos. Un párrafo que
+invita a «repetir los mismos pasos» no cumple.
+
 ## Contrato de pieza reutilizable
 
 Una pieza se presenta cuando el lector la **necesita**, no antes. Debe quedar claro qué se haría sin

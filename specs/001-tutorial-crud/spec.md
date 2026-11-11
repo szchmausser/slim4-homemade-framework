@@ -102,7 +102,7 @@ está logrado.
 - **FR-001**: El recorrido MUST partir de un clon recién instalado y declarar sus prerrequisitos sin enseñarlos.
 - **FR-002**: El recorrido MUST incluir el arranque mínimo de la aplicación hasta una sesión iniciada contra una ruta protegida: variables de entorno, dependencias, migraciones, usuario administrador y servidor de desarrollo.
 - **FR-003**: Las credenciales del administrador MUST provenir del entorno y MUST NOT quedar escritas en el artefacto.
-- **FR-004**: Cada paso MUST declarar una comprobación observable, ejecutable por el lector, que distinga el éxito del fracaso.
+- **FR-004**: Cada paso MUST declarar una comprobación observable, ejecutable por el lector, que distinga el éxito del fracaso. Su forma concreta —manual, con el resultado esperado escrito antes— se especifica en FR-014 y no la reemplaza.
 - **FR-005**: Cada paso MUST declarar el estado de partida que asume y el estado en que deja el sistema.
 - **FR-006**: El recorrido MUST construir una entidad nueva, escrita por el lector, y no copiada de un demo existente.
 - **FR-007**: El recorrido MUST usar el idioma vigente del framework para listar, dar de alta, validar y avisar, en lugar de una variante propia.
@@ -112,16 +112,19 @@ está logrado.
 - **FR-011**: El artefacto MUST vivir en un archivo en la raíz del repositorio, fuera de `docs/`, `.ai/` y del README, y MUST poder agregarse sin romper el gate del proyecto.
 - **FR-012**: El artefacto MUST NOT modificar la guía existente ni los demos, y MUST agregar una única línea de enlace en el índice de guías del README.
 - **FR-013**: El recorrido MUST NOT enseñar a construir el framework (instalación de PHP/Termux, contenedor de dependencias, middlewares, auth, assets) ni a modificar sus piezas; MUST explicarlas para usarlas, y sí incluye el arranque de la aplicación hasta una sesión iniciada porque sin sesión no hay ruta protegida que ver.
-- **FR-014**: Cada paso MUST declarar una comprobación manual que el lector ejecuta y cuyo resultado esperado está escrito antes de ejecutarla: una petición HTTP a la ruta recién creada con su respuesta esperada, o la ruta abierta en el navegador con lo que debe verse.
+- **FR-014**: La comprobación de FR-004 MUST ser manual y su resultado esperado MUST estar escrito antes de que el lector la ejecute: una petición HTTP a la ruta recién creada con su respuesta esperada, o la ruta abierta en el navegador con lo que debe verse.
 - **FR-015**: El artefacto MUST ubicarse en `tutorial-crud.md`, en la raíz del repositorio.
 - **FR-016**: El recorrido MUST introducir cada capacidad junto con su comprobación manual observable, y MUST NOT pedirle al lector que automatice nada antes del cierre.
 - **FR-017**: La primera capacidad del recorrido MUST exponerse con una respuesta simple verificable por petición directa, antes de introducir vistas.
+- **FR-018**: El recorrido MUST NOT introducir utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX: muestra y usa el mecanismo vigente del proyecto — `data-theme`, assets vendorizados con SRI y HTML de región.
 
 ### Key Entities
 
 - **Paso**: unidad atómica del recorrido. Tiene un objetivo, un estado de partida, una acción del lector, una comprobación observable y el estado en que deja el sistema.
 - **Comprobación**: evidencia que el lector obtiene al ejecutar un paso. Es lo que reemplaza al gate automático y lo que distingue un material vigente de uno que envejeció.
 - **Pieza reutilizable**: capacidad que el framework ya provee y que el recorrido presenta en el momento en que hace falta, con su propósito y su alternativa manual.
+
+**Términos**: *recorrido* es el contenido que el lector sigue; *artefacto* es el archivo `tutorial-crud.md`; *comprobación* es la acción manual de un paso; *verificación* es la revisión de que el artefacto cumple este contrato.
 
 ## Success Criteria *(mandatory)*
 

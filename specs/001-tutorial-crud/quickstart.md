@@ -51,6 +51,9 @@ git status --short
 Esperado: `tutorial-crud.md` nuevo y, como único cambio en archivos existentes, **una línea** en
 `README.md`. Nada en `docs/`, nada en `framework/scaffolds/`, nada en `DESIGN.md`.
 
+Y en el propio artefacto: ninguna credencial escrita, ningún valor real de `.env`; ninguna utilidad
+`dark:`; ningún asset nuevo; ninguna respuesta 303 para HTMX.
+
 ```bash
 composer docs:check
 ```
