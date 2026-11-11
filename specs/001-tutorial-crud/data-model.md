@@ -53,7 +53,8 @@ sigue el tutorial.
 | `cuerpo` | texto, nulo permitido | Opcional, hasta 2000 caracteres |
 | `created_at` / `updated_at` | timestamps | Los que el proyecto ya usa en sus modelos |
 
-**Transiciones**: no hay estados. Se crea y se lista; editar y borrar quedan fuera del recorrido
+**Transiciones**: no hay estados. Se crea, se lista y se consulta una nota por identificador
+—para poder demostrar el aviso ante un id inexistente—; editar y borrar quedan fuera del recorrido
 (la entidad existe para enseñar el camino, no para cubrir un CRUD completo).
 
 **Validaciones que el recorrido demuestra**: título vacío → rechazo con mensaje junto al campo;

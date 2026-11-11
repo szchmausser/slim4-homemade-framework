@@ -39,6 +39,12 @@ recorrido necesita fijar para no improvisar durante la implementación.
 - **Rationale**: reproduce la convención real de `tests/Http/` y cumple FR-009: los tests reemplazan las comprobaciones manuales que el lector ya hizo, no las repiten con otra sintaxis.
 - **Alternatives considered**: un harness propio del recorrido (rechazado en clarify); tests desde el principio (rechazado: interrumpe la progresión manual).
 
+## Interacción del ejemplo
+
+- **Decision**: la lista del primer recorrido se escribe a mano con `<ul>`; al llegar a la región HTMX se reemplaza por `components/list/simple.twig`, explicando qué se ganó. La paginación no existe en el primer recorrido: aparece cuando la lista crece, con `Pagination::paginate()` y `components/pagination/simple.twig`. El campo `cuerpo` se mantiene (requerido vs opcional, dos reglas). Los errores se muestran junto al campo (`components/form/field.twig` con `error`) y el éxito por toast. Se agrega `GET /notas/{id}` para poder demostrar el aviso ante un identificador inexistente (FR-009).
+- **Rationale**: cada pieza aparece cuando el problema que resuelve ya se sintió; presentarlas antes las vuelve obligatorias y el lector no aprende cuándo usarlas (criterio del contrato de pieza). Escribir la lista a mano primero es lo que hace visible qué aporta el componente. Los dos canales de aviso (campo y toast) son los que el proyecto ya usa, así que enseñarlos no inventa un patrón.
+- **Alternatives considered**: paginar desde el primer paso (rechazada: la paginación sin problema visible es ceremonia); Tabulator (rechazada: fuera de alcance en `concept.md`, y es una isla avanzada con demo propio); sólo `titulo` (rechazada: pierde el contraste requerido/opcional); un solo canal de aviso (rechazada: el proyecto usa dos y el lector los va a encontrar igual).
+
 ## Validación sin contaminar el repositorio
 
 - **Decision**: el recorrido se valida siguiéndolo en una copia descartable del repositorio (clon local en un directorio temporal), no en la working tree. La entidad de ejemplo nunca queda en el árbol de trabajo.

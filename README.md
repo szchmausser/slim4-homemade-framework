@@ -12,6 +12,8 @@ Tailwind CSS 4 se ejecuta con el **browser build** vendorizado (`tailwind-browse
 
 **Push a GitHub desde Termux:** [`docs/git-push-termux.md`](docs/git-push-termux.md) — por qué `pi`/scripts no comparten el `ssh-agent` y cómo resolverlo (`composer push`).
 
+**Tu primera entidad, paso a paso:** [`tutorial-crud.md`](tutorial-crud.md) — recorrido con comprobación por paso, desde un clon hasta una entidad propia con tests.
+
 ## Arranque rápido
 
 ```bash
