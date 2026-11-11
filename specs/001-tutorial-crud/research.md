@@ -1,0 +1,52 @@
+# Research — Recorrido de primera entidad
+
+Decisiones del plan. Cada una resuelve un punto que la spec deja abierto a propósito, o que el
+recorrido necesita fijar para no improvisar durante la implementación.
+
+## Entidad de ejemplo
+
+- **Decision**: `notas`, con dos campos: `titulo` (requerido, 1–120) y `cuerpo` (opcional). Tabla `notas`, ruta base `/notas`.
+- **Rationale**: no colisiona con `tasks` ni `contacts`; dos campos alcanzan para mostrar validación (rechazo por título vacío o demasiado largo) sin que el recorrido se vuelva un ejercicio de modelado. El propósito es el camino, no la entidad.
+- **Alternatives considered**: `tasks` (rechazada: obliga a copiar o desarmar el demo); `recetas` (rechazada: `conventions.md` ya la usa como ejemplo de nombre de migración, presta a confusión); una entidad de tres o más campos (rechazada: agrega pasos sin agregar enseñanza).
+
+## Registro de rutas
+
+- **Decision**: mostrar `bootstrap/app.php` donde se registran los archivos de rutas —como excerpt— y el archivo nuevo `routes/notas.php` completo. Explicar el patrón condicional que usan los demos, sin copiarlo.
+- **Rationale**: el lector tiene que entender que una ruta existe porque algo la registra, no porque el archivo esté en disco. El patrón condicional de los demos es una decisión de producto (demos removibles), y copiarlo convertiría su entidad en un demo.
+- **Alternatives considered**: pedir un `require` dentro de `routes/web.php` (rechazada: mezcla dominio del usuario con el arranque del framework); no explicar el registro (rechazada: deja el paso como magia).
+
+## Primera comprobación
+
+- **Decision**: la primera ruta devuelve JSON con `Content-Type: application/json` y el cuerpo exacto `{"status":"ok","recurso":"notas"}`, escrito en el texto antes de que el lector ejecute la petición.
+- **Rationale**: FR-017 pide una respuesta simple verificable por petición directa antes de vistas; con JSON no hay ambigüedad de renderizado y el lector compara cadena contra cadena.
+- **Alternatives considered**: `var_dump` o texto plano (rechazada: menos comparable); una página HTML mínima como primera comprobación (rechazada: adelanta vistas y debilita la progresión).
+
+## Vistas
+
+- **Decision**: una vista que extiende `layouts/app.twig` y usa `{% block content %}` con un título y un texto; después, el listado como región HTMX. Sin utilidades `dark:` y sin assets nuevos.
+- **Rationale**: reutiliza el shell existente, que es justamente la pieza que hay que enseñar a usar. Introduce HTMX como idioma del proyecto, no como adorno.
+- **Alternatives considered**: vista autónoma sin layout (rechazada: enseña a salirse del sistema); Alpine para el listado (rechazada: el proyecto resuelve el listado en el servidor).
+
+## Migración
+
+- **Decision**: numeración secuencial, tomando el siguiente número libre del repositorio en el momento de escribir el recorrido; el texto explica cómo calcularlo en lugar de fijarlo como si fuera eterno.
+- **Rationale**: la convención del proyecto es secuencial y sin timestamps. Un número hardcodeado en un tutorial envejece en el primer cambio de esquema.
+- **Alternatives considered**: poner el número en un placeholder genérico (rechazada: el lector necesita un ejemplo concreto); usar timestamps (rechazada: viola la convención vigente).
+
+## Cierre con tests
+
+- **Decision**: tres casos al cierre —alta correcta, validación que rechaza, identificador inexistente que avisa— sobre `Tests\Support\HttpTestCase`, con sesión inyectada y limpieza por test. Un test completo en el texto y los otros dos por contraste.
+- **Rationale**: reproduce la convención real de `tests/Http/` y cumple FR-009: los tests reemplazan las comprobaciones manuales que el lector ya hizo, no las repiten con otra sintaxis.
+- **Alternatives considered**: un harness propio del recorrido (rechazado en clarify); tests desde el principio (rechazado: interrumpe la progresión manual).
+
+## Descubribilidad
+
+- **Decision**: una única línea en el índice de guías del `README.md`, con enlace relativo a `tutorial-crud.md`.
+- **Rationale**: FR-012 permite explícitamente esa línea; sin ella el material no se encuentra desde ningún lado.
+- **Alternatives considered**: no tocar el README (rechazada en clarify); agregar un bloque de presentación (rechazada: es modificar la guía por la puerta de atrás).
+
+## Idioma y estilo
+
+- **Decision**: prosa en español, código, identificadores y rutas en inglés; mensajes de interfaz en español.
+- **Rationale**: es la política vigente del proyecto (`DESIGN.md` § Nombres y `.ai/steering/conventions.md`).
+- **Alternatives considered**: todo en inglés (rechazada: la audiencia y el resto de la documentación están en español).
