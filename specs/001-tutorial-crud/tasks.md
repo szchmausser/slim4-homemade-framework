@@ -8,6 +8,14 @@
 
 **Organization**: tareas agrupadas por historia de usuario. El entregable es un único archivo (`tutorial-crud.md`), así que varias tareas tocan el mismo archivo y **no** son paralelizables entre sí dentro de una fase; las marcadas `[P]` trabajan sobre documentos distintos o sobre verificación independiente.
 
+## Cómo leer este archivo
+
+- **`T001`…`T032`**: número de tarea, en orden de ejecución. No son pasos del tutorial: son tareas para escribirlo.
+- **`US1` / `US2` / `US3`**: a cuál de las tres historias de `spec.md` sirve la tarea. US1 = llegar a una entidad funcionando; US2 = entender las piezas mientras se usan; US3 = repetir el patrón con otra entidad.
+- **`[P]`**: puede hacerse en paralelo con otras tareas.
+- **`FR-0NN`**: requisito de `spec.md` que la tarea cubre.
+- **`[ ]`**: sin hacer. Lo marca quien implementa.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: puede ejecutarse en paralelo (archivo distinto, sin dependencia)
