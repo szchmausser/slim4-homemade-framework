@@ -939,7 +939,8 @@ resto de la app.
     }
 ```
 
-Y el segundo modal, también al final de `index.twig`, que sólo se renderiza cuando hay nota:
+Y el segundo modal, junto al del alta y **dentro** del mismo bloque `content`, que sólo se renderiza
+cuando hay nota::
 
 ```twig
 {% if nota is defined %}
@@ -993,9 +994,16 @@ y la edición validan distinto y una de las dos se olvida de algo.
 
 ```twig
 <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
-      onsubmit="return confirm('¿Borrar esta nota?')">
+      class="inline" onsubmit="return confirm('¿Borrar esta nota?')">
     {% include 'partials/_csrf.twig' %}
-    <button class="btn btn-ghost btn-sm" aria-label="Borrar {{ item.titulo }}">🗑️</button>
+    {% include 'components/ui/button.twig' with {
+        label: '',
+        variant: 'ghost',
+        size: 'sm',
+        icon: 'trash',
+        aria_label: 'Borrar ' ~ item.titulo,
+        type: 'submit'
+    } only %}
 </form>
 ```
 
@@ -1258,19 +1266,11 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
     }
 ```
 
-`index()`, `edit()` y el render del `422` pasan a usar `$this->pageData($request) + [...]`. Y al final
-del parcial:
-
-```twig
-{% include 'components/pagination/simple.twig' with {
-    pagination: pagination,
-    target: '#notas-panel'
-} %}
-```
-
-Para que la barra de direcciones no mienta, el servidor emite la página que efectivamente recortó:
+Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada acción:
 
 ```php
+    private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
+    {
         $data = $this->pageData($request);
 
         return $this->render($request, $response, 'notas/index.twig', $data + $extra + [
@@ -1279,6 +1279,40 @@ Para que la barra de direcciones no mienta, el servidor emite la página que efe
             ->withHeader('HX-Push-Url', Url::path('/notas')
                 . '?page=' . $data['pagination']['current_page']
                 . '&per_page=' . $data['pagination']['per_page']);
+    }
+```
+
+`index()` queda en una línea (`return $this->renderIndex($request, $response);`), y `edit()` y los dos
+renders de `422` pasan a usarlo pasando lo suyo en `$extra`:
+
+```php
+        // edit()
+        return $this->renderIndex($request, $response, [
+            'nota'            => $nota,
+            'open_edit_modal' => true,
+        ]);
+
+        // rechazo del alta
+        return $this->renderIndex($request, $response, [
+            'errors'            => $validator->errors(),
+            'form_values'       => $data,
+            'open_create_modal' => true,
+        ], 422);
+```
+
+La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
+alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
+
+Y la paginación, **dentro** del `div#notas-panel` y después del `embed` —si la dejás afuera, el swap
+reemplaza el panel y los controles quedan apuntando a un id que sigue existiendo pero ya no se
+actualiza:
+
+```twig
+    {% include 'components/pagination/simple.twig' with {
+        pagination: pagination,
+        target: '#notas-panel'
+    } %}
+</div>
 ```
 
 **Comprobación**: creá más de diez notas. Esperado: se ven diez, con los controles debajo
