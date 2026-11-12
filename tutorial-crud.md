@@ -764,18 +764,23 @@ Por último, el alta inválida reusa el mismo render con el modal abierto y lo t
 > síntoma es un POST rechazado por CSRF que termina en el login, y no un error de Twig. Los `field`
 > internos sí usan `only` porque reciben todo lo que necesitan por parámetro.
 
-**Comprobación**: tocá «Agregar nota»: abre igual que antes. Guardá con un título: todo sigue igual.
-Ahora, para el caso inválido, mandá el POST sin pasar por el navegador —el campo lleva `required`, así
-que la pantalla no te deja— y mirá el HTML:
+**Comprobación**: tocá «Agregar nota»: abre con el mismo formulario y en el mismo lugar, más el
+subtítulo y el botón ✕ que agrega el componente. Guardá con un título: todo sigue igual.
+Ahora, para el caso inválido, mandá el POST salteando la validación del navegador —el campo lleva
+`required`, así que la pantalla no te deja—: abrí el modal, escribí el cuerpo y en la consola del
+navegador ejecutá
 
-```bash
-curl -s -H "Cookie: $COOKIE" \
-  -d "csrf_name=$N" -d "csrf_value=$V" -d "titulo=" -d "cuerpo=Quiero conservar esto" \
-  http://localhost:8080/notas | grep -E "open|Quiero conservar|obligatorio"
+```js
+document.querySelector('#nota-create-modal form[method=post]').submit()
 ```
 
-Esperado: `422`, y el HTML vuelve con el modal **abierto**, el mensaje «Este campo es obligatorio.»
-junto al campo y «Quiero conservar esto» en el cuerpo. Eso es lo que el `<dialog>` crudo no hacía.
+Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **abierto**, el mensaje
+«Este campo es obligatorio.» junto al campo y «Quiero conservar esto» en el cuerpo. Eso es lo que el
+`<dialog>` crudo no hacía.
+
+> Si lo hacés con `curl`, el token va con `--data-urlencode`: el valor es base64 y trae `+` y `/`. Con
+> `-d "csrf_value=$V"` el `+` se convierte en espacio, el POST rechaza el CSRF y te devuelve al login
+> —303, no 422—, que parece un problema de sesión. Agregá `-w '\n%{http_code}\n'` para ver el código.
 
 **Falla si**:
 
