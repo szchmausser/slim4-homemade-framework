@@ -21,7 +21,7 @@ cp .env.example .env
 composer install:termux     # en 64-bit: composer install
 composer dump-autoload -o
 composer demo:tasks:install       # opcional: copia, migra y siembra el demo de tareas
-ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
+ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
 php -S 0.0.0.0:8080 -t public   # http://localhost:8080 (no `composer serve`, ver abajo)
 composer test               # suite completa (el conteo lo imprime el comando)
 ```

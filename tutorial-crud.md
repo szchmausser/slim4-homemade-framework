@@ -82,7 +82,7 @@ Después siembra el administrador. Las credenciales van en `.env` —está en `.
 commitea—: descomenta las dos líneas que el archivo ya trae y complétalas.
 
 ```dotenv
-ADMIN_EMAIL=vos@ejemplo.com
+ADMIN_EMAIL=dev@ejemplo.com
 ADMIN_PASSWORD=una-clave-de-8-o-mas
 ```
 
@@ -97,7 +97,7 @@ contraseña tiene que tener 8 caracteres o más.
 Si prefieres que no toquen el disco, el seeder también lee el entorno real:
 
 ```bash
-ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-de-8-o-mas \
+ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-de-8-o-mas \
   vendor/bin/phinx seed:run -s DatabaseSeeder
 ```
 

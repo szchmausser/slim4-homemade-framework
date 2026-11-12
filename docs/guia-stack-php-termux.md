@@ -2433,7 +2433,7 @@ Uso — vía `.env` (recomendado: descomenta `ADMIN_EMAIL`/`ADMIN_PASSWORD` en t
 
 ```bash
 vendor/bin/phinx seed:run -s AdminSeeder
-# OK admin vos@ejemplo.com (id 1)
+# OK admin dev@ejemplo.com (id 1)
 ```
 
 Orden obligatorio: **primero `composer migrate` (tablas), después el seed**. Sin tablas verás `no such table: users` — no es un bug del seed, es orden de ejecución. Y si el seed aborta con el mensaje de uso, te falta alguna de las dos variables (o la clave tiene menos de 8).
@@ -2441,7 +2441,7 @@ Orden obligatorio: **primero `composer migrate` (tablas), después el seed**. Si
 O inline (el entorno real gana si están ambos; ojo que en bash SÍ queda en el history):
 
 ```bash
-ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s AdminSeeder
+ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s AdminSeeder
 ```
 
 ### 11.2 DatabaseSeeder: sembrar otros datos
