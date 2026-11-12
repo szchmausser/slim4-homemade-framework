@@ -304,6 +304,8 @@ composer require --dev phpunit/phpunit
         "demo:remove": "@php scripts/demo.php remove tasks",
         "demo:contacts:install": "@php scripts/demo.php install contacts",
         "demo:contacts:remove": "@php scripts/demo.php remove contacts",
+        "demo:notas:install": "@php scripts/demo.php install notas",
+        "demo:notas:remove": "@php scripts/demo.php remove notas",
         "verify": [
             "@lint",
             "@docs:check",
@@ -2163,18 +2165,17 @@ $databaseFile = $databaseFile === '' ? null : $databaseFile;
 $migrations = ['%%PHINX_CONFIG_DIR%%/database/migrations'];
 $seeds = ['%%PHINX_CONFIG_DIR%%/database/seeds'];
 
-// El demo es opcional: sus migraciones/seeds solo existen tras demo:tasks:install.
-if (is_dir(__DIR__ . '/database/migrations/tasks')) {
-    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/tasks';
+// Los demos son opcionales y se descubren por convención: cada uno aporta su
+// subdirectorio en database/migrations/<demo>/ y database/seeds/<demo>/ al
+// instalarse. Agregar un demo es crear esos directorios, sin editar este
+// archivo. Phinx ordena las migraciones por versión, así que el orden de
+// descubrimiento no importa.
+foreach (glob(__DIR__ . '/database/migrations/*', GLOB_ONLYDIR) ?: [] as $demoMigrations) {
+    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/' . basename($demoMigrations);
 }
-if (is_dir(__DIR__ . '/database/seeds/tasks')) {
-    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/tasks';
-}
-if (is_dir(__DIR__ . '/database/migrations/contacts')) {
-    $migrations[] = '%%PHINX_CONFIG_DIR%%/database/migrations/contacts';
-}
-if (is_dir(__DIR__ . '/database/seeds/contacts')) {
-    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/contacts';
+
+foreach (glob(__DIR__ . '/database/seeds/*', GLOB_ONLYDIR) ?: [] as $demoSeeds) {
+    $seeds[] = '%%PHINX_CONFIG_DIR%%/database/seeds/' . basename($demoSeeds);
 }
 
 return [
