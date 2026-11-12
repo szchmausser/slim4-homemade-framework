@@ -36,9 +36,17 @@ jobs:
         run: composer verify
 
   demo-round-trip:
-    name: Demo round-trip
+    name: Demo round-trip (${{ matrix.demo }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - demo: tasks
+            files: "app/Tasks routes/tasks.php resources/views/tasks database/migrations/tasks database/seeds/tasks tests/Tasks config/tasks.php"
+          - demo: notas
+            files: "app/Notas routes/notas.php resources/views/notas database/migrations/notas database/seeds/notas tests/Notas"
 
     steps:
       - name: Checkout
@@ -56,7 +64,7 @@ jobs:
         run: composer install --prefer-dist --no-interaction --no-progress
 
       - name: Install demo
-        run: composer demo:tasks:install
+        run: composer demo:${{ matrix.demo }}:install
 
       - name: Test with demo
         run: composer test
@@ -65,17 +73,16 @@ jobs:
         run: composer phpstan
 
       - name: Remove demo
-        run: composer demo:tasks:remove
+        run: composer demo:${{ matrix.demo }}:remove
 
       - name: Test after removal
         run: composer test
 
       - name: Assert no demo residue
         run: |
-          test ! -e app/Tasks
-          test ! -e routes/tasks.php
-          test ! -e resources/views/tasks
-          test ! -e database/migrations/tasks
-          test ! -e database/seeds/tasks
-          test ! -e tests/Tasks
-          test ! -e config/tasks.php
+          for path in ${{ matrix.files }}; do
+            if [ -e "$path" ]; then
+              echo "Residuo del demo: $path"
+              exit 1
+            fi
+          done
