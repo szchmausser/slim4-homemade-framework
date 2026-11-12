@@ -33,11 +33,14 @@
         open: open_create_modal|default(false)
     } %}
         {% block body %}
+            {# `nota: null` corta la herencia de `_form.twig`: en /notas/{id}/edit
+               el alta se abriría con los datos de la nota que se está editando. #}
             {% include 'notas/_form.twig' with {
                 action: url('/notas'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
-                cancel_target: 'nota-create-modal'
+                cancel_target: 'nota-create-modal',
+                nota: null
             } %}
         {% endblock %}
     {% endembed %}

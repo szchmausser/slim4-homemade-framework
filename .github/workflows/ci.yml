@@ -44,7 +44,9 @@ jobs:
       matrix:
         include:
           - demo: tasks
-            files: "app/Tasks routes/tasks.php resources/views/tasks database/migrations/tasks database/seeds/tasks tests/Tasks config/tasks.php"
+            files: "app/Tasks routes/tasks.php resources/views/tasks database/migrations/tasks database/seeds/tasks tests/Tasks"
+          - demo: contacts
+            files: "app/Contacts routes/contacts.php resources/views/contacts database/migrations/contacts database/seeds/contacts tests/Contacts public/assets/css/contacts-tabulator.css public/assets/js/contacts-tabulator.js public/assets/vendor/tabulator"
           - demo: notas
             files: "app/Notas routes/notas.php resources/views/notas database/migrations/notas database/seeds/notas tests/Notas"
 
@@ -66,11 +68,13 @@ jobs:
       - name: Install demo
         run: composer demo:${{ matrix.demo }}:install
 
-      - name: Test with demo
-        run: composer test
-
+      # PHPStan corre con el demo instalado. La suite de installer lo repone
+      # tras sus pruebas de rollback, así que el remove de abajo sí lo quita.
       - name: PHPStan with demo
         run: composer phpstan
+
+      - name: Test with demo
+        run: composer test
 
       - name: Remove demo
         run: composer demo:${{ matrix.demo }}:remove

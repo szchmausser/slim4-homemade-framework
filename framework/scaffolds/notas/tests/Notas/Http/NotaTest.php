@@ -23,7 +23,10 @@ final class NotaTest extends HttpTestCase
 
     private function crear(array $datos = []): Nota
     {
-        return Nota::create(['titulo' => 'De prueba'] + $datos);
+        // `$datos` primero: con el default a la izquierda, el `+` de PHP
+        // descarta el título que pasa cada test y todas las filas se llaman
+        // «De prueba».
+        return Nota::create($datos + ['titulo' => 'De prueba']);
     }
 
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
@@ -68,6 +71,17 @@ final class NotaTest extends HttpTestCase
     {
         $nota = $this->crear(['titulo' => 'Antes']);
         $token = self::token('/notas');
+
+        // El alta comparte `_form.twig` con la edición: en la página de
+        // edición no tiene que heredar la nota que se está editando.
+        $paginaEdicion = (string) self::app()->handle(
+            self::request('GET', '/notas/' . $nota->id . '/edit')
+        )->getBody();
+        self::assertStringNotContainsString(
+            'value="Antes"',
+            self::dialogHtml($paginaEdicion, 'nota-create-modal'),
+            'El alta no tiene que heredar la nota que se está editando.'
+        );
 
         $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id, [
             'csrf_name'  => $token['csrf_name'],
@@ -145,13 +159,35 @@ final class NotaTest extends HttpTestCase
 
     public function test_los_formularios_deshabilitan_el_boton_para_no_duplicar(): void
     {
-        $this->crear();
+        $nota = $this->crear(['titulo' => 'Con guarda']);
         $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
+        $guarda = "this.querySelector('[type=submit]').disabled = true";
 
+        // El HTML entero también trae la guarda en cada modal de borrado. Si se
+        // busca ahí, el test pasa aunque el alta y la edición la hayan perdido.
         self::assertStringContainsString(
-            "this.querySelector('[type=submit]').disabled = true",
-            $html,
+            $guarda,
+            self::dialogHtml($html, 'nota-create-modal'),
             'Sin esta guarda, un doble clic en un POST plano crea dos filas.'
         );
+
+        $edicion = (string) self::app()->handle(
+            self::request('GET', '/notas/' . $nota->id . '/edit')
+        )->getBody();
+        self::assertStringContainsString(
+            $guarda,
+            self::dialogHtml($edicion, 'nota-edit-modal'),
+            'La guarda también tiene que estar en el formulario de edición.'
+        );
+    }
+
+    private static function dialogHtml(string $html, string $id): string
+    {
+        $start = strpos($html, 'id="' . $id . '"');
+        self::assertNotFalse($start, 'No se encontró el modal ' . $id);
+        $end = strpos($html, '</dialog>', $start);
+        self::assertNotFalse($end, 'No se cerró el modal ' . $id);
+
+        return substr($html, $start, $end - $start);
     }
 }

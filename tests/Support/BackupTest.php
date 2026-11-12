@@ -52,8 +52,12 @@ final class BackupTest extends TestCase
         // El aviso imprime la ruta tal como la resolvio el sistema: en Windows
         // mezcla \ y /. Se compara normalizado porque lo que importa es que
         // nombre el archivo que escribio, no con que separador lo escribio.
+        // `realpath` ademas expande el nombre corto 8.3 de %TEMP% que puede
+        // devolver sys_get_temp_dir(), y que el script ya resolvio al crear
+        // storage/backups.
+        $expected = realpath($files[0]) ?: $files[0];
         self::assertStringContainsString(
-            str_replace('\\', '/', $files[0]),
+            str_replace('\\', '/', $expected),
             str_replace('\\', '/', $stdout),
             'el aviso tiene que nombrar el archivo de backup creado'
         );

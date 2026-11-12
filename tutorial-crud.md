@@ -747,11 +747,15 @@ Y en `index.twig`, reemplazá el `<dialog>` completo por:
             action: url('/notas'),
             submit_label: 'Crear nota',
             submit_icon: 'plus',
-            cancel_target: 'nota-create-modal'
+            cancel_target: 'nota-create-modal',
+            nota: null
         } %}
     {% endblock %}
 {% endembed %}
 ```
+
+`nota: null` no es decorativo: `_form.twig` cae a `nota` cuando no hay `form_values`, y en
+`/notas/{id}/edit` el modal de alta se abriría con los datos de la nota que estás editando.
 
 Por último, el alta inválida reusa el mismo render con el modal abierto y lo tipeado:
 
@@ -797,6 +801,8 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 - Tras un alta inválida el modal sale cerrado: no estás pasando `open_create_modal`.
 - El botón «Cancelar» no cierra el modal: el include de `_form.twig` no está recibiendo
   `cancel_target`. El `onclick` sale con `getElementById('')` y no hay error de Twig.
+- El alta se abre con los datos de la nota que estás editando: falta `nota: null` en el include
+  del alta; sin eso, `_form.twig` hereda la variable `nota` de la página de edición.
 - El aviso de éxito no aparece: falta `usesToastFlash()`.
 
 **Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al

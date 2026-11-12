@@ -16,15 +16,24 @@ final class DemoInstallerTest extends TestCase
 {
     private string $root;
     private string $db;
+    private bool $notasInstalled = false;
 
     protected function setUp(): void
     {
         $this->root = dirname(__DIR__, 2);
         $this->db = sys_get_temp_dir() . '/demo-installer-' . bin2hex(random_bytes(6)) . '.sqlite';
+        // Los tests de rollback borran el demo del árbol real. Si ya estaba
+        // instalado (CI lo instala antes de la suite), se repone para que
+        // `composer demo:notas:remove` siga siendo el paso que lo quita.
+        $this->notasInstalled = is_file($this->root . '/routes/notas.php');
     }
 
     protected function tearDown(): void
     {
+        if ($this->notasInstalled && !is_file($this->root . '/routes/notas.php')) {
+            $this->runDemo(['install', 'notas', '--no-db']);
+        }
+
         foreach ([$this->db, $this->db . '-wal', $this->db . '-shm'] as $file) {
             if (is_file($file)) {
                 @unlink($file);
