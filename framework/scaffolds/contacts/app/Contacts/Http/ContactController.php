@@ -25,7 +25,7 @@ final class ContactController extends Controller
      *
      * Es un mapa y no una lista de nombres permitidos porque el valor que
      * llega se usa SÓLO como clave: la columna que entra al `orderBy` sale de
-     * acá, nunca del request. Un `password_hash`, un `id` o una expresión
+     * aquí, nunca del request. Un `password_hash`, un `id` o una expresión
      * inventada no matchean ninguna clave y no llegan a la query ni siquiera
      * para ser rechazados por la base. Validar el nombre con una regex deja
      * abierta la puerta que este mapa cierra.
@@ -141,7 +141,7 @@ final class ContactController extends Controller
      *
      * La página y el tamaño se leen con los nombres que ya usa el resto de la
      * app (`page`, `per_page`) y se delegan a Pagination::paginate, que cuenta,
-     * clampea y recorta. No hay una segunda paginación acá: duplicarla era
+     * clampea y recorta. No hay una segunda paginación aquí: duplicarla era
      * parte del defecto que este endpoint cierra.
      */
     public function data(Request $request, Response $response): Response
@@ -237,7 +237,7 @@ final class ContactController extends Controller
      * Tabulator 6.7.1 manda `sort[i][field]` y `sort[i][dir]` como arrays
      * anidados en el query string: el generador de URLs del bundle serializa
      * los objetos de parámetros con corchetes (`sort%5B0%5D%5Bfield%5D`), así
-     * que acá llega `[['field' => 'name', 'dir' => 'asc']]`.
+     * que aquí llega `[['field' => 'name', 'dir' => 'asc']]`.
      *
      * Se aplican TODOS los campos de la whitelist, en orden de llegada: con
      * shift+click el usuario arma un orden compuesto y quedarse con el primero

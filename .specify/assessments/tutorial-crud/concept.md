@@ -13,12 +13,12 @@
   (navegación clásica por formularios), sin paginación, sin tests y sin avisos flotantes. Cada paso
   se comprueba recargando una página y viendo el resultado.
 - **Appetite**: small (días). El solicitante quitó el largo y el tiempo de lectura como restricción,
-  así que el presupuesto acá mide esfuerzo de autoría, no tamaño del artefacto.
+  así que el presupuesto aquí mide esfuerzo de autoría, no tamaño del artefacto.
 - **Trade-offs**: gana por velocidad, superficie mínima y casi nulo costo de envejecimiento; pierde
   por fidelidad — enseña un framework que este repositorio no usa. La convención vigente pide
   paginación del servidor y cero `get()` pelado, y la constitución ratificada exige que todo CRUD
   traiga al menos tres casos de test. Un recorrido sin tests enseña contra las reglas del propio
-  proyecto, y el lector descubre el idioma real recién en su segundo intento.
+  proyecto, y el lector descubre el idioma real solo en su segundo intento.
 - **Rabbit holes**: la omisión de HTMX obliga a reescribir el recorrido cuando el lector choque con
   el shell real; elegir un nombre de entidad que colisione con los demos (`tasks`, `contacts`);
   que «mínimo» derive en explicar el framework desde cero, o sea en la guía otra vez.
@@ -65,7 +65,7 @@ creación —lo que ninguna pieza existente tiene—, es el único que puede hac
 sin depender del gate, y es el único que respeta la guarda de la constitución en lugar de enseñar
 contra ella.
 
-Con dos advertencias que `decide` tiene que pesar y que no se resuelven acá:
+Con dos advertencias que `decide` tiene que pesar y que no se resuelven aquí:
 
 1. **La evidencia en contra sigue en pie.** No hay señal de demanda observada (`research.md`), y el
    material queda sin verificación automática. B no las elimina: las compensa con verificación por

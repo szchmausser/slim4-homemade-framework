@@ -1,6 +1,6 @@
 {# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
    de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
-   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
+   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez aquí y las
    cuatro URLs la usan tal cual, así no pueden divergir entre sí.
    Se imprime con `|raw` para que el `&` salga literal, igual que en
    components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
@@ -123,7 +123,7 @@
                        ya no tenía el foco. Peor: `@keydown.escape` de este
                        wrapper sólo escucha mientras el foco está adentro, así
                        que una vez que se iba ni Escape lo cerraba — sólo un
-                       click afuera. `focusout` burbujea, así que un handler acá
+                       click afuera. `focusout` burbujea, así que un handler aquí
                        cubre al botón; el guard `$el.contains(...)` evita cerrar
                        cuando el foco se mueve entre dos nodos de adentro
                        (`relatedTarget` es null si el foco se fue a la nada, y

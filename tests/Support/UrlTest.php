@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
  * S13: el prefijo de ruta (APP_BASE_PATH) es UNA cadena normalizada, y toda
  * URL de la app se arma con ella.
  *
- * Los tres casos que importan acá y que no se pueden adivinar desde el código
+ * Los tres casos que importan aquí y que no se pueden adivinar desde el código
  * de los llamadores:
  * 1. `app`, `/app` y `/app/` son el mismo prefijo. Si la normalización se
  *    escapa, `//app/tareas` o `/app//tareas` llegan al router y no matchean.
@@ -20,7 +20,7 @@ use PHPUnit\Framework\TestCase;
  * 3. La raíz (`path('/')`) conserva la barra final: `/app/` y no `/app`. Un
  *    href a `/app` funciona igual en un servidor real, pero deja de coincidir
  *    con la URL que el navegador ya tiene (y con la de `Location`), así que el
- *    contrato se fija acá.
+ *    contrato se fija aquí.
  */
 final class UrlTest extends TestCase
 {

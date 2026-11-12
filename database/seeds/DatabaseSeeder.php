@@ -7,7 +7,7 @@ use Phinx\Seed\AbstractSeed;
 /**
  * Orquestador estilo DatabaseSeeder de Laravel. Phinx no trae $this->call():
  * `seed:run` pelado ejecuta todo el directorio en orden de glob, así que el
- * orden explícito vive acá. Cada seeder DEBE ser idempotente (updateOrCreate
+ * orden explícito vive aquí. Cada seeder DEBE ser idempotente (updateOrCreate
  * o guardas), porque nada impide correrlos sueltos con -s.
  *
  * Uso: vendor/bin/phinx seed:run -s DatabaseSeeder

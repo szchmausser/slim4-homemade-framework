@@ -12,7 +12,7 @@ metodológica de esta etapa.
 
 - Persona objetivo declarada: «Desarrollador PHP: quiere un punto de partida rápido y mantenible, sin configuración compleja en Termux» — [source: `.ai/steering/product.md:11`] (confidence: high, cited)
 - Persona secundaria: «Dueño de Proyecto: busca tests verdes, migraciones Phinx idempotentes y despliegues consistentes» — [source: `.ai/steering/product.md:13`] (confidence: high, cited). Su dolor declarado es operativo, no de aprendizaje.
-- Señal de demanda observada: **ninguna**. El repo no tiene issues, tickets, telemetría ni encuestas; `origin` apunta a `github.com/szchmausser/slim4-homemade-framework` sin backlog consultable desde acá — [source: `git remote -v`] (confidence: high, sobre la ausencia de señal)
+- Señal de demanda observada: **ninguna**. El repo no tiene issues, tickets, telemetría ni encuestas; `origin` apunta a `github.com/szchmausser/slim4-homemade-framework` sin backlog consultable desde aquí — [source: `git remote -v`] (confidence: high, sobre la ausencia de señal)
 - Única señal de demanda disponible: el pedido del dueño del repo en esta sesión, n=1 — [source: `.specify/assessments/tutorial-crud/intake.md`] (confidence: high)
 - Que quien clona el framework necesite un recorrido guiado para su primera entidad — [ASSUMPTION] (confidence: low). No hay fuente: ni entrevistas, ni soporte, ni métricas de uso.
 

@@ -9,7 +9,7 @@ use Illuminate\Database\Connection;
 
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
- * cualquier cambio acá merece relectura y sus tests (AuthTest) en verde.
+ * cualquier cambio aquí merece relectura y sus tests (AuthTest) en verde.
  *
  * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
  *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
@@ -30,7 +30,7 @@ final class RememberMe
 
     /**
      * Crea un token para el usuario y devuelve el par crudo "selector:validator"
-     * para la cookie. El validator sale de acá una sola vez: no se loguea.
+     * para la cookie. El validator sale de aquí una sola vez: no se loguea.
      */
     public static function create(int $userId): string
     {
@@ -110,11 +110,11 @@ final class RememberMe
         // config/container.php—, así que el delete del modelo y el create del
         // reemplazo caen los dos adentro. La closure recibe esa conexión y no
         // la usa —los modelos ya están en ella—: el tipo está para dejar
-        // explícito cuál es la conexión y que acá no se abre una aparte.
+        // explícito cuál es la conexión y que aquí no se abre una aparte.
         //
         // La sesión se abre DESPUÉS del commit a propósito: si la transacción
         // revierte, no queda una sesión abierta sin cookie que la respalde.
-        // El par que sale de acá es el mismo `selector:validator` de siempre y
+        // El par que sale de aquí es el mismo `selector:validator` de siempre y
         // el header lo arma `cookieHeader()`, que no cambió.
         //
         // Lo que este cambio NO trae es un test de la atomicidad, y no es un

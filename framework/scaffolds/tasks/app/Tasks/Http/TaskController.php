@@ -49,7 +49,7 @@ class TaskController extends Controller
     }
 
     /**
-     * Toda acción de esta ruta responde por acá, y el template lo elige el
+     * Toda acción de esta ruta responde por aquí, y el template lo elige el
      * request, no la acción.
      *
      * Con `HX-Request` va sólo la región: "Cancelar" apunta a /tareas con
@@ -132,7 +132,7 @@ class TaskController extends Controller
         if ($validator->fails()) {
             // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
             // que el swap no lo toca y ningún mensaje por campo puede quedar
-            // pegado a él: el toast es su ÚNICO canal in-band, y por eso acá el
+            // pegado a él: el toast es su ÚNICO canal in-band, y por eso aquí el
             // flash SÍ se conserva (en update() no, porque el mensaje se lee al
             // lado del input). El 422 es la otra mitad: sin él el formulario se
             // limpiaría y el usuario perdería lo tipeado.
@@ -182,7 +182,7 @@ class TaskController extends Controller
         // Un id que no existe, CON htmx, no responde 404: htmx metería la
         // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
         // flash, que es donde la app ya comunica todo lo que el usuario tiene
-        // que ver sin recargar. El flash NO se consume acá: lo levanta
+        // que ver sin recargar. El flash NO se consume aquí: lo levanta
         // render(), que decide si va inline o en el header de htmx.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {

@@ -41,7 +41,7 @@ return function (App $app) {
     // 0ro (el más externo): los headers tienen que ENVOLVER al error middleware,
     // porque es él quien genera las respuestas 404 y 500 — y esas también
     // necesitan los headers. Como add() es LIFO, lo que se agrega ÚLTIMO es lo
-    // más externo: por eso esta línea va acá abajo y no arriba del todo.
+    // más externo: por eso esta línea va aquí abajo y no arriba del todo.
     $app->add(SecurityHeadersMiddleware::class);
 
     // Whoops solo en desarrollo. En producción el mensaje va al log y la

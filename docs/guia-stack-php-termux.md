@@ -577,7 +577,7 @@ return [
     Guard::class => function (ContainerInterface $c) {
         $responseFactory = $c->get(ResponseFactoryInterface::class);
 
-        // Tres trampas acá. Las tres producen el mismo síntoma — un 500
+        // Tres trampas aquí. Las tres producen el mismo síntoma — un 500
         // desde adentro del middleware, es decir el error que estamos
         // tratando de evitar.
         //
@@ -597,7 +597,7 @@ return [
             'csrf',
             // Por defecto este parámetro es false: el token se valida una vez
             // y se BORRA. Eso está bien para un form que se repinta entero,
-            // pero acá no es lo que pasa: el submit exitoso devuelve
+            // pero aquí no es lo que pasa: el submit exitoso devuelve
             // `_panel.twig`, que no incluye los hidden del CSRF, y el form
             // queda con el token ya consumido. Resultado: el primer alta anda
             // (200) y el segundo tira 303 con la página vieja — la tarea se
@@ -650,7 +650,7 @@ return [
 
 ## 7. Bootstrap de la app y pipeline de middlewares
 
-`bootstrap/app.php` completo. Cambios respecto a la primera versión: `safeLoad()` (no revienta sin `.env` — clave en un clon fresco), autocreación de `storage/` + `database/` antes del container, y registro de rutas **por convención**: `web.php` primero y después el resto de `routes/*.php` por orden alfabético, así agregar una entidad no obliga a editar este archivo —que es justamente el que está copiado acá:
+`bootstrap/app.php` completo. Cambios respecto a la primera versión: `safeLoad()` (no revienta sin `.env` — clave en un clon fresco), autocreación de `storage/` + `database/` antes del container, y registro de rutas **por convención**: `web.php` primero y después el resto de `routes/*.php` por orden alfabético, así agregar una entidad no obliga a editar este archivo —que es justamente el que está copiado aquí:
 
 ```php
 <?php
@@ -673,7 +673,7 @@ $auth = require __DIR__ . '/../config/auth.php';
 UserProvider::configure($auth['model']);
 
 // Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
-// fallan en silencio o con paths inexistentes. Se crean acá, antes del
+// fallan en silencio o con paths inexistentes. Se crean aquí, antes del
 // container, para que el primer boot ya sea usable.
 foreach (['storage/logs', 'storage/cache/twig', 'storage/sessions', 'database'] as $dir) {
     $path = __DIR__ . '/../' . $dir;
@@ -767,7 +767,7 @@ return function (App $app) {
     // 0ro (el más externo): los headers tienen que ENVOLVER al error middleware,
     // porque es él quien genera las respuestas 404 y 500 — y esas también
     // necesitan los headers. Como add() es LIFO, lo que se agrega ÚLTIMO es lo
-    // más externo: por eso esta línea va acá abajo y no arriba del todo.
+    // más externo: por eso esta línea va aquí abajo y no arriba del todo.
     $app->add(SecurityHeadersMiddleware::class);
 
     // Whoops solo en desarrollo. En producción el mensaje va al log y la
@@ -884,7 +884,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
        paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
        vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
        abajo quedan inertes, que es exactamente el defecto que esto arregla.
-       Sin el build de Tailwind no hay JIT: acá NO se usan utilidades
+       Sin el build de Tailwind no hay JIT: aquí NO se usan utilidades
        (`flex`, `p-6`, `text-6xl`), sólo nombres que el bundle define, y el
        resto va como reglas en el <style> de abajo. #}
     <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
@@ -894,25 +894,25 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
            no carga: el preflight que saca el margen del body, el alto de
            viewport y el centrado del texto. El fondo y la tinta del body ya
            vienen de tokens en el `class` (bg-base-200/text-base-content, que
-           el bundle sí define) y siguen a `data-theme`: acá no hay un color
+           el bundle sí define) y siguen a `data-theme`: aquí no hay un color
            fijo que se quede en claro cuando el tema es oscuro. */
         body { margin: 0; }
         .error-main { min-height: 100dvh; }
-        /* El `hero-content` de daisyUI es una fila: acá la marca va ARRIBA de
+        /* El `hero-content` de daisyUI es una fila: aquí la marca va ARRIBA de
            la tarjeta, así que se apila. */
         .error-main .hero-content { flex-direction: column; }
         .error-body { align-items: center; text-align: center; }
 
         /* El título es el único `h1` de la página y usaba `card-title` (18 px,
            600): se leía como encabezado de tarjeta, no como el título de la
-           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque acá
+           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque aquí
            no hay JIT que compile la utilidad. */
         .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
 
         /* Misma marca que layouts/auth.twig (partials/_logo.twig + "Mi App")
            y linkeada a `/`, para que el error también sea el producto y no un
            cartel suelto. Las utilidades del partial (h-8, rounded-lg,
-           bg-primary) no existen sin JIT, así que la caja se dibuja acá con
+           bg-primary) no existen sin JIT, así que la caja se dibuja aquí con
            los mismos tokens; el `size` del include deja sólo esta clase. */
         .error-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 1.125rem; font-weight: 700; }
         .error-logo { display: inline-flex; align-items: center; justify-content: center; height: 2rem; width: 2rem; border-radius: .5rem;
@@ -974,7 +974,7 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
  * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
  * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
- * momento en que conviene. Lo que sí va acá es lo que suma sin romper nada.
+ * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
@@ -1125,7 +1125,7 @@ final class RequireAuthMiddleware implements MiddlewareInterface
 }
 ```
 
-El 200 + `HX-Redirect` es deliberado (no 401): htmx procesa ese header en respuestas completadas sin meterse en el camino de error. El 401 es para APIs; acá queremos navegación.
+El 200 + `HX-Redirect` es deliberado (no 401): htmx procesa ese header en respuestas completadas sin meterse en el camino de error. El 401 es para APIs; aquí queremos navegación.
 
 ## 8. Sesiones nativas (middleware propio)
 
@@ -1288,7 +1288,7 @@ use Illuminate\Database\Connection;
 
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
- * cualquier cambio acá merece relectura y sus tests (AuthTest) en verde.
+ * cualquier cambio aquí merece relectura y sus tests (AuthTest) en verde.
  *
  * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
  *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
@@ -1309,7 +1309,7 @@ final class RememberMe
 
     /**
      * Crea un token para el usuario y devuelve el par crudo "selector:validator"
-     * para la cookie. El validator sale de acá una sola vez: no se loguea.
+     * para la cookie. El validator sale de aquí una sola vez: no se loguea.
      */
     public static function create(int $userId): string
     {
@@ -1389,11 +1389,11 @@ final class RememberMe
         // config/container.php—, así que el delete del modelo y el create del
         // reemplazo caen los dos adentro. La closure recibe esa conexión y no
         // la usa —los modelos ya están en ella—: el tipo está para dejar
-        // explícito cuál es la conexión y que acá no se abre una aparte.
+        // explícito cuál es la conexión y que aquí no se abre una aparte.
         //
         // La sesión se abre DESPUÉS del commit a propósito: si la transacción
         // revierte, no queda una sesión abierta sin cookie que la respalde.
-        // El par que sale de acá es el mismo `selector:validator` de siempre y
+        // El par que sale de aquí es el mismo `selector:validator` de siempre y
         // el header lo arma `cookieHeader()`, que no cambió.
         //
         // Lo que este cambio NO trae es un test de la atomicidad, y no es un
@@ -1478,12 +1478,12 @@ return function (App $app) {
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
     // GET / devuelve 404 y el boton "Volver al inicio" de errors/error.twig
     // vuelve a ser un link muerto. Pública a propósito (la pide la app, no ella).
-    // El layout necesita csrf (form de logout) y usuario: como acá se renderiza
+    // El layout necesita csrf (form de logout) y usuario: como aquí se renderiza
     // directo sin Controller, van explícitos con la misma fuente (CsrfTokens).
     $app->get('/', function ($request, $response) use ($app) {
         $container = $app->getContainer();
 
-        // Guard se resuelve acá (en request), no al registrar: al construirse
+        // Guard se resuelve aquí (en request), no al registrar: al construirse
         // exige sesión iniciada y en registro todavía no hay ninguna.
         return $container->get(Twig::class)->render($response, 'home.twig', [
             'active'      => 'home',
@@ -1510,7 +1510,7 @@ El `->add()` al grupo protege las 5 rutas de un saque; `/`, `/login` y `/logout`
 
 ### 9.1 Controlador base reutilizable
 
-Antes de `TaskController`, una decisión: el payload de respuesta (flash + CSRF) y el `render()` se iban a repetir en cada controlador futuro. En Laravel no se nota porque el framework te da `view()`, `View::share()` y view composers; acá esa maquinaria no existe, así que va la versión mínima: una clase base abstracta con hook.
+Antes de `TaskController`, una decisión: el payload de respuesta (flash + CSRF) y el `render()` se iban a repetir en cada controlador futuro. En Laravel no se nota porque el framework te da `view()`, `View::share()` y view composers; aquí esa maquinaria no existe, así que va la versión mínima: una clase base abstracta con hook.
 
 `framework/Http/Controller.php`:
 
@@ -1553,7 +1553,7 @@ abstract class Controller
         // ÚNICO consumidor del flash. Antes cada controlador hacía además su
         // propio Flash::get('info') para pasarlo a la plantilla: el que llegaba
         // primero se llevaba el mensaje y el otro recibía null, así que el
-        // aviso se perdía sin error. Si se suma un tipo nuevo, va acá.
+        // aviso se perdía sin error. Si se suma un tipo nuevo, va aquí.
         $flash = [];
         foreach (self::FLASH_ORDER as $type) {
             $flash[$type] = Flash::get($type);
@@ -1708,7 +1708,7 @@ class TaskController extends Controller
     }
 
     /**
-     * Toda acción de esta ruta responde por acá, y el template lo elige el
+     * Toda acción de esta ruta responde por aquí, y el template lo elige el
      * request, no la acción.
      *
      * Con `HX-Request` va sólo la región: "Cancelar" apunta a /tareas con
@@ -1791,7 +1791,7 @@ class TaskController extends Controller
         if ($validator->fails()) {
             // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
             // que el swap no lo toca y ningún mensaje por campo puede quedar
-            // pegado a él: el toast es su ÚNICO canal in-band, y por eso acá el
+            // pegado a él: el toast es su ÚNICO canal in-band, y por eso aquí el
             // flash SÍ se conserva (en update() no, porque el mensaje se lee al
             // lado del input). El 422 es la otra mitad: sin él el formulario se
             // limpiaría y el usuario perdería lo tipeado.
@@ -1841,7 +1841,7 @@ class TaskController extends Controller
         // Un id que no existe, CON htmx, no responde 404: htmx metería la
         // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
         // flash, que es donde la app ya comunica todo lo que el usuario tiene
-        // que ver sin recargar. El flash NO se consume acá: lo levanta
+        // que ver sin recargar. El flash NO se consume aquí: lo levanta
         // render(), que decide si va inline o en el header de htmx.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
@@ -2253,7 +2253,7 @@ return [
 
 > **Divergencia honesta:** Phinx migra siempre `database/database.sqlite` fijo, pero la app usa `DB_DATABASE` si está seteado. Si tu `.env` apunta a otro lado, el `migrate` escribe en un archivo y la app lee otro. Para el flujo normal (sin `DB_DATABASE`, default relativo) ambos usan el mismo archivo y no hay problema.
 
-Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 3 ya vienen — saltea directo al `migrate`. Crear de más acá es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
+Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 3 ya vienen — saltea directo al `migrate`. Crear de más aquí es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
 
 ```bash
 vendor/bin/phinx create CreateTasksTable
@@ -2460,7 +2460,7 @@ use Phinx\Seed\AbstractSeed;
 /**
  * Orquestador estilo DatabaseSeeder de Laravel. Phinx no trae $this->call():
  * `seed:run` pelado ejecuta todo el directorio en orden de glob, así que el
- * orden explícito vive acá. Cada seeder DEBE ser idempotente (updateOrCreate
+ * orden explícito vive aquí. Cada seeder DEBE ser idempotente (updateOrCreate
  * o guardas), porque nada impide correrlos sueltos con -s.
  *
  * Uso: vendor/bin/phinx seed:run -s DatabaseSeeder
@@ -2579,7 +2579,7 @@ vendor/bin/phinx seed:run -s DemoTasksSeeder
 # DemoTasksSeeder: 100 nuevas (100 esperadas en base vacía).
 ```
 
-> **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido acá. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usa el comando de arriba con una clave larga que solo tú sepas.
+> **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido aquí. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usa el comando de arriba con una clave larga que solo tú sepas.
 
 ## 12. Validación estilo Laravel sobre respect/validation
 
@@ -2658,7 +2658,7 @@ class Validator
      * de `passes()` y el de `message()`—, así que agregar una regla eran tres
      * ediciones que podían divergir sin que nada fallara, y el `default` de
      * cada match era código inalcanzable porque `parse()` ya había filtrado el
-     * nombre. Acá el único `default` es el que rechaza.
+     * nombre. Aquí el único `default` es el que rechaza.
      *
      * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
      * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde
@@ -2818,7 +2818,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; acá se muestra el layout que los integra:
+`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; aquí se muestra el layout que los integra:
 
 ```twig
 <!DOCTYPE html>
@@ -3045,7 +3045,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         }
 
         /* Tarjeta propia en vez de `.alert` de daisyUI: el alert fija radio,
-           padding y sombra, y acá lo que se busca es acento lateral + barra de
+           padding y sombra, y aquí lo que se busca es acento lateral + barra de
            vida. El color sale de los tokens del tema activo, así que el
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
@@ -3058,7 +3058,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
-            /* Borde completo acá y no con `border border-base-300` en el HTML:
+            /* Borde completo aquí y no con `border border-base-300` en el HTML:
                el CSS del browser build de Tailwind se inyecta después de este
                <style>, y su shorthand `border-width: 1px` pisaría el acento de
                3px (misma especificidad, más tarde en la cascada). */
@@ -3119,7 +3119,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     </style>
 
     {# CSS de un módulo opcional. El layout no define reglas de ningún demo:
-       cuando el demo se desinstala, acá no queda nada huérfano. El módulo trae
+       cuando el demo se desinstala, aquí no queda nada huérfano. El módulo trae
        las suyas en este bloque, que sólo se renderiza en sus páginas. #}
     {% block styles %}{% endblock %}
 
@@ -3164,7 +3164,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
-               reemplaza en los swaps parciales: acá no se renderiza. #}
+               reemplaza en los swaps parciales: aquí no se renderiza. #}
             {% block content %}{% endblock %}
         </main>
 
@@ -3178,7 +3178,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 // R1 del sidebar: Alpine entra con `defer`, así que entre el parseo y su
 // arranque el sidebar fuera de pantalla de móvil todavía se alcanza con Tab.
 // `x-bind:inert` no puede tapar esa ventana: corre exactamente cuando Alpine
-// inicializa, que es lo que llega tarde. Se aplica acá, durante el parseo
+// inicializa, que es lo que llega tarde. Se aplica aquí, durante el parseo
 // (antes del script diferido), el mismo valor inicial que calcula shell():
 // sidebarOpen = window.innerWidth >= 1024. Alpine lo mantiene después.
 // Sólo móvil: en desktop el sidebar es una columna visible y `inert` la
@@ -3319,7 +3319,7 @@ function restoreFocusAfterSwap() {
 }
 
 // Los listeners van en document.body y no en el panel: el panel se reemplaza en
-// cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
+// cada swap, el body no. Se enganchan aquí, al final del body, cuando ya existe.
 restoreFocusAfterSwap();
 
 /**
@@ -3374,7 +3374,7 @@ function notifyHtmxFailures() {
         // responde 400 con `HX-Trigger` y ese evento `csrf` lo muestra este
         // mismo stack; el 422 swapea (ver allowValidationSwap) y el mensaje
         // viaja en el formulario o en `HX-Trigger-After-Swap`. Avisar también
-        // acá daría DOS toasts del mismo fallo, y el de CSRF dice más
+        // aquí daría DOS toasts del mismo fallo, y el de CSRF dice más
         // ("Tu sesión expiró") porque sabe por qué falló.
         if (status === 400 || status === 419 || status === 422) {
             return;
@@ -3969,7 +3969,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 ```twig
 {# CSS propio del demo de tareas.
 
-   Vive acá y no en `layouts/app.twig` a propósito: `composer demo:tasks:remove`
+   Vive aquí y no en `layouts/app.twig` a propósito: `composer demo:tasks:remove`
    borra este archivo junto con el resto del scaffold, así que el shell no queda
    con CSS huérfano de un módulo que ya no existe. El layout sólo aporta el
    bloque `styles`, y estas reglas se cargan únicamente en las páginas del demo.
@@ -4054,7 +4054,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
        (querySelectorAll sobre el root), no contra el form: `button` a secas
        apagaría también las filas, el header y el sidebar. `find button` queda
        atado a qué elemento toma htmx como disparador y `this` apagaría el form,
-       no su submit. Acá el único <button> es el submit: el input no se
+       no su submit. Aquí el único <button> es el submit: el input no se
        deshabilita, así que el foco no se pierde mientras espera.
        La posición viaja en la URL del form: el alta no manda page/per_page en
        el cuerpo, así que sin esto crear desde "25 por página" devuelve la
@@ -4109,7 +4109,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
    no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
    `class="focus:outline-none"`: el panel no es un control, así que el anillo
    de foco alrededor de toda la región no informa nada y sí ensucia la
-   pantalla. Va SOLO acá; los controles conservan su anillo. #}
+   pantalla. Va SOLO aquí; los controles conservan su anillo. #}
 <div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
     {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
        deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
@@ -4169,7 +4169,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 </div>
 ```
 
-> **Por qué el panel y no la lista pelada.** El flash se escribe en la sesión durante el POST, pero `flash_error` se renderiza acá, no en el layout. Si el POST devolviera `_list.twig` y HTMX lo inyectara dentro de `#lista-tareas`, el mensaje se escribiría en la sesión y nunca se vería — y peor, `Flash::get('error')` en `index()` lo consumiría igual en el siguiente full page load, así que tampoco aparecería después. Devolviendo el panel completo con `hx-swap="outerHTML"`, el flash y la lista viajan en el mismo swap.
+> **Por qué el panel y no la lista pelada.** El flash se escribe en la sesión durante el POST, pero `flash_error` se renderiza aquí, no en el layout. Si el POST devolviera `_list.twig` y HTMX lo inyectara dentro de `#lista-tareas`, el mensaje se escribiría en la sesión y nunca se vería — y peor, `Flash::get('error')` en `index()` lo consumiría igual en el siguiente full page load, así que tampoco aparecería después. Devolviendo el panel completo con `hx-swap="outerHTML"`, el flash y la lista viajan en el mismo swap.
 >
 > **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borras el listener quedas con el fallo silencioso original.
 
@@ -4178,7 +4178,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 ```twig
 {# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
    de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
-   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez acá y las
+   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez aquí y las
    cuatro URLs la usan tal cual, así no pueden divergir entre sí.
    Se imprime con `|raw` para que el `&` salga literal, igual que en
    components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
@@ -4301,7 +4301,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        ya no tenía el foco. Peor: `@keydown.escape` de este
                        wrapper sólo escucha mientras el foco está adentro, así
                        que una vez que se iba ni Escape lo cerraba — sólo un
-                       click afuera. `focusout` burbujea, así que un handler acá
+                       click afuera. `focusout` burbujea, así que un handler aquí
                        cubre al botón; el guard `$el.contains(...)` evita cerrar
                        cuando el foco se mueve entre dos nodos de adentro
                        (`relatedTarget` es null si el foco se fue a la nada, y
@@ -4499,7 +4499,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Paginación estilo Laravel sin illuminate/pagination (ese paquete exige
- * php ^8.3 y subiría el piso del proyecto; acá son las mismas 2 queries que
+ * php ^8.3 y subiría el piso del proyecto; aquí son las mismas 2 queries que
  * hace paginate() por dentro: count + slice). Todo testeable sin HTTP.
  */
 final class Pagination
@@ -4732,7 +4732,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 
             {% for p in pagination.pages %}
                 {% if p == pagination.current_page %}
-                    {# No entra en el tab order, pero el foco programático vuelve acá
+                    {# No entra en el tab order, pero el foco programático vuelve aquí
                        después del swap para conservar la posición. #}
                     <span class="pagination-control pagination-control--square pagination-control--active"
                           tabindex="-1"
@@ -5055,7 +5055,7 @@ No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porqu
 |---|---|
 | `script-src` sin `'unsafe-eval'` | El build browser de Alpine usa declaraciones `Function`, que también violan la política. Hay que cambiar la forma de servir Alpine o relajar la directiva. |
 | `style-src` sin `'unsafe-inline'` | `@tailwindcss/browser` inyecta `<style>` en runtime y **no soporta nonce**. La única salida es compilar Tailwind a un CSS estático. |
-| Todo lo anterior, y encima | `frame-ancestors` sí lo vas a tener, pero recién adoptando la CSP entera. |
+| Todo lo anterior, y encima | `frame-ancestors` sí lo vas a tener, pero solo adoptando la CSP entera. |
 
 Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste cero: `nosniff`, clickjacking y fuga de `Referer`. Y lo que cierra el agujero de supply chain son los `integrity` del capítulo 14 sobre assets vendorizados.
 
@@ -5449,7 +5449,7 @@ final class CsrfFlowTest extends TasksTestCase
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        // La capa de auth en sí se testea en AuthTest, no acá.
+        // La capa de auth en sí se testea en AuthTest, no aquí.
         self::loginAs();
     }
 
@@ -6860,7 +6860,7 @@ Cada entrada lleva un tag que dice de dónde sale:
 
 | Tag | Significado |
 |---|---|
-| **[v]** | Verificado acá: lo corrí contra el proyecto de referencia de esta guía y te paso la salida real. |
+| **[v]** | Verificado aquí: lo corrí contra el proyecto de referencia de esta guía y te paso la salida real. |
 | **[t]** | **No verificado en dispositivo.** Es lo más probable en un teléfono real, pero nadie lo ejecutó todavía. Trata la salida esperada como hipótesis, no como hecho. |
 | **[d]** | Comportamiento documentado por el proyecto upstream. No lo probé yo. |
 
@@ -6887,7 +6887,7 @@ En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprueba con `
 
 ### 21.3 La base no se crea o apunta a otro lado
 
-**[v]** La versión vieja de esta guía moría acá con `QueryException` cruda. Ahora el container tiene default relativo + autocreación + `RuntimeException` accionable (cap. 6): si ves ese mensaje, ejecuta `pwd` en la raíz y corrige `DB_DATABASE`.
+**[v]** La versión vieja de esta guía moría aquí con `QueryException` cruda. Ahora el container tiene default relativo + autocreación + `RuntimeException` accionable (cap. 6): si ves ese mensaje, ejecuta `pwd` en la raíz y corrige `DB_DATABASE`.
 
 Dos casos que el mensaje no cubre, a saber:
 

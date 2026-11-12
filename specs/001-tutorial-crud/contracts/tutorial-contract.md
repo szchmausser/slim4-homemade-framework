@@ -1,6 +1,6 @@
 # Contrato del recorrido
 
-Lo que `tutorial-crud.md` tiene que cumplir para considerarse válido. `tasks.md` deriva de acá, y
+Lo que `tutorial-crud.md` tiene que cumplir para considerarse válido. `tasks.md` deriva de aquí, y
 `analyze` puede verificar cobertura contra la spec usando este archivo.
 
 ## Contrato del artefacto
@@ -9,7 +9,7 @@ Lo que `tutorial-crud.md` tiene que cumplir para considerarse válido. `tasks.md
 |---|---|
 | Ubicación | Archivo único `tutorial-crud.md` en la raíz del repositorio |
 | Alcance del gate | No está en `docs/`, ni en `.ai/`, ni es el README; no agrega scripts ni dependencias |
-| Prerrequisitos | Bloque al inicio: qué necesita el lector (PHP, Composer, cliente HTTP, navegador) y qué **no** se enseña acá |
+| Prerrequisitos | Bloque al inicio: qué necesita el lector (PHP, Composer, cliente HTTP, navegador) y qué **no** se enseña aquí |
 | Orden | Los pasos son secuenciales y cada uno asume el estado que dejó el anterior |
 | Arranque | Incluye el tramo hasta una sesión iniciada contra una ruta protegida |
 | Progresión | Respuesta simple verificable por petición directa **antes** de introducir vistas |

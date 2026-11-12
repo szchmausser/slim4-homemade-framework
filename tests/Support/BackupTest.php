@@ -133,7 +133,7 @@ final class BackupTest extends TestCase
         }
 
         $process = proc_open(
-            // GitHub Actions usa variables_order=GPCS: forzarlo acá hace que
+            // GitHub Actions usa variables_order=GPCS: forzarlo aquí hace que
             // el test cubra el fallback getenv() y no solo el camino local.
             [PHP_BINARY, '-d', 'variables_order=GPCS', $this->root . '/scripts/db-backup.php'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],

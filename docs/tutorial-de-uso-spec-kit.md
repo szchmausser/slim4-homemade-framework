@@ -229,7 +229,7 @@ Dos caminos. Elegir según el tamaño, no por completitud ceremonial.
 | `converge` | tareas nuevas por drift entre spec y código | después de tocar código, o al cerrar |
 
 **Se corren de a uno.** Cada comando es una parada de revisión: lees el artefacto, lo corriges
-(editando el `.md`) y recién ahí sigues. Encadenarlos de corrido convierte el proceso en
+(editando el `.md`) y solo entonces sigues. Encadenarlos de corrido convierte el proceso en
 generación de documentos que nadie leyó.
 
 **`converge` se repite** después de cada `implement` hasta que reporte `Converged`.
@@ -336,7 +336,7 @@ bien si el defecto era solo de código. Tienes que clasificar cuál de los tres 
 | La spec no decía esa regla (silencio) | Enmendar `spec.md` con la regla que el fix reveló | editar `spec.md` → `analyze` |
 | El fix creció más allá del reporte | Promoverlo a feature propia | `specify` de la corrección |
 
-Y acá conviene saber qué **no** hace el core, porque el silencio es lo que confunde: la doc oficial
+Y aquí conviene saber qué **no** hace el core, porque el silencio es lo que confunde: la doc oficial
 dice que no hay comando que reconcilie artefactos.
 
 > "Core has no dedicated command that automatically reconciles differences among `spec.md`,
@@ -386,7 +386,7 @@ spec; "bcrypt, cost 12" va en el plan.
 
 ### 6.2 `plan.md` y compañía
 
-- `research.md` — cada `NEEDS CLARIFICATION` resuelto como **Decisión / Razón / Alternativas consideradas**. Acá queda escrito por qué rechazaste algo.
+- `research.md` — cada `NEEDS CLARIFICATION` resuelto como **Decisión / Razón / Alternativas consideradas**. Aquí queda escrito por qué rechazaste algo.
 - `data-model.md` — entidades, campos, validaciones, transiciones de estado.
 - `contracts/` — rutas, payloads, respuestas HTMX. En este repo es donde se fija si una respuesta es HTML de región o `HX-Redirect`.
 - `quickstart.md` — cómo se valida end-to-end; sin código de implementación.

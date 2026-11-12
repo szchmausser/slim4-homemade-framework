@@ -11,7 +11,7 @@ use Tests\Tasks\Http\TasksTestCase;
  * El toggle era la ÚNICA acción HTMX sin cobertura de tests, y ahí se coló
  * el bug: `now()` global no existe (solo `Illuminate\Support\now()`), el
  * controller reventaba con 500 y HTMX, al recibir un status de error, no
- * swapea: sin toast, sin cambio, falla muda. Acá se cubren las dos ramas
+ * swapea: sin toast, sin cambio, falla muda. Aquí se cubren las dos ramas
  * del toggle y el id inexistente.
  */
 final class ToggleTaskTest extends TasksTestCase
@@ -20,7 +20,7 @@ final class ToggleTaskTest extends TasksTestCase
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
         //
-        // Acá había un GET /login previo: en un proceso fresco session_start()
+        // Aquí había un GET /login previo: en un proceso fresco session_start()
         // pisaba $_SESSION y el login manual se perdía. tests/bootstrap.php ya
         // abre la sesión centralmente, así que ese request quedó muerto y se
         // fue con la duplicación.

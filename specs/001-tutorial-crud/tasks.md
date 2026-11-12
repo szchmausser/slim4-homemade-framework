@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
 
-**Tests**: el entregable **enseña** tests; no se escriben tests del entregable. Las tareas de "test" acá son tareas de redacción del cierre. La validación se hace siguiendo el recorrido, no ejecutando una suite del tutorial.
+**Tests**: el entregable **enseña** tests; no se escriben tests del entregable. Las tareas de "test" aquí son tareas de redacción del cierre. La validación se hace siguiendo el recorrido, no ejecutando una suite del tutorial.
 
 **Organization**: tareas agrupadas por historia de usuario. El entregable es un único archivo (`tutorial-crud.md`), así que varias tareas tocan el mismo archivo y **no** son paralelizables entre sí dentro de una fase; las marcadas `[P]` trabajan sobre documentos distintos o sobre verificación independiente.
 

@@ -18,7 +18,7 @@ Necesitas:
 
 **Lo que este recorrido no enseña**: instalar PHP, Composer ni Termux; el contenedor de dependencias;
 los middlewares; la autenticación; los assets y el sistema visual; el despliegue. Todo eso está en
-`docs/guia-stack-php-termux.md`. Acá se da por hecho que el framework ya arranca.
+`docs/guia-stack-php-termux.md`. Aquí se da por hecho que el framework ya arranca.
 
 ## Cómo leer cada paso
 
@@ -456,7 +456,7 @@ a renderizar una vista.
 </html>
 ```
 
-Y el controlador. Suma `use App\Models\Nota;` arriba, junto a los otros `use`: desde acá la clase se usa
+Y el controlador. Suma `use App\Models\Nota;` arriba, junto a los otros `use`: desde aquí la clase se usa
 y sin el import el error es `Class "App\Http\Controllers\Nota" not found`, que parece un problema de
 rutas y no lo es.
 
@@ -879,7 +879,7 @@ top layer, así que lo cierra el botón «Cancelar», no Escape.
 
 > **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline, como los `onclick` que ya usas
 > para abrir modales; no agrega bloques de JavaScript nuevos. `hx-disabled-elt` del demo de tareas no
-> sirve acá porque este formulario no envía por HTMX: es un POST con navegación.
+> sirve aquí porque este formulario no envía por HTMX: es un POST con navegación.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
 `open` que permite reabrirlo desde el servidor. Úsalo para todo alta, edición y confirmación. Evita
@@ -1200,7 +1200,7 @@ proyecto. Úsala en toda acción destructiva. Evita el borrado por accidente y e
 no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuelta atrás.
 
 > **Por qué un diálogo por fila y no uno solo**: el demo de contactos usa un único modal y le cambia
-> el `action` por JavaScript. Acá el diálogo vive en cada fila para no agregar JS: es más markup, pero
+> el `action` por JavaScript. Aquí el diálogo vive en cada fila para no agregar JS: es más markup, pero
 > es server-rendered y no depende de estado del cliente. Con decenas de filas, el modal único con JS
 > vuelve a tener sentido.
 
@@ -1341,7 +1341,7 @@ Esperado: cinco tests en verde.
 **Qué no prueba**: que la pantalla se vea bien, ni que los diálogos abran. Prueba el contrato HTTP:
 qué código, qué guarda y qué mensaje.
 
-> **Checkpoint**: acá tienes la entidad completa —crear, editar, borrar con confirmación y tests—. Si
+> **Checkpoint**: aquí tienes la entidad completa —crear, editar, borrar con confirmación y tests—. Si
 > esto no funciona, lo que sigue no lo arregla.
 
 **Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el

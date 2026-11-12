@@ -42,7 +42,7 @@ Usuario dijo "corrijamos los 3 puntos" — autoriza mutación local en esta feat
 - Enfoque: checks funcionales ordinarios por task, no RED/GREEN ceremonial.
 
 ## Delivery strategy
-- `ask-on-risk` (default). Forecast <400 authored, running count desde work-unit commits. Sin slicing previsto. Slices/PR boundaries se registran acá si el conteo supera.
+- `ask-on-risk` (default). Forecast <400 authored, running count desde work-unit commits. Sin slicing previsto. Slices/PR boundaries se registran aquí si el conteo supera.
 
 ## Tasks
 - [x] T1 — composer-lowmem: scripts + doc flujo 32-bit (route: inline, 1 file) — commit 2bc63bd

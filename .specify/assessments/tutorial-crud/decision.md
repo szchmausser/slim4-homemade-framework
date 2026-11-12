@@ -25,7 +25,7 @@ contar. La opción B es la única que llena ese hueco sin contradecir lo que el 
 **Por qué no `needs-clarification`:** el único criterio por debajo de `adequate` es `evidence
 strength`, y su debilidad viene de una incógnita que **no es respondible con los medios
 disponibles** — no hay issues ni telemetría que consultar, así que devolverla a `research` sería un
-bucle sin salida. La regla del pipeline existe para frenar construcción caras sobre entusiasmo; acá
+bucle sin salida. La regla del pipeline existe para frenar construcción caras sobre entusiasmo; aquí
 el techo de pérdida es un documento que nadie lee, sin tocar código de producción ni esquema. Con
 dano acotado y reversible, el desconocimiento sobre la demanda no justifica detener.
 

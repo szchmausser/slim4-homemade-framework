@@ -11,7 +11,7 @@ final class CsrfFlowTest extends TasksTestCase
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        // La capa de auth en sí se testea en AuthTest, no acá.
+        // La capa de auth en sí se testea en AuthTest, no aquí.
         self::loginAs();
     }
 

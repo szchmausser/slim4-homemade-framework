@@ -49,7 +49,7 @@ This document defines the **layered architecture** of the Slim 4 Homemade Framew
 
 ### 5. Middleware (`Framework\Http\Middleware`)
 - `Session`, `SecurityHeaders`, `RememberMe`, `RequireAuth`.
-- El pipeline base vive acá; `app/Http/Middleware` queda para middleware propio de la app.
+- El pipeline base vive aquí; `app/Http/Middleware` queda para middleware propio de la app.
 
 ### 6. Database (`database`)
 - **Migrations**: Phinx-generated, numbered sequentially.

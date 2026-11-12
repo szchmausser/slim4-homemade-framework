@@ -169,7 +169,7 @@ return [
     Guard::class => function (ContainerInterface $c) {
         $responseFactory = $c->get(ResponseFactoryInterface::class);
 
-        // Tres trampas acá. Las tres producen el mismo síntoma — un 500
+        // Tres trampas aquí. Las tres producen el mismo síntoma — un 500
         // desde adentro del middleware, es decir el error que estamos
         // tratando de evitar.
         //
@@ -189,7 +189,7 @@ return [
             'csrf',
             // Por defecto este parámetro es false: el token se valida una vez
             // y se BORRA. Eso está bien para un form que se repinta entero,
-            // pero acá no es lo que pasa: el submit exitoso devuelve
+            // pero aquí no es lo que pasa: el submit exitoso devuelve
             // `_panel.twig`, que no incluye los hidden del CSRF, y el form
             // queda con el token ya consumido. Resultado: el primer alta anda
             // (200) y el segundo tira 303 con la página vieja — la tarea se

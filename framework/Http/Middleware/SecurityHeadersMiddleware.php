@@ -13,7 +13,7 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
  * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
  * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
- * momento en que conviene. Lo que sí va acá es lo que suma sin romper nada.
+ * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {

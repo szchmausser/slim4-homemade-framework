@@ -18,11 +18,11 @@ use Slim\Psr7\Factory\StreamFactory;
  * Las copias ya habían divergido donde más duele: la versión mínima de
  * `request()` no mandaba Content-Type ni StreamFactory con el body, así que un
  * POST armado con ella salteaba `BodyParsingMiddleware`, `getParsedBody()`
- * llegaba vacío y la validación fallaba sin mensaje. Acá vive el superset
+ * llegaba vacío y la validación fallaba sin mensaje. Aquí vive el superset
  * —body de verdad, headers arbitrarios— y con dos argumentos se comporta
  * exactamente igual que la copia mínima.
  *
- * Lo que NO vive acá es lo que necesita una sola clase: la IP del throttle
+ * Lo que NO vive aquí es lo que necesita una sola clase: la IP del throttle
  * (LoginThrottleTest arma su propio request) y el prefijo de ruta
  * (BasePathTest resetea AppFactory). Un base que sirve a todos volviéndose un
  * dios es peor que la duplicación que evita.

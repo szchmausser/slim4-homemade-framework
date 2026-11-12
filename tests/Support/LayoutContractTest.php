@@ -34,7 +34,7 @@ final class LayoutContractTest extends TestCase
 
     /**
      * `assertMatchesRegularExpression` imprime el asunto entero al fallar, y
-     * acá el asunto son 550 líneas de layout. Este helper conserva el mensaje
+     * aquí el asunto son 550 líneas de layout. Este helper conserva el mensaje
      * propio y evita el volcado.
      */
     private static function assertPattern(string $pattern, string $subject, string $message): void

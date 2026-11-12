@@ -1,7 +1,7 @@
 # Constitución de Slim 4 Homemade Framework
 
 Este documento fija las reglas que ya son verdad en este repositorio. No describe aspiraciones: si
-una regla no se puede verificar hoy, no va acá. Cuando la constitución y el código difieran, se
+una regla no se puede verificar hoy, no va aquí. Cuando la constitución y el código difieran, se
 corrige el que esté equivocado —y se dice cuál— en el mismo cambio.
 
 ## Principios Fundamentales

@@ -118,7 +118,7 @@ final class CodeBlocksTest extends TestCase
 
         self::assertNull(CodeBlocks::resolvePath('`app/Notas.md`:', $this->dir), 'Un .md no se verifica como copia.');
         self::assertNull(CodeBlocks::resolvePath('`app/Fantasma.php`:', $this->dir));
-        self::assertNull(CodeBlocks::resolvePath('sin rutas acá', $this->dir));
+        self::assertNull(CodeBlocks::resolvePath('sin rutas aquí', $this->dir));
     }
 
     public function test_resolve_path_no_escapa_del_repo(): void

@@ -222,7 +222,7 @@
         }
 
         /* Tarjeta propia en vez de `.alert` de daisyUI: el alert fija radio,
-           padding y sombra, y acá lo que se busca es acento lateral + barra de
+           padding y sombra, y aquí lo que se busca es acento lateral + barra de
            vida. El color sale de los tokens del tema activo, así que el
            claro/oscuro sigue sin una sola utility `dark:`. */
         .toast-card {
@@ -235,7 +235,7 @@
             --toast-accent: var(--ink-info);
             position: relative;
             overflow: hidden;                        /* recorta acento y barra */
-            /* Borde completo acá y no con `border border-base-300` en el HTML:
+            /* Borde completo aquí y no con `border border-base-300` en el HTML:
                el CSS del browser build de Tailwind se inyecta después de este
                <style>, y su shorthand `border-width: 1px` pisaría el acento de
                3px (misma especificidad, más tarde en la cascada). */
@@ -296,7 +296,7 @@
     </style>
 
     {# CSS de un módulo opcional. El layout no define reglas de ningún demo:
-       cuando el demo se desinstala, acá no queda nada huérfano. El módulo trae
+       cuando el demo se desinstala, aquí no queda nada huérfano. El módulo trae
        las suyas en este bloque, que sólo se renderiza en sus páginas. #}
     {% block styles %}{% endblock %}
 
@@ -341,7 +341,7 @@
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
             {# El flash vive en tasks/_panel.twig, que es la región que HTMX
-               reemplaza en los swaps parciales: acá no se renderiza. #}
+               reemplaza en los swaps parciales: aquí no se renderiza. #}
             {% block content %}{% endblock %}
         </main>
 
@@ -355,7 +355,7 @@
 // R1 del sidebar: Alpine entra con `defer`, así que entre el parseo y su
 // arranque el sidebar fuera de pantalla de móvil todavía se alcanza con Tab.
 // `x-bind:inert` no puede tapar esa ventana: corre exactamente cuando Alpine
-// inicializa, que es lo que llega tarde. Se aplica acá, durante el parseo
+// inicializa, que es lo que llega tarde. Se aplica aquí, durante el parseo
 // (antes del script diferido), el mismo valor inicial que calcula shell():
 // sidebarOpen = window.innerWidth >= 1024. Alpine lo mantiene después.
 // Sólo móvil: en desktop el sidebar es una columna visible y `inert` la
@@ -496,7 +496,7 @@ function restoreFocusAfterSwap() {
 }
 
 // Los listeners van en document.body y no en el panel: el panel se reemplaza en
-// cada swap, el body no. Se enganchan acá, al final del body, cuando ya existe.
+// cada swap, el body no. Se enganchan aquí, al final del body, cuando ya existe.
 restoreFocusAfterSwap();
 
 /**
@@ -551,7 +551,7 @@ function notifyHtmxFailures() {
         // responde 400 con `HX-Trigger` y ese evento `csrf` lo muestra este
         // mismo stack; el 422 swapea (ver allowValidationSwap) y el mensaje
         // viaja en el formulario o en `HX-Trigger-After-Swap`. Avisar también
-        // acá daría DOS toasts del mismo fallo, y el de CSRF dice más
+        // aquí daría DOS toasts del mismo fallo, y el de CSRF dice más
         // ("Tu sesión expiró") porque sabe por qué falló.
         if (status === 400 || status === 419 || status === 422) {
             return;

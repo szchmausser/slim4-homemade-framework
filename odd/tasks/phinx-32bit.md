@@ -10,7 +10,7 @@ En Termux: `composer update` falla con `robmorgan/phinx 0.16.12 requires php-64b
 Bug reportado desde Termux real. Sin esto, nadie instala en 32 bits.
 
 ## Scope
-- `composer.json`: pin `robmorgan/phinx` a `^0.13` + regenerar `composer.lock` (scoped update acá en 64-bit, nunca en el teléfono).
+- `composer.json`: pin `robmorgan/phinx` a `^0.13` + regenerar `composer.lock` (scoped update aquí en 64-bit, nunca en el teléfono).
 - Verificar: lock sin `php-64bit` en ningún paquete; `phinx status/migrate` funciona; suite verde.
 - Guía: cap 4 (pin + motivo), cap 11 (nota), troubleshooting con el error exacto.
 - Fuera de alcance: reemplazar Phinx por otro migrador.

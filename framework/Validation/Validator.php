@@ -70,7 +70,7 @@ class Validator
      * de `passes()` y el de `message()`—, así que agregar una regla eran tres
      * ediciones que podían divergir sin que nada fallara, y el `default` de
      * cada match era código inalcanzable porque `parse()` ya había filtrado el
-     * nombre. Acá el único `default` es el que rechaza.
+     * nombre. Aquí el único `default` es el que rechaza.
      *
      * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
      * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde

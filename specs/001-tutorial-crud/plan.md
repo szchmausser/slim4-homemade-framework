@@ -77,7 +77,7 @@ README.md                    # una sola línea: enlace en el índice de guías
 ```
 
 **Structure Decision**: un archivo único en la raíz. No se crea directorio porque el recorrido no
-necesita imágenes ni adjuntos; si los necesitara, la decisión se revisa acá y no en la
+necesita imágenes ni adjuntos; si los necesitara, la decisión se revisa aquí y no en la
 implementación (declarado como asunción en la spec). Los artefactos del feature viven en
 `specs/001-tutorial-crud/`, como cualquier feature del proyecto.
 

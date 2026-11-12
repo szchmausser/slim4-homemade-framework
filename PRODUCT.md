@@ -56,7 +56,7 @@ Un esqueleto PHP server-rendered que corre en Termux ARM 32-bit sin toolchain de
 - `framework/scaffolds/tasks/` contiene un demo funcional de CRUD, completar/pendiente, paginación y avisos HTMX, con migraciones, seeds y tests.
 - `framework/scaffolds/contacts/` contiene un CRUD de contactos con listado Tabulator 6.7.1 vendorizado, migración, seed y tests.
 - `README.md`, `docs/guia-stack-php-termux.md`, `DESIGN.md` y `.ai/steering/` son la documentación operativa y de decisiones.
-- La suite base y el round-trip del demo son evidencia ejecutable; los conteos exactos se leen de `composer test`, no se fijan acá.
+- La suite base y el round-trip del demo son evidencia ejecutable; los conteos exactos se leen de `composer test`, no se fijan aquí.
 - No hay testimonios, clientes, benchmarks, precios ni assets de marca definitivos; no inventarlos.
 
 ## Product Principles

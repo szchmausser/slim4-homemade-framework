@@ -18,7 +18,7 @@ $auth = require __DIR__ . '/../config/auth.php';
 UserProvider::configure($auth['model']);
 
 // Un clon fresco no trae storage/ ni .env: sin estos dirs Monolog y Twig
-// fallan en silencio o con paths inexistentes. Se crean acá, antes del
+// fallan en silencio o con paths inexistentes. Se crean aquí, antes del
 // container, para que el primer boot ya sea usable.
 foreach (['storage/logs', 'storage/cache/twig', 'storage/sessions', 'database'] as $dir) {
     $path = __DIR__ . '/../' . $dir;

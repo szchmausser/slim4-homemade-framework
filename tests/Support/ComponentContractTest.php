@@ -129,7 +129,7 @@ final class ComponentContractTest extends TestCase
     {
         // S3: `variants[...]` devuelve null para una variante que no existe, y
         // el componente quedaba con `role=""` (ARIA inválido) y el slot de
-        // color vacío. Sin `strict_variables` Twig lo tapaba: acá se fija que
+        // color vacío. Sin `strict_variables` Twig lo tapaba: aquí se fija que
         // una variante desconocida cae al default documentado (info/status).
         $html = $this->twig->render('components/feedback/alert.twig', [
             'variant' => 'warning',

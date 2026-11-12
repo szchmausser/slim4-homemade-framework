@@ -36,7 +36,7 @@ abstract class Controller
         // ÚNICO consumidor del flash. Antes cada controlador hacía además su
         // propio Flash::get('info') para pasarlo a la plantilla: el que llegaba
         // primero se llevaba el mensaje y el otro recibía null, así que el
-        // aviso se perdía sin error. Si se suma un tipo nuevo, va acá.
+        // aviso se perdía sin error. Si se suma un tipo nuevo, va aquí.
         $flash = [];
         foreach (self::FLASH_ORDER as $type) {
             $flash[$type] = Flash::get($type);

@@ -56,7 +56,7 @@ sigue el tutorial.
 **Transiciones**: no hay estados. Se crea y se edita desde un diálogo modal, se borra con
 confirmación explícita y se consulta por identificador —para poder demostrar el aviso ante un id
 inexistente—. Editar y borrar entran en el recorrido porque son el idioma de UI del proyecto: una
-lista sin acciones de fila no enseña cómo se construye una pantalla acá.
+lista sin acciones de fila no enseña cómo se construye una pantalla aquí.
 
 **Validaciones que el recorrido demuestra**: título vacío → rechazo con mensaje junto al campo;
 título de más de 120 caracteres → rechazo; identificador inexistente → aviso legible, nunca 404 mudo

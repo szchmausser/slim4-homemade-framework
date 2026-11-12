@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * El esquema de tareas solo existe cuando el scaffold demo está instalado.
- * Vive acá, no en tests/Support: la suite base no debe exigir la tabla tasks.
+ * Vive aquí, no en tests/Support: la suite base no debe exigir la tabla tasks.
  */
 final class TaskSchemaTest extends TestCase
 {
