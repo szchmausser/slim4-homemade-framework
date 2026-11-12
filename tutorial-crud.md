@@ -173,6 +173,16 @@ final class CreateNotasTable extends AbstractMigration
 vendor/bin/phinx migrate
 ```
 
+**Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
+`20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. Sirve, pero su versión
+es un **timestamp**, y este proyecto usa numeración secuencial porque los timestamps saturan el entero
+de 32 bits en bases grandes. Así que, si lo usas, renombralo a `007_create_notas_table.php`: la versión
+sale del prefijo del archivo y el nombre de la clase no cambia.
+
+Por eso el recorrido crea el archivo a mano: son veinte líneas, y el nombre —que es lo que Phinx toma
+como versión— queda bien desde el principio. Si algún día armas un demo instalable, el generador acepta
+`--path` para escribir dentro de `database/migrations/<demo>/`.
+
 **Comprobación**: ejecuta `vendor/bin/phinx status` (o vuelve a `composer migrate`). Tienes que ver tu
 migración listada como aplicada, sin pendientes.
 
