@@ -655,9 +655,10 @@ Cambiá también los dos `hidden` de CSRF por el partial que los emite:
             {% include 'partials/_csrf.twig' %}
 ```
 
-**Comprobación**: los campos se ven igual, pero el HTML ahora es un `fieldset` con su
-`label.fieldset-legend` asociado por `for`/`id`, el campo opcional dice «(opcional)» y se mantienen
-`required` y `maxlength`. Mirá el HTML con el inspector: `label for` coincide con el `id` del input.
+**Comprobación**: los campos quedan en el mismo lugar y el input mide lo mismo, pero el label pasa a
+`label.fieldset-legend` (12px semibold en vez de 16px normal) y el HTML ahora es un `fieldset` con su
+label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantienen `required` y
+`maxlength`. Mirá el HTML con el inspector: `label for` coincide con el `id` del input.
 
 > Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
 > error**, y eso llega en el paso 7.3, cuando el controlador empieza a devolver `errors`. En este paso
