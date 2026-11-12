@@ -1325,7 +1325,19 @@ renders de `422` pasan a usarlo pasando lo suyo en `$extra`:
             'form_values'       => $data,
             'open_create_modal' => true,
         ], 422);
+
+        // rechazo de la edición
+        return $this->renderIndex($request, $response, [
+            'errors'          => $validator->errors(),
+            'form_values'     => $data,
+            'nota'            => $nota,
+            'open_edit_modal' => true,
+        ], 422);
 ```
+
+En el rechazo de la edición, `'nota' => $nota` no es decorativo: `index.twig` envuelve el modal de
+edición en `{% if nota is defined %}`. Sin esa clave el modal no se renderiza y lo tipeado aparece en
+el modal de alta, que es el que queda abierto.
 
 La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
 alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
