@@ -19,8 +19,12 @@ const PREFIJO_RUN = 'storage/ci/';
 $root = dirname(__DIR__);
 chdir($root);
 
-$command = $argv[1] ?? 'watch';
-$branch = argumento($argv, '--branch') ?? ramaActual();
+// `$argv` no está tipado en CLI y PHPStan lo marca como indefinido; por
+// `$_SERVER['argv']` pasa el gate sin suprimir nada.
+$args = $_SERVER['argv'] ?? [];
+
+$command = $args[1] ?? 'watch';
+$branch = argumento($args, '--branch') ?? ramaActual();
 
 if ($command === 'watch' && getenv('CI_WAIT') === '0') {
     salir(0, "CI_WAIT=0: no se espera la corrida de '{$branch}'.\n");
