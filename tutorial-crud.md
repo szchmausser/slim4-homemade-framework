@@ -1099,7 +1099,9 @@ acción explícita en vez de cerrar un cartel del sistema.
 - La papelera no abre nada: el `onclick` apunta a un id que no existe (el id lleva el número de fila).
 - Cancelar borra igual: el botón de cancelar tiene que ser `type: 'button'`; con `submit` el formulario
   se envía.
-- El borrado responde 400: falta el `{% include 'partials/_csrf.twig' %}` dentro del formulario del modal.
+- El borrado te devuelve al login con «Tu sesión expiró»: falta el `{% include 'partials/_csrf.twig' %}`
+  dentro del formulario del modal. Sin HTMX el rechazo es un 303 al login; el 400 con `HX-Trigger` es
+  sólo para disparadores HTMX.
 
 **Qué no prueba**: que el borrado sea reversible, ni que exista borrado lógico. Borra la fila.
 
@@ -1240,7 +1242,9 @@ Esperado: cinco tests en verde.
 
 **Falla si**:
 
-- El POST responde 400: el token no está llegando. `HttpTestCase::token()` te da el par.
+- El test falla en `Location` (`/login` en vez de `/notas`): el token no está llegando, aunque el
+  primer `assertSame(303, …)` pase igual. Sin HTMX el rechazo de CSRF es un 303 al login, no un 400.
+  `HttpTestCase::token()` te da el par.
 - El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo; revisá `open_create_modal`.
 - La suite completa falla después: falta el `tearDown` que limpia `notas`.
 
