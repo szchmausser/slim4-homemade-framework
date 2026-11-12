@@ -426,8 +426,9 @@ página suelta.
 {% endblock %}
 ```
 
-**Comprobación**: recargá `/notas`. Ahora está el sidebar, el header con tu usuario, el tema y el
-contenido dentro de una tarjeta. **El `<body>`, el `<head>` y los assets ya no son tuyos.**
+**Comprobación**: recargá `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—,
+el header, el tema y el contenido dentro de una tarjeta. **El `<body>`, el `<head>` y los assets ya no
+son tuyos.**
 
 **Qué no prueba**: que los modales y los avisos funcionen; eso lo da el mismo layout, más adelante.
 
@@ -951,7 +952,7 @@ use Slim\Exception\HttpNotFoundException;
 ```
 
 Y el segundo modal, junto al del alta y **dentro** del mismo bloque `content`, que sólo se renderiza
-cuando hay nota::
+cuando hay nota:
 
 ```twig
 {% if nota is defined %}
