@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 // Instala o elimina un scaffold demo. Uso:
-//   php scripts/demo.php install [tasks|contacts]
-//   php scripts/demo.php remove  [tasks|contacts]
-// Comandos Composer: demo:tasks:install/remove y demo:contacts:install/remove.
+//   php scripts/demo.php install [tasks|contacts|notas]
+//   php scripts/demo.php remove  [tasks|contacts|notas]
+// Comandos Composer: demo:tasks:install/remove, demo:contacts:install/remove y demo:notas:install/remove.
 // demo:install/remove quedan como aliases compatibles de tasks.
 //
 // Cada demo vive en framework/scaffolds/<nombre>/ con la MISMA estructura
@@ -42,6 +42,11 @@ $demos = [
         'migrations' => 'database/migrations/contacts',
         'seeder' => 'ContactSeeder',
     ],
+    'notas' => [
+        'tables' => ['notas'],
+        'migrations' => 'database/migrations/notas',
+        'seeder' => 'NotaSeeder',
+    ],
 ];
 
 $meta = $demos[$name] ?? null;
@@ -57,7 +62,7 @@ if (is_string($envDb) && $envDb !== '') {
 }
 
 if ($meta === null) {
-    fwrite(STDERR, "Demo desconocido: '{$name}'. Usá tasks o contacts.\n");
+    fwrite(STDERR, "Demo desconocido: '{$name}'. Usá tasks, contacts o notas.\n");
     exit(1);
 }
 

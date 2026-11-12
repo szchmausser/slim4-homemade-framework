@@ -49,6 +49,8 @@
         "demo:remove": "@php scripts/demo.php remove tasks",
         "demo:contacts:install": "@php scripts/demo.php install contacts",
         "demo:contacts:remove": "@php scripts/demo.php remove contacts",
+        "demo:notas:install": "@php scripts/demo.php install notas",
+        "demo:notas:remove": "@php scripts/demo.php remove notas",
         "verify": [
             "@lint",
             "@docs:check",

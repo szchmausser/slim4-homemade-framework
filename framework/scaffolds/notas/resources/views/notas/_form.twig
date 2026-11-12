@@ -1,0 +1,44 @@
+{# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
+   usuario tipeó, no lo que hay en la base. #}
+{% set values = form_values|default(nota|default(null)) %}
+
+{# El envío deshabilita el botón: un doble clic sobre un formulario POST plano
+   crea dos filas. Con navegación clásica no hay `hx-disabled-elt` que lo evite;
+   si el servidor rechaza, la página vuelve a renderizar el botón habilitado. #}
+<form method="post" action="{{ action }}" class="space-y-4"
+      onsubmit="this.querySelector('[type=submit]').disabled = true">
+    {% include 'partials/_csrf.twig' %}
+
+    {% include 'components/form/field.twig' with {
+        name: 'titulo',
+        label: 'Título',
+        value: values ? values.titulo : '',
+        required: true,
+        maxlength: 120,
+        error: errors.titulo|default(null)
+    } only %}
+
+    {% include 'components/form/field.twig' with {
+        name: 'cuerpo',
+        label: 'Cuerpo',
+        value: values ? values.cuerpo : '',
+        optional: true,
+        maxlength: 2000,
+        error: errors.cuerpo|default(null)
+    } only %}
+
+    <div class="modal-action">
+        {% include 'components/ui/button.twig' with {
+            label: 'Cancelar',
+            variant: 'ghost',
+            type: 'button',
+            icon: 'x',
+            onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: submit_label|default('Guardar'),
+            type: 'submit',
+            icon: submit_icon|default('check')
+        } only %}
+    </div>
+</form>

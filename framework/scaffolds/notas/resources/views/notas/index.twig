@@ -1,0 +1,60 @@
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Notas{% endblock %}
+
+{% block content %}
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold">Notas</h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                {% include 'components/ui/button.twig' with {
+                    label: 'Agregar nota',
+                    icon: 'plus',
+                    onclick: "document.getElementById('nota-create-modal').showModal()"
+                } only %}
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-lg font-semibold">Listado</h2>
+                <span class="badge badge-ghost">{{ total }} notas</span>
+            </div>
+
+            {% include 'notas/_panel.twig' %}
+        </div>
+    </section>
+
+    {% embed 'components/ui/modal.twig' with {
+        id: 'nota-create-modal',
+        title: 'Nueva nota',
+        subtitle: 'Poné un título; el cuerpo es opcional.',
+        open: open_create_modal|default(false)
+    } %}
+        {% block body %}
+            {% include 'notas/_form.twig' with {
+                action: url('/notas'),
+                submit_label: 'Crear nota',
+                submit_icon: 'plus',
+                cancel_target: 'nota-create-modal'
+            } %}
+        {% endblock %}
+    {% endembed %}
+
+    {% if nota is defined %}
+        {% embed 'components/ui/modal.twig' with {
+            id: 'nota-edit-modal',
+            title: 'Editar nota',
+            open: open_edit_modal|default(false)
+        } %}
+            {% block body %}
+                {% include 'notas/_form.twig' with {
+                    action: url('/notas/' ~ nota.id),
+                    submit_label: 'Guardar cambios',
+                    cancel_target: 'nota-edit-modal'
+                } %}
+            {% endblock %}
+        {% endembed %}
+    {% endif %}
+{% endblock %}

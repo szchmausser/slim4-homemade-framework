@@ -1,0 +1,69 @@
+<div id="notas-panel">
+    {% embed 'components/list/simple.twig' with {
+        items: notas,
+        empty: 'No hay notas todavía.'
+    } %}
+        {% block row %}
+            <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                <div class="min-w-0">
+                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
+                    {% if item.cuerpo %}
+                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
+                    {% endif %}
+                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'pencil',
+                        aria_label: 'Editar ' ~ item.titulo,
+                        href: url('/notas/' ~ item.id ~ '/edit')
+                    } only %}
+
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'trash',
+                        aria_label: 'Borrar ' ~ item.titulo,
+                        onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').showModal()"
+                    } only %}
+                </div>
+            </li>
+
+            {% embed 'components/ui/modal.twig' with {
+                id: 'nota-delete-' ~ item.id,
+                title: 'Borrar nota'
+            } %}
+                {% block body %}
+                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                          onsubmit="this.querySelector('[type=submit]').disabled = true">
+                        {% include 'partials/_csrf.twig' %}
+                        <div class="modal-action">
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Cancelar',
+                                variant: 'ghost',
+                                type: 'button',
+                                icon: 'x',
+                                onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').close()"
+                            } only %}
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Borrar',
+                                variant: 'error',
+                                type: 'submit',
+                                icon: 'trash'
+                            } only %}
+                        </div>
+                    </form>
+                {% endblock %}
+            {% endembed %}
+        {% endblock %}
+    {% endembed %}
+
+    {% include 'components/pagination/simple.twig' with {
+        pagination: pagination,
+        target: '#notas-panel'
+    } %}
+</div>
