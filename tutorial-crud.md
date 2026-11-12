@@ -226,9 +226,8 @@ modelo.
 llega en el paso 7, cuando creás la primera nota. Si el modelo apunta a una tabla inexistente, el
 error aparece ahí, con `no such table: notas`.
 
-> No intentes comprobar el modelo con un `php -r` que cargue `bootstrap/app.php`: ese arranque espera
-> un request HTTP (sesión abierta, entorno cargado) y en CLI falla con avisos que parecen errores del
-> modelo.
+> El modelo sí se puede comprobar desde la terminal: `php -r 'require "bootstrap/app.php"; echo
+> App\Models\Nota::query()->count(), PHP_EOL;'` imprime `0` sin avisos.
 
 **Pieza — Eloquent standalone**: resuelve el acceso a datos con un modelo por tabla. Usalo para
 toda lectura y escritura; el proyecto no escribe SQL a mano en los controladores. Evita el SQL
