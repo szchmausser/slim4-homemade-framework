@@ -5092,7 +5092,7 @@ Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste ce
 
     <php>
         <!-- force="true" + Dotenv::createImmutable() en bootstrap/app.php:
-             las variables de acá ganan, el .env real no las pisa.
+             las variables de aquí ganan, el .env real no las pisa.
              DB_DATABASE lo fija tests/bootstrap.php (SQLite temporal donde
              corren las migraciones reales). -->
         <env name="APP_ENV"    value="testing" force="true"/>
