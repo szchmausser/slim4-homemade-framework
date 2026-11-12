@@ -52,12 +52,12 @@ return [
             }
             if (!file_exists($db) && !touch($db)) {
                 throw new \RuntimeException(
-                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                    "No se pudo crear la base SQLite en '{$db}'. Ejecuta `pwd` en la raíz y corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
             if (file_exists($db) && !is_writable($db)) {
                 throw new \RuntimeException(
-                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                    "La base SQLite en '{$db}' no es escribible. Revisa permisos o corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
         }
@@ -215,7 +215,7 @@ return [
                     return $response
                         ->withStatus(400)
                         ->withHeader('HX-Trigger', json_encode([
-                            'csrf' => 'Tu sesión expiró. Recargá la página.',
+                            'csrf' => 'Tu sesión expiró. Recarga la página.',
                         ]));
                 }
 
@@ -224,7 +224,7 @@ return [
                 // login, que es la vista que renderiza `flash_error`. Antes el
                 // redirect era a '/' y sin flash: el usuario perdía lo tipeado
                 // sin enterarse de por qué.
-                Flash::set('error', 'Tu sesión expiró. Volvé a iniciar sesión.');
+                Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app
                 // deja al usuario en la raíz del dominio, que no es esta app.

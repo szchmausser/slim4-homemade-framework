@@ -101,7 +101,7 @@ final class CodeBlocksTest extends TestCase
         file_put_contents($this->dir . '/app/Unica.php', "<?php\n");
 
         self::assertSame('app/Unica.php', CodeBlocks::resolvePath('`app/Unica.php`:', $this->dir));
-        self::assertSame('app/Unica.php', CodeBlocks::resolvePath('Completá `app/Unica.php` (ojo con el secret):', $this->dir));
+        self::assertSame('app/Unica.php', CodeBlocks::resolvePath('Completa `app/Unica.php` (ojo con el secret):', $this->dir));
     }
 
     public function test_resolve_path_ignora_dos_rutas_porque_es_un_fence_comparativo(): void

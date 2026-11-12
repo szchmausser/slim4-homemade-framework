@@ -111,8 +111,8 @@ return function (App $app) {
                     $stream->rewind();
                     $body = $stream->getContents();
                 } catch (Throwable $renderFailure) {
-                    // Si la plantilla de error también falla, no querés otra
-                    // excepción desde acá: entrás en loop. Degradamos a texto.
+                    // Si la plantilla de error también falla, no conviene lanzar otra
+                    // excepción desde aquí: se entra en un bucle. Degradamos a texto.
                     $logger->critical('No se pudo renderizar la vista de error', [
                         'exception' => $renderFailure,
                     ]);

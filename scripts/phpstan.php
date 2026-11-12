@@ -115,7 +115,7 @@ function ensurePhar(string $target): void
     if (!@copy(PHPSTAN_URL, $part, $context) || !is_file($part)) {
         @unlink($part);
         throw new RuntimeException(
-            'No se pudo descargar PHPStan. Revisá la conexión o descargalo a mano y usá '
+            'No se pudo descargar PHPStan. Revisa la conexión o descárgalo a mano y usa '
             . 'PHPSTAN_PHAR=/ruta/al/phpstan.phar composer phpstan.'
         );
     }

@@ -93,7 +93,7 @@ final class CsrfFlowTest extends TasksTestCase
         // error. Test verde, producción rota.
         //
         // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocás el shell y te llevás el @csrf.window, este test falla antes
+        // tocas el shell y te llevas el @csrf.window, este test falla antes
         // que alguien pierda una tarea en silencio.
         self::assertStringContainsString(
             '@csrf.',

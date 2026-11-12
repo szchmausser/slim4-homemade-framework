@@ -460,12 +460,12 @@ return [
             }
             if (!file_exists($db) && !touch($db)) {
                 throw new \RuntimeException(
-                    "No se pudo crear la base SQLite en '{$db}'. Corré `pwd` en la raíz y corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                    "No se pudo crear la base SQLite en '{$db}'. Ejecuta `pwd` en la raíz y corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
             if (file_exists($db) && !is_writable($db)) {
                 throw new \RuntimeException(
-                    "La base SQLite en '{$db}' no es escribible. Revisá permisos o corregí DB_DATABASE en .env (guía cap. 5/20.3)."
+                    "La base SQLite en '{$db}' no es escribible. Revisa permisos o corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
         }
@@ -623,7 +623,7 @@ return [
                     return $response
                         ->withStatus(400)
                         ->withHeader('HX-Trigger', json_encode([
-                            'csrf' => 'Tu sesión expiró. Recargá la página.',
+                            'csrf' => 'Tu sesión expiró. Recarga la página.',
                         ]));
                 }
 
@@ -632,7 +632,7 @@ return [
                 // login, que es la vista que renderiza `flash_error`. Antes el
                 // redirect era a '/' y sin flash: el usuario perdía lo tipeado
                 // sin enterarse de por qué.
-                Flash::set('error', 'Tu sesión expiró. Volvé a iniciar sesión.');
+                Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app
                 // deja al usuario en la raíz del dominio, que no es esta app.
@@ -837,8 +837,8 @@ return function (App $app) {
                     $stream->rewind();
                     $body = $stream->getContents();
                 } catch (Throwable $renderFailure) {
-                    // Si la plantilla de error también falla, no querés otra
-                    // excepción desde acá: entrás en loop. Degradamos a texto.
+                    // Si la plantilla de error también falla, no conviene lanzar otra
+                    // excepción desde aquí: se entra en un bucle. Degradamos a texto.
                     $logger->critical('No se pudo renderizar la vista de error', [
                         'exception' => $renderFailure,
                     ]);
@@ -3075,8 +3075,8 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
         /* La barra ES el temporizador: al terminar la animación se retira el
            toast (`@animationend`), sin setTimeout que pueda desincronizarse o
-           congelarse con la pestaña en segundo plano. Si querés otra duración,
-           se cambia este `5s` y nada más. `paused` al pasar el mouse: no te lo
+           congelarse con la pestaña en segundo plano. Si quieres otra duración,
+           se cambia este `5s` y nada más. `paused` al pasar el mouse: no lo
            borres mientras lo estás leyendo. */
         .toast-progress {
             position: absolute;
@@ -5531,7 +5531,7 @@ final class CsrfFlowTest extends TasksTestCase
         // error. Test verde, producción rota.
         //
         // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocás el shell y te llevás el @csrf.window, este test falla antes
+        // tocas el shell y te llevas el @csrf.window, este test falla antes
         // que alguien pierda una tarea en silencio.
         self::assertStringContainsString(
             '@csrf.',
@@ -5595,7 +5595,7 @@ final class ErrorHandlingTest extends HttpTestCase
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
      * (medido) en vez del ~1 KB de errors/error.twig. En 32 bits ese
-     * pico de memoria se paga caro (cap. 17), y de paso dejás de mirar la
+     * pico de memoria se paga caro (cap. 17), y de paso dejas de mirar la
      * página de error real porque todo 404 se ve igual de apocalyptic.
      *
      * También fija el contrato de S7: el mensaje sale en español (no el

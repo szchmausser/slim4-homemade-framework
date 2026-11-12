@@ -18,7 +18,7 @@ declare(strict_types=1);
 
 $autoload = dirname(__DIR__) . '/vendor/autoload.php';
 if (!is_file($autoload)) {
-    fwrite(STDERR, "Falta 'vendor/': corré composer install antes de docs:check.\n");
+    fwrite(STDERR, "Falta 'vendor/': ejecuta composer install antes de docs:check.\n");
     exit(1);
 }
 
@@ -53,7 +53,7 @@ sort($codeFiles);
 
 $testCount = [
     'regex'   => '/\b\d{2,}\s+(?:tests?|assertions?)\b/i',
-    'message' => 'cifra hardcodeada de tests; usá la salida de composer test',
+    'message' => 'cifra hardcodeada de tests; usa la salida de composer test',
 ];
 $cdn = [
     'regex'   => '/\b(?:jsdelivr|unpkg)\b/i',
@@ -141,8 +141,8 @@ function checkCopies(string $docsDir, string $root): array
             }
 
             $violations[] = sprintf(
-                '%s:%d: la copia de «%s» difiere del archivo real — corré `composer docs:sync` '
-                . '(o marcá el fence como `excerpt` si es un fragmento)',
+                '%s:%d: la copia de «%s» difiere del archivo real — ejecuta `composer docs:sync` '
+                . '(o marca el fence como `excerpt` si es un fragmento)',
                 relativePath($root, $file),
                 $block['line'],
                 $path

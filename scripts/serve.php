@@ -20,7 +20,7 @@ defecto) y lo mata al vencer:
 
     The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds
 
-Un servidor web no puede vivir dentro de un script de un solo tiro. Usá el
+Un servidor web no puede vivir dentro de un script de un solo tiro. Usa el
 comando directo:
 
     php -S 0.0.0.0:8080 -t public

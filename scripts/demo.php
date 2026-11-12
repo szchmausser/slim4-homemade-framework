@@ -62,7 +62,7 @@ if (is_string($envDb) && $envDb !== '') {
 }
 
 if ($meta === null) {
-    fwrite(STDERR, "Demo desconocido: '{$name}'. Usá tasks, contacts o notas.\n");
+    fwrite(STDERR, "Demo desconocido: '{$name}'. Usa tasks, contacts o notas.\n");
     exit(1);
 }
 
@@ -82,14 +82,14 @@ if ($command === 'install') {
     if (!$noDb) {
         $autoload = $root . '/vendor/autoload.php';
         if (!is_file($autoload)) {
-            fwrite(STDERR, "Falta 'vendor/': corré composer install antes de {$commandPrefix}:install.\n");
+            fwrite(STDERR, "Falta 'vendor/': ejecuta composer install antes de {$commandPrefix}:install.\n");
             exit(1);
         }
 
         require_once $autoload;
 
         if (!class_exists(\Phinx\Config\Config::class)) {
-            fwrite(STDERR, "Falta Phinx en 'vendor/': instalá dependencias de desarrollo antes de {$commandPrefix}:install.\n");
+            fwrite(STDERR, "Falta Phinx en 'vendor/': instala dependencias de desarrollo antes de {$commandPrefix}:install.\n");
             exit(1);
         }
 
@@ -115,7 +115,7 @@ if ($command === 'install') {
         foreach ($conflicts as $relative) {
             fwrite(STDERR, "  - {$relative}\n");
         }
-        fwrite(STDERR, "Usá --force para sobrescribirlos o composer {$commandPrefix}:remove primero.\n");
+        fwrite(STDERR, "Usa --force para sobrescribirlos o composer {$commandPrefix}:remove primero.\n");
         exit(1);
     }
 
@@ -150,13 +150,13 @@ if ($command === 'install') {
                 removeDemoDatabase($root, $scaffold, $meta);
             } catch (Throwable $dbError) {
                 fwrite(STDERR, "Tampoco se pudo limpiar la DB del demo: {$dbError->getMessage()}\n");
-                fwrite(STDERR, "Revisá la base y, si hace falta, corré composer {$commandPrefix}:remove.\n");
+                fwrite(STDERR, "Revisa la base y, si hace falta, ejecuta composer {$commandPrefix}:remove.\n");
             }
 
             $rolledBack = removeDemoFiles($root, $files);
             clearTwigCache($root);
             fwrite(STDERR, "Install revertido: {$rolledBack} archivos borrados.\n");
-            fwrite(STDERR, "Corregí el error y volvé a correr composer {$commandPrefix}:install.\n");
+            fwrite(STDERR, "Corrige el error y vuelve a ejecutar composer {$commandPrefix}:install.\n");
             exit(1);
         }
     }

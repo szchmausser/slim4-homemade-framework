@@ -27,7 +27,7 @@ final class ErrorHandlingTest extends HttpTestCase
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
      * (medido) en vez del ~1 KB de errors/error.twig. En 32 bits ese
-     * pico de memoria se paga caro (cap. 17), y de paso dejás de mirar la
+     * pico de memoria se paga caro (cap. 17), y de paso dejas de mirar la
      * página de error real porque todo 404 se ve igual de apocalyptic.
      *
      * También fija el contrato de S7: el mensaje sale en español (no el

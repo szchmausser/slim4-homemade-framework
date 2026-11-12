@@ -121,7 +121,7 @@ abstract class HttpTestCase extends TestCase
     }
 
     /**
-     * Crea (o reusa, si le pasás uno) el usuario y siembra la sesión: las
+     * Crea (o reusa, si le pasas uno) el usuario y siembra la sesión: las
      * rutas protegidas exigen login y RequireAuth mira `$_SESSION['user_id']`.
      *
      * La sesión ya viene abierta por tests/bootstrap.php, así que el valor
