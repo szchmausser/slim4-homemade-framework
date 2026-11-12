@@ -96,10 +96,42 @@ return [
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
 
-        // Los scaffolds dejan su archivo de rutas al instalarse. Esa es la
-        // única fuente: si no hay rutas, las vistas base no muestran enlaces.
-        $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
-        $twig->getEnvironment()->addGlobal('contacts_enabled', is_file(__DIR__ . '/../routes/contacts.php'));
+        // Catálogo de módulos: todos los scaffolds que declaran metadatos en
+        // config/navigation/, estén instalados o no. La portada los lista con
+        // su estado; el sidebar solo muestra los instalados.
+        $demoModules = [];
+
+        foreach (glob(__DIR__ . '/../framework/scaffolds/*', GLOB_ONLYDIR) ?: [] as $scaffold) {
+            $demo = basename($scaffold);
+            $metaFile = $scaffold . '/config/navigation/' . $demo . '.php';
+
+            if (!is_file($metaFile)) {
+                continue;
+            }
+
+            $meta = require $metaFile;
+
+            if (!is_array($meta) || !isset($meta['label'], $meta['href'], $meta['key'])) {
+                continue;
+            }
+
+            // Los defaults van a la derecha: si el archivo define la clave, gana
+            // la suya.
+            $demoModules[] = $meta + [
+                'demo'      => $demo,
+                'icon'      => 'list',
+                'position'  => 100,
+                'summary'   => '',
+                'installed' => is_file(__DIR__ . '/../routes/' . $demo . '.php'),
+            ];
+        }
+
+        usort(
+            $demoModules,
+            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+        );
+
+        $twig->getEnvironment()->addGlobal('demo_modules', $demoModules);
 
         // El menú se arma por convención: Inicio siempre está, y cada módulo
         // aporta su entrada en config/navigation/<modulo>.php. El archivo lo

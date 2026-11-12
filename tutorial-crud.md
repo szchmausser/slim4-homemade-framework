@@ -347,6 +347,10 @@ y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para
 además están copiados en la documentación del framework y obligarían a `docs:sync`—. Agregar una
 entidad es dejar su archivo; quitarla es borrarlo.
 
+> Si tu entidad es además un **demo instalable**, el mismo archivo lleva `summary` (el texto de la
+> tarjeta en la portada) y el nombre del demo, y la portada la lista con su estado *Instalado* u
+> *Opcional*. Para una entidad de tu app alcanza con `label`, `href`, `icon`, `key` y `position`.
+
 ---
 
 ## 5. La primera ruta: JSON verificable

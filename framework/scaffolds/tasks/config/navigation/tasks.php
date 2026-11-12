@@ -10,5 +10,6 @@ return [
     'href'     => '/tareas',
     'icon'     => 'tasks',
     'key'      => 'tareas',
+    'summary'  => 'CRUD completo, cambio de estado, paginación server-side y avisos HTMX sobre SQLite.',
     'position' => 10,
 ];

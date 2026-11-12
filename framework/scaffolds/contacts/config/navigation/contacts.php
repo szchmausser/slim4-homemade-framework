@@ -10,5 +10,6 @@ return [
     'href'     => '/contactos',
     'icon'     => 'contacts',
     'key'      => 'contacts',
+    'summary'  => 'CRUD con listado paginado y ordenado desde el servidor en Tabulator 6.7.1 y acciones rápidas.',
     'position' => 20,
 ];

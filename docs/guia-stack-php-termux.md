@@ -504,10 +504,42 @@ return [
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
 
-        // Los scaffolds dejan su archivo de rutas al instalarse. Esa es la
-        // única fuente: si no hay rutas, las vistas base no muestran enlaces.
-        $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
-        $twig->getEnvironment()->addGlobal('contacts_enabled', is_file(__DIR__ . '/../routes/contacts.php'));
+        // Catálogo de módulos: todos los scaffolds que declaran metadatos en
+        // config/navigation/, estén instalados o no. La portada los lista con
+        // su estado; el sidebar solo muestra los instalados.
+        $demoModules = [];
+
+        foreach (glob(__DIR__ . '/../framework/scaffolds/*', GLOB_ONLYDIR) ?: [] as $scaffold) {
+            $demo = basename($scaffold);
+            $metaFile = $scaffold . '/config/navigation/' . $demo . '.php';
+
+            if (!is_file($metaFile)) {
+                continue;
+            }
+
+            $meta = require $metaFile;
+
+            if (!is_array($meta) || !isset($meta['label'], $meta['href'], $meta['key'])) {
+                continue;
+            }
+
+            // Los defaults van a la derecha: si el archivo define la clave, gana
+            // la suya.
+            $demoModules[] = $meta + [
+                'demo'      => $demo,
+                'icon'      => 'list',
+                'position'  => 100,
+                'summary'   => '',
+                'installed' => is_file(__DIR__ . '/../routes/' . $demo . '.php'),
+            ];
+        }
+
+        usort(
+            $demoModules,
+            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+        );
+
+        $twig->getEnvironment()->addGlobal('demo_modules', $demoModules);
 
         // El menú se arma por convención: Inicio siempre está, y cada módulo
         // aporta su entrada en config/navigation/<modulo>.php. El archivo lo
@@ -3616,25 +3648,20 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             </span>
                         </a>
                     </div>
-                {% elseif tasks_enabled or contacts_enabled %}
-                    <div class="flex flex-wrap gap-2">
-                        {% if tasks_enabled %}
-                            <a href="{{ url('/tareas') }}" class="btn btn-primary gap-2">
-                                <span>Ir a tareas</span>
-                                <span aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                </span>
-                            </a>
-                        {% endif %}
-                        {% if contacts_enabled %}
-                            <a href="{{ url('/contactos') }}" class="btn btn-primary gap-2">
-                                <span>Ir a contactos</span>
-                                <span aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                </span>
-                            </a>
-                        {% endif %}
-                    </div>
+                {% else %}
+                    {% set instalados = demo_modules|filter(m => m.installed) %}
+                    {% if instalados is not empty %}
+                        <div class="flex flex-wrap gap-2">
+                            {% for module in instalados %}
+                                <a href="{{ url(module.href) }}" class="btn btn-primary gap-2">
+                                    <span>Abrir {{ module.label|lower }}</span>
+                                    <span aria-hidden="true">
+                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                    </span>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 {% endif %}
             </div>
 
@@ -3853,89 +3880,46 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     <p class="mt-1 text-xs opacity-60">Scaffolds opcionales para explorar el stack o usar como base.</p>
                 </div>
 
-                {# Card Tareas #}
-                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <h3 class="flex items-center gap-2 text-base font-semibold">
-                                <span class="opacity-70" aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-4 w-4'} %}
-                                </span>
-                                Demo de tareas
-                            </h3>
-                            <p class="mt-1 text-xs opacity-70">
-                                CRUD completo, cambio de estado, paginación server-side y avisos HTMX sobre SQLite.
-                            </p>
+                {% for module in demo_modules %}
+                    <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h3 class="flex items-center gap-2 text-base font-semibold">
+                                    <span class="opacity-70" aria-hidden="true">
+                                        {% include 'partials/_icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
+                                    </span>
+                                    Demo de {{ module.label|lower }}
+                                </h3>
+                                <p class="mt-1 text-xs opacity-70">{{ module.summary }}</p>
+                            </div>
+                            {% if module.installed %}
+                                <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                            {% else %}
+                                <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                            {% endif %}
                         </div>
-                        {% if tasks_enabled %}
-                            <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+
+                        {% if module.installed %}
+                            <div class="pt-1">
+                                <a href="{{ url(module.href) }}" class="btn btn-primary btn-sm w-full gap-2">
+                                    <span>Abrir {{ module.label|lower }}</span>
+                                    <span aria-hidden="true">
+                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                    </span>
+                                </a>
+                            </div>
+                            <div class="border-t border-base-300 pt-3">
+                                <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                                <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:remove</code>
+                            </div>
                         {% else %}
-                            <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                            <div>
+                                <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                                <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:install</code>
+                            </div>
                         {% endif %}
                     </div>
-
-                    {% if tasks_enabled %}
-                        <div class="pt-1">
-                            <a href="{{ url('/tareas') }}" class="btn btn-primary btn-sm w-full gap-2">
-                                <span>Abrir tareas</span>
-                                <span aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                </span>
-                            </a>
-                        </div>
-                        <div class="border-t border-base-300 pt-3">
-                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
-                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:remove</code>
-                        </div>
-                    {% else %}
-                        <div>
-                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
-                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:tasks:install</code>
-                        </div>
-                    {% endif %}
-                </div>
-
-                {# Card Contactos #}
-                <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <h3 class="flex items-center gap-2 text-base font-semibold">
-                                <span class="opacity-70" aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'contacts', class: 'h-4 w-4'} %}
-                                </span>
-                                Demo de contactos
-                            </h3>
-                            <p class="mt-1 text-xs opacity-70">
-                                CRUD con listado paginado y ordenado desde el servidor en Tabulator 6.7.1 y acciones rápidas.
-                            </p>
-                        </div>
-                        {% if contacts_enabled %}
-                            <span class="badge badge-success badge-sm shrink-0">Instalado</span>
-                        {% else %}
-                            <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
-                        {% endif %}
-                    </div>
-
-                    {% if contacts_enabled %}
-                        <div class="pt-1">
-                            <a href="{{ url('/contactos') }}" class="btn btn-primary btn-sm w-full gap-2">
-                                <span>Abrir contactos</span>
-                                <span aria-hidden="true">
-                                    {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                </span>
-                            </a>
-                        </div>
-                        <div class="border-t border-base-300 pt-3">
-                            <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
-                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:remove</code>
-                        </div>
-                    {% else %}
-                        <div>
-                            <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
-                            <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:contacts:install</code>
-                        </div>
-                    {% endif %}
-                </div>
+                {% endfor %}
 
                 {# Card Requisitos #}
                 <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">

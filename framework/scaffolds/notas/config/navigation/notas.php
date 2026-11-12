@@ -10,5 +10,6 @@ return [
     'href'     => '/notas',
     'icon'     => 'list',
     'key'      => 'notas',
+    'summary'  => 'CRUD con alta, edición y borrado en modales, paginación server-side y tests.',
     'position' => 30,
 ];

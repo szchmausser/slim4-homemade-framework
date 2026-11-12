@@ -181,6 +181,17 @@ final class NotaTest extends HttpTestCase
         );
     }
 
+    public function test_la_portada_lista_el_modulo_con_su_estado(): void
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/'))->getBody();
+
+        // El catálogo sale de los scaffolds, así que están los tres aunque solo
+        // este esté instalado.
+        self::assertSame(3, substr_count($html, 'Demo de '), 'La portada lista los tres módulos.');
+        self::assertStringContainsString('Demo de notas', $html);
+        self::assertStringContainsString('composer demo:notas:remove', $html, 'Instalado: ofrece desinstalar.');
+    }
+
     public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void
     {
         $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
