@@ -479,7 +479,8 @@ respeta sin cambios.
 **Falla si**:
 
 - La lista aparece vacía teniendo notas: `items` no está llegando; revisá el nombre de la variable.
-- Error de Twig sobre `item`: dentro del bloque `row` la variable se llama `item`, no `nota`.
+- La fila sale con el título en blanco, sin error: dentro del bloque `row` la variable se llama
+  `item`, no `nota`, y Twig imprime vacío en vez de protestar.
 
 **Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Usalo
 para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
@@ -786,7 +787,8 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 
 - El modal abre y no se ve el botón de guardar: falta el bloque `modal-action` dentro del form.
 - Tras un alta inválida el modal sale cerrado: no estás pasando `open_create_modal`.
-- Error de Twig por `cancel_target`: el include usa `only` y no lo está recibiendo.
+- El botón «Cancelar» no cierra el modal: el include de `_form.twig` no está recibiendo
+  `cancel_target`. El `onclick` sale con `getElementById('')` y no hay error de Twig.
 - El aviso de éxito no aparece: falta `usesToastFlash()`.
 
 **Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al
