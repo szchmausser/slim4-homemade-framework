@@ -9,6 +9,13 @@
 /storage/backups/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
+
+# Suite de navegador (dev-only): dependencias, sesión guardada y artefactos.
+/tests/browser/node_modules/
+/tests/browser/.auth/
+/tests/browser/test-results/
+/tests/browser/playwright-report/
+
 .env
 .atl/
 /.impeccable/

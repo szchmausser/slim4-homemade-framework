@@ -1,0 +1,14 @@
+{
+    "name": "slim4-homemade-framework-browser-tests",
+    "private": true,
+    "type": "module",
+    "description": "Pruebas de navegador (dev-only). No forma parte del runtime de la app ni de composer verify.",
+    "scripts": {
+        "test": "playwright test",
+        "test:ui": "playwright test --ui",
+        "install:browser": "playwright install --with-deps chromium"
+    },
+    "devDependencies": {
+        "@playwright/test": "1.65.0"
+    }
+}

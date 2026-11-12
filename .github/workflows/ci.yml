@@ -35,6 +35,73 @@ jobs:
       - name: Verify
         run: composer verify
 
+  browser:
+    name: Browser (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3, mbstring
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare the app
+        run: |
+          cp .env.example .env
+          composer demo:notas:install
+          php tests/browser/fixture.php
+
+      - name: Install browser test dependencies
+        working-directory: tests/browser
+        run: npm ci
+
+      # La descarga de Chromium (~120 MB) se paga una vez: la clave incluye el
+      # lock, así que cambiar de version de Playwright invalida y vuelve a bajar.
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('tests/browser/package-lock.json') }}
+          restore-keys: ms-playwright-${{ runner.os }}-
+
+      - name: Install Chromium
+        working-directory: tests/browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        working-directory: tests/browser
+        run: npx playwright test
+
+      # Los PNG y el trace son para diagnosticar sin reproducir: se leen desde
+      # el telefono (imagen) y desde una computadora (trace viewer).
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-failure
+          path: |
+            tests/browser/test-results
+            tests/browser/playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+
   demo-round-trip:
     name: Demo round-trip (${{ matrix.demo }})
     runs-on: ubuntu-latest
