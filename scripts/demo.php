@@ -99,7 +99,7 @@ if ($command === 'install') {
             exit(1);
         }
 
-        assertNoMigrationCollisions($root, $scaffold, $meta['migrations']);
+        assertNoMigrationCollisions($root, $scaffold, $meta['migrations'], $name);
     }
 
     $conflicts = [];
@@ -141,8 +141,22 @@ if ($command === 'install') {
         try {
             migrateAndSeed($root, $meta['seeder']);
         } catch (Throwable $e) {
-            fwrite(STDERR, "Los archivos quedaron instalados, pero la DB falló: {$e->getMessage()}\n");
-            fwrite(STDERR, "Corregí el error y corré composer migrate && vendor/bin/phinx seed:run -s {$meta['seeder']}.\n");
+            // Install atómico: o queda todo, o no queda nada. Un install a
+            // medias deja archivos que chocan con el reintento y una DB en un
+            // estado que nadie sabe.
+            fwrite(STDERR, "La DB falló: {$e->getMessage()}\n");
+
+            try {
+                removeDemoDatabase($root, $scaffold, $meta);
+            } catch (Throwable $dbError) {
+                fwrite(STDERR, "Tampoco se pudo limpiar la DB del demo: {$dbError->getMessage()}\n");
+                fwrite(STDERR, "Revisá la base y, si hace falta, corré composer {$commandPrefix}:remove.\n");
+            }
+
+            $rolledBack = removeDemoFiles($root, $files);
+            clearTwigCache($root);
+            fwrite(STDERR, "Install revertido: {$rolledBack} archivos borrados.\n");
+            fwrite(STDERR, "Corregí el error y volvé a correr composer {$commandPrefix}:install.\n");
             exit(1);
         }
     }
@@ -162,21 +176,10 @@ if (!$noDb) {
 
 $removed = 0;
 if (!$noFiles) {
-    foreach ($files as $relative => $source) {
-        $destination = $root . '/' . $relative;
-        if (!is_file($destination)) {
-            continue;
-        }
-        if (!unlink($destination)) {
-            fwrite(STDERR, "No se pudo borrar '{$relative}'.\n");
-            exit(1);
-        }
-        $removed++;
-        removeEmptyParents(dirname($destination), $root);
-    }
+    $removed = removeDemoFiles($root, $files);
+    // Sin esto quedan plantillas compiladas de vistas que ya no existen.
+    clearTwigCache($root);
 }
-
-clearTwigCache($root);
 if ($removed === 0) {
     echo "No había archivos del scaffold {$name} instalados.\n";
 } else {
@@ -192,6 +195,32 @@ if ($noFiles) {
 }
 
 echo "framework/scaffolds/{$name}/ sigue disponible para reinstalar.\n";
+
+/**
+ * Borra los archivos instalados del scaffold y los directorios que quedan
+ * vacíos. Devuelve cuántos archivos existían y se borraron.
+ *
+ * @param array<string, string> $files relativo => origen en el scaffold
+ */
+function removeDemoFiles(string $root, array $files): int
+{
+    $removed = 0;
+
+    foreach ($files as $relative => $source) {
+        $destination = $root . '/' . $relative;
+        if (!is_file($destination)) {
+            continue;
+        }
+        if (!unlink($destination)) {
+            fwrite(STDERR, "No se pudo borrar '{$relative}'.\n");
+            continue;
+        }
+        $removed++;
+        removeEmptyParents(dirname($destination), $root);
+    }
+
+    return $removed;
+}
 
 function migrateAndSeed(string $root, string $seeder): void
 {
@@ -313,7 +342,7 @@ function demoMigrations(string $directory): array
     return $migrations;
 }
 
-function assertNoMigrationCollisions(string $root, string $scaffold, string $migrationDirectory): void
+function assertNoMigrationCollisions(string $root, string $scaffold, string $migrationDirectory, string $demoName): void
 {
     $migrations = demoMigrations($scaffold . '/' . $migrationDirectory);
     if ($migrations === []) {
@@ -326,8 +355,16 @@ function assertNoMigrationCollisions(string $root, string $scaffold, string $mig
         new RecursiveDirectoryIterator($root . '/database/migrations', FilesystemIterator::SKIP_DOTS)
     );
 
+    // Se ignora la copia ya instalada de ESTE demo: si quedó de una corrida
+    // interrumpida, se sobrescribe con --force en vez de bloquear el reintento
+    // contra su propia migración.
+    $ownDirectory = str_replace('\\', '/', $root . '/database/migrations/' . $demoName . '/');
+
     foreach ($iterator as $file) {
         if (!$file->isFile() || $file->getExtension() !== 'php') {
+            continue;
+        }
+        if (str_starts_with(str_replace('\\', '/', $file->getPathname()), $ownDirectory)) {
             continue;
         }
         if (preg_match('/^(\d+)_/', $file->getFilename(), $match) === 1) {

@@ -89,10 +89,53 @@ final class DemoInstallerTest extends TestCase
         self::assertFalse($this->hasContactsTable());
     }
 
+    public function test_install_revierte_los_archivos_si_la_db_falla(): void
+    {
+        // Una tabla `notas` preexistente hace fallar la migración del demo: el
+        // install tiene que revertir los archivos, no dejarlos a medias.
+        $this->createLog([], withNotas: true);
+        $this->removeDemo('notas');
+
+        try {
+            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas']);
+
+            self::assertNotSame(0, $exit);
+            self::assertStringContainsString('Install revertido', $stderr);
+            self::assertStringContainsString('table `notas` already exists', $stderr);
+            foreach ($this->installedPaths('notas') as $relative) {
+                self::assertFileDoesNotExist($this->root . '/' . $relative, 'Quedó residuo: ' . $relative);
+            }
+        } finally {
+            $this->removeDemo('notas');
+        }
+    }
+
+    public function test_un_install_a_medias_no_bloquea_el_reintento(): void
+    {
+        // Simula un Ctrl+C después de copiar los archivos: el reintento tiene
+        // que avisar de los archivos ya instalados, no chocar contra la
+        // migración del propio demo.
+        $this->createLog([]);
+        $this->removeDemo('notas');
+
+        try {
+            [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+            self::assertSame(0, $exit);
+
+            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas']);
+
+            self::assertNotSame(0, $exit);
+            self::assertStringNotContainsString('Colisión de migraciones', $stderr);
+            self::assertStringContainsString('ya tiene archivos instalados', $stderr);
+        } finally {
+            $this->removeDemo('notas');
+        }
+    }
+
     /**
      * @param list<array{0: int, 1: string}> $rows
      */
-    private function createLog(array $rows, bool $withTasks = false, bool $withContacts = false): void
+    private function createLog(array $rows, bool $withTasks = false, bool $withContacts = false, bool $withNotas = false): void
     {
         $pdo = new PDO('sqlite:' . $this->db, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -116,6 +159,12 @@ final class DemoInstallerTest extends TestCase
         if ($withContacts) {
             $pdo->exec('CREATE TABLE contacts (id INTEGER PRIMARY KEY, name TEXT)');
             $pdo->exec("INSERT INTO contacts (name) VALUES ('demo')");
+        }
+
+        if ($withNotas) {
+            // Sin la columna `cuerpo`: la migración del demo no puede crearla y
+            // falla, que es lo que el test de rollback necesita.
+            $pdo->exec('CREATE TABLE notas (id INTEGER PRIMARY KEY, titulo TEXT)');
         }
 
         $pdo = null;
@@ -144,6 +193,66 @@ final class DemoInstallerTest extends TestCase
         fclose($pipes[2]);
 
         return [proc_close($process), (string) $stdout, (string) $stderr];
+    }
+
+    /**
+     * @param list<string> $args
+     *
+     * @return array{0: int, 1: string, 2: string}
+     */
+    private function runDemo(array $args): array
+    {
+        $env = getenv();
+        $env['DB_DATABASE'] = $this->db;
+
+        $process = proc_open(
+            array_merge([PHP_BINARY, $this->root . '/scripts/demo.php'], $args),
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $this->root,
+            $env
+        );
+        self::assertIsResource($process);
+
+        $stdout = stream_get_contents($pipes[1]);
+        $stderr = stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        return [proc_close($process), (string) $stdout, (string) $stderr];
+    }
+
+    private function removeDemo(string $demo): void
+    {
+        $this->runDemo(['remove', $demo, '--no-db']);
+    }
+
+    /**
+     * Rutas que instala un demo, derivadas del scaffold para no mantener una
+     * copia a mano.
+     *
+     * @return list<string>
+     */
+    private function installedPaths(string $demo): array
+    {
+        $scaffold = $this->root . '/framework/scaffolds/' . $demo;
+        $paths = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($scaffold, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) {
+                continue;
+            }
+            $paths[] = str_replace(
+                str_replace('\\', '/', $scaffold) . '/',
+                '',
+                str_replace('\\', '/', $file->getPathname())
+            );
+        }
+
+        return $paths;
     }
 
     /**
