@@ -290,7 +290,14 @@ composer require --dev phpunit/phpunit
     "scripts": {
         "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
-        "push": "bash scripts/push-termux.sh",
+        "ci:watch": "@php scripts/ci.php watch",
+        "ci:log": "@php scripts/ci.php log",
+        "ci:artifacts": "@php scripts/ci.php artifacts",
+        "push": [
+            "@test",
+            "bash scripts/push-termux.sh",
+            "@ci:watch"
+        ],
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
         "lint": "@php scripts/lint.php",

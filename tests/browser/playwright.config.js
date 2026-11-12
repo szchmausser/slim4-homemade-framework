@@ -45,8 +45,12 @@ export default defineConfig({
         url: `${baseURL}/login`,
         reuseExistingServer: !process.env.CI,
         timeout: 30_000,
+        // El access log del servidor PHP va a stderr y, con 8 specs, inunda
+        // el log del job: lo que se lee desde el telefono es el fallo, no las
+        // lineas de "Accepted/Closing". Si el server no arranca, Playwright
+        // falla con su propio mensaje de timeout.
         stdout: 'ignore',
-        stderr: 'pipe',
+        stderr: 'ignore',
     },
 
     projects: [
