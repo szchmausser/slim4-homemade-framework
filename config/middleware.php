@@ -68,7 +68,7 @@ return function (App $app) {
     $errorMiddleware->setDefaultErrorHandler(
         function ($request, Throwable $exception) use ($app, $container, $whoops) {
             // El status sale de la excepción, no está hardcodeado. Un 404 tiene
-            // que seguir siendo 404: si devolvés 500, los navegadores, los
+            // que seguir siendo 404: si devuelves 500, los navegadores, los
             // proxies y los buscadores lo interpretan como "el servidor se cayó".
             $status = $exception instanceof HttpException ? $exception->getCode() : 500;
             if ($status < 400 || $status > 599) {

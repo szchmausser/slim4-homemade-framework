@@ -38,7 +38,7 @@ final class SecurityHeadersTest extends HttpTestCase
         parent::tearDown();
         $_ENV = $this->env;
 
-        // La sesión nativa del proceso sigue viva: devolvé sus params al
+        // La sesión nativa del proceso sigue viva: devuelve sus params al
         // default para no filtrar Secure al resto de la suite. No se pueden
         // cambiar con la sesión abierta, así que se cierra y se reabre.
         if (session_status() === PHP_SESSION_ACTIVE) {

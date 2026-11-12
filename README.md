@@ -61,7 +61,7 @@ El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de
 
 `respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 
-La guía copia archivos enteros del repo. Esas copias **no se editan a mano**: `composer docs:check` compara cada bloque que declara un archivo contra el archivo real y falla si difieren; `composer docs:sync` las reescribe. Un fragmento se marca `excerpt` en el fence y queda afuera del control. Si cambiás una vista o un test que la guía copia, corré `composer docs:sync` antes de cerrar el cambio.
+La guía copia archivos enteros del repo. Esas copias **no se editan a mano**: `composer docs:check` compara cada bloque que declara un archivo contra el archivo real y falla si difieren; `composer docs:sync` las reescribe. Un fragmento se marca `excerpt` en el fence y queda afuera del control. Si cambias una vista o un test que la guía copia, ejecuta `composer docs:sync` antes de cerrar el cambio.
 
 ### El servidor va directo, no por Composer
 
@@ -77,20 +77,20 @@ El `php -S` estaba perfecto; lo bajó Composer. Por eso el servidor de desarroll
 php -S 0.0.0.0:8080 -t public
 ```
 
-`composer serve` quedó como guarda (`scripts/serve.php`): aborta con el mensaje de arriba en vez de morir a los 5 minutos. Si necesitás el servidor vivo sin cerrar la terminal, `tmux` + `termux-wake-lock` (guía, caps. 17.1 y 17.2).
+`composer serve` quedó como guarda (`scripts/serve.php`): aborta con el mensaje de arriba en vez de morir a los 5 minutos. Si necesitas el servidor vivo sin cerrar la terminal, `tmux` + `termux-wake-lock` (guía, caps. 17.1 y 17.2).
 
 ## Receta: nuevo CRUD en N pasos
 
-El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu app, replicá el patrón en las capas app-owned (`app/Models`, `app/Http/Controllers`, `routes/web.php`, `resources/views`):
+El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu app, replica el patrón en las capas app-owned (`app/Models`, `app/Http/Controllers`, `routes/web.php`, `resources/views`):
 
-1. **Migración.** `vendor/bin/phinx create CreateRecetasTable`, completala y **renombrala a secuencial** (`007_...`: los timestamps saturan int32 y el scaffold `tasks` reserva `001/004/005`, ver guía 11.1). `composer migrate`.
+1. **Migración.** `vendor/bin/phinx create CreateRecetasTable`, complétala y **renombrala a secuencial** (`007_...`: los timestamps saturan int32 y el scaffold `tasks` reserva `001/004/005`, ver guía 11.1). `composer migrate`.
 2. **Modelo** en `app/Models/` con `$fillable` (+ `$hidden` si hay secrets).
-3. **Controlador** que extienda `Controller`: lo repetido a `viewDefaults()`, lo puntual por `$extra` en cada `render()`. Si lista, pagina con `Pagination::paginate()` (nunca `get()` pelado) y pasá `pagination` a la vista.
+3. **Controlador** que extienda `Controller`: lo repetido a `viewDefaults()`, lo puntual por `$extra` en cada `render()`. Si lista, pagina con `Pagination::paginate()` (nunca `get()` pelado) y pasa `pagination` a la vista.
 4. **Rutas** en `routes/web.php` (+ `->add(RequireAuthMiddleware::class)` si es protegida, `'active'` para la nav si tiene página completa).
 5. **Vistas.** La página extiende `layouts/app.twig`. Si hay HTMX parcial: **una sola región** que devuelven tanto el full como el swap (como `_panel`), flash adentro del swap, tokens CSRF en cada form (el de edición lleva los suyos: vive dentro del swap), `hx-headers` (no `hx-include`) para DELETE, `hx-on::after-request="this.reset()"` si el form queda fuera del swap. Paginación con `components/pagination/simple.twig` (params, sin hardcodear).
-6. **Tests.** Cloná el estilo: request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida, y al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).
+6. **Tests.** Clona el estilo: request con body crudo + URI absoluta, `tearDown` que limpia, login inyectado si la ruta es protegida, y al menos: crea-OK, validación que rechaza, id inexistente que avisa (nunca 404 mudo ni 500 silencioso).
 7. **Seed** si hace falta dato inicial: seeder idempotente + inclusión en `DatabaseSeeder` (o en el scaffold demo si el seeder es del demo; todo seeder debe tolerar re-ejecución).
-8. **Verificá:** `composer test` en verde + smoke con `curl` (200 donde corresponde, 303/`HX-Redirect` donde la puerta cierra).
+8. **Verifica:** `composer test` en verde + smoke con `curl` (200 donde corresponde, 303/`HX-Redirect` donde la puerta cierra).
 
 ## Convenciones que no se negocian
 

@@ -94,10 +94,10 @@ entonces pasan dos cosas:
 
 Por eso cada puerta tiene su criterio de entrada y su propia salida:
 
-| Puerta | Entrás cuando… | Salís con… | Escribe en |
+| Puerta | Entras cuando… | Sales con… | Escribe en |
 |---|---|---|---|
-| **A · assess** | tenés una idea y no sabés si conviene | un veredicto `go` / `needs-clarification` / `kill`, con la razón escrita | `.specify/assessments/<slug>/` |
-| **B · SDD** | sabés qué querés y te falta el cómo explícito | código, más spec / plan / tasks que lo describen | `specs/NNN-slug/` |
+| **A · assess** | tienes una idea y no sabes si conviene | un veredicto `go` / `needs-clarification` / `kill`, con la razón escrita | `.specify/assessments/<slug>/` |
+| **B · SDD** | sabes qué quieres y te falta el cómo explícito | código, más spec / plan / tasks que lo describen | `specs/NNN-slug/` |
 | **C · bug** | un comportamiento se desvía de lo esperado | un reporte con veredicto `verified` / `partial` / `failed` | `.specify/bugs/<slug>/` |
 
 En una línea: **discovery responde "¿hay que hacerlo?", delivery responde "¿cómo?", y triage
@@ -105,8 +105,8 @@ responde "¿por qué difiere de lo acordado?"**.
 
 **Cuándo no usar cada una:**
 
-- `assess` no decide *cómo* se construye ni diseña nada. Si ya sabés que hay que hacerlo y sólo te
-  falta el alcance, entrá directo por SDD.
+- `assess` no decide *cómo* se construye ni diseña nada. Si ya sabes que hay que hacerlo y sólo te
+  falta el alcance, entra directo por SDD.
 - SDD no es para explorar. Comparando opciones, `shape` es más barato y más honesto que `plan`.
 - `bug` no cubre alcance nuevo. Si el comportamiento esperado no figura en ninguna spec, no es un
   bug: es una feature sin especificar (y eso se decide en §6).
@@ -145,14 +145,14 @@ Regla del taller original que vale reproducir: **principios por encima de tecnol
 Los templates están en inglés. Para que los artefactos salgan en español sin pelear cada vez,
 dos opciones:
 
-1. Pedirlo en el argumento de cada comando (`… y respondé en español`).
+1. Pedirlo en el argumento de cada comando (`… y responde en español`).
 2. Sobrescribir las plantillas del proyecto en `.specify/templates/` (override local, soportado).
 
 Criterio que funciona: **documentación en español, código y rutas en inglés.**
 
 ### 2.3 Elegir el alcance de la primera feature
 
-Un slice revisable en una sola sesión. La tentación es "especificá todo el framework": eso
+Un slice revisable en una sola sesión. La tentación es "especifica todo el framework": eso
 produce un documento que nadie revisa y que queda viejo al segundo commit.
 
 La spec define **el cambio**, no el sistema retroactivo. El código existente es contexto de
@@ -228,17 +228,17 @@ Dos caminos. Elegir según el tamaño, no por completitud ceremonial.
 | `implement` | código + tasks marcadas | tasks aprobadas |
 | `converge` | tareas nuevas por drift entre spec y código | después de tocar código, o al cerrar |
 
-**Se corren de a uno.** Cada comando es una parada de revisión: leés el artefacto, lo corregís
-(editando el `.md`) y recién ahí seguís. Encadenarlos de corrido convierte el proceso en
+**Se corren de a uno.** Cada comando es una parada de revisión: lees el artefacto, lo corriges
+(editando el `.md`) y recién ahí sigues. Encadenarlos de corrido convierte el proceso en
 generación de documentos que nadie leyó.
 
 **`converge` se repite** después de cada `implement` hasta que reporte `Converged`.
 
-**Ojo con los tests:** `tasks` los genera **solo si se los pedís**. En este repo la suite es la
+**Ojo con los tests:** `tasks` los genera **solo si se los pides**. En este repo la suite es la
 red de seguridad, así que conviene decirlo explícito:
 
 ```text
-/speckit.tasks incluí tests PHPUnit por user story, siguiendo las convenciones de tests/.
+/speckit.tasks incluye tests PHPUnit por user story, siguiendo las convenciones de tests/.
 ```
 
 ## 5. Track C · Reparar
@@ -294,16 +294,16 @@ aceptada?**
 El traspaso es que ese bloque viaja como **argumento** de `specify`. Receta que funciona:
 
 ```text
-/speckit.specify Leé .specify/assessments/exportar-contactos/{decision,problem,concept}.md y usá la
+/speckit.specify Lee .specify/assessments/exportar-contactos/{decision,problem,concept}.md y usa la
 sección "If go — Handoff" como descripción de la feature. Proveniencia: assessment
 exportar-contactos. No agregues alcance fuera de ese handoff.
 ```
 
-Qué te llevás con eso: la evidencia de `research.md`, los **non-goals** de `problem.md` y las
+Qué te llevas con eso: la evidencia de `research.md`, los **non-goals** de `problem.md` y las
 opciones descartadas en `concept.md` quedan disponibles para el agente, y la procedencia queda
 registrada en la línea `**Input**` del `spec.md`.
 
-Qué perdés si arrancás de cero: el alcance se re-inventa, los non-goals desaparecen, y el `kill` o
+Qué pierdes si arrancas de cero: el alcance se re-inventa, los non-goals desaparecen, y el `kill` o
 `needs-clarification` que discutiste queda huérfano de su origen.
 
 El directorio del assessment **no se borra ni se mueve**: es el registro de por qué se hizo. `specify`
@@ -328,7 +328,7 @@ Assessment" y recomienda re-correr `bug.assess`. No sigue parchando sobre una hi
 ### C → B: el regreso, que es el borde que falta
 
 Un bug cerrado deja tres documentos en `.specify/bugs/` y **ningún cambio en la spec**. Eso está
-bien si el defecto era solo de código. Tenés que clasificar cuál de los tres casos es:
+bien si el defecto era solo de código. Tienes que clasificar cuál de los tres casos es:
 
 | Caso | Qué se hace | Con qué |
 |---|---|---|
@@ -356,7 +356,7 @@ viviendo solo en `fix.md` mientras la spec sigue afirmando otra cosa.
 |---|---|---|---|---|
 | A → B | bloque de handoff (problema, opción, alcance, métricas) | `decision.md` | `specify`, como argumento | `/speckit.specify` |
 | B → C | referencia al escenario que falla + síntoma | el reporte del bug | `bug.assess` | `/speckit.bug.assess` |
-| C → B | nada automático: clasificación y enmienda | vos | `spec.md` / `analyze` | editar o `/speckit.specify` |
+| C → B | nada automático: clasificación y enmienda | tú | `spec.md` / `analyze` | editar o `/speckit.specify` |
 | B → B′ | spec nueva de la corrección | `specify` | `analyze` | `/speckit.specify` |
 | A → A | `needs-clarification` con etapa a revisar | `decision.md` | la etapa nombrada | `/speckit.assess.<etapa>` |
 
@@ -417,7 +417,7 @@ funciona en este repo es un **preámbulo corto y literal**, repetido al inicio d
 IDIOMA: artefactos en español; código, rutas e identificadores en inglés.
 STACK REAL: PHP 8.4, Slim 4, PHP-DI, Eloquent standalone, Phinx, Twig, HTMX, Alpine, daisyUI
 vendorizado, SQLite. Sin Node, sin bundler, sin toolchain de compilación.
-NO INVENTES: si falta un dato, preguntá; no supongas versiones ni dependencias.
+NO INVENTES: si falta un dato, pregunta; no supongas versiones ni dependencias.
 ALCANCE: solo lo que dice el pedido; nada de features de cortesía.
 ```
 
@@ -426,8 +426,8 @@ Y por comando, el foco:
 | Comando | Qué poner en el argumento |
 |---|---|
 | `specify` | Qué y por qué, con las tensiones explícitas ("¿descarga directa o cola con email?"), y los límites de compatibilidad que no se tocan |
-| `clarify` | El área donde no querés sorpresas: `enfocate en concurrencia, CSRF y estados de error` |
-| `plan` | Stack y forma: `usá Phinx + Twig + HTMX, sin dependencias nuevas` |
+| `clarify` | El área donde no quieres sorpresas: `enfocate en concurrencia, CSRF y estados de error` |
+| `plan` | Stack y forma: `usa Phinx + Twig + HTMX, sin dependencias nuevas` |
 | `checklist` | `foco en criterios de aceptación testeables y casos de borde` |
 | `tasks` | Tamaño y tests: `máximo N tasks por story, tests incluidos` |
 | `analyze` | Sin argumento (lee todo) |
@@ -473,9 +473,9 @@ No todos los días se especifica. En la práctica:
 - Feature → SDD, camino corto si es chica.
 - Bug → extensión `bug`.
 - Después de tocar código a mano → `converge`.
-- Cuando cambiás un criterio de diseño → `constitution` otra vez (versiona `Version` y `Last Amended`).
+- Cuando cambias un criterio de diseño → `constitution` otra vez (versiona `Version` y `Last Amended`).
 
-**Git:** commiteá los artefactos junto con (o antes de) el código. Sugerencia de unidades:
+**Git:** commitea los artefactos junto con (o antes de) el código. Sugerencia de unidades:
 
 ```bash
 git add .specify .pi && git commit -m "chore(sdd): adoptar spec-kit con assess y bug"
@@ -533,7 +533,7 @@ arrastran diferencias que rompen el primer intento. Esta tabla evita esa pérdid
 | Tasks como `- [ ] Crear Todo entity` | Requiere ID, `[P]`/`[US]` y ruta: `- [ ] T001 [P] [US1] … app/Models/Task.php` |
 | Git: rama por spec obligatoria | Opcional; el estado es `.specify/feature.json`, no la rama |
 
-Cómo lo verificás sin creerme: `specify init --help`, `specify extension search`, y el contenido
+Cómo lo verificas sin creerme: `specify init --help`, `specify extension search`, y el contenido
 real de `.specify/templates/`.
 
 Sobre la guía local `.ai/sdd/`: es un sistema SDD anterior y paralelo, con su propio

@@ -12,7 +12,7 @@ Unidad atómica del artefacto. Es el contrato que `tasks.md` va a usar como chec
 | Campo | Tipo | Regla |
 |---|---|---|
 | `n` | entero | Secuencial, sin huecos; el lector lo cita al reportar problemas |
-| `titulo` | texto | Acción concreta en imperativo («Agregá la ruta de listado»), no un tema |
+| `titulo` | texto | Acción concreta en imperativo («Agrega la ruta de listado»), no un tema |
 | `estado_partida` | texto | Qué tiene que estar hecho antes; si falta, el paso indica cómo volver |
 | `accion` | bloque de código + prosa | Qué escribe o ejecuta el lector, con el archivo donde va |
 | `resultado_esperado` | texto literal | Lo que debe ver, escrito **antes** de que lo vea |

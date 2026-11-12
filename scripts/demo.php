@@ -383,7 +383,7 @@ function assertNoMigrationCollisions(string $root, string $scaffold, string $mig
             $migrationName,
             $existing[$version]
         ));
-        fwrite(STDERR, "Renumerá tu migración o el scaffold antes de instalar el demo.\n");
+        fwrite(STDERR, "Renumera tu migración o el scaffold antes de instalar el demo.\n");
         exit(1);
     }
 }

@@ -14,7 +14,7 @@ Please make sure you have the correct access rights
 and the repository exists.
 ```
 
-La causa: la clave `~/.ssh/id_ed25519` está protegida con **passphrase**. Tu terminal la desbloquea al vuelo cuando hacés `git push` (te la pide por pantalla), pero un proceso sin TTY no puede escribirla. Y el socket de agente que arranca tu shell normalmente está vacío o muerto.
+La causa: la clave `~/.ssh/id_ed25519` está protegida con **passphrase**. Tu terminal la desbloquea al vuelo cuando haces `git push` (te la pide por pantalla), pero un proceso sin TTY no puede escribirla. Y el socket de agente que arranca tu shell normalmente está vacío o muerto.
 
 La solución es un `ssh-agent` con **socket de ruta fija** (`~/.ssh/agent/pi.sock`) al que cualquier proceso pueda apuntar.
 
@@ -49,7 +49,7 @@ SSH_AUTH_SOCK=~/.ssh/agent/pi.sock ssh-add -l
 # 256 SHA256:XPxXOjqZ9IW3RIya+MJCRCGKN6Z0eerjZJd3XEEuRME szchmausser@gmail.com (ED25519)
 ```
 
-Si responde `The agent has no identities.`, repetí el paso 2.
+Si responde `The agent has no identities.`, repite el paso 2.
 
 ## Alternativas
 
@@ -61,7 +61,7 @@ git -c credential.helper='!gh auth git-credential' \
   push https://github.com/szchmausser/slim4-homemade-framework.git main
 ```
 
-Si devuelve **403**, el fine-grained PAT no tiene **Contents: Read and write** sobre el repo; en ese caso usá SSH o habilitá ese permiso en GitHub → *Settings → Developer settings → Fine-grained tokens*.
+Si devuelve **403**, el fine-grained PAT no tiene **Contents: Read and write** sobre el repo; en ese caso usa SSH o habilita ese permiso en GitHub → *Settings → Developer settings → Fine-grained tokens*.
 
 ### Pushear manualmente
 
@@ -75,7 +75,7 @@ git push origin main   # tu terminal te pide la passphrase
 |---|---|---|
 | `Permission denied (publickey)` | agente ausente o clave no cargada | pasos 1–3 |
 | `Connection refused` al usar el socket | el agente murió y el socket quedó colgado | `rm -f ~/.ssh/agent/pi.sock` y rearrancar |
-| `! [rejected] ... (fetch first)` | el remoto tiene commits que no tenés localmente | `git fetch origin && git rebase origin/main` (o `git pull`) y reintentar |
+| `! [rejected] ... (fetch first)` | el remoto tiene commits que no tienes localmente | `git fetch origin && git rebase origin/main` (o `git pull`) y reintentar |
 | HTTPS `error: 403` | PAT sin permiso de escritura | otorgar `Contents: Read and write` o usar SSH |
 | `ssh-add` sale con código 1 pero la clave aparece en `ssh-add -l` | aviso inofensivo del prompt | ignorar; la clave quedó cargada |
 

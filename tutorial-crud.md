@@ -3,18 +3,18 @@
 Recorrido para agregar tu propia entidad a este proyecto, desde un clon recién hecho hasta tenerla
 funcionando con tests. Está escrito para seguirse de arriba abajo, en orden, sin saltear pasos.
 
-Al terminar vas a tener una entidad `notas` que lista, crea, valida y responde por identificador, y
+Al terminar tendrás una entidad `notas` que lista, crea, valida y responde por identificador, y
 una suite mínima que reemplaza las comprobaciones que fuiste haciendo a mano.
 
 ## Prerrequisitos
 
-Necesitás:
+Necesitas:
 
 - PHP 8.4.1 o superior con `pdo_sqlite`, `mbstring` y `sqlite3`.
 - Composer 2.
 - Un navegador.
 - `curl` (opcional). Todas las comprobaciones se pueden hacer desde el navegador; `curl` sólo sirve
-  si preferís ver los cuerpos crudos.
+  si prefieres ver los cuerpos crudos.
 
 **Lo que este recorrido no enseña**: instalar PHP, Composer ni Termux; el contenedor de dependencias;
 los middlewares; la autenticación; los assets y el sistema visual; el despliegue. Todo eso está en
@@ -27,7 +27,7 @@ Cada paso tiene la misma forma, y conviene respetarla:
 - **Objetivo**: la acción concreta.
 - **Estado de partida**: qué tiene que estar hecho. Si falta, el paso dice cómo volver.
 - **Acción**: el archivo y el código, o el comando.
-- **Comprobación**: qué ejecutar y **qué tenés que ver**, escrito antes de que lo veas.
+- **Comprobación**: qué ejecutar y **qué debes ver**, escrito antes de que lo veas.
 - **Falla si**: la señal concreta de que el paso no quedó.
 - **Qué no prueba**: el límite de esa comprobación.
 - **Pieza**: cuando aparece algo reutilizable, qué resuelve, cuándo usarlo, qué evita y cómo se haría
@@ -56,7 +56,7 @@ Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo
 lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa; el 12 la vuelve usable
 cuando crece, y el 13 te deja el patrón para otra entidad tuya.
 
-**¿Querés ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
+**¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notas:install` (se quita con `composer demo:notas:remove`). Sirve para comparar, no para
 aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La diferencia concreta es de
 nombres —el demo vive en `App\Notas\…` porque tiene que ser removible; el recorrido usa
@@ -78,31 +78,50 @@ composer dump-autoload -o
 composer migrate
 ```
 
-Después sembrá el administrador. Las credenciales se pasan **por entorno** y no se escriben en
-ningún archivo del repo:
+Después siembra el administrador. Las credenciales van en `.env` —está en `.gitignore`, así que no se
+commitea—: descomenta las dos líneas que el archivo ya trae y complétalas.
+
+```dotenv
+ADMIN_EMAIL=vos@ejemplo.com
+ADMIN_PASSWORD=una-clave-de-8-o-mas
+```
+
+```bash
+vendor/bin/phinx seed:run -s DatabaseSeeder
+```
+
+¿Por qué en `.env` y no en el comando? Porque las vas a necesitar otra vez —después de
+`phinx rollback -t 0`, o al reinstalar un demo— y así no quedan en el historial del shell. La
+contraseña tiene que tener 8 caracteres o más.
+
+Si prefieres que no toquen el disco, el seeder también lee el entorno real:
 
 ```bash
 ADMIN_EMAIL=vos@ejemplo.com ADMIN_PASSWORD=una-clave-de-8-o-mas \
   vendor/bin/phinx seed:run -s DatabaseSeeder
 ```
 
-Y levantá el servidor de desarrollo:
+> Esa forma multilínea es de bash: en PowerShell no funciona (usa `$env:ADMIN_EMAIL = "..."` antes del
+> comando). Y mientras corre el proceso, las variables inline son visibles en `ps`. Si están en los dos
+> lados, gana el entorno real.
+
+Y levanta el servidor de desarrollo:
 
 ```bash
 php -S 0.0.0.0:8080 -t public
 ```
 
-**Comprobación**: abrí `http://localhost:8080/login` en el navegador. Tenés que ver el formulario de
-acceso. Entrá con el email y la contraseña que sembraste: después del login el navegador te lleva a
-la portada y en el pie del sidebar aparece tu usuario, con tu email debajo.
+**Comprobación**: abre `http://localhost:8080/login` en el navegador. Tienes que ver el formulario de
+acceso. Entra con el email y la contraseña que sembraste: después del login el navegador te lleva a la
+portada y en el pie del sidebar aparece tu usuario, con tu email debajo.
 
 **Falla si**:
 
-- `phinx seed:run` aborta con un mensaje sobre `ADMIN_EMAIL` y `ADMIN_PASSWORD`: no pasaste las
-  variables o la contraseña tiene menos de 8 caracteres.
+- `phinx seed:run` aborta pidiendo `ADMIN_EMAIL` y `ADMIN_PASSWORD`: no están en `.env` —revisa que las
+  dos líneas no sigan empezando con `#`— o la contraseña tiene menos de 8 caracteres.
 - El login vuelve al formulario con el aviso «Credenciales inválidas.»: el email o la contraseña no
   coinciden con el admin que sembraste. El mensaje es genérico a propósito —no dice cuál de los dos
-  falló, para no revelar qué cuentas existen—, así que revisá los dos.
+  falló, para no revelar qué cuentas existen—, así que revisa los dos.
 - `php -S` arranca pero el navegador da 404: estás abriendo la ruta sin `-t public`, o el servidor
   corre en otro directorio.
 
@@ -120,14 +139,14 @@ migraciones corrieron y que la sesión se crea. No prueba nada de tu entidad, qu
 
 **Estado de partida**: el paso 1 hecho; `composer migrate` corre sin errores.
 
-**Acción**: mirá qué números de migración están libres:
+**Acción**: mira qué números de migración están libres:
 
 ```bash
 ls database/migrations/
 ```
 
 Vas a ver archivos como `002_create_users_table.php` y `003_create_remember_tokens.php`. La
-convención del proyecto es **numeración secuencial**, no timestamps, así que tomás el siguiente
+convención del proyecto es **numeración secuencial**, no timestamps, así que toma el siguiente
 número libre. Si el último es `006_...`, tu archivo es `007_create_notas_table.php`:
 
 ```php
@@ -154,20 +173,20 @@ final class CreateNotasTable extends AbstractMigration
 vendor/bin/phinx migrate
 ```
 
-**Comprobación**: corré `vendor/bin/phinx status` (o volvé a `composer migrate`). Tenés que ver tu
+**Comprobación**: ejecuta `vendor/bin/phinx status` (o vuelve a `composer migrate`). Tienes que ver tu
 migración listada como aplicada, sin pendientes.
 
 **Falla si**:
 
 - Phinx dice que ya existe una migración con ese número: alguien usó ese número mientras mirabas.
-  Elegí el siguiente libre, nunca reutilices uno.
+  Elige el siguiente libre, nunca reutilices uno.
 - El error menciona `notas` ya existente: la tabla quedó de un intento anterior. `vendor/bin/phinx
-  rollback -t 0` la baja, y volvés a subir.
+  rollback -t 0` la baja, y vuelves a subir.
 
 **Qué no prueba**: que el modelo use esta tabla ni que los campos alcancen. La migración sólo prueba
 que el esquema se puede crear y revertir.
 
-> **Por qué `titulo` no es `NOT NULL`**: si mirás la tabla vas a ver `VARCHAR(120)` que acepta nulos.
+> **Por qué `titulo` no es `NOT NULL`**: si miras la tabla vas a ver `VARCHAR(120)` que acepta nulos.
 > La obligatoriedad la impone el validador (paso 7), no la base. Es la convención del proyecto: el
 > mensaje de error lo da la capa de validación, que es la que puede explicarle al usuario qué
 > corregir.
@@ -185,7 +204,7 @@ a mano y acordarte del orden; el proyecto ya tiene el mecanismo, sólo hay que e
 
 **Estado de partida**: paso 2 hecho, la tabla existe.
 
-**Acción**: creá `app/Models/Nota.php`:
+**Acción**: crea `app/Models/Nota.php`:
 
 ```php
 <?php
@@ -225,18 +244,18 @@ modelo.
 
 **Falla si**:
 
-- El lint reporta un error de sintaxis: revisá llaves y `;`.
+- El lint reporta un error de sintaxis: revisa llaves y `;`.
 - El total de archivos no subió respecto de la corrida anterior: el archivo no está donde el lint
-  mira. Anotá el total antes de crearlo y compará.
+  mira. Anota el total antes de crearlo y compara.
 
 **Qué no prueba**: que el modelo conecte con la tabla. El lint sólo verifica sintaxis; la prueba real
-llega en el paso 7, cuando creás la primera nota. Si el modelo apunta a una tabla inexistente, el
+llega en el paso 7, cuando creas la primera nota. Si el modelo apunta a una tabla inexistente, el
 error aparece ahí, con `no such table: notas`.
 
 > El modelo sí se puede comprobar desde la terminal: `php -r 'require "bootstrap/app.php"; echo
 > App\Models\Nota::query()->count(), PHP_EOL;'` imprime `0` sin avisos.
 
-**Pieza — Eloquent standalone**: resuelve el acceso a datos con un modelo por tabla. Usalo para
+**Pieza — Eloquent standalone**: resuelve el acceso a datos con un modelo por tabla. Úsalo para
 toda lectura y escritura; el proyecto no escribe SQL a mano en los controladores. Evita el SQL
 disperso por las vistas y los controladores. Sin él tendrías que preparar sentencias y mapear filas a
 mano en cada operación.
@@ -277,7 +296,7 @@ lo que hace falta, y por eso agregar una entidad no toca `bootstrap/app.php`.
 Sólo dos rutas por ahora: `index` y `store`. Las de editar y borrar se suman en los pasos 8 y 9, cuando
 exista la acción que las atiende. Una ruta sin acción es una promesa que el framework no puede cumplir.
 
-**Comprobación**: abrí `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
+**Comprobación**: abre `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
 que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
 `NotaController` no existe. Una página grande, con stack trace.
 
@@ -289,7 +308,7 @@ controlador.
 - Ves la **página 404 del framework**, chica, sin stack trace: el archivo no está en `routes/` con
   extensión `.php`, o su `return function (App $app) { … };` no está devolviendo el closure.
 - Te devuelve al login aunque hayas iniciado sesión: el grupo está protegido y la sesión se perdió.
-  Volvé al paso 1.
+  Vuelve al paso 1.
 
 **Qué no prueba**: que la ruta haga algo. Prueba que el registro funciona y que la protección está
 activa.
@@ -310,7 +329,7 @@ POST». Sin él, `curl` podría crear filas sin sesión.
 Una entidad que solo se alcanza escribiendo la URL no existe para quien usa la app. El menú lateral se
 arma por convención, igual que las rutas: cada módulo deja su entrada en `config/navigation/`.
 
-**Acción**: creá `config/navigation/notas.php`:
+**Acción**: crea `config/navigation/notas.php`:
 
 ```php
 <?php
@@ -329,7 +348,7 @@ return [
 `key` es lo que el sidebar compara con el `active` de la página para marcarla; `position` ordena las
 entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
 
-**Comprobación**: recargá cualquier página con sesión iniciada. En el menú lateral aparece «Notas»
+**Comprobación**: recarga cualquier página con sesión iniciada. En el menú lateral aparece «Notas»
 debajo de «Inicio».
 
 **Falla si**:
@@ -359,7 +378,7 @@ entidad es dejar su archivo; quitarla es borrarlo.
 
 **Estado de partida**: paso 4 hecho; `/notas` da error de controlador inexistente.
 
-**Acción**: creá `app/Http/Controllers/NotaController.php` con una sola acción:
+**Acción**: crea `app/Http/Controllers/NotaController.php` con una sola acción:
 
 ```php
 <?php
@@ -385,7 +404,7 @@ final class NotaController extends Controller
 }
 ```
 
-**Comprobación**: con sesión iniciada, abrí `http://localhost:8080/notas` en el navegador. Tenés que
+**Comprobación**: con sesión iniciada, abre `http://localhost:8080/notas` en el navegador. Tienes que
 ver exactamente:
 
 ```json
@@ -395,8 +414,8 @@ ver exactamente:
 **Falla si**:
 
 - Ves `{"status":"ok","recurso":"notas"}` pero el login te lo pidió de nuevo: normal, la ruta está
-  protegida; iniciá sesión y volvé.
-- Ves HTML: el navegador está mostrando otra ruta; revisá la URL.
+  protegida; inicia sesión y vuelve.
+- Ves HTML: el navegador está mostrando otra ruta; revisa la URL.
 - Ves un error de PHP: el `namespace` o el nombre de la clase no coinciden con la ruta del archivo.
 
 **Qué no prueba**: nada sobre datos ni sobre interfaz. Prueba el camino completo request → ruta →
@@ -413,12 +432,12 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 **Objetivo**: llegar a la pantalla del listado entendiendo qué aporta cada pieza, empezando por lo
 básico.
 
-**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la entrada. Sacá esa ruta: `index()` pasa
+**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la entrada. Saca esa ruta: `index()` pasa
 a renderizar una vista.
 
 ### 6.1 Primero, un HTML cualquiera
 
-**Acción**: creá `resources/views/notas/index.twig` con HTML suelto, sin nada del proyecto:
+**Acción**: crea `resources/views/notas/index.twig` con HTML suelto, sin nada del proyecto:
 
 ```twig
 <!DOCTYPE html>
@@ -437,7 +456,7 @@ a renderizar una vista.
 </html>
 ```
 
-Y el controlador. Sumá `use App\Models\Nota;` arriba, junto a los otros `use`: desde acá la clase se usa
+Y el controlador. Suma `use App\Models\Nota;` arriba, junto a los otros `use`: desde acá la clase se usa
 y sin el import el error es `Class "App\Http\Controllers\Nota" not found`, que parece un problema de
 rutas y no lo es.
 
@@ -450,7 +469,7 @@ rutas y no lo es.
     }
 ```
 
-**Comprobación**: abrí `http://localhost:8080/notas`. Vas a ver el título y el texto «No hay notas
+**Comprobación**: abre `http://localhost:8080/notas`. Vas a ver el título y el texto «No hay notas
 todavía.», **sin sidebar, sin header, sin tema oscuro y sin nada de la aplicación alrededor**. Es una
 página suelta.
 
@@ -458,7 +477,7 @@ página suelta.
 
 ### 6.2 Ahora sí, el shell del proyecto
 
-**Acción**: reemplazá todo el archivo por esto:
+**Acción**: reemplaza todo el archivo por esto:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -483,14 +502,14 @@ página suelta.
 {% endblock %}
 ```
 
-**Comprobación**: recargá `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—,
+**Comprobación**: recarga `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—,
 el header, el tema y el contenido dentro de una tarjeta. **El `<body>`, el `<head>` y los assets ya no
 son tuyos.**
 
 **Qué no prueba**: que los modales y los avisos funcionen; eso lo da el mismo layout, más adelante.
 
 **Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
-assets con SRI) una sola vez. Usalo en toda página tuya y escribí sólo el bloque `content`. Evita
+assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
@@ -499,7 +518,7 @@ header, y el tema se rompería en la que te olvidaras.
 La lista de arriba funciona, pero el `{% for %} … {% else %}` es exactamente el markup que el proyecto
 ya tiene empaquetado. Es el momento de reemplazarlo.
 
-**Acción**: dejá el parcial envolviéndose a sí mismo, `resources/views/notas/_panel.twig`:
+**Acción**: deja el parcial envolviéndose a sí mismo, `resources/views/notas/_panel.twig`:
 
 ```twig
 <div id="notas-panel">
@@ -516,7 +535,7 @@ ya tiene empaquetado. Es el momento de reemplazarlo.
 </div>
 ```
 
-En `index.twig`, cambiá el `<ul>` por el include, **sin** envolverlo:
+En `index.twig`, cambia el `<ul>` por el include, **sin** envolverlo:
 
 ```twig
             {% include 'notas/_panel.twig' %}
@@ -535,18 +554,18 @@ respeta sin cambios.
 
 **Falla si**:
 
-- La lista aparece vacía teniendo notas: `items` no está llegando; revisá el nombre de la variable.
+- La lista aparece vacía teniendo notas: `items` no está llegando; revisa el nombre de la variable.
 - La fila sale con el título en blanco, sin error: dentro del bloque `row` la variable se llama
   `item`, no `nota`, y Twig imprime vacío en vez de protestar.
 
-**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Usalo
+**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Úsalo
 para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
 cada entidad tiene su propia versión con variaciones accidentales.
 
 ### 6.4 El encabezado con la acción y el contador
 
-**Acción**: en `index.twig`, reemplazá el `<h1 class="text-2xl font-bold">Notas</h1>` que dejó el paso
-6.2 —el bloque de abajo ya trae ese mismo `h1`— y dejá esto arriba del include del panel:
+**Acción**: en `index.twig`, reemplaza el `<h1 class="text-2xl font-bold">Notas</h1>` que dejó el paso
+6.2 —el bloque de abajo ya trae ese mismo `h1`— y deja esto arriba del include del panel:
 
 ```twig
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -565,7 +584,7 @@ cada entidad tiene su propia versión con variaciones accidentales.
             </div>
 ```
 
-Y sumá el total en el controlador:
+Y suma el total en el controlador:
 
 ```php
             'total'  => Nota::query()->count(),
@@ -594,7 +613,7 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 **Acción**: al final de `index.twig`, **dentro del bloque `content`** y después del `</section>`, un
 `<dialog>` nativo con el formulario a mano.
 
-> El modal va **adentro** de `{% block content %}`. Si lo ponés después de `{% endblock %}`, Twig lo
+> El modal va **adentro** de `{% block content %}`. Si lo pones después de `{% endblock %}`, Twig lo
 > ignora sin error: el archivo se ve bien y el botón no abre nada. Es el error más silencioso de este
 > paso.
 
@@ -670,7 +689,7 @@ Y para que el aviso llegue en una pantalla con redirect, el controlador opta por
     }
 ```
 
-**Comprobación**: tocá «Agregar nota»: se abre el diálogo nativo. Guardá con un título: volvés a
+**Comprobación**: toca «Agregar nota»: se abre el diálogo nativo. Guarda con un título: vuelves a
 `/notas`, la nota aparece y el aviso «Nota creada.» sale abajo a la derecha.
 
 **Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este
@@ -678,7 +697,7 @@ formulario repinta la página y **pierde lo tipeado y el modal abierto**.
 
 ### 7.2 Sustituir los campos a mano por el del proyecto
 
-**Acción**: cambiá los dos pares `label` + `input` por el componente, que trae label, error asociado y
+**Acción**: cambia los dos pares `label` + `input` por el componente, que trae label, error asociado y
 atributos de accesibilidad:
 
 ```twig
@@ -707,7 +726,7 @@ atributos de accesibilidad:
 `|default('')` sobre cada campo, un título vacío tipeado a propósito volvería al valor guardado, y
 el usuario vería el dato viejo en el campo que acaba de borrar.
 
-Cambiá también los dos `hidden` de CSRF por el partial que los emite:
+Cambia también los dos `hidden` de CSRF por el partial que los emite:
 
 ```twig
             {% include 'partials/_csrf.twig' %}
@@ -716,7 +735,7 @@ Cambiá también los dos `hidden` de CSRF por el partial que los emite:
 **Comprobación**: los campos quedan en el mismo lugar y el input mide lo mismo, pero el label pasa a
 `label.fieldset-legend` (12px semibold en vez de 16px normal) y el HTML ahora es un `fieldset` con su
 label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantienen `required` y
-`maxlength`. Mirá el HTML con el inspector: `label for` coincide con el `id` del input.
+`maxlength`. Mira el HTML con el inspector: `label for` coincide con el `id` del input.
 
 > Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
 > error**, y eso llega en el paso 7.3, cuando el controlador empieza a devolver `errors`. En este paso
@@ -726,7 +745,7 @@ label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantie
 mensaje. Eso antes no existía: tenías un `label` y un `input` sueltos que se podían desincronizar.
 
 **Pieza — `components/form/field.twig`**: resuelve el campo con su label, su mensaje y sus atributos
-de accesibilidad. Usalo en vez de `<input>` sueltos. Evita el error que no queda pegado al campo que lo
+de accesibilidad. Úsalo en vez de `<input>` sueltos. Evita el error que no queda pegado al campo que lo
 causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apuntando al mensaje.
 
 **Pieza — `partials/_csrf.twig`**: resuelve los dos campos ocultos del token. Va **dentro** de todo
@@ -737,7 +756,7 @@ causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apunt
 El diálogo de 7.1 funciona, pero no reabre con un error del servidor y no tiene el tratamiento de tema
 y telón del proyecto. Ese es exactamente el problema que resuelve el componente.
 
-**Acción**: primero extraé el formulario a `resources/views/notas/_form.twig`:
+**Acción**: primero extrae el formulario a `resources/views/notas/_form.twig`:
 
 ```twig
 {# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
@@ -783,13 +802,13 @@ y telón del proyecto. Ese es exactamente el problema que resuelve el componente
 </form>
 ```
 
-Y en `index.twig`, reemplazá el `<dialog>` completo por:
+Y en `index.twig`, reemplaza el `<dialog>` completo por:
 
 ```twig
 {% embed 'components/ui/modal.twig' with {
     id: 'nota-create-modal',
     title: 'Nueva nota',
-    subtitle: 'Poné un título; el cuerpo es opcional.',
+    subtitle: 'Pon un título; el cuerpo es opcional.',
     open: open_create_modal|default(false)
 } %}
     {% block body %}
@@ -822,16 +841,16 @@ Por último, el alta inválida reusa el mismo render con el modal abierto y lo t
         }
 ```
 
-> **Sin `only` en ese include, a propósito.** `only` aisla el contexto: si lo usás, `_form.twig` se queda
+> **Sin `only` en ese include, a propósito.** `only` aisla el contexto: si lo usas, `_form.twig` se queda
 > sin `csrf_name_key`, `csrf_value_key`, `errors` ni `form_values`, y el token sale con `name=""`. El
 > síntoma es un POST rechazado por CSRF que termina en el login, y no un error de Twig. Los `field`
 > internos sí usan `only` porque reciben todo lo que necesitan por parámetro.
 
-**Comprobación**: tocá «Agregar nota»: abre con el mismo formulario y en el mismo lugar, más el
-subtítulo y el botón ✕ que agrega el componente. Guardá con un título: todo sigue igual.
-Ahora, para el caso inválido, mandá el POST salteando la validación del navegador —el campo lleva
-`required`, así que la pantalla no te deja—: abrí el modal, escribí el cuerpo y en la consola del
-navegador ejecutá
+**Comprobación**: toca «Agregar nota»: abre con el mismo formulario y en el mismo lugar, más el
+subtítulo y el botón ✕ que agrega el componente. Guarda con un título: todo sigue igual.
+Ahora, para el caso inválido, envía el POST salteando la validación del navegador —el campo lleva
+`required`, así que la pantalla no te deja—: abre el modal, escribe el cuerpo y en la consola del
+navegador ejecuta
 
 ```js
 document.querySelector('#nota-create-modal form[method=post]').submit()
@@ -841,9 +860,9 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 «Este campo es obligatorio.» junto al campo y «Quiero conservar esto» en el cuerpo. Eso es lo que el
 `<dialog>` crudo no hacía.
 
-> Si lo hacés con `curl`, el token va con `--data-urlencode`: el valor es base64 y trae `+` y `/`. Con
+> Si lo haces con `curl`, el token va con `--data-urlencode`: el valor es base64 y trae `+` y `/`. Con
 > `-d "csrf_value=$V"` el `+` se convierte en espacio, el POST rechaza el CSRF y te devuelve al login
-> —303, no 422—, que parece un problema de sesión. Agregá `-w '\n%{http_code}\n'` para ver el código.
+> —303, no 422—, que parece un problema de sesión. Agrega `-w '\n%{http_code}\n'` para ver el código.
 
 **Falla si**:
 
@@ -858,16 +877,16 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 **Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al
 top layer, así que lo cierra el botón «Cancelar», no Escape.
 
-> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline, como los `onclick` que ya usás
+> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline, como los `onclick` que ya usas
 > para abrir modales; no agrega bloques de JavaScript nuevos. `hx-disabled-elt` del demo de tareas no
 > sirve acá porque este formulario no envía por HTMX: es un POST con navegación.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
-`open` que permite reabrirlo desde el servidor. Usalo para todo alta, edición y confirmación. Evita
+`open` que permite reabrirlo desde el servidor. Úsalo para todo alta, edición y confirmación. Evita
 armar `<dialog>` a mano y pelear con el foco, el telón y el tema oscuro. Sin él, cada modal se comporta
 distinto.
 
-**Pieza — `components/ui/button.twig`**: resuelve el botón con variantes, iconos y atributos. Usalo en
+**Pieza — `components/ui/button.twig`**: resuelve el botón con variantes, iconos y atributos. Úsalo en
 vez de `<button class="btn …">`. Evita que cada pantalla tenga su propia idea de qué es un botón
 primario, y con `href` emite un `<a>` en vez de un `<button>`, que es lo que necesita un enlace de
 verdad.
@@ -896,7 +915,7 @@ título en vez de quedar a la derecha— y se agregan los dos controles con emoj
 </li>
 ```
 
-**Comprobación**: se ven dos iconos por fila. Y si abrís el inspector o pasás el lector de pantalla,
+**Comprobación**: se ven dos iconos por fila. Y si abres el inspector o pasas el lector de pantalla,
 los dos controles **no tienen nombre**: el enlace se anuncia como «✏️» y el botón como «🗑️». Para
 alguien que no ve la pantalla, son dos botones indistinguibles.
 
@@ -907,7 +926,7 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
 
 ### 8.2 Ahora, el botón del proyecto
 
-**Acción**: reemplazá los dos por el componente, con icono del registro compartido y nombre accesible:
+**Acción**: reemplaza los dos por el componente, con icono del registro compartido y nombre accesible:
 
 ```twig
                 <div class="flex shrink-0 items-center gap-1">
@@ -931,7 +950,7 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
                 </div>
 ```
 
-Y sumá las rutas al archivo de rutas, que queda con cinco:
+Y suma las rutas al archivo de rutas, que queda con cinco:
 
 ```php
         $group->get('/{id}/edit', [NotaController::class, 'edit']);
@@ -962,7 +981,7 @@ resto de la app.
 
 **Estado de partida**: paso 8 hecho; el lápiz navega a una ruta que todavía no existe.
 
-**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda. Sumá
+**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda. Suma
 arriba el import de la excepción, junto a los otros `use` —sin él el error que ves es
 `Class "App\Http\Controllers\HttpNotFoundException" not found`, un 500 que parece un problema de rutas:
 
@@ -1048,8 +1067,8 @@ cuando hay nota:
 {% endif %}
 ```
 
-**Comprobación**: tocá el lápiz de una nota. Esperado: se abre un diálogo con el título y el cuerpo ya
-cargados. Cambiá el título y guardá: volvés a la lista, la fila muestra el título nuevo y el aviso
+**Comprobación**: toca el lápiz de una nota. Esperado: se abre un diálogo con el título y el cuerpo ya
+cargados. Cambia el título y guarda: vuelves a la lista, la fila muestra el título nuevo y el aviso
 «Nota actualizada.».
 
 Un id que no existe (`/notas/99999/edit`) tiene que dar la página 404 del framework, no un error de
@@ -1065,7 +1084,7 @@ PHP.
 este recorrido no lo agrega.
 
 **Pieza — reusar el modal para alta y edición**: resuelve el formulario una sola vez y evita dos
-pantallas con reglas que se desincronizan. Usalo cuando los campos son los mismos. Sin esto, el alta
+pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta
 y la edición validan distinto y una de las dos se olvida de algo.
 
 ---
@@ -1078,7 +1097,7 @@ y la edición validan distinto y una de las dos se olvida de algo.
 
 ### 10.1 Primero, el atajo
 
-**Acción**: envolvé la papelera en un formulario con el `confirm` del navegador:
+**Acción**: envuelve la papelera en un formulario con el `confirm` del navegador:
 
 ```twig
 <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
@@ -1114,7 +1133,7 @@ Y `destroy()`:
     }
 ```
 
-**Comprobación**: tocá la papelera. Aparece el cartel del navegador «¿Borrar esta nota?». Si aceptás,
+**Comprobación**: toca la papelera. Aparece el cartel del navegador «¿Borrar esta nota?». Si aceptas,
 la fila desaparece y el aviso «Nota borrada.» sale abajo a la derecha.
 
 Funciona. **Y sin embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar,
@@ -1123,7 +1142,7 @@ proyecto usa un diálogo.
 
 ### 10.2 Ahora, el diálogo de confirmación
 
-**Acción**: sacá el `onsubmit` y el formulario de la fila, y poné el diálogo dentro del bloque `row`,
+**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo dentro del bloque `row`,
 después del contenido:
 
 ```twig
@@ -1158,7 +1177,7 @@ después del contenido:
 
 La papelera del paso 8 ya apunta a ese diálogo con `showModal()`.
 
-**Comprobación**: tocá la papelera de una nota. Esperado: se abre un diálogo que dice **qué nota** vas
+**Comprobación**: toca la papelera de una nota. Esperado: se abre un diálogo que dice **qué nota** vas
 a borrar —«¿Borrar «Comprar pan»? No se puede deshacer.»—, con «Cancelar» y «Borrar». «Cancelar» no
 hace nada; «Borrar» elimina la fila y muestra el aviso.
 
@@ -1177,7 +1196,7 @@ acción explícita en vez de cerrar un cartel del sistema.
 **Qué no prueba**: que el borrado sea reversible, ni que exista borrado lógico. Borra la fila.
 
 **Pieza — confirmación en un diálogo antes de mutar**: resuelve el «¿estás seguro?» con el idioma del
-proyecto. Usala en toda acción destructiva. Evita el borrado por accidente y el cartel del sistema que
+proyecto. Úsala en toda acción destructiva. Evita el borrado por accidente y el cartel del sistema que
 no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuelta atrás.
 
 > **Por qué un diálogo por fila y no uno solo**: el demo de contactos usa un único modal y le cambia
@@ -1193,7 +1212,7 @@ no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuel
 
 **Estado de partida**: pasos 1 a 10 hechos y comprobados en pantalla.
 
-**Acción**: creá `tests/Http/NotaTest.php`:
+**Acción**: crea `tests/Http/NotaTest.php`:
 
 ```php
 <?php
@@ -1316,17 +1335,17 @@ Esperado: cinco tests en verde.
 - El test falla en `Location` (`/login` en vez de `/notas`): el token no está llegando, aunque el
   primer `assertSame(303, …)` pase igual. Sin HTMX el rechazo de CSRF es un 303 al login, no un 400.
   `HttpTestCase::token()` te da el par.
-- El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo; revisá `open_create_modal`.
+- El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo; revisa `open_create_modal`.
 - La suite completa falla después: falta el `tearDown` que limpia `notas`.
 
 **Qué no prueba**: que la pantalla se vea bien, ni que los diálogos abran. Prueba el contrato HTTP:
 qué código, qué guarda y qué mensaje.
 
-> **Checkpoint**: acá tenés la entidad completa —crear, editar, borrar con confirmación y tests—. Si
+> **Checkpoint**: acá tienes la entidad completa —crear, editar, borrar con confirmación y tests—. Si
 > esto no funciona, lo que sigue no lo arregla.
 
 **Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el
-request con cuerpo de formulario y los tokens (`token()`). Usalo como base de todos tus tests HTTP.
+request con cuerpo de formulario y los tokens (`token()`). Úsalo como base de todos tus tests HTTP.
 Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 ---
@@ -1337,7 +1356,7 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 **Estado de partida**: paso 11 hecho; con muchas notas la página se vuelve larga.
 
-**Acción**: en el controlador, sumá `use Framework\Http\Pagination;` y centralizá la lectura:
+**Acción**: en el controlador, suma `use Framework\Http\Pagination;` y centraliza la lectura:
 
 ```php
     private function pageData(Request $request): array
@@ -1366,7 +1385,7 @@ Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada 
     {
         $data = $this->pageData($request);
 
-        // Con HX-Request va SÓLO la región. Si devolvés la página entera, el
+        // Con HX-Request va SÓLO la región. Si devuelves la página entera, el
         // swap mete el shell del layout adentro del panel: dos sidebars, dos
         // headers y el contenido duplicado.
         $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
@@ -1413,7 +1432,7 @@ el modal de alta, que es el que queda abierto.
 La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
 alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
 
-Y la paginación, **dentro** del `div#notas-panel` y después del `embed` —si la dejás afuera, el swap
+Y la paginación, **dentro** del `div#notas-panel` y después del `embed` —si la dejas afuera, el swap
 reemplaza el panel y los controles quedan apuntando a un id que sigue existiendo pero ya no se
 actualiza:
 
@@ -1425,7 +1444,7 @@ actualiza:
 </div>
 ```
 
-**Comprobación**: creá más de diez notas. Esperado: se ven diez, con los controles debajo
+**Comprobación**: crea más de diez notas. Esperado: se ven diez, con los controles debajo
 (Primera/Anterior, números, Siguiente/Última) y el selector de tamaño.
 
 Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
@@ -1442,10 +1461,10 @@ muestra nada raro y el bug pasa igual.
 **Falla si**:
 
 - La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
-- Paginás y la URL no cambia: falta `HX-Push-Url`.
+- Paginas y la URL no cambia: falta `HX-Push-Url`.
 - Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
   request de HTMX, y el shell entró dentro del panel. Es el error más visible de este paso.
-- Cambiás el tamaño y volvés a la página 1: es lo esperado al cambiar el tamaño; si no querés eso, se decide en otra parte del código.
+- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; si no quieres eso, se decide en otra parte del código.
 - Todo aparece en una página: no estás pasando `pagination` a la vista.
 
 **Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`. Tampoco prueba
@@ -1456,7 +1475,7 @@ otra cosa.
 recorte y controles del lado del servidor. Usalos en toda lista que pueda crecer. Evitan el `get()`
 pelado, que funciona con veinte filas y se cae con dos mil.
 
-**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap. Usalo en toda región paginada o
+**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap. Úsalo en toda región paginada o
 filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 
 ---
@@ -1484,10 +1503,10 @@ filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`
 
-Si querés un punto de comparación ya hecho, `composer demo:notas:install` instala esta misma entidad
+Si quieres un punto de comparación ya hecho, `composer demo:notas:install` instala esta misma entidad
 como demo removible, con ocho tests.
 
-**Comprobación**: elegí otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorré esa lista.
+**Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
 confirmación, paginación y cinco tests en verde.
 
@@ -1507,15 +1526,15 @@ Eso es otra conversación, y necesita más piezas.
 | Síntoma | Causa probable | Solución |
 |---|---|---|
 | El POST te devuelve al login con «Tu sesión expiró» | Falta el token de CSRF en el formulario | `{% include 'partials/_csrf.twig' %}` dentro del `<form>` |
-| El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Volvé a sembrar con las mismas variables; el mensaje es genérico a propósito |
-| `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisá `DB_DATABASE` |
-| El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasá el método a `true` |
-| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pasalo en `true` en el render del 422 |
-| El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasá `error: errors.<campo>|default(null)` |
+| El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Vuelve a sembrar con las mismas variables; el mensaje es genérico a propósito |
+| `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisa `DB_DATABASE` |
+| El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
+| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 |
+| El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.3) |
-| La papelera no abre el diálogo | El `onclick` apunta a un id sin el número de fila | Usá `nota-delete-{id}` en el modal y en el `onclick` |
+| La papelera no abre el diálogo | El `onclick` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en el `onclick` |
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
-| Paginás y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
+| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |
 
 ## Qué demuestra este recorrido

@@ -27,7 +27,7 @@ final class UserProvider
     {
         if (self::$model === null) {
             throw new \RuntimeException(
-                'UserProvider no configurado: cargá config/auth.php en bootstrap/app.php.'
+                'UserProvider no configurado: carga config/auth.php en bootstrap/app.php.'
             );
         }
 

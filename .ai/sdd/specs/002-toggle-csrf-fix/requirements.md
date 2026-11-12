@@ -15,7 +15,7 @@
 | AC-001 | Al clickear "Completar" en una tarea pendiente, la tarea cambia a "completado" sin mostrar toast de error | Funcional |
 | AC-002 | Al clickear "Desmarcar" en una tarea completada, la tarea cambia a "pendiente" sin mostrar toast de error | Funcional |
 | AC-003 | El panel de tareas se actualiza vía HTMX (swap outerHTML en #tareas-panel) | Técnico |
-| AC-004 | No aparece el mensaje "Tu sesión expiró. Recargá la página." | UX |
+| AC-004 | No aparece el mensaje "Tu sesión expiró. Recarga la página." | UX |
 
 ## Non-Functional Requirements
 

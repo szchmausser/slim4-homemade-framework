@@ -34,7 +34,7 @@ final class RequireAuthMiddleware implements MiddlewareInterface
                 ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
-        Flash::set('error', 'Iniciá sesión para continuar.');
+        Flash::set('error', 'Inicia sesión para continuar.');
 
         return $this->responseFactory->createResponse(303)
             ->withHeader('Location', Url::path('/login'));

@@ -197,8 +197,8 @@ return [
             //
             // Con true el token vive toda la sesión. El trade-off es real: la
             // protección CSRF sigue siendo la misma (el atacante no puede
-            // leerlo), pero perdés la protección contra replay de un token
-            // único. Si preferís el token de un solo uso, la alternativa es
+            // leerlo), pero pierdes la protección contra replay de un token
+            // único. Si prefieres el token de un solo uso, la alternativa es
             // devolver los hidden frescos en cada partial.
             persistentTokenMode: true,
             failureHandler: function (

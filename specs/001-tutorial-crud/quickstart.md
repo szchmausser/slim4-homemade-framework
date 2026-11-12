@@ -16,7 +16,7 @@ composer install:termux && composer dump-autoload -o
 ls tutorial-crud.md
 ```
 
-Esperado: el archivo existe en la raíz. Si además corrés `composer demo:tasks:install` y después el
+Esperado: el archivo existe en la raíz. Si además ejecutas `composer demo:tasks:install` y después el
 recorrido, debería funcionar igual: el material no puede depender del estado de los demos.
 
 ## 2. Seguir el recorrido

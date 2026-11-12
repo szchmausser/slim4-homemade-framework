@@ -135,7 +135,7 @@ La numeración se calcula desde el filesystem, no desde `INDEX.md`:
 
 ## Próxima Acción Recomendada
 
-Si no sabés por dónde empezar:
+Si no sabes por dónde empezar:
 
 - idea poco clara → `/skill:sdd-idea`
 - múltiples features → `/skill:sdd-plan`

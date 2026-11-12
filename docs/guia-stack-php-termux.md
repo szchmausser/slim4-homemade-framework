@@ -30,14 +30,14 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 19. Antes de exponer la app fuera de tu teléfono
 20. Testing: testear el esqueleto, no la demo (+ suite de auth y paginación)
 21. Troubleshooting: síntomas, no theory
-22. Cómo verificar esta guía vos mismo
+22. Cómo verificar esta guía tú mismo
 23. Archivos que existen pero NO se replican
 
 ---
 
 ## 1. Preparar Termux
 
-Verificá primero tu arquitectura y actualizá los repos:
+Verifica primero tu arquitectura y actualiza los repos:
 
 ```bash
 uname -m
@@ -47,19 +47,19 @@ pkg update -y && pkg upgrade -y
 termux-setup-storage
 ```
 
-Si `pkg update` trae paquetes muy viejos para tu arquitectura, cambiá de mirror antes de seguir:
+Si `pkg update` trae paquetes muy viejos para tu arquitectura, cambia de mirror antes de seguir:
 
 ```bash
 termux-change-repo
 ```
 
-Instalá lo básico:
+Instala lo básico:
 
 ```bash
 pkg install php git curl wget unzip nano -y
 ```
 
-Verificá PHP y que traiga soporte de SQLite (en Termux normalmente viene incluido en el mismo paquete `php`, no como paquete aparte):
+Verifica PHP y que traiga soporte de SQLite (en Termux normalmente viene incluido en el mismo paquete `php`, no como paquete aparte):
 
 ```bash
 php -v
@@ -67,7 +67,7 @@ php -m | grep -i sqlite
 # deberías ver: pdo_sqlite y sqlite3
 ```
 
-Si no aparecen, buscá el módulo suelto con `pkg search php` — pero en la gran mayoría de instalaciones de Termux ya viene compilado adentro.
+Si no aparecen, busca el módulo suelto con `pkg search php` — pero en la gran mayoría de instalaciones de Termux ya viene compilado adentro.
 
 ## 2. Instalar Composer
 
@@ -78,7 +78,7 @@ rm composer-setup.php
 composer --version
 ```
 
-Para evitar que el solver de dependencias se quede sin memoria (el problema clásico con Eloquent en 32 bits), dejalo seteado de forma permanente en tu shell. Ojo: el valor es `1024M`, NO `-1` (cap. 18.1 explica por qué `-1` te mata sin mensaje):
+Para evitar que el solver de dependencias se quede sin memoria (el problema clásico con Eloquent en 32 bits), déjalo seteado de forma permanente en tu shell. Ojo: el valor es `1024M`, NO `-1` (cap. 18.1 explica por qué `-1` te mata sin mensaje):
 
 ```bash
 echo 'export COMPOSER_MEMORY_LIMIT=1024M' >> ~/.bashrc
@@ -240,8 +240,8 @@ composer require --dev phpunit/phpunit
 > **PHP ≥ 8.4.1 obligatorio, sin atajos.** No lo fija un solo pin: `illuminate/database ^13.33`
 > exige `^8.3`, y `symfony/clock` y `symfony/translation` (dependencias de runtime de
 > Illuminate) más `phpunit/phpunit ^13.3` exigen `>=8.4.1`. Con un PHP menor no instala
-> ni por clon (el lock falla el platform check) ni desde cero. Verificá primero con
-> `php -v` (cap. 22.4); si tu Termux trae uno viejo, actualizá el paquete `php` antes de
+> ni por clon (el lock falla el platform check) ni desde cero. Verifica primero con
+> `php -v` (cap. 22.4); si tu Termux trae uno viejo, actualiza el paquete `php` antes de
 > seguir. No hay fallback documentado porque implicaría retroceder varios pins a la vez.
 >
 > **Trade-off de pinear `respect/validation:^2.0`:** hoy resuelve a **2.5.0**, que
@@ -328,12 +328,12 @@ composer dump-autoload -o
 composer check:termux   # te dice si tu PHP es de 32 o 64 bits
 ```
 
-En el teléfono, para instalar dependencias usá SIEMPRE el script low-mem (banderas que bajan el pico del solver), nunca un `update` pelado:
+En el teléfono, para instalar dependencias usa SIEMPRE el script low-mem (banderas que bajan el pico del solver), nunca un `update` pelado:
 
 ```bash
 composer install:termux
 # equivalente a: COMPOSER_MEMORY_LIMIT=1024M composer install --prefer-dist --no-scripts
-# (SIN --no-dev a propósito: en el teléfono necesitás PHPUnit; Phinx ya vive
+# (SIN --no-dev a propósito: en el teléfono necesitas PHPUnit; Phinx ya vive
 # en require para que `composer migrate` funcione incluso en un deploy
 # --no-dev. --no-dev solo ahorra memoria en el SOLVER del update.)
 ```
@@ -343,25 +343,25 @@ composer install:termux
 `.env.example` (este SÍ se commitea — es la referencia documentada):
 
 ```
-# Copiá a .env y ajustá a tu máquina:
+# Copia a .env y ajusta a tu máquina:
 #   cp .env.example .env
 # .env nunca se commitea (está en .gitignore).
 APP_ENV=local
 APP_DEBUG=true
 
 # Opcional: si no se setea, la app usa database/database.sqlite relativo
-# al proyecto. En Termux, si clonaste en otro path, descomentá y poné TU absoluto:
+# al proyecto. En Termux, si clonaste en otro path, descomenta y pon TU absoluto:
 # DB_DATABASE=/data/data/com.termux/files/home/proyectos/mi-app/database/database.sqlite
 #DB_DATABASE=
 
 SESSION_NAME=mi_app_session
 ```
 
-Generá tu `.env` local:
+Genera tu `.env` local:
 
 ```bash
 cp .env.example .env
-php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesitás firmar cookies
+php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesitas firmar cookies
 ```
 
 > **DB_DATABASE es opcional.** Si no está, la app usa `database/database.sqlite`
@@ -388,7 +388,7 @@ php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesi
 .atl/
 ```
 
-Fijate qué cubre y por qué: la base y sus sidecars de WAL (`-wal`/`-shm`, cap. 18.6 — sin ellos el backup va incompleto pero al repo no van nunca), las sesiones (datos reales de usuarios), el caché de Twig, y `.env` (secretos locales). `composer.lock` **sí** se commitea a propósito: con el lock, `install` no resuelve dependencias — en 32 bits es la diferencia entre 10 segundos y un OOM (cap. 18.1). `public/assets/` SÍ va a git (vendorizado: clonar ya trae el frontend).
+Fíjate qué cubre y por qué: la base y sus sidecars de WAL (`-wal`/`-shm`, cap. 18.6 — sin ellos el backup va incompleto pero al repo no van nunca), las sesiones (datos reales de usuarios), el caché de Twig, y `.env` (secretos locales). `composer.lock` **sí** se commitea a propósito: con el lock, `install` no resuelve dependencias — en 32 bits es la diferencia entre 10 segundos y un OOM (cap. 18.1). `public/assets/` SÍ va a git (vendorizado: clonar ya trae el frontend).
 
 `.gitattributes` completo (una línea que salva el SRI):
 
@@ -605,8 +605,8 @@ return [
             //
             // Con true el token vive toda la sesión. El trade-off es real: la
             // protección CSRF sigue siendo la misma (el atacante no puede
-            // leerlo), pero perdés la protección contra replay de un token
-            // único. Si preferís el token de un solo uso, la alternativa es
+            // leerlo), pero pierdes la protección contra replay de un token
+            // único. Si prefieres el token de un solo uso, la alternativa es
             // devolver los hidden frescos en cada partial.
             persistentTokenMode: true,
             failureHandler: function (
@@ -721,7 +721,7 @@ foreach ($routeFiles as $routeFile) {
 return $app;
 ```
 
-`config/middleware.php` completo — respeta el pipeline LIFO, con un agregado necesario: **Body Parsing Middleware**, que Slim tampoco trae activado por defecto y que necesitás para leer `$_POST`/JSON antes de que el Guard de CSRF pueda validar el token del formulario:
+`config/middleware.php` completo — respeta el pipeline LIFO, con un agregado necesario: **Body Parsing Middleware**, que Slim tampoco trae activado por defecto y que necesitas para leer `$_POST`/JSON antes de que el Guard de CSRF pueda validar el token del formulario:
 
 ```php
 <?php
@@ -794,7 +794,7 @@ return function (App $app) {
     $errorMiddleware->setDefaultErrorHandler(
         function ($request, Throwable $exception) use ($app, $container, $whoops) {
             // El status sale de la excepción, no está hardcodeado. Un 404 tiene
-            // que seguir siendo 404: si devolvés 500, los navegadores, los
+            // que seguir siendo 404: si devuelves 500, los navegadores, los
             // proxies y los buscadores lo interpretan como "el servidor se cayó".
             $status = $exception instanceof HttpException ? $exception->getCode() : 500;
             if ($status < 400 || $status > 599) {
@@ -950,7 +950,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
 </html>
 ```
 
-**Deliberadamente NO extiende `layouts/app.twig` y NO usa daisyUI.** Si el layout es justamente lo que se rompió, una página de error que depende del mismo layout o del CSS vendorizado vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entrás en un loop hasta que se te queda la memoria. Esta plantilla no depende de nada: ni del layout, ni de la sesión, ni de Alpine, ni de los assets. Por eso el handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
+**Deliberadamente NO extiende `layouts/app.twig` y NO usa daisyUI.** Si el layout es justamente lo que se rompió, una página de error que depende del mismo layout o del CSS vendorizado vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entras en un loop hasta que se te queda la memoria. Esta plantilla no depende de nada: ni del layout, ni de la sesión, ni de Alpine, ni de los assets. Por eso el handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
 
 Los 404 y 405 salen gratis de este mismo handler: Slim lanza `HttpNotFoundException` y `HttpMethodNotAllowedException`, el `ErrorMiddleware` las captura y nos llegan con su código correcto. No hace falta una ruta catch-all.
 
@@ -1013,7 +1013,7 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
 }
 ```
 
-Registralo en `config/container.php` (`SecurityHeadersMiddleware::class => \DI\autowire(...)`) y agregalo al pipeline **después** del error middleware, como en el capítulo 7.
+Registralo en `config/container.php` (`SecurityHeadersMiddleware::class => \DI\autowire(...)`) y agrégalo al pipeline **después** del error middleware, como en el capítulo 7.
 
 El orden importa: `addErrorMiddleware` es el que *genera* las respuestas 404/500, así que los headers tienen que agregarse **por fuera** de él o las páginas de error salen limpias.
 
@@ -1117,7 +1117,7 @@ final class RequireAuthMiddleware implements MiddlewareInterface
                 ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
-        Flash::set('error', 'Iniciá sesión para continuar.');
+        Flash::set('error', 'Inicia sesión para continuar.');
 
         return $this->responseFactory->createResponse(303)
             ->withHeader('Location', Url::path('/login'));
@@ -1946,7 +1946,7 @@ Tres cosas que este controlador deja por escrito y que antes estaban implícitas
 2. **Un id que no existe responde 200 con un flash, no 404** (la página de error dentro del panel sería peor) **y nunca en silencio** (el `?->update()` mudo se fue).
 3. **En fallo de validación se conserva lo tipeado** (`editing_title`), no el valor guardado. Twig autoescapea, así que comillas o `<script>` tipeados salen neutrales.
 
-Y una deliberada: cada acción repite `return $this->render($request, $response, 'tasks/_panel.twig', ...)` con el template a la vista. Como en Laravel repetís `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que lo esconda (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
+Y una deliberada: cada acción repite `return $this->render($request, $response, 'tasks/_panel.twig', ...)` con el template a la vista. Como en Laravel repites `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que lo esconda (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
 
 ### 9.2 AuthController: login, logout y remember-me
 
@@ -2253,13 +2253,13 @@ return [
 
 > **Divergencia honesta:** Phinx migra siempre `database/database.sqlite` fijo, pero la app usa `DB_DATABASE` si está seteado. Si tu `.env` apunta a otro lado, el `migrate` escribe en un archivo y la app lee otro. Para el flujo normal (sin `DB_DATABASE`, default relativo) ambos usan el mismo archivo y no hay problema.
 
-Crear y correr una migración (SOLO si construís desde cero: si clonaste el repo, las 3 ya vienen — salteá directo al `migrate`. Crear de más acá es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
+Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 3 ya vienen — saltea directo al `migrate`. Crear de más acá es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
 
 ```bash
 vendor/bin/phinx create CreateTasksTable
 ```
 
-Completá el archivo generado en `database/migrations/` y renombralo a `001_create_tasks_table.php` (en 32 bits los timestamps de Phinx saturan el entero — regla en 11.1, vale desde la primera migración):
+Completa el archivo generado en `database/migrations/` y renombralo a `001_create_tasks_table.php` (en 32 bits los timestamps de Phinx saturan el entero — regla en 11.1, vale desde la primera migración):
 
 ```php
 <?php
@@ -2301,7 +2301,7 @@ vendor/bin/phinx create CreateUsersTable
 vendor/bin/phinx create CreateRememberTokensTable
 ```
 
-> **Regla de 32 bits: renombrá SIEMPRE lo que genera `create`.** Phinx nombra `YYYYMMDDHHMMSS_algo.php` (14 dígitos, ~2×10¹³) y extrae la versión con `(int)` del prefijo (`Util.php:93`). En 64 bits entra; en 32 bits **satura a `PHP_INT_MAX` (2147483647)** con el warning `The float-string "2026..." is not representable as an int` — y TODAS tus migraciones colapsan a la misma versión: `Duplicate migration` garantizado aunque haya un solo archivo por timestamp. El patrón acepta cualquier dígito inicial (`/^\d+_.../`, sin validar fechas), así que usamos secuenciales de 3 dígitos (ordenan bien hasta 999):
+> **Regla de 32 bits: renombra SIEMPRE lo que genera `create`.** Phinx nombra `YYYYMMDDHHMMSS_algo.php` (14 dígitos, ~2×10¹³) y extrae la versión con `(int)` del prefijo (`Util.php:93`). En 64 bits entra; en 32 bits **satura a `PHP_INT_MAX` (2147483647)** con el warning `The float-string "2026..." is not representable as an int` — y TODAS tus migraciones colapsan a la misma versión: `Duplicate migration` garantizado aunque haya un solo archivo por timestamp. El patrón acepta cualquier dígito inicial (`/^\d+_.../`, sin validar fechas), así que usamos secuenciales de 3 dígitos (ordenan bien hasta 999):
 >
 > ```bash
 > mv database/migrations/20260928185619_create_users_table.php \
@@ -2362,7 +2362,7 @@ final class CreateRememberTokensTable extends AbstractMigration
 
 Sin registro público, el primer usuario nace por **seed**: en Phinx, migraciones para SCHEMA y seeds para DATOS. Los seeds corren con `seed:run`, quedan registrados y se pueden repetir sin duplicar.
 
-Primero declará el path en `phinx.php`, junto a `migrations` (fragmento):
+Primero declara el path en `phinx.php`, junto a `migrations` (fragmento):
 
 ```php excerpt
 return [
@@ -2376,7 +2376,7 @@ return [
 vendor/bin/phinx seed:create AdminSeeder
 ```
 
-Completá `database/seeds/AdminSeeder.php` (el secret sale de entorno real o de `.env` —ojo: Dotenv immutable NO usa `putenv`, así que `.env` llega a `$_ENV` pero nunca a `getenv()`: se miran ambos—; valida con el `Validator` del cap. 12 y nunca imprime la clave; Eloquent sale del bootstrap de la app, igual que en runtime):
+Completa `database/seeds/AdminSeeder.php` (el secret sale de entorno real o de `.env` —ojo: Dotenv immutable NO usa `putenv`, así que `.env` llega a `$_ENV` pero nunca a `getenv()`: se miran ambos—; valida con el `Validator` del cap. 12 y nunca imprime la clave; Eloquent sale del bootstrap de la app, igual que en runtime):
 
 ```php
 <?php
@@ -2429,7 +2429,7 @@ final class AdminSeeder extends AbstractSeed
 }
 ```
 
-Uso — vía `.env` (recomendado: descomentá `ADMIN_EMAIL`/`ADMIN_PASSWORD` en tu `.env`; no pasan por history ni `ps`):
+Uso — vía `.env` (recomendado: descomenta `ADMIN_EMAIL`/`ADMIN_PASSWORD` en tu `.env`; no pasan por history ni `ps`):
 
 ```bash
 vendor/bin/phinx seed:run -s AdminSeeder
@@ -2579,7 +2579,7 @@ vendor/bin/phinx seed:run -s DemoTasksSeeder
 # DemoTasksSeeder: 100 nuevas (100 esperadas en base vacía).
 ```
 
-> **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido acá. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usá el comando de arriba con una clave larga que solo vos sepas.
+> **Por qué el seed NO trae credenciales hardcodeadas** (ni `admin@admin.dev/123456` ni ninguna otra): una migración o un script con clave viaja en git, y una clave en git es una clave publicada — `123456` es literalmente la primera que prueban los bots contra cualquier login expuesto. Además nuestro propio `Validator` exige 8+ caracteres y la regla vale en todos lados, incluido acá. El flujo es: secret por entorno, validado, hasheado con bcrypt, nunca impreso. Para tu primer acceso en Termux usa el comando de arriba con una clave larga que solo tú sepas.
 
 ## 12. Validación estilo Laravel sobre respect/validation
 
@@ -2733,7 +2733,7 @@ class Validator
 }
 ```
 
-Sumá reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.) — cada una es una línea nueva mapeando a un método de `respect/validation`.
+Suma reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.) — cada una es una línea nueva mapeando a un método de `respect/validation`.
 
 > **Por qué `required` mapea a `notEmpty()` y no a `notOptional()`.** Los dos suenan
 > igual y se comportan distinto en un solo caso, pero ese caso es justamente el que
@@ -2744,7 +2744,7 @@ Sumá reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.
 > - `NotOptional::validate()` chequea `isUndefined()`, que es `in_array($v, [null, ''], true)`.
 >   Rechaza `null` y `''`, pero **deja pasar `"   "`**.
 >
-> Lo que querés es el comportamiento de `required` de Laravel, y Laravel trimea
+> Lo que quieres es el comportamiento de `required` de Laravel, y Laravel trimea
 > antes de decidir: un campo con solo espacios **no pasa**. Por eso `notEmpty()`.
 > Con `notOptional()` mandarías `"   "` a la base de datos como si fuera contenido.
 
@@ -2789,7 +2789,7 @@ curl -sL "https://cdn.jsdelivr.net/npm/daisyui@5.7.46/daisyui.css" -o public/ass
 ls -la public/assets/
 ```
 
-Verificá los hashes con PHP (a propósito sin `openssl`: en Termux PHP siempre está, el CLI de openssl no necesariamente):
+Verifica los hashes con PHP (a propósito sin `openssl`: en Termux PHP siempre está, el CLI de openssl no necesariamente):
 
 ```bash
 php -r '$f=$argv[1]; echo "sha384-".base64_encode(hash_file("sha384",$f,true)),PHP_EOL;' public/assets/htmx-2.0.11.min.js
@@ -2804,7 +2804,7 @@ Tabla de versiones pineadas con sus SRI verificados (los bytes sirven idénticos
 | Alpine.js | 3.17.4 | `sha384-5/joNqFnRyVWzXp99bHot6RHG+EksGp+USSgZwPar7T9SD9PKKER37n/8bXBAZGd` |
 | daisyUI | 5.7.46 | `sha384-bbGkD3MAh/9AO9eBt/6ReKyGTu78VjNCrlo1uLqxHFOrFr8lRuS4H0sC04ucGill` |
 
-El costo es que bumpear versiones es manual. Es intencional: actualizar el runtime es tu decisión, no la de un CDN. Y acordate del `.gitattributes`: sin `public/assets/* binary`, un checkout en Windows reescribe los `.js` a CRLF y el SRI falla en silencio (cap. 5).
+El costo es que bumpear versiones es manual. Es intencional: actualizar el runtime es tu decisión, no la de un CDN. Y acuérdate del `.gitattributes`: sin `public/assets/* binary`, un checkout en Windows reescribe los `.js` a CRLF y el SRI falla en silencio (cap. 5).
 
 ### 14.2 daisyUI 5 as-is: reglas del juego
 
@@ -2814,11 +2814,11 @@ daisyUI entra como **CSS precompilado**, igual que cualquier asset: clases lista
 2. **Nada de JS de terceros**: el comportamiento es Alpine o nada. El JS de otras librerías bindea en `DOMContentLoaded` y no ve el contenido que HTMX trae por swap — es el mismo motivo por el que el toast CSRF es Alpine (cap. 15).
 3. **Nada de variantes `is-drawer-*`**: el ejemplo plegable de la doc de daisyUI usa `is-drawer-open:`/`is-drawer-close:`, y esas variantes **no existen en el CSS linkeado** (verificado: cero ocurrencias en `daisyui-5.7.46.css` — necesitan el compilador con daisyUI registrado como plugin). Con CSS linkeado serían clases muertas que *parecen* funcionar. El collapse de esta guía va con Alpine + utilities estándar, que el browser build sí compila al vuelo.
 
-Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" según su propia doc — para tu app personal en tu teléfono ese trade-off es razonable. Si algún día querés CSS estático compilado sin Node, existe el CLI standalone de Tailwind, aunque probablemente necesite la capa glibc de Termux (`pkg install glibc-repo glibc`).
+Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" según su propia doc — para tu app personal en tu teléfono ese trade-off es razonable. Si algún día quieres CSS estático compilado sin Node, existe el CLI standalone de Tailwind, aunque probablemente necesite la capa glibc de Termux (`pkg install glibc-repo glibc`).
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copiá también esos cinco partials; acá se muestra el layout que los integra:
+`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; acá se muestra el layout que los integra:
 
 ```twig
 <!DOCTYPE html>
@@ -3107,7 +3107,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
                por ELEMENTO y con `!important` porque los `x-transition` de
                Alpine se aplican como clases e inline SOBRE el nodo que se
                mueve: un selector normal perdería contra el inline, y apuntar
-               a Alpine ("anulá las transiciones") no es algo que su API
+               a Alpine ("anula las transiciones") no es algo que su API
                exponga. `transition` no toca `animation`, así que la barra del
                toast sigue corriendo como fade (regla de arriba). */
             #sidebar,        /* plegado (w-64/w-16) y entrada del overlay móvil */
@@ -3612,7 +3612,7 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 {% endif %}
 ```
 
-Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto plano "Acceder"): con dos ramas el header mentiría en la página de login. Si agregás páginas, cada una necesita su `active` y su rama — anotado como deuda visible, no como magia.
+Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto plano "Acceder"): con dos ramas el header mentiría en la página de login. Si agregas páginas, cada una necesita su `active` y su rama — anotado como deuda visible, no como magia.
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
@@ -4171,7 +4171,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 > **Por qué el panel y no la lista pelada.** El flash se escribe en la sesión durante el POST, pero `flash_error` se renderiza acá, no en el layout. Si el POST devolviera `_list.twig` y HTMX lo inyectara dentro de `#lista-tareas`, el mensaje se escribiría en la sesión y nunca se vería — y peor, `Flash::get('error')` en `index()` lo consumiría igual en el siguiente full page load, así que tampoco aparecería después. Devolviendo el panel completo con `hx-swap="outerHTML"`, el flash y la lista viajan en el mismo swap.
 >
-> **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borrás el listener quedás con el fallo silencioso original.
+> **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borras el listener quedas con el fallo silencioso original.
 
 `framework/scaffolds/tasks/resources/views/tasks/_list.twig`:
 
@@ -4282,7 +4282,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                        bajo el 3:1 que pide un objeto grafico.
                        El estado NO se escribe al lado del título ("Pendiente" /
                        "Completada el ..."): en móvil ese texto le robaba ancho al
-                       título y el dato sólo interesa cuando lo buscás. Ahora el
+                       título y el dato sólo interesa cuando lo buscas. Ahora el
                        icono es el disparador de un tooltip por click.
                        Por qué no `title=` nativo: en táctil no existe el hover y
                        en desktop aparecería solo al pasar el mouse encima del
@@ -4793,7 +4793,7 @@ php -S 0.0.0.0:8080 -t public
 The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds
 ```
 
-O sea: `php -S` no se cae solo a los 5 minutos, lo baja Composer. Un servidor web no cabe en un script de un solo tiro. Si te encontrás escribiendo `composer serve`, el script ahora es una guarda (`scripts/serve.php`) que aborta con esa explicación en vez de dejarte esperando media hora de debugging.
+O sea: `php -S` no se cae solo a los 5 minutos, lo baja Composer. Un servidor web no cabe en un script de un solo tiro. Si te encuentras escribiendo `composer serve`, el script ahora es una guarda (`scripts/serve.php`) que aborta con esa explicación en vez de dejarte esperando media hora de debugging.
 
 Flujo completo en un clon fresco (en este orden):
 
@@ -4807,9 +4807,9 @@ vendor/bin/phinx seed:run -s DatabaseSeeder   # admin + datos demo
 php -S 0.0.0.0:8080 -t public
 ```
 
-Abrí `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
+Abre `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
 
-### 17.1 Que no se te muera cuando apagás la pantalla
+### 17.1 Que no se te muera cuando apagas la pantalla
 
 Android suspende los procesos cuando la pantalla se apaga, y la app deja de responder sin error visible.
 
@@ -4820,7 +4820,7 @@ termux-wake-lock
 
 ### 17.2 Que sobreviva cerrar la terminal
 
-`php -S` corre en foreground: si cerrás la sesión de Termux, muere. Corrélo dentro de `tmux`:
+`php -S` corre en foreground: si cierras la sesión de Termux, muere. Córrelo dentro de `tmux`:
 
 ```bash
 pkg install tmux
@@ -4828,7 +4828,7 @@ tmux new -s app
 php -S 0.0.0.0:8080 -t public   # ctrl+b, d para desprender la terminal
 ```
 
-Volvés cuando quieras con `tmux attach -t app`.
+Vuelves cuando quieras con `tmux attach -t app`.
 
 ### 17.3 A quién le estás exponiendo el puerto
 
@@ -4964,7 +4964,7 @@ $size = filesize($dest);
 echo "Backup en {$dest} ({$size} bytes)." . PHP_EOL;
 ```
 
-Hacelo con la app quieta (sin requests en vuelo): copiar sqlite+WAL en caliente puede partir el backup por la mitad. Y si querés sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
+Hazlo con la app quieta (sin requests en vuelo): copiar sqlite+WAL en caliente puede partir el backup por la mitad. Y si quieres sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
 
 ## 18. El capítulo que de verdad importa: 32 bits
 
@@ -4972,17 +4972,17 @@ En `armv7l` el límite no es la CPU, es la **memoria**. Y casi siempre se manifi
 
 ### 18.1 Composer es el problema, no tu app
 
-`COMPOSER_MEMORY_LIMIT=-1` (que aparece en muchos tutoriales) es **medio consejo**: desactiva el límite interno de Composer, no el del sistema. En un proceso de 32 bits el techo sigue siendo el espacio de direcciones, y cuando lo pasás te mata el OOM killer del kernel. Morís sin mensaje de error de PHP, que es la peor forma de morir.
+`COMPOSER_MEMORY_LIMIT=-1` (que aparece en muchos tutoriales) es **medio consejo**: desactiva el límite interno de Composer, no el del sistema. En un proceso de 32 bits el techo sigue siendo el espacio de direcciones, y cuando lo pasas te mata el OOM killer del kernel. Mueres sin mensaje de error de PHP, que es la peor forma de morir.
 
 Lo que sí funciona, en este orden:
 
-1. **Resolver afuera y traer el resultado.** Resolvé el `composer.lock` en una máquina de 64 bits y pasá `composer.lock` + `vendor/`. El teléfono nunca corre el solver.
+1. **Resolver afuera y traer el resultado.** Resuelve el `composer.lock` en una máquina de 64 bits y pasa `composer.lock` + `vendor/`. El teléfono nunca corre el solver.
 2. **`composer install:termux`, nunca `composer update`.** Con el lock commiteado, `install` no resuelve: descarga. Es la razón por la que el `.gitignore` excluye `vendor/` pero **no** `composer.lock`.
-3. **Si necesitás resolver en el teléfono, poné un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas (el script `install:termux` ya trae las banderas que bajan el pico: `--prefer-dist --no-dev --no-scripts`).
+3. **Si necesitas resolver en el teléfono, pon un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas (el script `install:termux` ya trae las banderas que bajan el pico: `--prefer-dist --no-dev --no-scripts`).
 
 ### 18.2 OPcache: la mayor ganancia disponible
 
-En un ARM de 32 bits, recompilar los mismos archivos PHP en cada request es el costo dominante. OPcache lo elimina. Verificá dónde está tu `php.ini`:
+En un ARM de 32 bits, recompilar los mismos archivos PHP en cada request es el costo dominante. OPcache lo elimina. Verifica dónde está tu `php.ini`:
 
 ```bash
 php --ini
@@ -5008,13 +5008,13 @@ Si tu `php -m` no lista `Zend OPcache`, el paquete de Termux no lo trae compilad
 
 ### 18.3 `memory_limit` de la app
 
-El default suele ser 128M, que con Eloquent y una consulta de cientos de filas se queda corto. Subilo a 256M y observá:
+El default suele ser 128M, que con Eloquent y una consulta de cientos de filas se queda corto. Subilo a 256M y observa:
 
 ```bash
 php -r "echo ini_get('memory_limit');"
 ```
 
-Si ves `Allowed memory size exhausted`, el culpable casi siempre es una consulta sin paginación sobre una tabla que crece. En un teléfono eso se convierte en el OOM killer, y ahí sí morís sin stack trace.
+Si ves `Allowed memory size exhausted`, el culpable casi siempre es una consulta sin paginación sobre una tabla que crece. En un teléfono eso se convierte en el OOM killer, y ahí sí mueres sin stack trace.
 
 ### 18.4 Dónde viven las sesiones
 
@@ -5022,34 +5022,34 @@ Si ves `Allowed memory size exhausted`, el culpable casi siempre es una consulta
 php -i | grep -E 'session.save_path|session.gc_maxlifetime'
 ```
 
-El backend de archivos de PHP guarda las sesiones en un directorio del sistema. Si `save_path` apunta a algo que Android puede limpiar, **perdés todas las sesiones sin ningún error**. Si ese es tu caso, fijalo a un directorio que vos controles (el bootstrap ya crea `storage/sessions/` para eso; agregalo donde corresponda antes de `session_start()`). Y agregá `/storage/sessions/` al `.gitignore` (ya está).
+El backend de archivos de PHP guarda las sesiones en un directorio del sistema. Si `save_path` apunta a algo que Android puede limpiar, **pierdes todas las sesiones sin ningún error**. Si ese es tu caso, fijalo a un directorio que tú controles (el bootstrap ya crea `storage/sessions/` para eso; agrégalo donde corresponda antes de `session_start()`). Y agrega `/storage/sessions/` al `.gitignore` (ya está).
 
 ### 18.5 El techo de enteros
 
-Con PHP compilado a 32 bits, `PHP_INT_MAX` ronda los **2.147 mil millones** en vez de los ~9.2 trillones de 64 bits (`composer check:termux` te dice en cuál estás). Para una app con SQLite y autoincrement no es un problema. Si alguna vez manejás IDs muy grandes o timestamps crudos como enteros, es un techo duro a tener en cuenta.
+Con PHP compilado a 32 bits, `PHP_INT_MAX` ronda los **2.147 mil millones** en vez de los ~9.2 trillones de 64 bits (`composer check:termux` te dice en cuál estás). Para una app con SQLite y autoincrement no es un problema. Si alguna vez manejas IDs muy grandes o timestamps crudos como enteros, es un techo duro a tener en cuenta.
 
 ### 18.6 SQLite en WAL
 
-`PRAGMA journal_mode=WAL` (ya seteado en `config/container.php`) te da lecturas concurrentes sin bloquear escrituras — suficiente para el patrón típico de HTMX con muchos GET parciales y algún POST ocasional. Ojo que WAL deja archivos `-wal` y `-shm` al lado de la base: si alguna vez respaldás `database.sqlite` copiando solo ese archivo, el backup va a estar incompleto. Por eso el `.gitignore` los excluye por separado y nunca van al repo.
+`PRAGMA journal_mode=WAL` (ya seteado en `config/container.php`) te da lecturas concurrentes sin bloquear escrituras — suficiente para el patrón típico de HTMX con muchos GET parciales y algún POST ocasional. Ojo que WAL deja archivos `-wal` y `-shm` al lado de la base: si alguna vez respaldas `database.sqlite` copiando solo ese archivo, el backup va a estar incompleto. Por eso el `.gitignore` los excluye por separado y nunca van al repo.
 
 ## 19. Antes de exponer la app fuera de tu teléfono
 
-Checklist corto. La mayoría de estos defaults son seguros **mientras la app esté en `127.0.0.1` con `APP_DEBUG=true`**; dejan de serlo en cuanto la exponés.
+Checklist corto. La mayoría de estos defaults son seguros **mientras la app esté en `127.0.0.1` con `APP_DEBUG=true`**; dejan de serlo en cuanto la expones.
 
 - [ ] `APP_DEBUG=false` en `.env`. Con `true`, Whoops muestra stack traces, rutas y variables de entorno a cualquiera que abra la URL.
-- [ ] `session_set_cookie_params()` con `httponly` y `samesite` (cap. 8). Con `secure => true` solo si efectivamente servís por HTTPS — si no, el navegador no manda la cookie y la app falla en silencio.
+- [ ] `session_set_cookie_params()` con `httponly` y `samesite` (cap. 8). Con `secure => true` solo si efectivamente sirves por HTTPS — si no, el navegador no manda la cookie y la app falla en silencio.
 - [ ] `127.0.0.1` en vez de `0.0.0.0`, salvo que sepas exactamente quién está en esa red.
 - [ ] `.env` fuera de git (viene de `.env.example`, nunca se commitea). `composer.lock` adentro.
 - [ ] HTTPS o un túnel. Sin TLS, el token CSRF y la cookie de sesión viajan en claro.
 - [ ] `session.use_strict_mode=1` activo (cap. 8).
-- [ ] `storage/logs/app.log` existe y lo mirás de vez en cuando. Con el error handler del capítulo 7, los errores de producción sí quedan registrados; sin mirarlos, no sirve de nada.
+- [ ] `storage/logs/app.log` existe y lo miras de vez en cuando. Con el error handler del capítulo 7, los errores de producción sí quedan registrados; sin mirarlos, no sirve de nada.
 - [ ] `APP_DEBUG=false` también apaga Whoops: la respuesta 500 es un mensaje genérico. Eso es correcto, no un bug.
 - [ ] `X-Content-Type-Options`, `X-Frame-Options` y `Referrer-Policy` presentes en las respuestas, incluidas las 404 y 500 (cap. 7.2).
 - [ ] Assets vendorizados pineados con `integrity` SRI (cap. 14). Sin esto, un publish del mantenedor te cambia el runtime sin deploy.
 
 ### Sobre Content-Security-Policy (y por qué no está)
 
-No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porque en este stack exacto una CSP estricta **no es alcanzable sin romper cosas que querés**. Esto es exactamente lo que cuesta al intentarlo:
+No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porque en este stack exacto una CSP estricta **no es alcanzable sin romper cosas que quieres**. Esto es exactamente lo que cuesta al intentarlo:
 
 | Lo que exige CSP estricta | Lo que cuesta en este stack |
 |---|---|
@@ -5059,11 +5059,11 @@ No incluimos CSP en el esqueleto, y no es por ignorancia ni por pereza. Es porqu
 
 Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste cero: `nosniff`, clickjacking y fuga de `Referer`. Y lo que cierra el agujero de supply chain son los `integrity` del capítulo 14 sobre assets vendorizados.
 
-**Cuándo reconsiderar CSP:** el día que la app sea alcanzable por alguien que no controlás **y** renderice input de usuario. Ahí XSS deja de ser teórico. Ese día el orden correcto es compilar Tailwind a CSS estático primero, y recién después adoptar CSP.
+**Cuándo reconsiderar CSP:** el día que la app sea alcanzable por alguien que no controlas **y** renderice input de usuario. Ahí XSS deja de ser teórico. Ese día el orden correcto es compilar Tailwind a CSS estático primero, y recién después adoptar CSP.
 
 ## 20. Testing: testear el esqueleto, no la demo
 
-**El reframe que lo ordena todo: testeá el esqueleto, no el ejemplo.** `TaskController` es descartable: lo vas a borrar el día que hagas tu app real. El pipeline de middlewares, el `Validator`, el `Flash`, la configuración de sesión, el `Guard` de CSRF y el contrato del panel HTMX se quedan para siempre. Los tests existen para proteger el *plumbing*, no para verificar que tu lista de tareas ande.
+**El reframe que lo ordena todo: testea el esqueleto, no el ejemplo.** `TaskController` es descartable: lo vas a borrar el día que hagas tu app real. El pipeline de middlewares, el `Validator`, el `Flash`, la configuración de sesión, el `Guard` de CSRF y el contrato del panel HTMX se quedan para siempre. Los tests existen para proteger el *plumbing*, no para verificar que tu lista de tareas ande.
 
 ### 20.1 Instalación
 
@@ -5216,9 +5216,9 @@ final class AppFactory
 }
 ```
 
-> **Un solo `require` de `bootstrap/app.php`, siempre.** `AppFactory::make()` cachea. Como el schema vive en memoria y se crea una sola vez, los tests que **escriben** filas tienen que limpiar después de sí mismos (`Task::query()->delete()` en `tearDown()`). Si no, dependés de la orden de ejecución.
+> **Un solo `require` de `bootstrap/app.php`, siempre.** `AppFactory::make()` cachea. Como el schema vive en memoria y se crea una sola vez, los tests que **escriben** filas tienen que limpiar después de sí mismos (`Task::query()->delete()` en `tearDown()`). Si no, dependes de la orden de ejecución.
 
-Agregá `/.phpunit.cache/` y `/tests/.phpunit.result.cache` al `.gitignore` (ya están).
+Agrega `/.phpunit.cache/` y `/tests/.phpunit.result.cache` al `.gitignore` (ya están).
 
 Correr:
 
@@ -5380,7 +5380,7 @@ final class ValidatorTest extends TestCase
 }
 ```
 
-Fijate en la quinta fila: `required` con `'   '` **sí falla** — esa fila es la que separa `notEmpty()` de `notOptional()` y documenta la decisión de forma ejecutable.
+Fíjate en la quinta fila: `required` con `'   '` **sí falla** — esa fila es la que separa `notEmpty()` de `notOptional()` y documenta la decisión de forma ejecutable.
 
 ### 20.3 El flash: consume-una-vez
 
@@ -5705,7 +5705,7 @@ final class RoutingTest extends HttpTestCase
 }
 ```
 
-**Un link es un contrato**: cuando tu app muestre una URL en pantalla, un test de que esa URL **responde** es más barato que cualquier test de que la pantalla se ve bien. Comprobá el destino, no el origen.
+**Un link es un contrato**: cuando tu app muestre una URL en pantalla, un test de que esa URL **responde** es más barato que cualquier test de que la pantalla se ve bien. Comprueba el destino, no el origen.
 
 ### 20.7 Borrar y recargar el panel: lo que htmx espera recibir
 
@@ -6199,7 +6199,7 @@ final class EditTaskTest extends TasksTestCase
 }
 ```
 
-Notá el `alert-error` en el test del flash: el panel renderiza `alert alert-error` de daisyUI, y el test asserta esa clase (antes era `bg-red-100`). El contrato es el mismo ("el flash se renderiza"); el selector cambió con el rework visual. Y el test de `editing_title` deja por escrito que en fallo de validación el input conserva lo tipeado, no el valor guardado.
+Nota el `alert-error` en el test del flash: el panel renderiza `alert alert-error` de daisyUI, y el test asserta esa clase (antes era `bg-red-100`). El contrato es el mismo ("el flash se renderiza"); el selector cambió con el rework visual. Y el test de `editing_title` deja por escrito que en fallo de validación el input conserva lo tipeado, no el valor guardado.
 
 ### 20.9 Auth: login, remember-me y la puerta
 
@@ -6592,10 +6592,10 @@ final class AuthTest extends HttpTestCase
 }
 ```
 
-Dos consecuencias de tener rutas protegidas que te van a morder si no las sabés:
+Dos consecuencias de tener rutas protegidas que te van a morder si no las sabes:
 
 1. **Los tests base usan `/_test/protected`.** `AppFactory` registra esa ruta solo para la suite, así los tests de auth y base path no dependen del demo. Los tests del demo (`/tareas`) viven en `framework/scaffolds/tasks/tests/Tasks/` y se instalan con el scaffold.
-2. **El esquema lo aplica Phinx, no `AppFactory`.** `tests/bootstrap.php` migra un SQLite temporal en `storage/cache/tests/`; `AppFactory` solo construye la app. No hay `CREATE TABLE` espejo que mantener: si agregás una migración, la suite la corre.
+2. **El esquema lo aplica Phinx, no `AppFactory`.** `tests/bootstrap.php` migra un SQLite temporal en `storage/cache/tests/`; `AppFactory` solo construye la app. No hay `CREATE TABLE` espejo que mantener: si agregas una migración, la suite la corre.
 
 ### 20.10 Paginación: matemática pura + flujo con 12 filas
 
@@ -6852,7 +6852,7 @@ final class PaginationFlowTest extends TasksTestCase
 - **Slim.** El framework ya tiene su propia suite.
 - **daisyUI.** Las clases (`btn`, `alert-error`) son del sistema: testear que existen es testear la librería. Lo que SÍ se testea es que tu HTML las mencione donde corresponde (flash) y que los contratos (panel, tokens, branch HX) sigan vivos bajo el shell nuevo.
 
-Y una regla de costo: **cada test que escribas tiene que pagar su mantenimiento**. Un test que asserta comportamiento trivial o que se rompe con cada refactor es peor que nada, porque entrenás a ignorar rojas. Si no te da miedo que falle, no lo escribas.
+Y una regla de costo: **cada test que escribas tiene que pagar su mantenimiento**. Un test que asserta comportamiento trivial o que se rompe con cada refactor es peor que nada, porque entrenas a ignorar rojas. Si no te da miedo que falle, no lo escribas.
 
 ## 21. Troubleshooting: síntomas, no theory
 
@@ -6861,7 +6861,7 @@ Cada entrada lleva un tag que dice de dónde sale:
 | Tag | Significado |
 |---|---|
 | **[v]** | Verificado acá: lo corrí contra el proyecto de referencia de esta guía y te paso la salida real. |
-| **[t]** | **No verificado en dispositivo.** Es lo más probable en un teléfono real, pero nadie lo ejecutó todavía. Tratá la salida esperada como hipótesis, no como hecho. |
+| **[t]** | **No verificado en dispositivo.** Es lo más probable en un teléfono real, pero nadie lo ejecutó todavía. Trata la salida esperada como hipótesis, no como hecho. |
 | **[d]** | Comportamiento documentado por el proyecto upstream. No lo probé yo. |
 
 ### 21.1 La app no instala: `Unable to locate package`
@@ -6874,7 +6874,7 @@ pkg update
 pkg install php -y
 ```
 
-Si sigue sin encontrar el paquete, cambiá de mirror y reintentá (`termux-change-repo`). Si ni así, no sigas con el cap. 2: sin PHP no hay Composer que valga.
+Si sigue sin encontrar el paquete, cambia de mirror y reintenta (`termux-change-repo`). Si ni así, no sigas con el cap. 2: sin PHP no hay Composer que valga.
 
 ### 21.2 PHP no trae SQLite
 
@@ -6883,16 +6883,16 @@ php -m | grep -i sqlite
 # esperado: pdo_sqlite y sqlite3
 ```
 
-En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprobá con `which php` que esté bajo `$PREFIX/bin`.
+En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprueba con `which php` que esté bajo `$PREFIX/bin`.
 
 ### 21.3 La base no se crea o apunta a otro lado
 
-**[v]** La versión vieja de esta guía moría acá con `QueryException` cruda. Ahora el container tiene default relativo + autocreación + `RuntimeException` accionable (cap. 6): si ves ese mensaje, corré `pwd` en la raíz y corregí `DB_DATABASE`.
+**[v]** La versión vieja de esta guía moría acá con `QueryException` cruda. Ahora el container tiene default relativo + autocreación + `RuntimeException` accionable (cap. 6): si ves ese mensaje, ejecuta `pwd` en la raíz y corrige `DB_DATABASE`.
 
 Dos casos que el mensaje no cubre, a saber:
 
-1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si el demo dice `no such table: tasks` justo después de migrar, es esto: o borrá la variable (default relativo para ambos) o migrá consciente del path.
-2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Corré `composer demo:tasks:install` (copia, migra y siembra) o, si solo querés las tablas base, `composer migrate`.
+1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si el demo dice `no such table: tasks` justo después de migrar, es esto: o borra la variable (default relativo para ambos) o migra consciente del path.
+2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Ejecuta `composer demo:tasks:install` (copia, migra y siembra) o, si solo quieres las tablas base, `composer migrate`.
 
 ```bash
 ls -la database/                # ¿existe el archivo? ¿cuánto pesa?
@@ -6920,7 +6920,7 @@ composer show respect/validation | head -2
 # versions : * 3.x.x     <- 3.x, donde Validator pasó a ser interface
 ```
 
-Causa: `composer require respect/validation` sin el `^2.0`. Corregí el `require` y `composer update respect/validation`.
+Causa: `composer require respect/validation` sin el `^2.0`. Corrige el `require` y `composer update respect/validation`.
 
 ### 21.6 Página de error vacía (0 bytes)
 
@@ -6936,7 +6936,7 @@ rm -rf storage/cache/twig/*
 
 ```bash
 curl -sI http://127.0.0.1:8080/no-existe | head -5
-# esperás HTTP/1.1 404 + X-Frame-Options: DENY + X-Content-Type-Options: nosniff
+# esperas HTTP/1.1 404 + X-Frame-Options: DENY + X-Content-Type-Options: nosniff
 ```
 
 ### 21.8 La sesión no persiste
@@ -6962,16 +6962,16 @@ curl -s http://127.0.0.1:8080/tareas | grep -c 'csrf.window'
 
 **Ya no es la red**: los assets están vendorizados (cap. 14), así que "el CDN no cargó" dejó de existir como causa. Quedan dos:
 
-1. **El archivo no se sirve**: `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/assets/daisyui-5.7.46.css` tiene que dar 200. Si da 404, `public/assets/` no viajó (revisá que no lo hayas metido al `.gitignore`).
-2. **El SRI no matchea**: el navegador rechaza el archivo entero y solo lo dice en la consola (`chrome://inspect` con el cable). Causa típica: CRLF tras un checkout en Windows — para eso está el `.gitattributes` (cap. 5). Verificá con el one-liner PHP del cap. 14.1.
+1. **El archivo no se sirve**: `curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8080/assets/daisyui-5.7.46.css` tiene que dar 200. Si da 404, `public/assets/` no viajó (revisa que no lo hayas metido al `.gitignore`).
+2. **El SRI no matchea**: el navegador rechaza el archivo entero y solo lo dice en la consola (`chrome://inspect` con el cable). Causa típica: CRLF tras un checkout en Windows — para eso está el `.gitattributes` (cap. 5). Verifica con el one-liner PHP del cap. 14.1.
 
-### 21.11 La app se muere cuando apagás la pantalla
+### 21.11 La app se muere cuando apagas la pantalla
 
 **[t]** Android suspende el proceso: `termux-wake-lock` (cap. 17.1). Si muere al **cerrar la terminal**, es `tmux` (cap. 17.2). Son dos muertes distintas.
 
 ### 21.12 `Address already in use`
 
-**[v]** Otro proceso tiene el puerto (`tmux ls`, `lsof -i :8080` o `ss -ltnp | grep 8080`). Matá el proceso viejo en vez de abrir un puerto nuevo cada vez.
+**[v]** Otro proceso tiene el puerto (`tmux ls`, `lsof -i :8080` o `ss -ltnp | grep 8080`). Mata el proceso viejo en vez de abrir un puerto nuevo cada vez.
 
 ### 21.13 HTMX se cuelga o dos requests se pisan
 
@@ -6992,7 +6992,7 @@ mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es es
 
 ### 21.16 Clases `is-drawer-*` sin efecto
 
-**[v]** El ejemplo plegable de la doc de daisyUI usa `is-drawer-open:`/`is-drawer-close:`. Esas variantes **no existen en el CSS linkeado** (cero ocurrencias en `daisyui-5.7.46.css`; necesitan el compilador con daisyUI como plugin). Si las copiás, quedan como clases muertas que *parecen* funcionar. Por eso el collapse de esta guía es Alpine + utilities estándar (cap. 15).
+**[v]** El ejemplo plegable de la doc de daisyUI usa `is-drawer-open:`/`is-drawer-close:`. Esas variantes **no existen en el CSS linkeado** (cero ocurrencias en `daisyui-5.7.46.css`; necesitan el compilador con daisyUI como plugin). Si las copias, quedan como clases muertas que *parecen* funcionar. Por eso el collapse de esta guía es Alpine + utilities estándar (cap. 15).
 
 ### 21.17 El icono de plegado no cambia de dirección
 
@@ -7000,7 +7000,7 @@ mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es es
 
 ### 21.18 Phinx se queja del `.env` o la tabla no existe
 
-**[v]** `Unable to read any of the environment file(s)` en un clon sin `.env`: `phinx.php` ya usa `safeLoad()`. Y `no such table` = corré `composer migrate` (cap. 21.3).
+**[v]** `Unable to read any of the environment file(s)` en un clon sin `.env`: `phinx.php` ya usa `safeLoad()`. Y `no such table` = ejecuta `composer migrate` (cap. 21.3).
 
 ### 21.19 Flash animado al recargar con el menú plegado
 
@@ -7016,7 +7016,7 @@ Problem 1
   - robmorgan/phinx 0.16.12 requires php-64bit >=8.1 -> the php-64bit package is disabled by your platform config.
 ```
 
-Leelo bien: no es tu PHP viejo ni tu mirror. Phinx 0.14/0.15/0.16 exigen `php-64bit` por arquitectura (verificado paquete por paquete contra Packagist; la 0.16.12 ni pide `php` a secas). En 32 bits es imposible, punto. Y NO lo arreglés con `composer update` en el teléfono: el solver no puede inventar un Phinx 0.16 de 32 bits que no existe.
+Leelo bien: no es tu PHP viejo ni tu mirror. Phinx 0.14/0.15/0.16 exigen `php-64bit` por arquitectura (verificado paquete por paquete contra Packagist; la 0.16.12 ni pide `php` a secas). En 32 bits es imposible, punto. Y NO lo arregles con `composer update` en el teléfono: el solver no puede inventar un Phinx 0.16 de 32 bits que no existe.
 
 La fix vive en el repo, no en tu teléfono (cap. 4: pin `^0.13`, última línea sin el requisito):
 
@@ -7032,15 +7032,15 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 
 ### 21.21 `Invalid CSRF storage` al bootear en tests (o al registrar rutas)
 
-**[v]** Mensaje completo: `Invalid CSRF storage. Use session_start() before instantiating the Guard middleware or provide array storage.` Pasa si resolvés `Guard` del container al **registrar** rutas (como hacía el cierre de `/` para el form de logout): al construirse exige sesión iniciada y en registro todavía no hay ninguna. La fix es resolverlo **en request**, dentro del cierre (cap. 9) — en ejecución la sesión ya la abrió `SessionMiddleware`.
+**[v]** Mensaje completo: `Invalid CSRF storage. Use session_start() before instantiating the Guard middleware or provide array storage.` Pasa si resuelves `Guard` del container al **registrar** rutas (como hacía el cierre de `/` para el form de logout): al construirse exige sesión iniciada y en registro todavía no hay ninguna. La fix es resolverlo **en request**, dentro del cierre (cap. 9) — en ejecución la sesión ya la abrió `SessionMiddleware`.
 
 ### 21.22 Suite roja de golpe tras proteger una ruta
 
-**[v]** Protegés `/tareas` con `RequireAuth` y varios tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
+**[v]** Proteges `/tareas` con `RequireAuth` y varios tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
 
 ### 21.23 `Duplicate migration` con versión `2147483647`
 
-**[v]** Si tu error dice `has the same version as "2147483647"` (precedido de warnings `The float-string "2026..." is not representable as an int, cast occurred ... Util.php on line 93`), **no tenés archivos duplicados**: tenés saturación de enteros de 32 bits. Phinx castea el prefijo `YYYYMMDDHHMMSS` a `int`; en `armv7l` todo prefijo moderno vale `PHP_INT_MAX`, así que las N migraciones son "la misma" para el tracker. La fix es versiones secuenciales (`001_`, `002_`...), que ya trae el repo (cap. 11.1): `git pull` + `composer migrate`. Si el duplicado es entre dos archivos con el MISMO prefijo creado por vos (dos `create` en el mismo segundo), renombrá a prefijo único respetando el orden — pero en 32 bits renombrá siempre, no solo en colisión.
+**[v]** Si tu error dice `has the same version as "2147483647"` (precedido de warnings `The float-string "2026..." is not representable as an int, cast occurred ... Util.php on line 93`), **no tienes archivos duplicados**: tienes saturación de enteros de 32 bits. Phinx castea el prefijo `YYYYMMDDHHMMSS` a `int`; en `armv7l` todo prefijo moderno vale `PHP_INT_MAX`, así que las N migraciones son "la misma" para el tracker. La fix es versiones secuenciales (`001_`, `002_`...), que ya trae el repo (cap. 11.1): `git pull` + `composer migrate`. Si el duplicado es entre dos archivos con el MISMO prefijo creado por tú (dos `create` en el mismo segundo), renombra a prefijo único respetando el orden — pero en 32 bits renombra siempre, no solo en colisión.
 
 ### 21.24 `The process ... exceeded the timeout of 300 seconds` al levantar el servidor
 
@@ -7052,9 +7052,9 @@ La fix no es subir el timeout: es no envolver un servidor de larga vida en un ru
 php -S 0.0.0.0:8080 -t public
 ```
 
-Por eso el repo ya no tiene `composer serve` funcional: quedó como guarda (`scripts/serve.php`) que aborta con esta explicación. Si por alguna razón necesitás forzar el camino viejo, `COMPOSER_PROCESS_TIMEOUT=0` desactiva el límite — pero entonces el servidor vive dentro de Composer igual, con una capa de subproceso que no aporta nada (y los `Ctrl+C` se comportan peor).
+Por eso el repo ya no tiene `composer serve` funcional: quedó como guarda (`scripts/serve.php`) que aborta con esta explicación. Si por alguna razón necesitas forzar el camino viejo, `COMPOSER_PROCESS_TIMEOUT=0` desactiva el límite — pero entonces el servidor vive dentro de Composer igual, con una capa de subproceso que no aporta nada (y los `Ctrl+C` se comportan peor).
 
-## 22. Cómo verificar esta guía vos mismo
+## 22. Cómo verificar esta guía tú mismo
 
 Todo lo que la guía afirma es reproducible. Los capítulos 4 a 20 son código y se **ejecutan**; los capítulos 1 a 3 y 17 a 19 son afirmaciones sobre tu teléfono y **no** se verifican desde afuera. Por eso este capítulo está partido en dos.
 
@@ -7072,7 +7072,7 @@ composer test
 # 2b. Las copias de archivos de esta guía coinciden con el repo (intro)
 composer docs:check
 # esperado: Docs OK (... N copias de archivo verificadas)
-# si falla: composer docs:sync y volvé a mirar el diff
+# si falla: composer docs:sync y vuelve a mirar el diff
 
 # 3. El 404 tiene que seguir siendo 404, con sus headers (caps. 7 y 7.2)
 php -S 127.0.0.1:8080 -t public &
@@ -7112,11 +7112,11 @@ curl -s http://127.0.0.1:8080/ | wc -c
 # esperado: ~12686 (varía con los tokens)
 ```
 
-Y el flujo de login punta a punta con cookie-jar (cap. 9.2) — la prueba que el Nivel A no cubre pero vos sí deberías hacer una vez:
+Y el flujo de login punta a punta con cookie-jar (cap. 9.2) — la prueba que el Nivel A no cubre pero tú sí deberías hacer una vez:
 
 ```bash
 curl -s -c jar.txt http://127.0.0.1:8080/login -o login.html
-# extraé csrf_name/csrf_value del HTML y:
+# extrae csrf_name/csrf_value del HTML y:
 curl -s -b jar.txt -c jar.txt --data-urlencode "csrf_name=..." \
   --data-urlencode "csrf_value=..." --data-urlencode "email=TU_EMAIL" \
   --data-urlencode "password=TU_CLAVE" --data-urlencode "remember=1" \
@@ -7134,7 +7134,7 @@ La guía se verificó contra un proyecto de referencia (el código es correcto),
 mkdir -p ~/verificacion && cd ~/verificacion
 ```
 
-Seguí los capítulos 1 a 20 **de corrido, sin abrir el proyecto de referencia**. Anotá cada comando que tengas que improvisar (es el hueco), cada error que no esté en el capítulo 21 (sumalo) y cada paso que no entiendas sin contexto. Si no anotaste nada, la guía está completa.
+Sigue los capítulos 1 a 20 **de corrido, sin abrir el proyecto de referencia**. Anota cada comando que tengas que improvisar (es el hueco), cada error que no esté en el capítulo 21 (sumalo) y cada paso que no entiendas sin contexto. Si no anotaste nada, la guía está completa.
 
 ### 22.3 Nivel C — el script que usé para encontrar los huecos
 
@@ -7163,11 +7163,11 @@ php -m | grep -i sqlite         # pdo_sqlite y sqlite3 tienen que aparecer
 php -r "echo ini_get('memory_limit'), PHP_EOL;"
 ```
 
-Si `pkg install php` responde `Unable to locate package`, volvé al 21.1.
+Si `pkg install php` responde `Unable to locate package`, vuelve al 21.1.
 
-### 22.5 Lo que esta guía NO puede verificar por vos
+### 22.5 Lo que esta guía NO puede verificar por tú
 
-| No verificado | Por qué | Cómo lo cerrás |
+| No verificado | Por qué | Cómo lo cierras |
 |---|---|---|
 | Que `pkg` tenga paquetes `arm` | Estado de un repo ajeno y cambiante | 22.4, o 21.1 si falla |
 | Que funcione `termux-wake-lock` | Necesita Android suspendiendo el proceso | 21.11, en el teléfono |
