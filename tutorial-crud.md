@@ -56,6 +56,13 @@ Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo
 lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa; el 12 la vuelve usable
 cuando crece, y el 13 te deja el patrón para otra entidad tuya.
 
+**¿Querés ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
+`composer demo:notas:install` (se quita con `composer demo:notas:remove`). Sirve para comparar, no para
+aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La diferencia concreta es de
+nombres —el demo vive en `App\Notas\…` porque tiene que ser removible; el recorrido usa
+`App\Models\Nota` y `App\Http\Controllers\NotaController`, que es donde va una entidad tuya—. El
+comportamiento y las vistas son los mismos.
+
 ## 1. Arrancar la app hasta tener sesión
 
 **Objetivo**: pasar de un clon sin configurar a una app respondiendo, con sesión iniciada.
@@ -687,7 +694,8 @@ y telón del proyecto. Ese es exactamente el problema que resuelve el componente
    usuario tipeó, no lo que hay en la base. #}
 {% set values = form_values|default(nota|default(null)) %}
 
-<form method="post" action="{{ action }}" class="space-y-4">
+<form method="post" action="{{ action }}" class="space-y-4"
+      onsubmit="this.querySelector('[type=submit]').disabled = true">
     {% include 'partials/_csrf.twig' %}
 
     {% include 'components/form/field.twig' with {
@@ -793,6 +801,10 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 
 **Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al
 top layer, así que lo cierra el botón «Cancelar», no Escape.
+
+> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline, como los `onclick` que ya usás
+> para abrir modales; no agrega bloques de JavaScript nuevos. `hx-disabled-elt` del demo de tareas no
+> sirve acá porque este formulario no envía por HTMX: es un POST con navegación.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
 `open` que permite reabrirlo desde el servidor. Usalo para todo alta, edición y confirmación. Evita
@@ -1065,7 +1077,8 @@ después del contenido:
             } %}
                 {% block body %}
                     <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}">
+                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                          onsubmit="this.querySelector('[type=submit]').disabled = true">
                         {% include 'partials/_csrf.twig' %}
                         <div class="modal-action">
                             {% include 'components/ui/button.twig' with {
@@ -1414,6 +1427,9 @@ filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`
+
+Si querés un punto de comparación ya hecho, `composer demo:notas:install` instala esta misma entidad
+como demo removible, con ocho tests.
 
 **Comprobación**: elegí otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorré esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
