@@ -3891,6 +3891,9 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                                     Demo de {{ module.label|lower }}
                                 </h3>
                                 <p class="mt-1 text-xs opacity-70">{{ module.summary }}</p>
+                                {% if module.why|default('') %}
+                                    <p class="mt-1 text-xs opacity-50">{{ module.why }}</p>
+                                {% endif %}
                             </div>
                             {% if module.installed %}
                                 <span class="badge badge-success badge-sm shrink-0">Instalado</span>

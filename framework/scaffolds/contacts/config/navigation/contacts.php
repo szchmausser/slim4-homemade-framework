@@ -10,6 +10,7 @@ return [
     'href'     => '/contactos',
     'icon'     => 'contacts',
     'key'      => 'contacts',
-    'summary'  => 'CRUD con listado paginado y ordenado desde el servidor en Tabulator 6.7.1 y acciones rápidas.',
+    'summary'  => 'Grilla Tabulator en modo remoto: pagina y ordena el servidor, no el cliente.',
+    'why'      => 'Para una tabla avanzada y no una lista: endpoint de datos, whitelist de orden, alta y borrado en modales y edición en página propia.',
     'position' => 20,
 ];

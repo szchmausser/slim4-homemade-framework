@@ -10,6 +10,7 @@ return [
     'href'     => '/notas',
     'icon'     => 'list',
     'key'      => 'notas',
-    'summary'  => 'CRUD con alta, edición y borrado en modales, paginación server-side y tests.',
+    'summary'  => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
+    'why'      => 'Es la entidad del tutorial: la referencia para comparar cuando seguiste el recorrido paso a paso.',
     'position' => 30,
 ];

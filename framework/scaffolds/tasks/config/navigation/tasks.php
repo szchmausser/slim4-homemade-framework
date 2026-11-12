@@ -10,6 +10,7 @@ return [
     'href'     => '/tareas',
     'icon'     => 'tasks',
     'key'      => 'tareas',
-    'summary'  => 'CRUD completo, cambio de estado, paginación server-side y avisos HTMX sobre SQLite.',
+    'summary'  => 'Lista con edición en línea y cambio de estado: cada acción se intercambia como región HTMX.',
+    'why'      => 'El demo que exprime el shell: región HTMX, paginación del servidor, foco tras el swap y avisos dentro del swap.',
     'position' => 10,
 ];
