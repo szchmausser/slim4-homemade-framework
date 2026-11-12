@@ -274,7 +274,8 @@ mano en cada operación.
 
 ## 4. Registrar la entidad en las rutas y en el menú
 
-**Objetivo**: que el framework sepa que existe `/notas` y que la app ofrezca el camino para llegar.
+**Objetivo**: que el framework sepa que existe `/notas`, comprobarlo, y que la app ofrezca el camino
+para llegar sin escribir la URL a mano.
 
 **Estado de partida**: pasos 1 a 3 hechos.
 
@@ -287,14 +288,18 @@ mano en cada operación.
 
 declare(strict_types=1);
 
-use App\Http\Controllers\NotaController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
 
 return function (App $app) {
     $app->group('/notas', function ($group) {
-        $group->get('', [NotaController::class, 'index']);
-        $group->post('', [NotaController::class, 'store']);
+        $group->get('', function (Request $request, Response $response): Response {
+            $response->getBody()->write('notas: ruta registrada');
+
+            return $response->withHeader('Content-Type', 'text/plain; charset=utf-8');
+        });
     })->add(RequireAuthMiddleware::class);
 };
 ```
@@ -303,25 +308,49 @@ return function (App $app) {
 primero y después el resto de `routes/*.php` por orden alfabético. Dejar el archivo en `routes/` es todo
 lo que hace falta, y por eso agregar una entidad no toca `bootstrap/app.php`.
 
-Sólo dos rutas por ahora: `index` y `store`. Las de editar y borrar se suman en los pasos 8 y 9, cuando
-exista la acción que las atiende. Una ruta sin acción es una promesa que el framework no puede cumplir.
+La ruta atiende un **closure**, no un controlador. Es un andamio: sirve para comprobar el registro sin
+escribir todavía la clase, y en el paso 5 lo reemplaza `NotaController`. El `POST` no se registra hasta
+el paso 7, cuando exista la acción `store` que lo atiende: una ruta sin acción es una promesa que el
+framework no puede cumplir.
 
-**Comprobación**: abre `http://localhost:8080/notas` en el navegador. **Todavía no hay controlador**, así
-que lo esperado es un **error 500 con la página de depuración de Whoops**, quejándose de que la clase
-`NotaController` no existe. Una página grande, con stack trace.
+**Comprobación**: dos visitas a `http://localhost:8080/notas`, y ninguna debería darte un error.
 
-Esa diferencia es la que confirma que la ruta existe: la ruta se resolvió y falló al instanciar el
-controlador.
+1. **Sin sesión** —una ventana privada, o cierra sesión antes—. Tienes que volver al login: una
+   **redirección 303** a `/login`.
+2. **Con sesión**. Tienes que ver el texto, sin HTML alrededor:
+
+   ```
+   notas: ruta registrada
+   ```
+
+El 303 prueba que la ruta existe y que la protección está puesta: una ruta inexistente devuelve 404, no
+redirige. El 200 con el texto prueba que la petición llegó hasta tu closure.
+
+**Por qué no esperar un error**: un 500 también aparece cuando el problema está en otro lado —el `.env`,
+la base, una migración sin correr—, así que no distingue «la ruta quedó registrada» de «el proyecto está
+roto». Un 200 con un texto que solo puede salir de esta ruta no se confunde con nada.
 
 **Falla si**:
 
-- Ves la **página 404 del framework**, chica, sin stack trace: el archivo no está en `routes/` con
-  extensión `.php`, o su `return function (App $app) { … };` no está devolviendo el closure.
-- Te devuelve al login aunque hayas iniciado sesión: el grupo está protegido y la sesión se perdió.
-  Vuelve al paso 1.
+- Ves la **página 404 del framework**: el archivo no está directamente en `routes/`, no termina en
+  `.php`, o su `return function (App $app) { … };` no está devolviendo el closure.
+- Ves el login en vez del texto aunque hayas iniciado sesión: la sesión se perdió. Vuelve al paso 1.
+- Llegas al texto por otra URL: el patrón del `group('/notas')` no coincide con la que estás abriendo.
 
-**Qué no prueba**: que la ruta haga algo. Prueba que el registro funciona y que la protección está
-activa.
+**Qué no prueba**: que la ruta haga algo útil. Prueba el registro y la protección; el controlador llega
+en el paso 5.
+
+**Convenciones que este paso deja claras**:
+
+- **El nombre del archivo no importa.** El arranque hace `glob('routes/*.php')` y los carga todos. Se
+  llama `notas.php` por legibilidad —un archivo por entidad—, no porque el framework lo busque por
+  nombre: un `routes/mi-entidad.php` responde igual.
+- **La ubicación sí importa.** Sólo el primer nivel de `routes/`: un archivo en `routes/sub/` nunca se
+  carga, y su ruta da 404 sin ningún aviso.
+- **El orden de carga es alfabético**, con `web.php` forzado primero. Importa sólo si dos archivos
+  declaran la misma ruta y método.
+- **Cada archivo devuelve un closure** que recibe la app: `return function (App $app) { … };`. Si no
+  devuelve uno, el archivo se carga y no registra nada, sin error.
 
 **Pieza — un archivo de rutas por entidad, cargado por convención**: resuelve la separación entre «la
 ruta existe» y «el arranque de la app». Cada entidad tiene su archivo y el arranque los levanta solo.
@@ -334,12 +363,24 @@ POST». Sin él, `curl` podría crear filas sin sesión.
 
 ---
 
-### 4.2 La ruta existe; falta la puerta de entrada
+### 4.2 El menú: llegar sin escribir la URL
 
-Una entidad que solo se alcanza escribiendo la URL no existe para quien usa la app. El menú lateral se
-arma por convención, igual que las rutas: cada módulo deja su entrada en `config/navigation/`.
+Con la ruta respondiendo, llegas a `/notas` escribiendo la URL a mano. Eso sirve para probar y no para
+usar: quien entra a la app no tiene por dónde descubrir la pantalla. El menú lateral es la mejora que
+ahorra ese paso, y se arma por convención, igual que las rutas: cada módulo deja su entrada en
+`config/navigation/`.
 
-**Acción**: crea `config/navigation/notas.php`:
+**Acción**: primero el directorio, que no viene en el clon:
+
+```bash
+mkdir -p config/navigation
+```
+
+La carpeta no tiene archivos versionados en el repo: la crea la instalación de un demo, y al quitarlo
+se borra si queda vacía. No está en `.gitignore`, así que la entrada que agregues se versiona junto
+con tu entidad.
+
+Ahora el archivo, `config/navigation/notas.php`:
 
 ```php
 <?php
@@ -358,18 +399,25 @@ return [
 `key` es lo que el sidebar compara con el `active` de la página para marcarla; `position` ordena las
 entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
 
-**Comprobación**: recarga cualquier página con sesión iniciada. En el menú lateral aparece «Notas»
-debajo de «Inicio».
+**Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
+debajo de «Inicio», y al tocarlo llegas a `/notas`, que responde el texto de prueba del paso anterior.
 
 **Falla si**:
 
-- No aparece: el archivo no está en `config/navigation/`, no termina en `.php`, o le falta alguna de
-  las claves `label`, `href` o `key`.
-- Aparece pero el enlace lleva a otro lado: `href` no coincide con el grupo de tu archivo de rutas.
+- No aparece: falta el directorio `config/navigation/`, el archivo no termina en `.php`, o le falta
+  alguna de las claves `label`, `href` o `key`.
+- Aparece y al tocarlo da 404: `href` no coincide con el grupo de tu archivo de rutas.
 
-**Qué no prueba**: que la pantalla funcione —el controlador todavía no existe, así que al tocar el
-enlace vas a ver el mismo error 500 del paso anterior—. Prueba que tu entidad ya tiene puerta de
-entrada.
+**Qué no prueba**: que la pantalla exista. Probaste que la ruta responde (4.1) y que hay un camino
+hasta ella (4.2); lo que se ve al llegar es el paso 6.
+
+**Convenciones que este paso deja claras**:
+
+- **El nombre del archivo no importa.** El contenedor hace `glob('config/navigation/*.php')` y lee cada
+  uno; la entrada se identifica por su clave `key`, no por el nombre del archivo. Se llama `notas.php`
+  porque un archivo por módulo se lee mejor.
+- **La `key` sí importa**: es el valor que la página declara como `active` para que el sidebar la marque.
+- **`position` ordena**, no el orden alfabético ni el nombre del archivo.
 
 **Pieza — convención de navegación**: cada módulo declara su entrada en `config/navigation/<módulo>.php`
 y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad —que
@@ -386,9 +434,9 @@ entidad es dejar su archivo; quitarla es borrarlo.
 
 **Objetivo**: comprobar que tu ruta responde algo, antes de involucrar vistas y formularios.
 
-**Estado de partida**: paso 4 hecho; `/notas` da error de controlador inexistente.
+**Estado de partida**: paso 4 hecho; `/notas` responde el texto de prueba `notas: ruta registrada`.
 
-**Acción**: crea `app/Http/Controllers/NotaController.php` con una sola acción:
+**Acción**: ahora el controlador. Crea `app/Http/Controllers/NotaController.php` con una sola acción:
 
 ```php
 <?php
@@ -413,6 +461,37 @@ final class NotaController extends Controller
     }
 }
 ```
+
+Y en `routes/notas.php`, el closure del paso 4 se reemplaza por la acción. El archivo queda así, y el
+`use` del controlador es lo único nuevo:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Http\Controllers\NotaController;
+use Framework\Http\Middleware\RequireAuthMiddleware;
+use Slim\App;
+
+return function (App $app) {
+    $app->group('/notas', function ($group) {
+        $group->get('', [NotaController::class, 'index']);
+    })->add(RequireAuthMiddleware::class);
+};
+```
+
+**Convenciones que este paso deja claras**:
+
+- **El namespace es la ruta del archivo.** El `composer.json` mapea `App\` a `app/`, así que
+  `App\Http\Controllers\NotaController` sólo puede vivir en `app/Http/Controllers/NotaController.php`.
+  Si mueves el archivo, mueves el namespace.
+- **El nombre del archivo es el nombre de la clase**, mayúscula incluida. En Linux y en Termux el
+  sistema de archivos distingue mayúsculas: `notacontroller.php` no carga.
+- **Los subdirectorios sí funcionan aquí**, al revés que en `routes/`: `App\Http\Controllers\Auth\AuthController`
+  vive en `app/Http/Controllers/Auth/AuthController.php`. El namespace acompaña la profundidad.
+- **La ruta apunta a la clase, no al archivo**: `[NotaController::class, 'index']` es un método de
+  instancia, y el contenedor construye la clase en cada petición.
 
 **Comprobación**: con sesión iniciada, abre `http://localhost:8080/notas` en el navegador. Tienes que
 ver exactamente:
@@ -689,6 +768,15 @@ use Framework\Validation\Validator;
         return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
     }
 ```
+
+Y la ruta que la atiende, en `routes/notas.php`, debajo del `get`:
+
+```php
+        $group->post('', [NotaController::class, 'store']);
+```
+
+Se registra aquí, con su acción, y no en el paso 4: una ruta sin acción es una promesa que el framework
+no puede cumplir —y el error aparece recién cuando alguien la visita—.
 
 Y para que el aviso llegue en una pantalla con redirect, el controlador opta por el toast del shell:
 

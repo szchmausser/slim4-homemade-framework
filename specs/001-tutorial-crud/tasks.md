@@ -188,6 +188,19 @@ corrigió con la evidencia de cada corrida.
 `routes/`, así que seguir el recorrido ya no rompe `composer docs:check` (antes fallaba porque ese
 archivo está copiado en la guía del stack).
 
+**Segundo cambio de alcance:** la comprobación del paso 4 dejó de esperar un error de Whoops. Se
+registra la ruta con un closure que responde `notas: ruta registrada` en texto plano —andamio que el
+paso 5 reemplaza por `NotaController`—, y la comprobación pasa a ser positiva: 303 al login sin sesión,
+200 con el texto con sesión. Un 500 también aparece por un `.env` mal puesto o una migración sin correr,
+así que no distinguía «la ruta quedó registrada» de «el proyecto está roto». En consecuencia, la ruta
+`POST` se registra en el paso 7 con su acción `store`, y no en el 4.
+
+Verificado en un worktree con servidor y `curl`: el closure responde 200 `text/plain` con el texto
+exacto, el controlador del paso 5 responde 200 `application/json` con `{"status":"ok","recurso":"notas"}`,
+sin sesión ambas dan 303 a `/login`, un archivo de rutas con otro nombre se carga igual, uno en
+`routes/sub/` da 404, y un archivo de navegación con otro nombre aparece en el menú (la entrada se
+identifica por `key`, no por el nombre del archivo).
+
 **Pendiente fuera de estas tareas:** la validación humana —que alguien sin conocimiento del repo siga
 la guía de punta a punta—. Es el único test que no puede hacer un agente, porque los agentes ya saben
 dónde está cada archivo.
