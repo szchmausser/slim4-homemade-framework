@@ -40,7 +40,7 @@ Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que es
 1. [Arrancar la app hasta tener sesión](#1-arrancar-la-app-hasta-tener-sesión)
 2. [La migración de `notas`](#2-la-migración-de-notas)
 3. [El modelo `Nota`](#3-el-modelo-nota)
-4. [Registrar la entidad en las rutas](#4-registrar-la-entidad-en-las-rutas)
+4. [Registrar la entidad en las rutas y en el menú](#4-registrar-la-entidad-en-las-rutas-y-en-el-menú)
 5. [La primera ruta: JSON verificable](#5-la-primera-ruta-json-verificable)
 6. [La pantalla del listado: del HTML crudo al shell](#6-la-pantalla-del-listado-del-html-crudo-al-shell)
 7. [El alta: del formulario crudo al modal del proyecto](#7-el-alta-del-formulario-crudo-al-modal-del-proyecto)
@@ -243,13 +243,15 @@ mano en cada operación.
 
 ---
 
-## 4. Registrar la entidad en las rutas
+## 4. Registrar la entidad en las rutas y en el menú
 
-**Objetivo**: que el framework sepa que existe `/notas`.
+**Objetivo**: que el framework sepa que existe `/notas` y que la app ofrezca el camino para llegar.
 
 **Estado de partida**: pasos 1 a 3 hechos.
 
-**Acción**: primero, el archivo de rutas de tu entidad, `routes/notas.php`:
+### 4.1 Un archivo de rutas por entidad
+
+**Acción**: el archivo de rutas de tu entidad, `routes/notas.php`:
 
 ```php
 <?php
@@ -300,6 +302,50 @@ Sin esta pieza tendrías todas las rutas del proyecto en un archivo que crece si
 **Pieza — `RequireAuthMiddleware`**: resuelve la puerta de entrada a las rutas privadas. Se aplica al
 grupo, no ruta por ruta, para que no se te olvide ninguna. Evita el clásico «me olvidé de proteger el
 POST». Sin él, `curl` podría crear filas sin sesión.
+
+---
+
+### 4.2 La ruta existe; falta la puerta de entrada
+
+Una entidad que solo se alcanza escribiendo la URL no existe para quien usa la app. El menú lateral se
+arma por convención, igual que las rutas: cada módulo deja su entrada en `config/navigation/`.
+
+**Acción**: creá `config/navigation/notas.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+return [
+    'label'    => 'Notas',
+    'href'     => '/notas',
+    'icon'     => 'list',
+    'key'      => 'notas',
+    'position' => 30,
+];
+```
+
+`key` es lo que el sidebar compara con el `active` de la página para marcarla; `position` ordena las
+entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
+
+**Comprobación**: recargá cualquier página con sesión iniciada. En el menú lateral aparece «Notas»
+debajo de «Inicio».
+
+**Falla si**:
+
+- No aparece: el archivo no está en `config/navigation/`, no termina en `.php`, o le falta alguna de
+  las claves `label`, `href` o `key`.
+- Aparece pero el enlace lleva a otro lado: `href` no coincide con el grupo de tu archivo de rutas.
+
+**Qué no prueba**: que la pantalla funcione —el controlador todavía no existe, así que al tocar el
+enlace vas a ver el mismo error 500 del paso anterior—. Prueba que tu entidad ya tiene puerta de
+entrada.
+
+**Pieza — convención de navegación**: cada módulo declara su entrada en `config/navigation/<módulo>.php`
+y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad —que
+además están copiados en la documentación del framework y obligarían a `docs:sync`—. Agregar una
+entidad es dejar su archivo; quitarla es borrarlo.
 
 ---
 
@@ -363,7 +409,7 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 **Objetivo**: llegar a la pantalla del listado entendiendo qué aporta cada pieza, empezando por lo
 básico.
 
-**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba. Sacá esa ruta: `index()` pasa
+**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la entrada. Sacá esa ruta: `index()` pasa
 a renderizar una vista.
 
 ### 6.1 Primero, un HTML cualquiera
@@ -1429,7 +1475,7 @@ filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 
 1. `database/migrations/NNN_create_<entidad>_table.php`
 2. `app/Models/<Entidad>.php`
-3. `routes/<entidad>.php` (el arranque lo carga solo)
+3. `routes/<entidad>.php` (el arranque lo carga solo) y `config/navigation/<entidad>.php`
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`

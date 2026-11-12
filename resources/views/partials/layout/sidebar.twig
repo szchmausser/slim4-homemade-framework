@@ -1,11 +1,7 @@
-{# Sidebar del shell. Recibe `active` y usa `tasks_enabled` para mostrar el
-   acceso al demo sólo cuando está instalado. El menú se arma con datos para
-   que agregar una entrada no obligue a duplicar markup y condiciones. #}
-{% set nav_items = [
-    {label: 'Inicio', href: url('/'), icon: 'home', key: 'home', requires_tasks: false, requires_contacts: false},
-    {label: 'Tareas', href: url('/tareas'), icon: 'tasks', key: 'tareas', requires_tasks: true, requires_contacts: false},
-    {label: 'Contactos', href: url('/contactos'), icon: 'contacts', key: 'contacts', requires_tasks: false, requires_contacts: true}
-] %}
+{# Sidebar del shell. Recibe `active` y arma el menú desde `navigation_items`,
+   que el contenedor compone por convención: Inicio más los archivos de
+   config/navigation/. Agregar una entrada es dejar su archivo; no se toca esta
+   plantilla. #}
 
 <aside id="sidebar"
        class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
@@ -25,20 +21,18 @@
 
     <nav class="min-h-0 w-full grow overflow-y-auto" aria-label="Navegación principal">
         <ul class="menu w-full gap-1 p-2">
-            {% for item in nav_items %}
-                {% if (not item.requires_tasks or tasks_enabled) and (not item.requires_contacts or contacts_enabled) %}
-                    {% set is_active = active is defined and active == item.key %}
-                    <li>
-                        <a href="{{ item.href }}"
-                           class="{% if is_active %}menu-active{% endif %}"
-                           title="{{ item.label }}"
-                           aria-label="{{ item.label }}"
-                           {% if is_active %}aria-current="page"{% endif %}>
-                            {% include 'partials/_icon.twig' with { name: item.icon } %}
-                            <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">{{ item.label }}</span>
-                        </a>
-                    </li>
-                {% endif %}
+            {% for item in navigation_items %}
+                {% set is_active = active is defined and active == item.key %}
+                <li>
+                    <a href="{{ url(item.href) }}"
+                       class="{% if is_active %}menu-active{% endif %}"
+                       title="{{ item.label }}"
+                       aria-label="{{ item.label }}"
+                       {% if is_active %}aria-current="page"{% endif %}>
+                        {% include 'partials/_icon.twig' with { name: item.icon } %}
+                        <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">{{ item.label }}</span>
+                    </a>
+                </li>
             {% endfor %}
         </ul>
     </nav>

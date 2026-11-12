@@ -101,6 +101,31 @@ return [
         $twig->getEnvironment()->addGlobal('tasks_enabled', is_file(__DIR__ . '/../routes/tasks.php'));
         $twig->getEnvironment()->addGlobal('contacts_enabled', is_file(__DIR__ . '/../routes/contacts.php'));
 
+        // El menú se arma por convención: Inicio siempre está, y cada módulo
+        // aporta su entrada en config/navigation/<modulo>.php. El archivo lo
+        // instala y lo quita el demo, así que su presencia es el interruptor y
+        // el sidebar no tiene que saber de ningún demo en particular.
+        $navigation = [
+            ['label' => 'Inicio', 'href' => '/', 'icon' => 'home', 'key' => 'home', 'position' => 0],
+        ];
+
+        foreach (glob(__DIR__ . '/navigation/*.php') ?: [] as $navigationFile) {
+            $item = require $navigationFile;
+
+            if (!is_array($item) || !isset($item['label'], $item['href'], $item['key'])) {
+                continue;
+            }
+
+            $navigation[] = $item + ['icon' => 'list', 'position' => 100];
+        }
+
+        usort(
+            $navigation,
+            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+        );
+
+        $twig->getEnvironment()->addGlobal('navigation_items', $navigation);
+
         // Datos de ejecución para el pie del shell. No son configuración de
         // producto: describen dónde está corriendo la app ahora mismo.
         $twig->getEnvironment()->addGlobal('php_version', PHP_VERSION);

@@ -181,6 +181,32 @@ final class NotaTest extends HttpTestCase
         );
     }
 
+    public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
+        $item = self::navItemHtml($html, 'Notas');
+
+        self::assertStringContainsString('href="/notas"', $item, 'La entrada del menú tiene que apuntar a /notas.');
+        self::assertStringContainsString('aria-current="page"', $item, 'En /notas, su entrada va marcada como activa.');
+
+        // La entrada vive en config/navigation/notas.php, que instala y quita
+        // el demo: no hay ninguna condición en la plantilla del sidebar.
+        $sinNav = (string) self::app()->handle(self::request('GET', '/'))->getBody();
+        self::assertStringContainsString('aria-label="Inicio"', $sinNav, 'Inicio es fijo.');
+    }
+
+    private static function navItemHtml(string $html, string $label): string
+    {
+        $anchorEnd = strpos($html, 'aria-label="' . $label . '"');
+        self::assertNotFalse($anchorEnd, 'No se encontró la entrada de menú ' . $label);
+
+        $start = (int) strrpos(substr($html, 0, $anchorEnd), '<a ');
+        $end = strpos($html, '</a>', $anchorEnd);
+        self::assertNotFalse($end);
+
+        return substr($html, $start, $end - $start);
+    }
+
     private static function dialogHtml(string $html, string $id): string
     {
         $start = strpos($html, 'id="' . $id . '"');
