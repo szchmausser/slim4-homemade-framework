@@ -16,13 +16,26 @@ Tailwind CSS 4 se ejecuta con el **browser build** vendorizado (`tailwind-browse
 
 ## Arranque rápido
 
+> **Offline significa runtime, no instalación.** El clon necesita red una vez para
+> `composer install:termux` (y para la primera descarga del PHAR de PHPStan). Después
+> de instalar dependencias y vendorizar assets, la app no hace ninguna petición
+> externa: no hay CDNs, fuentes remotas ni telemetría.
+
+> **Debug:** `.env.example` trae `APP_DEBUG=false`. Para desarrollo local,
+> cambialo a `true` manteniendo `APP_ENV=local`; Whoops solo se monta con
+> ambas condiciones. No lo actives en produccion.
+
+> **Admin:** el seed crea el usuario si no existe. No reescribe la contraseña en cada
+> corrida; para forzar el cambio usá `ADMIN_RESET_PASSWORD=true` junto al seed.
+
+
 ```bash
 cp .env.example .env
 composer install:termux     # en 64-bit: composer install
 composer dump-autoload -o
 composer demo:tasks:install       # opcional: copia, migra y siembra el demo de tareas
 ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-larga vendor/bin/phinx seed:run -s DatabaseSeeder
-php -S 0.0.0.0:8080 -t public   # http://localhost:8080 (no `composer serve`, ver abajo)
+php -S 127.0.0.1:8080 -t public   # http://localhost:8080 (no `composer serve`, ver abajo)
 composer test               # suite completa (el conteo lo imprime el comando)
 ```
 
@@ -30,7 +43,7 @@ composer test               # suite completa (el conteo lo imprime el comando)
 
 | Comando | Para qué |
 |---|---|
-| `php -S 0.0.0.0:8080 -t public` | Servidor dev en `:8080` (`composer serve` retirado, ver abajo) |
+| `php -S 127.0.0.1:8080 -t public` | Servidor dev en `:8080` (`composer serve` retirado, ver abajo) |
 | `composer migrate` | Migraciones pendientes |
 | `vendor/bin/phinx rollback -t 0` | Baja todo (el "fresh") |
 | `vendor/bin/phinx seed:run -s DatabaseSeeder` | Admin (+ demo si está instalado) en orden |
@@ -97,7 +110,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 - Respuestas HTMX devuelven HTML de la región, nunca redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
 - Toda URL de plantilla va por `url('/login')` (en PHP, `Framework\Http\Url::path()`), nunca un literal raíz-absoluto a mano: es lo único que permite servir la app desde una carpeta con `APP_BASE_PATH=/app` (vacío = raíz, sin cambios). Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo.
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
-- Assets en `public/assets/` vendorizados con SRI (nada de CDN en runtime).
+- Assets en `public/assets/` vendorizados con SRI, más `app.js` del shell (nada de CDN en runtime).
 - Clases daisyUI as-is; componentes compartidos a `components/` con params.
 - Cada test paga su mantenimiento: si no te da miedo que falle, no lo escribas.
 - `app/Models/` es para modelos de dominio; la infraestructura del framework vive en `framework/` por componente (`Auth`, `Http`, `Validation`, `Docs`). `app/Support/` queda para helpers propios de la app.
@@ -161,8 +174,26 @@ bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
 resources/views/partials/layout/  Head, sidebar, header, toasts y footer del shell
 resources/views/components/      Button, modal, alert, field, list, table y pagination
 database/migrations/ database/seeds/  Schema versionado + datos base
-public/assets/  Frontend vendorizado con SRI
+public/assets/  Frontend vendorizado + app.js del shell, con SRI
 tests/  Suite (unit + HTTP)
 scripts/  Herramientas CLI (backup, lint, verificación, demo)
 .github/workflows/  CI (PHP 8.4/8.5 + composer verify)
 ```
+
+## Limitaciones conocidas
+
+- **Tailwind en el navegador.** Las utilidades las genera `tailwind-browser` en
+  runtime y daisyUI se sirve completo. Es la decisión que evita un paso de build:
+  agregar una clase nueva funciona sin regenerar nada. El costo es FOUC, dependencia
+  de JS para el layout y ~1,4 MB de CSS/JS sin comprimir. Si algún día se precompila,
+  hay que regenerar el CSS y el SRI con cada actualización de Tailwind/daisyUI o
+  cambio de clases.
+- **Sin CSP estricta.** El stack usa JS inline y Alpine/Tailwind runtime; una CSP
+  estricta exige rediseñar esos puntos. Se mantienen `nosniff`, `X-Frame-Options`,
+  `Referrer-Policy` y `Permissions-Policy`.
+- **Fechas de 32 bits.** `remember_tokens.expires_at` y `login_attempts.attempted_at`
+  son enteros Unix; en PHP de 32 bits el límite práctico es 2038.
+- **`php -S` es de desarrollo.** Es single-thread; para producción usar nginx/Caddy
+  + PHP-FPM.
+- **Los demos no tienen ownership.** Están pensados como ejemplos; si se convierten
+  en una app multiusuario, agregar `user_id` y autorización antes de exponerlos.

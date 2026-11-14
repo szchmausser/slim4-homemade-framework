@@ -1,0 +1,20 @@
+{# Tintas de iconos de estado compartidas por el shell y el login.
+   El color semántico de daisyUI es un FONDO, no una tinta: sobre base-100
+   da 1.96:1 y 2.87:1, bajo el 3:1 que pide un objeto gráfico. Estos valores
+   están medidos contra los fondos reales de cada tema. #}
+:root {
+    --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
+    --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
+    --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
+}
+/* En oscuro los semánticos brillantes ya pasan (8.06 y 5.52:1) y se reusan
+   tal cual. No es cosmético: los mismos ink claros sobre el fondo oscuro dan
+   3.59 y 2.95:1 y fallarían. */
+[data-theme="dark"] {
+    --ink-success: var(--color-success);
+    --ink-error:   var(--color-error);
+    --ink-info:    var(--color-info);
+}
+.icon-success { color: var(--ink-success); }
+.icon-error   { color: var(--ink-error); }
+.icon-info    { color: var(--ink-info); }

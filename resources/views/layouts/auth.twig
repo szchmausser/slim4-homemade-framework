@@ -12,22 +12,9 @@
        estado de cliente que gobernar. Son ~106 KB que esta pantalla no usa. #}
 
     <style>
-        /* Mismas tintas de icono que layouts/app.twig: los semanticos de
-           daisyUI son fondos, no tintas. Se replican aca porque esta pantalla
-           no carga el <style> del shell. */
-        :root {
-            --ink-success: oklch(53% .14 163.223);
-            --ink-error:   oklch(55% .19 13.428);
-            --ink-info:    oklch(52% .12 233.807);
-        }
-        [data-theme="dark"] {
-            --ink-success: var(--color-success);
-            --ink-error:   var(--color-error);
-            --ink-info:    var(--color-info);
-        }
-        .icon-success { color: var(--ink-success); }
-        .icon-error   { color: var(--ink-error); }
-        .icon-info    { color: var(--ink-info); }
+        /* Mismas tintas de icono que layouts/app.twig: vienen del partial
+           compartido para que no se desincronicen entre pantallas. */
+        {% include 'partials/layout/ink-tokens.twig' %}
 
         /* Placeholder al 70 % de base-content, igual que en layouts/app.twig:
            daisyUI y el preflight de Tailwind lo pintan al 50 %, que sobre

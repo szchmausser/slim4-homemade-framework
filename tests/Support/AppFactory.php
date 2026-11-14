@@ -31,6 +31,9 @@ final class AppFactory
             $response->getBody()->write('protected');
             return $response;
         })->add(RequireAuthMiddleware::class);
+        $app->get('/_test/boom', function (): void {
+            throw new RuntimeException('boom');
+        });
 
         return self::$app = $app;
     }

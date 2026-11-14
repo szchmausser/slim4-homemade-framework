@@ -5,9 +5,9 @@
 {% block head %}
     <link rel="stylesheet"
           href="{{ url('/assets/vendor/tabulator/6.7.1/tabulator_simple.min.css') }}"
-          integrity="sha384-845p0lFU615QIduQrRBstSh/4oeH8AntnsjQxQorupjL89uYj3JAryzqwGRHHsT3">
+          crossorigin="anonymous" integrity="sha384-845p0lFU615QIduQrRBstSh/4oeH8AntnsjQxQorupjL89uYj3JAryzqwGRHHsT3">
     <link rel="stylesheet" href="{{ url('/assets/css/contacts-tabulator.css') }}"
-          integrity="sha384-e2yUVHpj8gPawqAI6Y9x8UFdLsRlZ4Q4zB/Cq1EiNNjT/EglJcfk8Dbx0mViovdg">
+          crossorigin="anonymous" integrity="sha384-e2yUVHpj8gPawqAI6Y9x8UFdLsRlZ4Q4zB/Cq1EiNNjT/EglJcfk8Dbx0mViovdg">
 {% endblock %}
 
 {% block content %}
@@ -29,7 +29,7 @@
                 {% include 'components/ui/button.twig' with {
                     label: 'Agregar contacto',
                     icon: 'plus',
-                    onclick: "document.getElementById('contact-create-modal').showModal()"
+                    data_modal_open: 'contact-create-modal'
                 } only %}
             </div>
 
@@ -91,7 +91,7 @@
                         variant: 'ghost',
                         type: 'button',
                         icon: 'x',
-                        onclick: "document.getElementById('contact-delete-modal').close()"
+                        data_modal_close: true
                     } only %}
                     {% include 'components/ui/button.twig' with {
                         label: 'Eliminar',
@@ -107,7 +107,7 @@
 
 {% block scripts %}
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
-            integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
+            crossorigin="anonymous" integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
-            integrity="sha384-fiZF16JvzWJOCGngXIALGEeI0WpiqvvvRxHVp8EIzjQ0eMRVYWkNH11A8mmz9eHn"></script>
+            crossorigin="anonymous" integrity="sha384-fiZF16JvzWJOCGngXIALGEeI0WpiqvvvRxHVp8EIzjQ0eMRVYWkNH11A8mmz9eHn"></script>
 {% endblock %}

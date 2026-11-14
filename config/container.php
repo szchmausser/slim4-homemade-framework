@@ -21,6 +21,7 @@ use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
 use Twig\TwigFunction;
+use Framework\Support\Env;
 
 return [
     ResponseFactoryInterface::class => \DI\autowire(ResponseFactory::class),
@@ -31,10 +32,12 @@ return [
         // LOG_MAX_FILES (default 14). Un StreamHandler único crecía sin límite.
         $logger->pushHandler(new RotatingFileHandler(
             __DIR__ . '/../storage/logs/app.log',
-            (int) ($_ENV['LOG_MAX_FILES'] ?? 14),
-            filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            Env::int('LOG_MAX_FILES', 14),
+            Env::bool('APP_DEBUG')
                 ? Level::Debug
-                : Level::Warning
+                : Level::Info,
+            true,
+            0600
         ));
         return $logger;
     },
@@ -43,12 +46,12 @@ return [
         // Default relativo al proyecto; .env solo lo overridea. Sin esto un
         // clon fresco o un path absoluto de otro teléfono revienta en el
         // PRAGMA antes del error middleware (ver 20.3): QueryException cruda.
-        $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+        $db = Env::get('DB_DATABASE') ?? __DIR__ . '/../database/database.sqlite';
 
         if ($db !== ':memory:') {
             $dir = dirname($db);
             if (!is_dir($dir)) {
-                mkdir($dir, 0777, true);
+                mkdir($dir, 0755, true);
             }
             if (!file_exists($db) && !touch($db)) {
                 throw new \RuntimeException(
@@ -60,6 +63,7 @@ return [
                     "La base SQLite en '{$db}' no es escribible. Revisa permisos o corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
+            @chmod($db, 0600);
         }
 
         $capsule = new Capsule();
@@ -71,6 +75,10 @@ return [
             // ON DELETE CASCADE de remember_tokens nunca corre y el esquema
             // miente: las migraciones declaran la FK pero la base la ignora.
             'foreign_key_constraints' => true,
+            // Si otra conexion tiene el lock, esperar hasta 5 s en vez de
+            // depender del default del SAPI. PDO_SQLITE ya espera 60 s, pero
+            // un valor explicito hace el fallo predecible.
+            'busy_timeout' => 5000,
         ]);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
@@ -161,7 +169,7 @@ return [
         // Datos de ejecución para el pie del shell. No son configuración de
         // producto: describen dónde está corriendo la app ahora mismo.
         $twig->getEnvironment()->addGlobal('php_version', PHP_VERSION);
-        $twig->getEnvironment()->addGlobal('app_env', $_ENV['APP_ENV'] ?? 'local');
+        $twig->getEnvironment()->addGlobal('app_env', Env::get('APP_ENV', 'local'));
 
         return $twig;
     },

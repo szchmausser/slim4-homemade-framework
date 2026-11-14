@@ -14,31 +14,118 @@ use PHPUnit\Framework\TestCase;
  */
 final class DemoInstallerTest extends TestCase
 {
+    private string $projectRoot;
+
     private string $root;
+
     private string $db;
-    private bool $notasInstalled = false;
 
     protected function setUp(): void
     {
-        $this->root = dirname(__DIR__, 2);
-        $this->db = sys_get_temp_dir() . '/demo-installer-' . bin2hex(random_bytes(6)) . '.sqlite';
-        // Los tests de rollback borran el demo del árbol real. Si ya estaba
-        // instalado (CI lo instala antes de la suite), se repone para que
-        // `composer demo:notas:remove` siga siendo el paso que lo quita.
-        $this->notasInstalled = is_file($this->root . '/routes/notas.php');
+        $this->projectRoot = dirname(__DIR__, 2);
+        $this->root = sys_get_temp_dir() . '/slim4-demo-installer-'
+            . getmypid() . '-' . bin2hex(random_bytes(4));
+        $this->db = $this->root . '/database/test.sqlite';
+        $this->createFixtureTree();
     }
 
     protected function tearDown(): void
     {
-        if ($this->notasInstalled && !is_file($this->root . '/routes/notas.php')) {
-            $this->runDemo(['install', 'notas', '--no-db']);
-        }
+        $this->removeTree($this->root);
+    }
 
-        foreach ([$this->db, $this->db . '-wal', $this->db . '-shm'] as $file) {
-            if (is_file($file)) {
-                @unlink($file);
+    /**
+     * Arbol minimo para que `scripts/demo.php` corra contra una copia:
+     * scaffold, migraciones base, phinx.php y un autoload que apunta al
+     * vendor real. Nada de esto toca el proyecto.
+     */
+    private function createFixtureTree(): void
+    {
+        foreach ([
+            'framework/scaffolds',
+            'database/migrations',
+            'database/seeds',
+            'config/navigation',
+            'storage/cache/twig',
+            'app',
+            'routes',
+            'resources/views',
+            'tests',
+            'public/assets',
+            'vendor',
+        ] as $dir) {
+            $path = $this->root . '/' . $dir;
+            if (!is_dir($path) && !mkdir($path, 0755, true) && !is_dir($path)) {
+                throw new \RuntimeException("No se pudo crear {$path}");
             }
         }
+
+        $this->copyTree(
+            $this->projectRoot . '/framework/scaffolds',
+            $this->root . '/framework/scaffolds'
+        );
+
+        foreach (glob($this->projectRoot . '/database/migrations/*.php') ?: [] as $migration) {
+            copy($migration, $this->root . '/database/migrations/' . basename($migration));
+        }
+
+        copy($this->projectRoot . '/phinx.php', $this->root . '/phinx.php');
+
+        $autoload = var_export($this->projectRoot . '/vendor/autoload.php', true);
+        $prefix = var_export('App' . chr(92), true);
+        $tempApp = var_export($this->root . '/app/', true);
+
+        // El autoloader real resuelve Framework y vendor; el PSR-4 de App
+        // se antepone al del proyecto para que el demo instalado en el arbol
+        // temporal gane sobre una copia real que pueda existir.
+        file_put_contents(
+            $this->root . '/vendor/autoload.php',
+            '<?php' . PHP_EOL
+            . '$loader = require ' . $autoload . ';' . PHP_EOL
+            . '$loader->addPsr4(' . $prefix . ', ' . $tempApp . ', true);' . PHP_EOL
+        );
+    }
+
+    private function copyTree(string $source, string $destination): void
+    {
+        if (!is_dir($source)) {
+            throw new \RuntimeException("No existe {$source}");
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $target = $destination . '/' . $iterator->getSubPathname();
+
+            if ($item->isDir()) {
+                if (!is_dir($target) && !mkdir($target, 0755, true) && !is_dir($target)) {
+                    throw new \RuntimeException("No se pudo crear {$target}");
+                }
+            } elseif (!copy($item->getPathname(), $target)) {
+                throw new \RuntimeException("No se pudo copiar {$item->getPathname()}");
+            }
+        }
+    }
+
+    private function removeTree(string $path): void
+    {
+        if (!is_dir($path)) {
+            return;
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+
+        foreach ($iterator as $item) {
+            $item->isDir() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+        }
+
+        @rmdir($path);
     }
 
     public function test_remove_no_borra_una_migracion_del_usuario_con_la_misma_version(): void
@@ -141,6 +228,45 @@ final class DemoInstallerTest extends TestCase
         }
     }
 
+    public function test_install_force_restaura_el_archivo_preexistente_si_la_db_falla(): void
+    {
+        $relative = 'app/Notas/Models/Nota.php';
+        $path = $this->root . '/' . $relative;
+        $original = "<?php // editado por el usuario
+";
+
+        @mkdir(dirname($path), 0755, true);
+        file_put_contents($path, $original);
+
+        // La tabla notas preexistente hace fallar la migracion del demo.
+        $this->createLog([], withNotas: true);
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas', '--force']);
+
+        self::assertNotSame(0, $exit);
+        self::assertStringContainsString('Install revertido', $stderr);
+        self::assertSame($original, file_get_contents($path));
+    }
+
+    public function test_remove_se_niega_a_borrar_archivos_editados_sin_force(): void
+    {
+        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        self::assertSame(0, $exit);
+
+        $relative = 'app/Notas/Models/Nota.php';
+        $path = $this->root . '/' . $relative;
+        file_put_contents($path, "<?php // editado
+");
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+
+        self::assertNotSame(0, $exit);
+        self::assertStringContainsString('archivos editados', $stderr);
+        self::assertFileExists($path);
+        self::assertSame("<?php // editado
+", file_get_contents($path));
+    }
+
     /**
      * @param list<array{0: int, 1: string}> $rows
      */
@@ -186,9 +312,10 @@ final class DemoInstallerTest extends TestCase
     {
         $env = getenv();
         $env['DB_DATABASE'] = $this->db;
+        $env['DEMO_ROOT'] = $this->root;
 
         $process = proc_open(
-            [PHP_BINARY, $this->root . '/scripts/demo.php', 'remove', $demo, '--no-files'],
+            [PHP_BINARY, $this->projectRoot . '/scripts/demo.php', 'remove', $demo, '--no-files'],
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $this->root,
@@ -213,9 +340,10 @@ final class DemoInstallerTest extends TestCase
     {
         $env = getenv();
         $env['DB_DATABASE'] = $this->db;
+        $env['DEMO_ROOT'] = $this->root;
 
         $process = proc_open(
-            array_merge([PHP_BINARY, $this->root . '/scripts/demo.php'], $args),
+            array_merge([PHP_BINARY, $this->projectRoot . '/scripts/demo.php'], $args),
             [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             $this->root,

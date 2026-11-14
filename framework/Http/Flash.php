@@ -15,6 +15,9 @@ class Flash
     {
         $message = $_SESSION['flash'][$key] ?? null;
         unset($_SESSION['flash'][$key]);
-        return $message;
+
+        // El tipo de retorno es ?string: una sesión manipulada o un valor
+        // corrupto no debe tumbar el render con un TypeError.
+        return is_string($message) ? $message : null;
     }
 }

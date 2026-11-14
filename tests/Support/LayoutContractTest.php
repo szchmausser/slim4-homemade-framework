@@ -155,7 +155,10 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_layout_permite_el_swap_de_un_422(): void
     {
-        $allow = self::jsFunction(self::view('resources/views/layouts/app.twig'), 'allowValidationSwap');
+        $source = self::view('resources/views/layouts/app.twig')
+            . "
+" . self::view('public/assets/app.js');
+        $allow = self::jsFunction($source, 'allowValidationSwap');
 
         self::assertPattern(
             "/addEventListener\(\s*'htmx:beforeSwap'/",

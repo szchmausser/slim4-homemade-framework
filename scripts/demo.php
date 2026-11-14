@@ -12,7 +12,15 @@ declare(strict_types=1);
 // relativa que tendrá en el repo: instalar es copiar cada archivo a su destino;
 // eliminar es borrar esos destinos. La fuente nunca se toca.
 
-$root = dirname(__DIR__);
+// DEMO_ROOT permite correr el instalador contra una copia temporal (tests).
+// En uso normal queda vacio y el root es el del proyecto.
+$root = getenv('DEMO_ROOT') ?: dirname(__DIR__);
+$root = rtrim((string) $root, '/');
+
+if (!is_dir($root)) {
+    fwrite(STDERR, "DEMO_ROOT no existe: {$root}\n");
+    exit(1);
+}
 
 // `$argv` sólo existe en CLI. PHPStan lo marca como indefinido en el ámbito
 // global, y tiene razón: este script puede incluirse desde otro contexto. Se
@@ -111,58 +119,108 @@ if ($command === 'install') {
     }
 
     if ($conflicts !== [] && !$force) {
-        fwrite(STDERR, "El scaffold {$name} ya tiene archivos instalados:\n");
+        fwrite(STDERR, "El scaffold {$name} ya tiene archivos instalados:" . PHP_EOL);
         foreach ($conflicts as $relative) {
-            fwrite(STDERR, "  - {$relative}\n");
+            fwrite(STDERR, "  - {$relative}" . PHP_EOL);
         }
-        fwrite(STDERR, "Usa --force para sobrescribirlos o composer {$commandPrefix}:remove primero.\n");
+        fwrite(STDERR, "Usa --force para sobrescribirlos o composer {$commandPrefix}:remove primero." . PHP_EOL);
         exit(1);
     }
 
-    foreach ($files as $relative => $source) {
-        $destination = $root . '/' . $relative;
-        $dir = dirname($destination);
-        if (!is_dir($dir) && !mkdir($dir, 0777, true) && !is_dir($dir)) {
-            fwrite(STDERR, "No se pudo crear '{$dir}'.\n");
-            exit(1);
+    $created = [];
+    $backups = [];
+    $backupDir = null;
+
+    try {
+        foreach ($files as $relative => $source) {
+            $destination = $root . '/' . $relative;
+            $dir = dirname($destination);
+            if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                throw new RuntimeException("No se pudo crear '{$dir}'.");
+            }
+
+            if (is_file($destination)) {
+                // --force no debe destruir la version del usuario: se guarda
+                // una copia y el rollback la restaura si la DB falla.
+                $backupDir ??= $root . '/storage/backups/demo-install-'
+                    . $name . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+                $backup = $backupDir . '/' . $relative;
+                $backupParent = dirname($backup);
+                if (!is_dir($backupParent) && !mkdir($backupParent, 0700, true) && !is_dir($backupParent)) {
+                    throw new RuntimeException("No se pudo crear el backup '{$backupParent}'.");
+                }
+                if (!copy($destination, $backup)) {
+                    throw new RuntimeException("No se pudo respaldar '{$relative}'.");
+                }
+                $backups[$relative] = $backup;
+            } else {
+                $created[] = $relative;
+            }
+
+            if (!copy($source, $destination)) {
+                throw new RuntimeException("No se pudo copiar '{$relative}'.");
+            }
         }
-        if (!copy($source, $destination)) {
-            fwrite(STDERR, "No se pudo copiar '{$relative}'.\n");
-            exit(1);
-        }
+    } catch (Throwable $e) {
+        $rolledBack = rollbackInstall($root, $created, $backups);
+        clearTwigCache($root);
+        fwrite(STDERR, "Install revertido: {$rolledBack} archivos restaurados/borrados ({$e->getMessage()})." . PHP_EOL);
+        exit(1);
     }
 
     clearTwigCache($root);
-    echo 'Scaffold ' . $name . ' instalado (' . count($files) . " archivos).\n";
+    echo 'Scaffold ' . $name . ' instalado (' . count($files) . " archivos)." . PHP_EOL;
+    if ($backupDir !== null) {
+        echo "Backup de archivos sobrescritos: {$backupDir}" . PHP_EOL;
+    }
 
     if ($noDb) {
-        echo "DB: omitida por --no-db.\n";
+        echo "DB: omitida por --no-db." . PHP_EOL;
     } else {
         try {
             migrateAndSeed($root, $meta['seeder']);
         } catch (Throwable $e) {
-            // Install atómico: o queda todo, o no queda nada. Un install a
+            // Install atomico: o queda todo, o no queda nada. Un install a
             // medias deja archivos que chocan con el reintento y una DB en un
             // estado que nadie sabe.
-            fwrite(STDERR, "La DB falló: {$e->getMessage()}\n");
+            fwrite(STDERR, "La DB fallo: {$e->getMessage()}" . PHP_EOL);
 
             try {
                 removeDemoDatabase($root, $scaffold, $meta);
             } catch (Throwable $dbError) {
-                fwrite(STDERR, "Tampoco se pudo limpiar la DB del demo: {$dbError->getMessage()}\n");
-                fwrite(STDERR, "Revisa la base y, si hace falta, ejecuta composer {$commandPrefix}:remove.\n");
+                fwrite(STDERR, "Tampoco se pudo limpiar la DB del demo: {$dbError->getMessage()}" . PHP_EOL);
+                fwrite(STDERR, "Revisa la base y, si hace falta, ejecuta composer {$commandPrefix}:remove." . PHP_EOL);
             }
 
-            $rolledBack = removeDemoFiles($root, $files);
+            $rolledBack = rollbackInstall($root, $created, $backups);
             clearTwigCache($root);
-            fwrite(STDERR, "Install revertido: {$rolledBack} archivos borrados.\n");
-            fwrite(STDERR, "Corrige el error y vuelve a ejecutar composer {$commandPrefix}:install.\n");
+            fwrite(STDERR, "Install revertido: {$rolledBack} archivos restaurados/borrados." . PHP_EOL);
+            fwrite(STDERR, "Corrige el error y vuelve a ejecutar composer {$commandPrefix}:install." . PHP_EOL);
             exit(1);
         }
     }
 
-    echo "Para quitarlo: composer {$commandPrefix}:remove\n";
+    echo "Para quitarlo: composer {$commandPrefix}:remove" . PHP_EOL;
     exit(0);
+}
+
+if (!$noFiles) {
+    $edited = [];
+    foreach ($files as $relative => $source) {
+        $destination = $root . '/' . $relative;
+        if (is_file($destination) && hash_file('sha256', $destination) !== hash_file('sha256', $source)) {
+            $edited[] = $relative;
+        }
+    }
+
+    if ($edited !== [] && !$force) {
+        fwrite(STDERR, "El scaffold {$name} tiene archivos editados:" . PHP_EOL);
+        foreach ($edited as $relative) {
+            fwrite(STDERR, "  - {$relative}" . PHP_EOL);
+        }
+        fwrite(STDERR, "Usa --force para respaldarlos y borrarlos, o --no-files para tocar solo la DB." . PHP_EOL);
+        exit(1);
+    }
 }
 
 if (!$noDb) {
@@ -176,7 +234,7 @@ if (!$noDb) {
 
 $removed = 0;
 if (!$noFiles) {
-    $removed = removeDemoFiles($root, $files);
+    $removed = removeDemoFiles($root, $files, $force, $name);
     // Sin esto quedan plantillas compiladas de vistas que ya no existen.
     clearTwigCache($root);
 }
@@ -202,17 +260,41 @@ echo "framework/scaffolds/{$name}/ sigue disponible para reinstalar.\n";
  *
  * @param array<string, string> $files relativo => origen en el scaffold
  */
-function removeDemoFiles(string $root, array $files): int
+function removeDemoFiles(string $root, array $files, bool $force = false, string $name = 'demo'): int
 {
     $removed = 0;
+    $backupDir = null;
 
     foreach ($files as $relative => $source) {
         $destination = $root . '/' . $relative;
         if (!is_file($destination)) {
             continue;
         }
+
+        $edited = hash_file('sha256', $destination) !== hash_file('sha256', $source);
+        if ($edited) {
+            if (!$force) {
+                fwrite(STDERR, "Archivo editado, no se borra: '{$relative}'." . PHP_EOL);
+                continue;
+            }
+
+            $backupDir ??= $root . '/storage/backups/demo-remove-'
+                . $name . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(3));
+            $backup = $backupDir . '/' . $relative;
+            $backupParent = dirname($backup);
+            if (!is_dir($backupParent) && !mkdir($backupParent, 0700, true) && !is_dir($backupParent)) {
+                fwrite(STDERR, "No se pudo crear el backup '{$backupParent}'." . PHP_EOL);
+                continue;
+            }
+            if (!copy($destination, $backup)) {
+                fwrite(STDERR, "No se pudo respaldar '{$relative}'; se conserva el original." . PHP_EOL);
+                continue;
+            }
+            echo "Backup de archivo editado: {$backup}" . PHP_EOL;
+        }
+
         if (!unlink($destination)) {
-            fwrite(STDERR, "No se pudo borrar '{$relative}'.\n");
+            fwrite(STDERR, "No se pudo borrar '{$relative}'." . PHP_EOL);
             continue;
         }
         $removed++;
@@ -220,6 +302,35 @@ function removeDemoFiles(string $root, array $files): int
     }
 
     return $removed;
+}
+
+function rollbackInstall(string $root, array $created, array $backups): int
+{
+    $restored = 0;
+
+    foreach ($backups as $relative => $backup) {
+        $destination = $root . '/' . $relative;
+        if (!is_file($backup)) {
+            continue;
+        }
+        if (!copy($backup, $destination)) {
+            fwrite(STDERR, "No se pudo restaurar '{$relative}' desde '{$backup}'." . PHP_EOL);
+            continue;
+        }
+        @unlink($backup);
+        removeEmptyParents(dirname($backup), $root);
+        $restored++;
+    }
+
+    foreach ($created as $relative) {
+        $destination = $root . '/' . $relative;
+        if (is_file($destination) && unlink($destination)) {
+            $restored++;
+        }
+        removeEmptyParents(dirname($destination), $root);
+    }
+
+    return $restored;
 }
 
 function migrateAndSeed(string $root, string $seeder): void
@@ -429,6 +540,11 @@ function removeEmptyParents(string $dir, string $root): void
         $root . '/resources/views',
         $root . '/routes',
         $root . '/tests',
+        $root . '/storage',
+        $root . '/storage/backups',
+        $root . '/storage/cache',
+        $root . '/storage/logs',
+        $root . '/storage/sessions',
     ];
 
     while (!in_array($dir, $keep, true) && is_dir($dir)) {

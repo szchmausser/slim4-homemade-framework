@@ -6,6 +6,7 @@ namespace Framework\Auth;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Connection;
+use Framework\Support\Env;
 
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
@@ -27,6 +28,8 @@ final class RememberMe
     public const COOKIE = 'remember';
 
     public const TTL = 2592000; // 30 días, en segundos
+
+    public const ROTATION_GRACE = 3600; // 1 hora de tombstone
 
     /**
      * Crea un token para el usuario y devuelve el par crudo "selector:validator"
@@ -50,7 +53,7 @@ final class RememberMe
     /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
-        $secure = filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)
+        $secure = Env::bool('SESSION_SECURE')
             ? '; Secure'
             : '';
 
@@ -76,9 +79,18 @@ final class RememberMe
 
         [$selector, $validator] = explode(':', $raw, 2);
 
+        self::pruneRotated();
+
         $row = RememberToken::query()->where('selector', $selector)->first();
         if ($row === null) {
             return null; // selector desconocido: nada que quemar, solo ignorar
+        }
+
+        if ($row->rotated_at !== null) {
+            // Replay de un token que ya se rotó: el ladrón tiene una copia
+            // vieja. Se quema la familia completa, incluido el token nuevo.
+            RememberToken::query()->where('user_id', (int) $row->user_id)->delete();
+            return self::cookieHeader(clear: true);
         }
 
         $user = UserProvider::find((int) $row->user_id);
@@ -125,7 +137,10 @@ final class RememberMe
         // transacción abierta al salir— y no simula el corte.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
-                $row->delete();
+                // Tombstone en vez de delete: si el token viejo reaparece,
+                // `resumeFromCookie()` detecta el replay y quema la familia.
+                $row->rotated_at = time();
+                $row->save();
 
                 return self::create($userId);
             }
@@ -134,6 +149,18 @@ final class RememberMe
         Auth::login($userId);
 
         return self::cookieHeader($pair);
+    }
+
+    /**
+     * Los tombstones no son eternos: pasada la ventana de gracia se borran.
+     * Sin esto la tabla crecería con cada rotación.
+     */
+    public static function pruneRotated(): void
+    {
+        RememberToken::query()
+            ->whereNotNull('rotated_at')
+            ->where('rotated_at', '<', time() - self::ROTATION_GRACE)
+            ->delete();
     }
 
     public static function clearUser(int $userId): void

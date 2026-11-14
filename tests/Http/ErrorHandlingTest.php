@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use Tests\Support\AppFactory;
 use Tests\Support\HttpTestCase;
 
 final class ErrorHandlingTest extends HttpTestCase
@@ -38,6 +39,51 @@ final class ErrorHandlingTest extends HttpTestCase
      * Este test corre con APP_DEBUG=true (lo que hay en .env), o sea que
      * Whoops está construido: verifica que la rama correcta sea la elegida.
      */
+    public function test_un_404_htmx_devuelve_un_partial_sin_shell(): void
+    {
+        $response = self::app()->handle(
+            self::request('GET', '/no-existe', [], ['HX-Request' => 'true'])
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+        self::assertStringContainsString('alert alert-error', $html);
+        self::assertStringNotContainsString('<!DOCTYPE html>', $html);
+        self::assertStringNotContainsString('<html', $html);
+    }
+
+    public function test_metodo_no_permitido_devuelve_405(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(self::request('POST', '/', $token));
+
+        self::assertSame(405, $response->getStatusCode());
+    }
+
+    public function test_un_500_en_produccion_no_filtra_la_excepcion(): void
+    {
+        $previous = $_ENV['APP_DEBUG'] ?? null;
+        $_ENV['APP_DEBUG'] = 'false';
+        AppFactory::reset();
+
+        try {
+            $response = self::app()->handle(self::request('GET', '/_test/boom'));
+        } finally {
+            if ($previous === null) {
+                unset($_ENV['APP_DEBUG']);
+            } else {
+                $_ENV['APP_DEBUG'] = $previous;
+            }
+            AppFactory::reset();
+        }
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringNotContainsString('boom', (string) $response->getBody());
+        self::assertStringContainsString('Algo salió mal de nuestro lado.', (string) $response->getBody());
+    }
+
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
         $response = self::app()->handle(self::request('GET', '/no-existe'));

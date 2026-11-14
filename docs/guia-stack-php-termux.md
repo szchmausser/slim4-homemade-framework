@@ -429,6 +429,7 @@ use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
 use Twig\TwigFunction;
+use Framework\Support\Env;
 
 return [
     ResponseFactoryInterface::class => \DI\autowire(ResponseFactory::class),
@@ -439,10 +440,12 @@ return [
         // LOG_MAX_FILES (default 14). Un StreamHandler único crecía sin límite.
         $logger->pushHandler(new RotatingFileHandler(
             __DIR__ . '/../storage/logs/app.log',
-            (int) ($_ENV['LOG_MAX_FILES'] ?? 14),
-            filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)
+            Env::int('LOG_MAX_FILES', 14),
+            Env::bool('APP_DEBUG')
                 ? Level::Debug
-                : Level::Warning
+                : Level::Info,
+            true,
+            0600
         ));
         return $logger;
     },
@@ -451,12 +454,12 @@ return [
         // Default relativo al proyecto; .env solo lo overridea. Sin esto un
         // clon fresco o un path absoluto de otro teléfono revienta en el
         // PRAGMA antes del error middleware (ver 20.3): QueryException cruda.
-        $db = $_ENV['DB_DATABASE'] ?? __DIR__ . '/../database/database.sqlite';
+        $db = Env::get('DB_DATABASE') ?? __DIR__ . '/../database/database.sqlite';
 
         if ($db !== ':memory:') {
             $dir = dirname($db);
             if (!is_dir($dir)) {
-                mkdir($dir, 0777, true);
+                mkdir($dir, 0755, true);
             }
             if (!file_exists($db) && !touch($db)) {
                 throw new \RuntimeException(
@@ -468,6 +471,7 @@ return [
                     "La base SQLite en '{$db}' no es escribible. Revisa permisos o corrige DB_DATABASE en .env (guía cap. 5/20.3)."
                 );
             }
+            @chmod($db, 0600);
         }
 
         $capsule = new Capsule();
@@ -479,6 +483,10 @@ return [
             // ON DELETE CASCADE de remember_tokens nunca corre y el esquema
             // miente: las migraciones declaran la FK pero la base la ignora.
             'foreign_key_constraints' => true,
+            // Si otra conexion tiene el lock, esperar hasta 5 s en vez de
+            // depender del default del SAPI. PDO_SQLITE ya espera 60 s, pero
+            // un valor explicito hace el fallo predecible.
+            'busy_timeout' => 5000,
         ]);
         $capsule->setAsGlobal();
         $capsule->bootEloquent();
@@ -569,7 +577,7 @@ return [
         // Datos de ejecución para el pie del shell. No son configuración de
         // producto: describen dónde está corriendo la app ahora mismo.
         $twig->getEnvironment()->addGlobal('php_version', PHP_VERSION);
-        $twig->getEnvironment()->addGlobal('app_env', $_ENV['APP_ENV'] ?? 'local');
+        $twig->getEnvironment()->addGlobal('app_env', Env::get('APP_ENV', 'local'));
 
         return $twig;
     },
@@ -737,10 +745,12 @@ use Slim\Csrf\Guard;
 use Slim\Exception\HttpException;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Framework\Support\Env;
 
 return function (App $app) {
     $container = $app->getContainer();
-    $debug = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $debug = Env::bool('APP_DEBUG');
+    $isLocal = Env::get('APP_ENV', 'local') === 'local';
 
     // 6to (el más cercano al controlador): valida el token CSRF
     $app->add(Guard::class);
@@ -774,7 +784,7 @@ return function (App $app) {
     // respuesta es genérica: sin registro, un error es indistinguible de que
     // la app simplemente no funcionara.
     $whoops = null;
-    if ($debug && class_exists(\Whoops\Run::class)) {
+    if ($debug && $isLocal && class_exists(\Whoops\Run::class)) {
         $whoops = new \Whoops\Run();
 
         // Dos líneas que NO son opcionales, y que sin tests en web no vas a
@@ -818,9 +828,13 @@ return function (App $app) {
             } else {
                 $body = null;
                 try {
+                    $template = $request->hasHeader('HX-Request')
+                        ? 'errors/_htmx.twig'
+                        : 'errors/error.twig';
+
                     $rendered = $container->get(Twig::class)->render(
                         $app->getResponseFactory()->createResponse($status),
-                        'errors/error.twig',
+                        $template,
                         [
                             'code'    => $status,
                             'message' => $status >= 500
@@ -969,10 +983,11 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
+use Framework\Support\Env;
 
 /**
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
+ * (HTMX + Alpine + Tailwind browser runtime) una CSP estricta no es alcanzable
  * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
  * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
  */
@@ -996,12 +1011,16 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // Los assets son locales con SRI, pero la app puede enlazar a
             // sitios externos. Sin esto, cada salida manda tu URL completa
             // (con paths y query string) en el header Referer.
-            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+            // La app no usa cámara, micrófono ni geolocalización. Negarlos por
+            // defecto evita que una dependencia o un iframe los pida.
+            ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
         // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
         // flag que las cookies Secure: activarlo en dev local deja al navegador
         // recordando un HTTPS que el server no habla.
-        if (filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        if (Env::bool('SESSION_SECURE')) {
             $response = $response->withHeader(
                 'Strict-Transport-Security',
                 'max-age=31536000'
@@ -1140,6 +1159,7 @@ declare(strict_types=1);
 
 namespace Framework\Http\Middleware;
 
+use Framework\Support\Env;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
@@ -1147,6 +1167,10 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 class SessionMiddleware implements MiddlewareInterface
 {
+    public const DEFAULT_IDLE_TIMEOUT = 7200;      // 2 horas
+
+    public const DEFAULT_ABSOLUTE_TIMEOUT = 43200; // 12 horas
+
     /**
      * Parámetros de la cookie de sesión. Públicos para que el test verifique
      * Secure sin depender de abrir/cerrar la sesión nativa del proceso.
@@ -1160,27 +1184,101 @@ class SessionMiddleware implements MiddlewareInterface
             'path'     => '/',
             'httponly' => true,  // inaccesible desde document.cookie
             'samesite' => 'Lax', // capa extra; el token CSRF sigue siendo la defensa real
-            'secure'   => filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'secure'   => Env::bool('SESSION_SECURE'),
         ];
+    }
+
+    /**
+     * Nombre de sesión saneado: PHP solo acepta letras, números, guion y
+     * guion bajo. Un valor con espacios o `;` puede romper la cookie o
+     * inyectar atributos.
+     */
+    public static function sessionName(): string
+    {
+        $name = preg_replace('/[^A-Za-z0-9_-]/', '', (string) Env::get('SESSION_NAME', 'mi_app_session'));
+
+        return is_string($name) && $name !== '' ? $name : 'mi_app_session';
+    }
+
+    public static function savePath(): string
+    {
+        $configured = (string) Env::get('SESSION_SAVE_PATH', '');
+
+        return $configured !== ''
+            ? $configured
+            : dirname(__DIR__, 3) . '/storage/sessions';
+    }
+
+    public static function idleTimeout(): int
+    {
+        return max(0, Env::int('SESSION_IDLE_TIMEOUT', self::DEFAULT_IDLE_TIMEOUT));
+    }
+
+    public static function absoluteTimeout(): int
+    {
+        return max(0, Env::int('SESSION_ABSOLUTE_TIMEOUT', self::DEFAULT_ABSOLUTE_TIMEOUT));
     }
 
     public function process(Request $request, Handler $handler): Response
     {
         if (session_status() === PHP_SESSION_NONE) {
-            session_name($_ENV['SESSION_NAME'] ?? 'mi_app_session');
+            $savePath = self::savePath();
+            if (!is_dir($savePath)) {
+                @mkdir($savePath, 0700, true);
+            }
 
-            // SESSION_SECURE=true es para cuando la app se sirve por HTTPS
-            // (directo o detrás de un proxy TLS). En dev local queda false:
-            // una cookie Secure no viaja por HTTP y la sesión no persiste.
+            session_name(self::sessionName());
+            session_save_path($savePath);
             session_set_cookie_params(self::cookieParams());
 
             // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
             ini_set('session.use_strict_mode', '1');
+            ini_set('session.use_only_cookies', '1');
+
+            $absolute = self::absoluteTimeout();
+            if ($absolute > 0) {
+                // El GC no debe borrar una sesión que la app todavía considera
+                // válida; el vencimiento real lo aplica este middleware.
+                ini_set('session.gc_maxlifetime', (string) $absolute);
+            }
 
             session_start();
+            $this->expireIfStale();
         }
 
         return $handler->handle($request);
+    }
+
+    /**
+     * Vencimiento por inactividad y tope absoluto. Solo se aplica a sesiones
+     * autenticadas: un formulario público abierto toda la tarde no debería
+     * perder el CSRF por la mitad.
+     */
+    private function expireIfStale(): void
+    {
+        if (!isset($_SESSION['user_id'])) {
+            return;
+        }
+
+        $now = time();
+        $idle = self::idleTimeout();
+        $absolute = self::absoluteTimeout();
+
+        $lastActivity = isset($_SESSION['last_activity']) ? (int) $_SESSION['last_activity'] : null;
+        $createdAt = isset($_SESSION['created_at']) ? (int) $_SESSION['created_at'] : null;
+
+        $idleExpired = $idle > 0 && $lastActivity !== null && ($now - $lastActivity) > $idle;
+        $absoluteExpired = $absolute > 0 && $createdAt !== null && ($now - $createdAt) > $absolute;
+
+        if ($idleExpired || $absoluteExpired) {
+            $_SESSION = [];
+            session_regenerate_id(true);
+
+            return;
+        }
+
+        $_SESSION['last_activity'] = $now;
+        $_SESSION['created_at'] ??= $now;
     }
 }
 ```
@@ -1207,7 +1305,10 @@ class Flash
     {
         $message = $_SESSION['flash'][$key] ?? null;
         unset($_SESSION['flash'][$key]);
-        return $message;
+
+        // El tipo de retorno es ?string: una sesión manipulada o un valor
+        // corrupto no debe tumbar el render con un TypeError.
+        return is_string($message) ? $message : null;
     }
 }
 ```
@@ -1257,7 +1358,10 @@ final class Auth
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
+        $now = time();
         $_SESSION['user_id'] = $id;
+        $_SESSION['created_at'] = $now;
+        $_SESSION['last_activity'] = $now;
     }
 
     /**
@@ -1285,6 +1389,7 @@ namespace Framework\Auth;
 
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Connection;
+use Framework\Support\Env;
 
 /**
  * Remember-me con split-token. ESTE es el archivo security-critical del login:
@@ -1306,6 +1411,8 @@ final class RememberMe
     public const COOKIE = 'remember';
 
     public const TTL = 2592000; // 30 días, en segundos
+
+    public const ROTATION_GRACE = 3600; // 1 hora de tombstone
 
     /**
      * Crea un token para el usuario y devuelve el par crudo "selector:validator"
@@ -1329,7 +1436,7 @@ final class RememberMe
     /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
-        $secure = filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)
+        $secure = Env::bool('SESSION_SECURE')
             ? '; Secure'
             : '';
 
@@ -1355,9 +1462,18 @@ final class RememberMe
 
         [$selector, $validator] = explode(':', $raw, 2);
 
+        self::pruneRotated();
+
         $row = RememberToken::query()->where('selector', $selector)->first();
         if ($row === null) {
             return null; // selector desconocido: nada que quemar, solo ignorar
+        }
+
+        if ($row->rotated_at !== null) {
+            // Replay de un token que ya se rotó: el ladrón tiene una copia
+            // vieja. Se quema la familia completa, incluido el token nuevo.
+            RememberToken::query()->where('user_id', (int) $row->user_id)->delete();
+            return self::cookieHeader(clear: true);
         }
 
         $user = UserProvider::find((int) $row->user_id);
@@ -1404,7 +1520,10 @@ final class RememberMe
         // transacción abierta al salir— y no simula el corte.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
-                $row->delete();
+                // Tombstone en vez de delete: si el token viejo reaparece,
+                // `resumeFromCookie()` detecta el replay y quema la familia.
+                $row->rotated_at = time();
+                $row->save();
 
                 return self::create($userId);
             }
@@ -1413,6 +1532,18 @@ final class RememberMe
         Auth::login($userId);
 
         return self::cookieHeader($pair);
+    }
+
+    /**
+     * Los tombstones no son eternos: pasada la ventana de gracia se borran.
+     * Sin esto la tabla crecería con cada rotación.
+     */
+    public static function pruneRotated(): void
+    {
+        RememberToken::query()
+            ->whereNotNull('rotated_at')
+            ->where('rotated_at', '<', time() - self::ROTATION_GRACE)
+            ->delete();
     }
 
     public static function clearUser(int $userId): void
@@ -1452,6 +1583,22 @@ final class CsrfTokens
             'csrf_value_key' => $valueKey,
             'csrf_value'     => $request->getAttribute($valueKey),
         ];
+    }
+
+    /**
+     * Invalida el token emitido antes del login. El ID de sesión ya se
+     * regenera en Auth::login(); esto cierra la ventana de un token CSRF
+     * capturado antes de autenticarse (equipo compartido, panel público).
+     * El próximo GET genera un par nuevo.
+     */
+    public static function rotate(Guard $guard): void
+    {
+        $nameKey = $guard->getTokenNameKey();
+        $prefix = str_ends_with($nameKey, '_name') ? substr($nameKey, 0, -5) : 'csrf';
+
+        if (isset($_SESSION[$prefix]) && is_array($_SESSION[$prefix])) {
+            $_SESSION[$prefix] = [];
+        }
     }
 }
 ```
@@ -1966,6 +2113,7 @@ use Framework\Auth\RememberMe;
 use Framework\Auth\Throttle;
 use Framework\Auth\UserProvider;
 use Framework\Http\Controller;
+use Framework\Http\CsrfTokens;
 use Framework\Http\Flash;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
@@ -2003,8 +2151,8 @@ class AuthController extends Controller
         $email = trim((string) ($data['email'] ?? ''));
 
         $validator = Validator::make($data, [
-            'email'    => 'required|email',
-            'password' => 'required',
+            'email'    => 'required|email|max:160',
+            'password' => 'required|max:72',
         ]);
 
         if ($validator->fails()) {
@@ -2029,7 +2177,7 @@ class AuthController extends Controller
 
         // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
         // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
-        if (Throttle::tooMany($email, $ip)) {
+        if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
             Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
@@ -2067,6 +2215,7 @@ class AuthController extends Controller
         }
 
         Auth::login((int) $user->getKey());
+        CsrfTokens::rotate($this->guard);
 
         $response = $response->withStatus(303)->withHeader('Location', Url::path('/'));
 
@@ -2181,6 +2330,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id
  * @property string $hashed_validator
  * @property int $expires_at
+ * @property int|null $rotated_at
  * @method static RememberToken create(array<string, mixed> $attributes = [])
  */
 class RememberToken extends Model
@@ -2195,7 +2345,7 @@ class RememberToken extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at'];
+    protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at', 'rotated_at'];
 }
 ```
 
@@ -2409,22 +2559,41 @@ final class AdminSeeder extends AbstractSeed
 
         $validator = Validator::make(
             ['email' => $email, 'password' => $password],
-            ['email' => 'required|email', 'password' => 'required|min:8']
+            ['email' => 'required|email|max:160', 'password' => 'required|min:8|max:72']
         );
 
-        if ($email === null || $validator->fails()) {
+        if ($email === null || $validator->fails() || strlen((string) $password) > 72) {
             throw new \RuntimeException(
-                'ADMIN_EMAIL y ADMIN_PASSWORD (8+ caracteres) son obligatorios: ' .
+                'ADMIN_EMAIL y ADMIN_PASSWORD (8+ caracteres, maximo 72 bytes) son obligatorios: ' .
                 'ADMIN_EMAIL=x ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s AdminSeeder'
             );
         }
 
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]
+        $reset = filter_var(
+            $_ENV['ADMIN_RESET_PASSWORD'] ?? getenv('ADMIN_RESET_PASSWORD') ?: false,
+            FILTER_VALIDATE_BOOLEAN
         );
 
-        echo "OK admin {$user->email} (id {$user->id})" . PHP_EOL;
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null) {
+            $user = User::create([
+                'email' => $email,
+                'password_hash' => password_hash((string) $password, PASSWORD_DEFAULT),
+            ]);
+            echo "OK admin {$user->email} (id {$user->id}) creado" . PHP_EOL;
+            return;
+        }
+
+        if (!$reset) {
+            echo "Admin {$user->email} ya existe; no se modifico. " .
+                'Usa ADMIN_RESET_PASSWORD=true para forzar el cambio.' . PHP_EOL;
+            return;
+        }
+
+        $user->password_hash = password_hash((string) $password, PASSWORD_DEFAULT);
+        $user->save();
+        echo "OK admin {$user->email} (id {$user->id}) password reseteada" . PHP_EOL;
     }
 }
 ```
@@ -2766,6 +2935,16 @@ Se incluye en cualquier formulario con `{% include 'partials/_csrf.twig' %}`, si
 
 declare(strict_types=1);
 
+// Los warnings/notices no se imprimen en HTML: filtran rutas absolutas y pueden
+// romper la sesión o el stream de una respuesta. Van al log, no al navegador.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
+// El SAPI agrega X-Powered-By aunque la respuesta sea PSR-7. Quitarlo no cambia
+// el comportamiento y reduce la huella del stack.
+header_remove('X-Powered-By');
+
 $app = require __DIR__ . '/../bootstrap/app.php';
 $app->run();
 ```
@@ -2858,32 +3037,17 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
-        /* Tinta de los iconos de estado: el color semántico de daisyUI es un
-           FONDO, no una tinta. Como color de icono sobre base-100 da 1.96:1 y
-           2.87:1, bajo el 3:1 que pide un objeto gráfico. Estos tres valores
-           están medidos contra los fondos reales de cada tema. */
+        {% include 'partials/layout/ink-tokens.twig' %}
         :root {
-            --ink-success: oklch(53% .14 163.223);  /* 4.77:1 sobre base-100 claro */
-            --ink-error:   oklch(55% .19 13.428);   /* 5.37:1 */
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
-            --ink-info:    oklch(52% .12 233.807);  /* 5.31:1 */
         }
-        /* En oscuro los semánticos brillantes ya pasan (8.06 y 5.52:1) y se
-           reusan tal cual. No es cosmético: los mismos ink claros sobre el
-           fondo oscuro dan 3.59 y 2.95:1 y fallarían. */
         [data-theme="dark"] {
-            --ink-success: var(--color-success);
-            --ink-error:   var(--color-error);
             --ink-pending: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-            --ink-info:    var(--color-info);
             /* Telón del modal: más denso que el 40 % de daisyUI, que sobre una
                página ya oscura casi no se distingue. */
             --modal-scrim: oklch(0% 0 0/.6);
         }
-        .icon-success { color: var(--ink-success); }
-        .icon-error   { color: var(--ink-error); }
         .icon-pending { color: var(--ink-pending); }
-        .icon-info    { color: var(--ink-info); }
 
         /* Paginación: mismo contrato visual que el footer de Tabulator. */
         .pagination-footer {
@@ -3251,146 +3415,12 @@ function toastStack() {
     };
 }
 
-/**
- * Foco después de un swap (S4). Toda acción de fila reemplaza #tareas-panel
- * entero (`hx-swap="outerHTML"`), así que el nodo que tenía el foco se va con
- * el swap y `document.activeElement` cae en <body>: la Tab siguiente arranca
- * en el sidebar y después de cada toggle, edición o borrado hay que recorrer
- * la página completa otra vez.
- *
- * Se mantiene el swap del panel (decisión D2(a)) y el foco se devuelve a mano:
- * 1. El control que dispara lleva `data-focus-key` (ver tasks/_list.twig) y lo
- *    publica en `pendingKey` durante htmx:beforeRequest, ANTES del request.
- * 2. En htmx:afterSettle se busca esa misma clave en el DOM recién
- *    intercambiado y se enfoca: es el mismo control, en la fila nueva.
- * 3. Si la clave no existe en el DOM nuevo (la fila se borró, o guardar y
- *    cancelar salieron del modo edición y esos botones ya no están), el foco
- *    va al panel, que tiene `tabindex="-1"`. Sigue en la zona de la fila, no
- *    en el shell, que es lo que pide S4.
- * 4. Sin `data-focus-key` no se toca el foco: paginar o cambiar el tamaño de
- *    página es navegación, y llevarse el foco ahí sería robarlo.
- */
-function restoreFocusAfterSwap() {
-    // Una sola clave viva: la intención dura lo que dura el request.
-    let pendingKey = null;
 
-    document.body.addEventListener('htmx:beforeRequest', (event) => {
-        const elt = event.detail && event.detail.elt;
-        // Se ASIGNA siempre, no se conserva el valor anterior cuando no hay
-        // clave: un request que no llega a hacer swap (un 400 de CSRF, un 5xx)
-        // dejaría su clave viva y el request siguiente la gastaría en el lugar
-        // equivocado. `dataset` no existe si htmx dispara sobre un target que
-        // no es un elemento (puede pasar), así que se lee con guarda.
-        pendingKey = (elt && elt.dataset && elt.dataset.focusKey) || null;
-    });
+        </script>
 
-    document.body.addEventListener('htmx:afterSettle', () => {
-        if (pendingKey === null) {
-            return;
-        }
-        const key = pendingKey;
-        pendingKey = null;
-
-        const found = document.querySelector(selectorForKey(key));
-        const focusTarget = found || document.getElementById('tareas-panel');
-        if (!focusTarget) {
-            return;
-        }
-
-        // `focus()` sin opciones a propósito: `preventScroll: true` dejaría el
-        // foco en un nodo fuera de pantalla justo cuando el swap movió el
-        // layout, y el siguiente Tab saldría de un lugar que el usuario no ve.
-        // El default sólo scrollea si el destino no está a la vista.
-        focusTarget.focus();
-    });
-
-    /**
-     * La clave la arma Twig con el id de la tarea (un entero), pero el selector
-     * no depende de eso: `CSS.escape` neutraliza comillas o backslashes si
-     * alguna vez la clave deja de ser numérica, y el fallback cubre los
-     * navegadores que no exponen `CSS.escape`.
-     */
-    function selectorForKey(key) {
-        const escaped = (window.CSS && typeof window.CSS.escape === 'function')
-            ? window.CSS.escape(key)
-            : String(key).replace(/["\\]/g, '\\$&');
-        return '[data-focus-key="' + escaped + '"]';
-    }
-}
-
-// Los listeners van en document.body y no en el panel: el panel se reemplaza en
-// cada swap, el body no. Se enganchan aquí, al final del body, cuando ya existe.
-restoreFocusAfterSwap();
-
-/**
- * Un 422 no es un fallo de transporte: es la respuesta con el panel o el
- * formulario re-renderizado y el mensaje de validación adentro. htmx 2.0.11 no
- * swapea NINGÚN 4xx por default (`responseHandling`:
- * `[{code:"204",swap:false},{code:"[23]..",swap:true},{code:"[45]..",swap:false,error:true}]`),
- * así que sin esta excepción el mensaje por campo no llega nunca a la
- * pantalla: el panel queda como estaba y lo único visible es el toast
- * genérico de notifyHtmxFailures().
- *
- * `isError = false` es la otra mitad: es el flag del que htmx deriva
- * `failed`/`successful` y el que decide si emite `htmx:responseError`. Con el
- * swap habilitado y el flag encendido, el toast genérico denunciaría un fallo
- * que el formulario ya explica campo por campo.
- */
-function allowValidationSwap() {
-    document.body.addEventListener('htmx:beforeSwap', (event) => {
-        const detail = event.detail;
-        const xhr = detail && detail.xhr;
-
-        if (!xhr || xhr.status !== 422) {
-            return;
-        }
-
-        detail.shouldSwap = true;
-        detail.isError = false;
-    });
-}
-
-/**
- * Un fallo de red o del servidor no puede quedar en silencio (S8). htmx NO
- * intercambia respuestas de error: el panel queda como estaba y, sin aviso, el
- * usuario ve una acción que "no hizo nada" y la repite.
- *
- * - `htmx:responseError`: el servidor contestó 4xx/5xx.
- * - `htmx:sendError`: no hubo respuesta (sin red, DNS, servidor caído).
- *
- * Se usa el MISMO evento `toasts` que ya emite Controller::render() para las
- * acciones htmx exitosas: un solo componente de avisos, y este script no toca
- * el estado de Alpine (`.toast-host` es su dueño, no un consumidor más).
- */
-function notifyHtmxFailures() {
-    const notify = (message) => window.dispatchEvent(new CustomEvent('toasts', {
-        detail: { items: [{ message, type: 'error' }] }
-    }));
-
-    document.body.addEventListener('htmx:responseError', (event) => {
-        const status = event.detail && event.detail.xhr ? event.detail.xhr.status : 0;
-
-        // 400, 419 y 422 ya tienen su aviso: el failureHandler de slim/csrf
-        // responde 400 con `HX-Trigger` y ese evento `csrf` lo muestra este
-        // mismo stack; el 422 swapea (ver allowValidationSwap) y el mensaje
-        // viaja en el formulario o en `HX-Trigger-After-Swap`. Avisar también
-        // aquí daría DOS toasts del mismo fallo, y el de CSRF dice más
-        // ("Tu sesión expiró") porque sabe por qué falló.
-        if (status === 400 || status === 419 || status === 422) {
-            return;
-        }
-
-        notify('No se pudo completar la acción. Intenta de nuevo.');
-    });
-
-    document.body.addEventListener('htmx:sendError', () => {
-        notify('No hay conexión con el servidor.');
-    });
-}
-
-allowValidationSwap();
-notifyHtmxFailures();
-</script>
+        <script src="{{ url('/assets/app.js') }}"
+                integrity="sha384-ZT1KislqpR4P4jy2WBmcB20Iix4g6oCshAKxzPQVNBWFBw461YCYzo8YZBWkQWql"
+                crossorigin="anonymous" defer></script>
 
 {% block scripts %}{% endblock %}
 </body>
@@ -4403,7 +4433,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         aria_label: 'Eliminar',
                         title: 'Eliminar',
                         data_focus_key: 'delete-' ~ task.id,
-                        onclick: "document.getElementById('task-delete-" ~ task.id ~ "').showModal()"
+                        data_modal_open: 'task-delete-' ~ task.id
                     } only %}
                 </div>
 
@@ -4426,7 +4456,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             icon: 'x',
                             type: 'button',
                             extra_class: 'gap-1.5',
-                            onclick: "document.getElementById('task-delete-" ~ task.id ~ "').close()"
+                            data_modal_close: true
                         } only %}
                         {% include 'components/ui/button.twig' with {
                             label: 'Borrar',
@@ -4477,6 +4507,16 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 <?php
 
 declare(strict_types=1);
+
+// Los warnings/notices no se imprimen en HTML: filtran rutas absolutas y pueden
+// romper la sesión o el stream de una respuesta. Van al log, no al navegador.
+ini_set('display_errors', '0');
+ini_set('log_errors', '1');
+error_reporting(E_ALL);
+
+// El SAPI agrega X-Powered-By aunque la respuesta sea PSR-7. Quitarlo no cambia
+// el comportamiento y reduce la huella del stack.
+header_remove('X-Powered-By');
 
 $app = require __DIR__ . '/../bootstrap/app.php';
 $app->run();
@@ -4978,7 +5018,7 @@ Lo que sí funciona, en este orden:
 
 1. **Resolver afuera y traer el resultado.** Resuelve el `composer.lock` en una máquina de 64 bits y pasa `composer.lock` + `vendor/`. El teléfono nunca corre el solver.
 2. **`composer install:termux`, nunca `composer update`.** Con el lock commiteado, `install` no resuelve: descarga. Es la razón por la que el `.gitignore` excluye `vendor/` pero **no** `composer.lock`.
-3. **Si necesitas resolver en el teléfono, pon un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas (el script `install:termux` ya trae las banderas que bajan el pico: `--prefer-dist --no-dev --no-scripts`).
+3. **Si necesitas resolver en el teléfono, pon un límite realista**, no `-1`. Un límite que Composer puede reportar es infinitamente más útil que uno que el kernel te aplica a escondidas (el script `install:termux` ya trae las banderas que bajan el pico: `--prefer-dist --no-scripts`).
 
 ### 18.2 OPcache: la mayor ganancia disponible
 
@@ -5077,7 +5117,8 @@ Lo que sí hace la lista del capítulo 7.2 es bloquear lo que importa a coste ce
          colors="true"
          cacheDirectory=".phpunit.cache"
          failOnWarning="true"
-         failOnRisky="true">
+         failOnRisky="true"
+         failOnDeprecation="true">
     <testsuites>
         <testsuite name="app">
             <directory>tests</directory>
@@ -5119,14 +5160,11 @@ use Symfony\Component\Console\Output\NullOutput;
 // lo define Phinx (las mismas migraciones que usa la app): si una migracion
 // se rompe, pierde una FK o diverge del modelo, la suite lo ve. Un :memory:
 // propio por conexion obligaba a duplicar el esquema a mano, justo lo que
-// este cambio elimina. El archivo se recrea en cada corrida.
-$db = dirname(__DIR__) . '/storage/cache/tests/app.sqlite';
-@mkdir(dirname($db), 0777, true);
-foreach ([$db, $db . '-wal', $db . '-shm'] as $file) {
-    if (is_file($file)) {
-        unlink($file);
-    }
-}
+// este cambio elimina. El archivo es unico por proceso: dos `composer verify`
+// en paralelo ya no comparten phinxlog ni se pisan las tablas.
+$db = dirname(__DIR__) . '/storage/cache/tests/app-'
+    . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sqlite';
+@mkdir(dirname($db), 0755, true);
 
 // bootstrap/app.php lee $_ENV (Dotenv inmutable no lo pisa).
 putenv('DB_DATABASE=' . $db);
@@ -5197,6 +5235,9 @@ final class AppFactory
             $response->getBody()->write('protected');
             return $response;
         })->add(RequireAuthMiddleware::class);
+        $app->get('/_test/boom', function (): void {
+            throw new RuntimeException('boom');
+        });
 
         return self::$app = $app;
     }
@@ -5405,26 +5446,20 @@ final class FlashTest extends TestCase
         $_SESSION = [];
     }
 
-    public function test_get_consume_el_valor(): void
+    public function test_devuelve_el_mensaje_y_lo_consume(): void
     {
-        Flash::set('error', 'Datos inválidos.');
+        Flash::set('error', 'algo salio mal');
 
-        self::assertSame('Datos inválidos.', Flash::get('error'));
-        self::assertNull(Flash::get('error'), 'el segundo get tiene que devolver null');
+        self::assertSame('algo salio mal', Flash::get('error'));
+        self::assertNull(Flash::get('error'));
     }
 
-    public function test_get_de_una_clave_inexistente_devuelve_null(): void
+    public function test_un_valor_no_string_no_rompe_el_render(): void
     {
-        self::assertNull(Flash::get('nunca-setada'));
-    }
+        $_SESSION['flash']['error'] = ['no', 'es', 'string'];
 
-    public function test_claves_distintas_no_se_pisan(): void
-    {
-        Flash::set('error', 'a');
-        Flash::set('info', 'b');
-
-        self::assertSame('a', Flash::get('error'));
-        self::assertSame('b', Flash::get('info'));
+        self::assertNull(Flash::get('error'));
+        self::assertArrayNotHasKey('error', $_SESSION['flash']);
     }
 }
 ```
@@ -5572,6 +5607,7 @@ declare(strict_types=1);
 
 namespace Tests\Http;
 
+use Tests\Support\AppFactory;
 use Tests\Support\HttpTestCase;
 
 final class ErrorHandlingTest extends HttpTestCase
@@ -5606,6 +5642,51 @@ final class ErrorHandlingTest extends HttpTestCase
      * Este test corre con APP_DEBUG=true (lo que hay en .env), o sea que
      * Whoops está construido: verifica que la rama correcta sea la elegida.
      */
+    public function test_un_404_htmx_devuelve_un_partial_sin_shell(): void
+    {
+        $response = self::app()->handle(
+            self::request('GET', '/no-existe', [], ['HX-Request' => 'true'])
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+        self::assertStringContainsString('alert alert-error', $html);
+        self::assertStringNotContainsString('<!DOCTYPE html>', $html);
+        self::assertStringNotContainsString('<html', $html);
+    }
+
+    public function test_metodo_no_permitido_devuelve_405(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(self::request('POST', '/', $token));
+
+        self::assertSame(405, $response->getStatusCode());
+    }
+
+    public function test_un_500_en_produccion_no_filtra_la_excepcion(): void
+    {
+        $previous = $_ENV['APP_DEBUG'] ?? null;
+        $_ENV['APP_DEBUG'] = 'false';
+        AppFactory::reset();
+
+        try {
+            $response = self::app()->handle(self::request('GET', '/_test/boom'));
+        } finally {
+            if ($previous === null) {
+                unset($_ENV['APP_DEBUG']);
+            } else {
+                $_ENV['APP_DEBUG'] = $previous;
+            }
+            AppFactory::reset();
+        }
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringNotContainsString('boom', (string) $response->getBody());
+        self::assertStringContainsString('Algo salió mal de nuestro lado.', (string) $response->getBody());
+    }
+
     public function test_un_404_no_gasta_la_pagina_de_whoops(): void
     {
         $response = self::app()->handle(self::request('GET', '/no-existe'));
@@ -6263,6 +6344,36 @@ final class AuthTest extends HttpTestCase
      * igual, pero el status le dice al cliente (y al log del servidor) que la
      * petición no se completó.
      */
+    public function test_login_rechaza_un_email_demasiado_largo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => str_repeat('a', 161) . '@ejemplo.com',
+                'password' => 'secreto123',
+            ] + $token)
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    public function test_login_rechaza_un_password_demasiado_largo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => 'yo@ejemplo.com',
+                'password' => str_repeat('x', 73),
+            ] + $token)
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
     public function test_login_con_datos_invalidos_muestra_el_error_por_campo(): void
     {
         $token = self::token('/login');
@@ -6349,6 +6460,25 @@ final class AuthTest extends HttpTestCase
         self::assertSame($user->id, $_SESSION['user_id'] ?? null);
     }
 
+    public function test_login_rota_el_token_csrf(): void
+    {
+        $this->createUser();
+        $old = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => 'yo@ejemplo.com',
+                'password' => 'secreto123',
+            ] + $old)
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame([], $_SESSION['csrf'] ?? []);
+
+        $new = self::token('/');
+        self::assertNotSame($old['csrf_value'], $new['csrf_value']);
+    }
+
     public function test_login_con_remember_emite_cookie_y_guarda_solo_el_hash(): void
     {
         $this->createUser();
@@ -6388,13 +6518,43 @@ final class AuthTest extends HttpTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame($user->id, $_SESSION['user_id'] ?? null, 'La cookie no reanudó la sesión.');
 
-        // Rotación: el selector presentado murió y nació otro.
+        // Rotación: el selector presentado queda como tombstone y nace otro.
         [$oldSelector] = explode(':', $pair);
-        self::assertNull(RememberToken::query()->where('selector', $oldSelector)->first());
-        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
+        $old = RememberToken::query()->where('selector', $oldSelector)->first();
+        self::assertNotNull($old);
+        self::assertNotNull($old->rotated_at);
+        self::assertSame(1, RememberToken::query()
+            ->where('user_id', $user->id)
+            ->whereNull('rotated_at')
+            ->count());
 
         $newPair = $this->rememberPair($response);
         self::assertNotSame($pair, $newPair);
+    }
+
+    public function test_remember_reutilizar_un_token_rotado_quema_la_familia(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        // Primer uso: rota el token.
+        $_SESSION = [];
+        $first = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+        self::assertSame(200, $first->getStatusCode());
+        $newPair = $this->rememberPair($first);
+        self::assertNotSame($pair, $newPair);
+
+        // Replay del token viejo: no autentica y quema toda la familia.
+        $_SESSION = [];
+        $replay = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        self::assertSame(303, $replay->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertSame(0, RememberToken::query()->where('user_id', $user->id)->count());
     }
 
     /**
@@ -6443,7 +6603,7 @@ final class AuthTest extends HttpTestCase
      * inyectar una falla justo entre el delete y el insert, y no hay hook
      * público para abortar ahí sin tocar el código de producción. Lo que sí se
      * puede observar desde afuera es que la transacción se abre y se cierra, y
-     * que la rotación igual terminó (queda una sola fila, la nueva).
+     * que la rotación igual terminó (queda una sola fila activa, la nueva).
      */
     public function test_remember_rota_y_no_deja_la_conexion_en_transaccion(): void
     {
@@ -6457,7 +6617,10 @@ final class AuthTest extends HttpTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(0, Capsule::connection()->transactionLevel(), 'quedó una transacción abierta.');
-        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
+        self::assertSame(1, RememberToken::query()
+            ->where('user_id', $user->id)
+            ->whereNull('rotated_at')
+            ->count());
     }
 
     public function test_remember_adulterado_no_entra_y_quema_todo(): void

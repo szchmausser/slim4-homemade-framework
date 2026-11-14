@@ -43,7 +43,7 @@
                 variant: 'ghost',
                 type: 'button',
                 icon: 'x',
-                onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+                data_modal_close: true
             } only %}
         {% else %}
             {% include 'components/ui/button.twig' with {

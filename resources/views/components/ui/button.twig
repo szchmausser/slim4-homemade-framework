@@ -1,6 +1,6 @@
 {# Botón/enlace estándar sobre daisyUI.
    Props: label, variant (primary|ghost|outline|error), size (xs|sm|md|lg),
-   href, type, onclick, icon, icon_class, aria_label, title, name, value,
+   href, type, data_modal_open, data_modal_close, icon, icon_class, aria_label, title, name, value,
    disabled, target, extra_class. También acepta atributos HTMX opcionales
    (hx_get, hx_post, hx_put, hx_delete, hx_target, hx_swap, hx_headers,
    hx_include) y data_focus_key. El texto se escapa; los iconos salen del
@@ -38,10 +38,11 @@
             class="{{ classes }}"
             {% if not is_link and name is defined %}name="{{ name }}"{% endif %}
             {% if not is_link and value is defined %}value="{{ value }}"{% endif %}
+            {% if data_modal_open is defined %}data-modal-open="{{ data_modal_open }}"{% endif %}
+            {% if data_modal_close is defined and data_modal_close %}data-modal-close{% endif %}
             {% if title is defined %}title="{{ title }}"{% endif %}
             {% if aria_label is defined %}aria-label="{{ aria_label }}"{% endif %}
             {% if is_link and target is defined %}target="{{ target }}"{% endif %}
-            {% if onclick is defined %}onclick="{{ onclick }}"{% endif %}
             {% if data_focus_key is defined %}data-focus-key="{{ data_focus_key }}"{% endif %}
             {% if hx_get is defined %}hx-get="{{ hx_get }}"{% endif %}
             {% if hx_post is defined %}hx-post="{{ hx_post }}"{% endif %}

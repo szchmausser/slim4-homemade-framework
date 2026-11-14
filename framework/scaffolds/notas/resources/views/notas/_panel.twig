@@ -27,7 +27,7 @@
                         size: 'sm',
                         icon: 'trash',
                         aria_label: 'Borrar ' ~ item.titulo,
-                        onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').showModal()"
+                        data_modal_open: 'nota-delete-' ~ item.id
                     } only %}
                 </div>
             </li>
@@ -47,7 +47,7 @@
                                 variant: 'ghost',
                                 type: 'button',
                                 icon: 'x',
-                                onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').close()"
+                                data_modal_close: true
                             } only %}
                             {% include 'components/ui/button.twig' with {
                                 label: 'Borrar',

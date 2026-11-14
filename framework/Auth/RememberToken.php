@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $user_id
  * @property string $hashed_validator
  * @property int $expires_at
+ * @property int|null $rotated_at
  * @method static RememberToken create(array<string, mixed> $attributes = [])
  */
 class RememberToken extends Model
@@ -25,5 +26,5 @@ class RememberToken extends Model
 
     protected $keyType = 'string';
 
-    protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at'];
+    protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at', 'rotated_at'];
 }

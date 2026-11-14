@@ -8,10 +8,11 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
+use Framework\Support\Env;
 
 /**
  * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser CDN) una CSP estricta no es alcanzable
+ * (HTMX + Alpine + Tailwind browser runtime) una CSP estricta no es alcanzable
  * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
  * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
  */
@@ -35,12 +36,16 @@ class SecurityHeadersMiddleware implements MiddlewareInterface
             // Los assets son locales con SRI, pero la app puede enlazar a
             // sitios externos. Sin esto, cada salida manda tu URL completa
             // (con paths y query string) en el header Referer.
-            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+            ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+
+            // La app no usa cámara, micrófono ni geolocalización. Negarlos por
+            // defecto evita que una dependencia o un iframe los pida.
+            ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
         // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
         // flag que las cookies Secure: activarlo en dev local deja al navegador
         // recordando un HTTPS que el server no habla.
-        if (filter_var($_ENV['SESSION_SECURE'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        if (Env::bool('SESSION_SECURE')) {
             $response = $response->withHeader(
                 'Strict-Transport-Security',
                 'max-age=31536000'

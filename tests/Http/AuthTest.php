@@ -55,6 +55,36 @@ final class AuthTest extends HttpTestCase
      * igual, pero el status le dice al cliente (y al log del servidor) que la
      * petición no se completó.
      */
+    public function test_login_rechaza_un_email_demasiado_largo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => str_repeat('a', 161) . '@ejemplo.com',
+                'password' => 'secreto123',
+            ] + $token)
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
+    public function test_login_rechaza_un_password_demasiado_largo(): void
+    {
+        $token = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => 'yo@ejemplo.com',
+                'password' => str_repeat('x', 73),
+            ] + $token)
+        );
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+    }
+
     public function test_login_con_datos_invalidos_muestra_el_error_por_campo(): void
     {
         $token = self::token('/login');
@@ -141,6 +171,25 @@ final class AuthTest extends HttpTestCase
         self::assertSame($user->id, $_SESSION['user_id'] ?? null);
     }
 
+    public function test_login_rota_el_token_csrf(): void
+    {
+        $this->createUser();
+        $old = self::token('/login');
+
+        $response = self::app()->handle(
+            self::request('POST', '/login', [
+                'email' => 'yo@ejemplo.com',
+                'password' => 'secreto123',
+            ] + $old)
+        );
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame([], $_SESSION['csrf'] ?? []);
+
+        $new = self::token('/');
+        self::assertNotSame($old['csrf_value'], $new['csrf_value']);
+    }
+
     public function test_login_con_remember_emite_cookie_y_guarda_solo_el_hash(): void
     {
         $this->createUser();
@@ -180,13 +229,43 @@ final class AuthTest extends HttpTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertSame($user->id, $_SESSION['user_id'] ?? null, 'La cookie no reanudó la sesión.');
 
-        // Rotación: el selector presentado murió y nació otro.
+        // Rotación: el selector presentado queda como tombstone y nace otro.
         [$oldSelector] = explode(':', $pair);
-        self::assertNull(RememberToken::query()->where('selector', $oldSelector)->first());
-        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
+        $old = RememberToken::query()->where('selector', $oldSelector)->first();
+        self::assertNotNull($old);
+        self::assertNotNull($old->rotated_at);
+        self::assertSame(1, RememberToken::query()
+            ->where('user_id', $user->id)
+            ->whereNull('rotated_at')
+            ->count());
 
         $newPair = $this->rememberPair($response);
         self::assertNotSame($pair, $newPair);
+    }
+
+    public function test_remember_reutilizar_un_token_rotado_quema_la_familia(): void
+    {
+        $user = $this->createUser();
+        $pair = $this->loginWithRemember($user);
+
+        // Primer uso: rota el token.
+        $_SESSION = [];
+        $first = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+        self::assertSame(200, $first->getStatusCode());
+        $newPair = $this->rememberPair($first);
+        self::assertNotSame($pair, $newPair);
+
+        // Replay del token viejo: no autentica y quema toda la familia.
+        $_SESSION = [];
+        $replay = self::app()->handle(
+            self::request('GET', '/_test/protected', [], ['Cookie' => 'remember=' . $pair])
+        );
+
+        self::assertSame(303, $replay->getStatusCode());
+        self::assertArrayNotHasKey('user_id', $_SESSION);
+        self::assertSame(0, RememberToken::query()->where('user_id', $user->id)->count());
     }
 
     /**
@@ -235,7 +314,7 @@ final class AuthTest extends HttpTestCase
      * inyectar una falla justo entre el delete y el insert, y no hay hook
      * público para abortar ahí sin tocar el código de producción. Lo que sí se
      * puede observar desde afuera es que la transacción se abre y se cierra, y
-     * que la rotación igual terminó (queda una sola fila, la nueva).
+     * que la rotación igual terminó (queda una sola fila activa, la nueva).
      */
     public function test_remember_rota_y_no_deja_la_conexion_en_transaccion(): void
     {
@@ -249,7 +328,10 @@ final class AuthTest extends HttpTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(0, Capsule::connection()->transactionLevel(), 'quedó una transacción abierta.');
-        self::assertSame(1, RememberToken::query()->where('user_id', $user->id)->count());
+        self::assertSame(1, RememberToken::query()
+            ->where('user_id', $user->id)
+            ->whereNull('rotated_at')
+            ->count());
     }
 
     public function test_remember_adulterado_no_entra_y_quema_todo(): void

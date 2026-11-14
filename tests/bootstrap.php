@@ -13,14 +13,11 @@ use Symfony\Component\Console\Output\NullOutput;
 // lo define Phinx (las mismas migraciones que usa la app): si una migracion
 // se rompe, pierde una FK o diverge del modelo, la suite lo ve. Un :memory:
 // propio por conexion obligaba a duplicar el esquema a mano, justo lo que
-// este cambio elimina. El archivo se recrea en cada corrida.
-$db = dirname(__DIR__) . '/storage/cache/tests/app.sqlite';
-@mkdir(dirname($db), 0777, true);
-foreach ([$db, $db . '-wal', $db . '-shm'] as $file) {
-    if (is_file($file)) {
-        unlink($file);
-    }
-}
+// este cambio elimina. El archivo es unico por proceso: dos `composer verify`
+// en paralelo ya no comparten phinxlog ni se pisan las tablas.
+$db = dirname(__DIR__) . '/storage/cache/tests/app-'
+    . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sqlite';
+@mkdir(dirname($db), 0755, true);
 
 // bootstrap/app.php lee $_ENV (Dotenv inmutable no lo pisa).
 putenv('DB_DATABASE=' . $db);

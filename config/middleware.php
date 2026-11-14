@@ -11,10 +11,12 @@ use Slim\Csrf\Guard;
 use Slim\Exception\HttpException;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Framework\Support\Env;
 
 return function (App $app) {
     $container = $app->getContainer();
-    $debug = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    $debug = Env::bool('APP_DEBUG');
+    $isLocal = Env::get('APP_ENV', 'local') === 'local';
 
     // 6to (el más cercano al controlador): valida el token CSRF
     $app->add(Guard::class);
@@ -48,7 +50,7 @@ return function (App $app) {
     // respuesta es genérica: sin registro, un error es indistinguible de que
     // la app simplemente no funcionara.
     $whoops = null;
-    if ($debug && class_exists(\Whoops\Run::class)) {
+    if ($debug && $isLocal && class_exists(\Whoops\Run::class)) {
         $whoops = new \Whoops\Run();
 
         // Dos líneas que NO son opcionales, y que sin tests en web no vas a
@@ -92,9 +94,13 @@ return function (App $app) {
             } else {
                 $body = null;
                 try {
+                    $template = $request->hasHeader('HX-Request')
+                        ? 'errors/_htmx.twig'
+                        : 'errors/error.twig';
+
                     $rendered = $container->get(Twig::class)->render(
                         $app->getResponseFactory()->createResponse($status),
-                        'errors/error.twig',
+                        $template,
                         [
                             'code'    => $status,
                             'message' => $status >= 500

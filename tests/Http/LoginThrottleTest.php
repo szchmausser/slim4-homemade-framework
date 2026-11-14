@@ -143,6 +143,25 @@ final class LoginThrottleTest extends HttpTestCase
         self::assertSame($otro->id, $_SESSION['user_id'] ?? null);
     }
 
+    public function test_el_limite_normaliza_el_email(): void
+    {
+        for ($i = 0; $i < Throttle::MAX_ATTEMPTS; $i++) {
+            Throttle::hit('Yo@Ejemplo.com', self::IP);
+        }
+
+        self::assertTrue(Throttle::tooMany(self::EMAIL, self::IP));
+    }
+
+    public function test_el_limite_por_ip_frena_muchas_cuentas(): void
+    {
+        for ($i = 0; $i < Throttle::MAX_ATTEMPTS_PER_IP; $i++) {
+            Throttle::hit('user' . $i . '@ejemplo.com', self::IP);
+        }
+
+        self::assertTrue(Throttle::tooManyByIp(self::IP));
+        self::assertFalse(Throttle::tooManyByIp('203.0.113.8'));
+    }
+
     private function createUser(string $email = self::EMAIL, string $password = self::PASSWORD): User
     {
         return User::create([

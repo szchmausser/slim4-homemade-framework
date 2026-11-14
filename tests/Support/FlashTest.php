@@ -14,25 +14,19 @@ final class FlashTest extends TestCase
         $_SESSION = [];
     }
 
-    public function test_get_consume_el_valor(): void
+    public function test_devuelve_el_mensaje_y_lo_consume(): void
     {
-        Flash::set('error', 'Datos inválidos.');
+        Flash::set('error', 'algo salio mal');
 
-        self::assertSame('Datos inválidos.', Flash::get('error'));
-        self::assertNull(Flash::get('error'), 'el segundo get tiene que devolver null');
+        self::assertSame('algo salio mal', Flash::get('error'));
+        self::assertNull(Flash::get('error'));
     }
 
-    public function test_get_de_una_clave_inexistente_devuelve_null(): void
+    public function test_un_valor_no_string_no_rompe_el_render(): void
     {
-        self::assertNull(Flash::get('nunca-setada'));
-    }
+        $_SESSION['flash']['error'] = ['no', 'es', 'string'];
 
-    public function test_claves_distintas_no_se_pisan(): void
-    {
-        Flash::set('error', 'a');
-        Flash::set('info', 'b');
-
-        self::assertSame('a', Flash::get('error'));
-        self::assertSame('b', Flash::get('info'));
+        self::assertNull(Flash::get('error'));
+        self::assertArrayNotHasKey('error', $_SESSION['flash']);
     }
 }

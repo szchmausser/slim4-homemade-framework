@@ -28,21 +28,40 @@ final class AdminSeeder extends AbstractSeed
 
         $validator = Validator::make(
             ['email' => $email, 'password' => $password],
-            ['email' => 'required|email', 'password' => 'required|min:8']
+            ['email' => 'required|email|max:160', 'password' => 'required|min:8|max:72']
         );
 
-        if ($email === null || $validator->fails()) {
+        if ($email === null || $validator->fails() || strlen((string) $password) > 72) {
             throw new \RuntimeException(
-                'ADMIN_EMAIL y ADMIN_PASSWORD (8+ caracteres) son obligatorios: ' .
+                'ADMIN_EMAIL y ADMIN_PASSWORD (8+ caracteres, maximo 72 bytes) son obligatorios: ' .
                 'ADMIN_EMAIL=x ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s AdminSeeder'
             );
         }
 
-        $user = User::updateOrCreate(
-            ['email' => $email],
-            ['password_hash' => password_hash($password, PASSWORD_DEFAULT)]
+        $reset = filter_var(
+            $_ENV['ADMIN_RESET_PASSWORD'] ?? getenv('ADMIN_RESET_PASSWORD') ?: false,
+            FILTER_VALIDATE_BOOLEAN
         );
 
-        echo "OK admin {$user->email} (id {$user->id})" . PHP_EOL;
+        $user = User::query()->where('email', $email)->first();
+
+        if ($user === null) {
+            $user = User::create([
+                'email' => $email,
+                'password_hash' => password_hash((string) $password, PASSWORD_DEFAULT),
+            ]);
+            echo "OK admin {$user->email} (id {$user->id}) creado" . PHP_EOL;
+            return;
+        }
+
+        if (!$reset) {
+            echo "Admin {$user->email} ya existe; no se modifico. " .
+                'Usa ADMIN_RESET_PASSWORD=true para forzar el cambio.' . PHP_EOL;
+            return;
+        }
+
+        $user->password_hash = password_hash((string) $password, PASSWORD_DEFAULT);
+        $user->save();
+        echo "OK admin {$user->email} (id {$user->id}) password reseteada" . PHP_EOL;
     }
 }

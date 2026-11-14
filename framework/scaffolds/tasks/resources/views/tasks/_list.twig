@@ -225,7 +225,7 @@
                         aria_label: 'Eliminar',
                         title: 'Eliminar',
                         data_focus_key: 'delete-' ~ task.id,
-                        onclick: "document.getElementById('task-delete-" ~ task.id ~ "').showModal()"
+                        data_modal_open: 'task-delete-' ~ task.id
                     } only %}
                 </div>
 
@@ -248,7 +248,7 @@
                             icon: 'x',
                             type: 'button',
                             extra_class: 'gap-1.5',
-                            onclick: "document.getElementById('task-delete-" ~ task.id ~ "').close()"
+                            data_modal_close: true
                         } only %}
                         {% include 'components/ui/button.twig' with {
                             label: 'Borrar',

@@ -33,7 +33,7 @@
             variant: 'ghost',
             type: 'button',
             icon: 'x',
-            onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+            data_modal_close: true
         } only %}
         {% include 'components/ui/button.twig' with {
             label: submit_label|default('Guardar'),

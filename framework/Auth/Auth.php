@@ -36,7 +36,10 @@ final class Auth
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_regenerate_id(true);
         }
+        $now = time();
         $_SESSION['user_id'] = $id;
+        $_SESSION['created_at'] = $now;
+        $_SESSION['last_activity'] = $now;
     }
 
     /**

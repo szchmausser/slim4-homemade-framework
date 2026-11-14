@@ -26,4 +26,20 @@ final class CsrfTokens
             'csrf_value'     => $request->getAttribute($valueKey),
         ];
     }
+
+    /**
+     * Invalida el token emitido antes del login. El ID de sesión ya se
+     * regenera en Auth::login(); esto cierra la ventana de un token CSRF
+     * capturado antes de autenticarse (equipo compartido, panel público).
+     * El próximo GET genera un par nuevo.
+     */
+    public static function rotate(Guard $guard): void
+    {
+        $nameKey = $guard->getTokenNameKey();
+        $prefix = str_ends_with($nameKey, '_name') ? substr($nameKey, 0, -5) : 'csrf';
+
+        if (isset($_SESSION[$prefix]) && is_array($_SESSION[$prefix])) {
+            $_SESSION[$prefix] = [];
+        }
+    }
 }

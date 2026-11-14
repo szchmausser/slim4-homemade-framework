@@ -9,6 +9,7 @@ use Framework\Auth\RememberMe;
 use Framework\Auth\Throttle;
 use Framework\Auth\UserProvider;
 use Framework\Http\Controller;
+use Framework\Http\CsrfTokens;
 use Framework\Http\Flash;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
@@ -46,8 +47,8 @@ class AuthController extends Controller
         $email = trim((string) ($data['email'] ?? ''));
 
         $validator = Validator::make($data, [
-            'email'    => 'required|email',
-            'password' => 'required',
+            'email'    => 'required|email|max:160',
+            'password' => 'required|max:72',
         ]);
 
         if ($validator->fails()) {
@@ -72,7 +73,7 @@ class AuthController extends Controller
 
         // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
         // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
-        if (Throttle::tooMany($email, $ip)) {
+        if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
             Flash::set('error', self::INVALID_CREDENTIALS);
 
             return $this->render($request, $response, 'auth/login.twig', [
@@ -110,6 +111,7 @@ class AuthController extends Controller
         }
 
         Auth::login((int) $user->getKey());
+        CsrfTokens::rotate($this->guard);
 
         $response = $response->withStatus(303)->withHeader('Location', Url::path('/'));
 

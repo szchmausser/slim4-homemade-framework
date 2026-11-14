@@ -21,7 +21,14 @@ final class Throttle
 {
     public const MAX_ATTEMPTS = 5;
 
+    public const MAX_ATTEMPTS_PER_IP = 20;
+
     public const WINDOW = 900; // 15 minutos, en segundos
+
+    private static function normalizeEmail(string $email): string
+    {
+        return mb_strtolower(trim($email));
+    }
 
     public static function hit(string $email, string $ip): void
     {
@@ -30,7 +37,7 @@ final class Throttle
         self::prune();
 
         Capsule::table('login_attempts')->insert([
-            'email'        => trim($email),
+            'email'        => self::normalizeEmail($email),
             'ip'           => $ip,
             'attempted_at' => time(),
         ]);
@@ -39,7 +46,7 @@ final class Throttle
     public static function tooMany(string $email, string $ip): bool
     {
         $count = Capsule::table('login_attempts')
-            ->where('email', trim($email))
+            ->where('email', self::normalizeEmail($email))
             ->where('ip', $ip)
             ->where('attempted_at', '>=', time() - self::WINDOW)
             ->count();
@@ -47,10 +54,24 @@ final class Throttle
         return $count >= self::MAX_ATTEMPTS;
     }
 
+    /**
+     * Limite por IP, independiente del email. Evita que un atacante pruebe
+     * muchas cuentas desde la misma IP sin activar el limite por cuenta.
+     */
+    public static function tooManyByIp(string $ip): bool
+    {
+        $count = Capsule::table('login_attempts')
+            ->where('ip', $ip)
+            ->where('attempted_at', '>=', time() - self::WINDOW)
+            ->count();
+
+        return $count >= self::MAX_ATTEMPTS_PER_IP;
+    }
+
     public static function clear(string $email, string $ip): void
     {
         Capsule::table('login_attempts')
-            ->where('email', trim($email))
+            ->where('email', self::normalizeEmail($email))
             ->where('ip', $ip)
             ->delete();
     }

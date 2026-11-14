@@ -139,7 +139,7 @@ En los bloques `<script>` y en las expresiones de Alpine los identificadores van
 
 ## Assets
 
-Vendorizados con SRI, servidos desde `public/assets/`. `php -S` no comprime; en despliegue, la compresión HTTP (nginx/Caddy) lleva los ~1.47 MB a ~150 KB sobre el cable. Eso es configuración del servidor, no del proyecto.
+Vendorizados con SRI, servidos desde `public/assets/`; la lógica no crítica del shell vive en `public/assets/app.js` (también con SRI). `php -S` no comprime; en despliegue, la compresión HTTP (nginx/Caddy) lleva los ~1.47 MB a ~150 KB sobre el cable. Eso es configuración del servidor, no del proyecto.
 
 ## Prohibiciones
 
@@ -147,4 +147,4 @@ Vendorizados con SRI, servidos desde `public/assets/`. `php -S` no comprime; en 
 - Utilidades `dark:`.
 - Colores fuera de los tokens.
 - Clases de daisyUI que no existan en el bundle vendorizado.
-- JS nuevo fuera de los bloques inline existentes: los **tres** de `layouts/app.twig` (los dos de pre-pintado del `<head>` y el del final del `<body>`), el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, y el `x-data` de Alpine. **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.
+- JS nuevo fuera de: los bloques inline de pre-pintado/shell/toastStack de `layouts/app.twig`, el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, el `x-data` de Alpine y `public/assets/app.js` (con SRI, solo lógica no crítica del shell). **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.

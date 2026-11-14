@@ -1,0 +1,6 @@
+{# Error mínimo para swaps HTMX: no repite el shell ni el <html> completo.
+   HTMX no swapea 4xx/5xx por defecto; este body es para el caso en que la
+   app decida mostrarlo y para no pagar la página completa en cada fallo. #}
+<div class="alert alert-error" role="alert">
+    <span>{{ message }}</span>
+</div>

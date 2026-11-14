@@ -501,6 +501,17 @@ final class ViewClassIntegrityTest extends TestCase
             }
         }
 
+        // El CSS compartido vive en un partial que se incluye dentro del
+        // <style> de cada layout; no tiene su propio <style>.
+        $shared = $root . '/resources/views/partials/layout/ink-tokens.twig';
+        if (is_file($shared)) {
+            $css .= (string) preg_replace(
+                ['~/\*.*?\*/~s', '~\{#.*?#\}~s'],
+                '',
+                (string) file_get_contents($shared)
+            ) . PHP_EOL;
+        }
+
         return $css;
     }
 

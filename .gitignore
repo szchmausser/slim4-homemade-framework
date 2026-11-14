@@ -12,3 +12,9 @@
 .env
 .atl/
 /.impeccable/
+
+# Runtime de agentes/GSD: DB, ejecuciones, revisiones y config local no se versionan.
+/.gsd/
+/.mcp.json
+/.bg-shell/
+/.claude/
