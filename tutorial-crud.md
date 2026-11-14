@@ -519,35 +519,94 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 ## 6. La pantalla del listado: del HTML crudo al shell
 
 **Objetivo**: llegar a la pantalla del listado entendiendo qué aporta cada pieza, empezando por lo
-básico.
+básico y sin mezclar capas.
 
-**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la entrada. Saca esa ruta: `index()` pasa
-a renderizar una vista.
+**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la
+entrada. Ahora `index()` deja de devolver JSON.
 
-### 6.1 Primero, un HTML cualquiera
+### 6.1 Primero, un HTML mínimo desde el controlador
 
-**Acción**: crea `resources/views/notas/index.twig` con HTML suelto, sin nada del proyecto:
+**Acción**: todavía no crees una vista ni toques el modelo. Haz que `index()` devuelva HTML directo:
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        $html = <<<'HTML'
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Notas</title></head>
+<body>
+    <h1>Notas</h1>
+    <p>Acá va a vivir el listado.</p>
+</body>
+</html>
+HTML;
+
+        $response->getBody()->write($html);
+
+        return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+    }
+```
+
+No agregues `use App\Models\Nota;` todavía: en este paso no hay consulta ni plantilla.
+
+**Comprobación**: abre `http://localhost:8080/notas`. Ves una página blanca con el título y el
+párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
+
+**Qué no prueba**: Twig, el modelo ni el shell. Prueba que la ruta, el controlador y la respuesta HTTP
+se hablan.
+
+**Por qué este paso existe**: si el HTML directo falla, el problema está en la ruta o en el
+controlador. Si mezclas Twig y Eloquent desde el principio, un error de cualquiera de las tres capas se
+ve igual y no sabes dónde mirar.
+
+### 6.2 Mover ese HTML a una plantilla Twig
+
+**Acción**: crea `resources/views/notas/index.twig` con el mismo contenido, todavía estático:
 
 ```twig
 <!DOCTYPE html>
 <html lang="es">
-<head><title>Notas</title></head>
+<head><meta charset="utf-8"><title>Notas</title></head>
 <body>
     <h1>Notas</h1>
-    <ul>
-        {% for nota in notas %}
-            <li>{{ nota.titulo }}</li>
-        {% else %}
-            <li>No hay notas todavía.</li>
-        {% endfor %}
-    </ul>
+    <p>Acá va a vivir el listado.</p>
 </body>
 </html>
 ```
 
-Y el controlador. Suma `use App\Models\Nota;` arriba, junto a los otros `use`: desde aquí la clase se usa
-y sin el import el error es `Class "App\Http\Controllers\Nota" not found`, que parece un problema de
-rutas y no lo es.
+Y cambia el cuerpo de `index()` para renderizarla:
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'notas/index.twig');
+    }
+```
+
+**Comprobación**: la página se ve **idéntica** a la de 6.1. Cambió dónde vive el HTML, no lo que
+devuelve.
+
+**Qué ganaste**: la vista está en un archivo Twig y el controlador ya no concatena HTML. Twig se va a
+encargar del escapado cuando entren los datos, pero eso todavía no ocurre.
+
+**Falla si**:
+
+- Ves una página en blanco o un 500: la ruta de la plantilla no coincide con
+  `resources/views/notas/index.twig`.
+- Ves el HTML dos veces: quedó el `write()` anterior y además el `render()`.
+
+**Pieza — `Controller::render()`**: resuelve la plantilla, le inyecta los datos comunes (CSRF, usuario,
+flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML; evita repetir el
+`withHeader('Content-Type', ...)` y el manejo de la vista.
+
+### 6.3 Ahora sí, las notas desde el modelo
+
+**Acción**: suma el import del modelo y pasale la colección a la vista:
+
+```php
+use App\Models\Nota;
+```
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -558,15 +617,39 @@ rutas y no lo es.
     }
 ```
 
-**Comprobación**: abre `http://localhost:8080/notas`. Vas a ver el título y el texto «No hay notas
-todavía.», **sin sidebar, sin header, sin tema oscuro y sin nada de la aplicación alrededor**. Es una
-página suelta.
+Y en la plantilla, reemplaza el párrafo por la lista:
 
-**Qué no prueba**: nada del proyecto. Prueba que tu ruta, tu controlador y tu vista se hablan.
+```twig
+    <h1>Notas</h1>
+    <ul>
+        {% for nota in notas %}
+            <li>{{ nota.titulo }}</li>
+        {% else %}
+            <li>No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
+```
 
-### 6.2 Ahora sí, el shell del proyecto
+**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Si insertás una nota a mano
+(`vendor/bin/phinx seed:run` cuando exista el seed, o un `INSERT` puntual), aparece su título. El
+escapado de Twig convierte `<` y `&` en entidades: no uses `|raw` para datos de usuario.
 
-**Acción**: reemplaza todo el archivo por esto:
+**Qué no prueba**: el shell ni los componentes visuales. Prueba el recorrido
+controlador → modelo → plantilla.
+
+**Falla si**:
+
+- `Class "App\Http\Controllers\Nota" not found`: falta el `use App\Models\Nota;`.
+- La lista sale vacía aunque haya filas: no estás pasando la clave `notas` o el nombre de la variable
+  no coincide con el `{% for %}`.
+- Aparece HTML crudo del título: alguien agregó `|raw`; quitalo.
+
+**Pieza — Eloquent**: `Nota::orderByDesc('id')->get()` devuelve una colección de modelos. El modelo
+sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y no consulta la base.
+
+### 6.4 Ahora, el shell del proyecto
+
+**Acción**: reemplaza todo `resources/views/notas/index.twig` por la versión que extiende el layout:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -602,12 +685,12 @@ assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el blo
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
-### 6.3 Sustituir la lista a mano por el componente
+### 6.5 Sustituir la lista a mano por el componente
 
 La lista de arriba funciona, pero el `{% for %} … {% else %}` es exactamente el markup que el proyecto
 ya tiene empaquetado. Es el momento de reemplazarlo.
 
-**Acción**: deja el parcial envolviéndose a sí mismo, `resources/views/notas/_panel.twig`:
+**Acción**: crea `resources/views/notas/_panel.twig`, que se envuelve a sí mismo:
 
 ```twig
 <div id="notas-panel">
@@ -635,27 +718,26 @@ intercambie con HTMX y `outerHTML`, la respuesta **reemplaza** al elemento apunt
 viviera en `index.twig`, el primer swap se lo llevaría junto con su id, y todo lo que apunte a
 `#notas-panel` quedaría apuntando a algo que ya no existe.
 
-**Comprobación**: la lista se ve **idéntica** a la de 6.2, con y sin notas.
+**Comprobación**: la lista se ve **idéntica** a la de 6.4, con y sin notas.
 
 **Qué ganaste**: el estado vacío, el `<ul>` y el recorrido ya no están en tu archivo; tu bloque dice
 sólo cómo se ve **una fila**. Y cuando en el paso 12 entre la paginación, el mismo componente la
-respeta sin cambios.
+respeta sin cambiar tu bloque.
 
 **Falla si**:
 
-- La lista aparece vacía teniendo notas: `items` no está llegando; revisa el nombre de la variable.
-- La fila sale con el título en blanco, sin error: dentro del bloque `row` la variable se llama
-  `item`, no `nota`, y Twig imprime vacío en vez de protestar.
+- La lista desaparece: el include no está o apunta a otro nombre.
+- Ves la fila con el objeto entero o vacía: dentro del bloque la variable se llama `item`, no `nota`,
+  y Twig imprime vacío en vez de protestar.
 
 **Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Úsalo
 para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
 cada entidad tiene su propia versión con variaciones accidentales.
 
-### 6.4 El encabezado con la acción y el contador
+### 6.6 El encabezado con la acción y el contador
 
 **Acción**: en `index.twig`, reemplaza el `<h1 class="text-2xl font-bold">Notas</h1>` que dejó el paso
-6.2 —el bloque de abajo ya trae ese mismo `h1`— y deja esto arriba del include del panel:
-
+6.4 —el parcial ya trae su propio `h1`— y deja esto arriba del include del panel:
 ```twig
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
@@ -920,7 +1002,7 @@ Y en `index.twig`, reemplaza el `<dialog>` completo por:
 {% endembed %}
 ```
 
-Ahora reemplaza el botón crudo del encabezado (el `onclick` del paso 6.4) por el componente:
+Ahora reemplaza el botón crudo del encabezado (el `onclick` del paso 6.6) por el componente:
 
 ```twig
 {% include 'components/ui/button.twig' with {
@@ -1675,7 +1757,7 @@ Eso es otra conversación, y necesita más piezas.
 | El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
-| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.3) |
+| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
 | Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
