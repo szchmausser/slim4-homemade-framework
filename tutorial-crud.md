@@ -918,7 +918,7 @@ label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantie
 `maxlength`. Mira el HTML con el inspector: `label for` coincide con el `id` del input.
 
 > Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
-> error**, y eso llega en el paso 7.3, cuando el controlador empieza a devolver `errors`. En este paso
+> error**, y eso llega en el paso 7.5, cuando el controlador empieza a devolver `errors`. En este paso
 > el formulario todavía no tiene cómo producirlos.
 
 **Qué ganaste**: el campo como una unidad con su label, su marca de opcional y el lugar donde irá el
@@ -931,12 +931,10 @@ causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apunt
 **Pieza — `partials/_csrf.twig`**: resuelve los dos campos ocultos del token. Va **dentro** de todo
 `<form>` que mute datos. Evita el rechazo con redirect al login que no explica nada.
 
-### 7.3 Sustituir el `<dialog>` crudo por el modal del proyecto
+### 7.3 Extraer el formulario a un parcial
 
-El diálogo de 7.1 funciona, pero no reabre con un error del servidor y no tiene el tratamiento de tema
-y telón del proyecto. Ese es exactamente el problema que resuelve el componente.
-
-**Acción**: primero extrae el formulario a `resources/views/notas/_form.twig`:
+**Acción**: mueve el formulario que hoy vive dentro del `<dialog>` a
+`resources/views/notas/_form.twig`:
 
 ```twig
 {# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
@@ -982,43 +980,108 @@ y telón del proyecto. Ese es exactamente el problema que resuelve el componente
 </form>
 ```
 
-Y en `index.twig`, reemplaza el `<dialog>` completo por:
+El parcial no sabe si el formulario es de alta o de edición: recibe `action`, `submit_label`,
+`submit_icon` y, cuando corresponde, `nota`. `values` resuelve el orden: primero lo que el usuario
+tipeó en un rechazo (`form_values`), después la nota guardada, y al final vacío.
+
+El `onsubmit` deshabilita el botón de envío para evitar un doble POST por doble clic. El botón
+«Cancelar» usa `data_modal_close`, que el shell traduce a `close()` sobre el `<dialog>` que lo contiene;
+por eso funciona igual en el diálogo nativo de este paso y en el modal del proyecto del paso siguiente.
+Los dos botones usan `components/ui/button.twig`, el mismo que vas a ver en 8.2: encapsula variante,
+icono y cierre.
+
+En `index.twig`, reemplaza el bloque `<form> … </form>` que estaba dentro del `<dialog>` por:
 
 ```twig
-{% embed 'components/ui/modal.twig' with {
-    id: 'nota-create-modal',
-    title: 'Nueva nota',
-    subtitle: 'Pon un título; el cuerpo es opcional.',
-    open: open_create_modal|default(false)
-} %}
-    {% block body %}
-        {% include 'notas/_form.twig' with {
-            action: url('/notas'),
-            submit_label: 'Crear nota',
-            submit_icon: 'plus',
-            nota: null
-        } %}
-    {% endblock %}
-{% endembed %}
+            {% include 'notas/_form.twig' with {
+                action: url('/notas'),
+                submit_label: 'Crear nota',
+                submit_icon: 'plus',
+                nota: null
+            } only %}
 ```
 
-Ahora reemplaza el botón crudo del encabezado (el `onclick` del paso 6.6) por el componente:
+`nota: null` parece un detalle, pero corta la herencia: cuando este mismo parcial se use en el modal de
+edición, no queremos que el alta se abra con los datos de la nota que se está editando.
+
+**Comprobación**: el botón «Agregar nota» sigue abriendo el diálogo; «Cancelar» lo cierra y crear una
+nota sigue funcionando. Lo único que cambió es que el formulario ahora vive en un archivo reutilizable.
+
+**Qué no prueba**: el modal del proyecto ni la reapertura con errores. El rechazo del servidor todavía
+no vuelve a abrir nada; eso llega en 7.5.
+
+**Falla si**:
+
+- El diálogo aparece vacío: el `include` no está o el parcial no recibe `action`.
+- El botón «Cancelar» no cierra: el `data_modal_close` quedó fuera del `<dialog>` o el parcial no se
+  está renderizando adentro.
+- El formulario se envía a la URL equivocada: `action` no se está pasando o quedó el `action` viejo.
+
+**Pieza — un formulario, dos operaciones**: resuelve el formulario una sola vez y evita que el alta y
+la edición tengan campos o validaciones distintas. Úsalo cuando los campos son los mismos. Sin esto,
+cada operación repite el formulario y una de las dos se olvida de un campo.
+
+### 7.4 Reemplazar el `<dialog>` crudo por el modal del proyecto
+
+El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón, foco y cierre por
+Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce el id del diálogo.
+
+**Acción**: reemplaza todo el `<dialog> … </dialog>` por el componente:
 
 ```twig
-{% include 'components/ui/button.twig' with {
-    label: 'Agregar nota',
-    icon: 'plus',
-    data_modal_open: 'nota-create-modal'
-} only %}
+    {% embed 'components/ui/modal.twig' with {
+        id: 'nota-create-modal',
+        title: 'Nueva nota',
+        subtitle: 'Pon un título; el cuerpo es opcional.',
+        open: false
+    } %}
+        {% block body %}
+            {% include 'notas/_form.twig' with {
+                action: url('/notas'),
+                submit_label: 'Crear nota',
+                submit_icon: 'plus',
+                nota: null
+            } only %}
+        {% endblock %}
+    {% endembed %}
+```
+
+Y reemplaza el botón crudo del encabezado por el botón del proyecto:
+
+```twig
+                {% include 'components/ui/button.twig' with {
+                    label: 'Agregar nota',
+                    icon: 'plus',
+                    data_modal_open: 'nota-create-modal'
+                } only %}
 ```
 
 El componente no acepta `onclick`: `data_modal_open` lo resuelve el shell
 (`public/assets/app.js`) con `showModal()`, así que el botón comparte foco, estilo y Escape con el resto.
 
-`nota: null` no es decorativo: `_form.twig` cae a `nota` cuando no hay `form_values`, y en
-`/notas/{id}/edit` el modal de alta se abriría con los datos de la nota que estás editando.
+**Comprobación**: el botón sigue abriendo el modal, ahora con el telón y el tema del proyecto. Escape,
+el botón de cerrar y «Cancelar» lo cierran; crear una nota sigue igual.
 
-Por último, el alta inválida reusa el mismo render con el modal abierto y lo tipeado:
+**Qué no prueba**: que un rechazo del servidor lo vuelva a abrir. En este paso el modal siempre nace
+cerrado (`open: false`).
+
+**Falla si**:
+
+- El botón no abre nada: `data_modal_open` no coincide con el `id` del modal.
+- Ves el formulario fuera del modal: el `embed` no está dentro de `{% block content %}`.
+- El modal abre con datos de otra nota: falta `nota: null` en el include del alta.
+
+**Pieza — `components/ui/modal.twig`**: resuelve el `<dialog>`, el telón, el foco y el cierre. Úsalo
+para todo modal del proyecto. Evita rearmar el mismo diálogo con `onclick` y clases sueltas. Sin él,
+cada pantalla inventa su forma de abrir y cerrar, y el foco se comporta distinto en cada una.
+
+### 7.5 Reabrir el modal con errores 422
+
+Un formulario inválido no es una página nueva: es la misma página con el modal abierto, los errores y
+lo que el usuario ya había tipeado. Si el servidor devuelve la página con el modal cerrado, el usuario
+ve el error pero pierde el contexto.
+
+**Acción**: en el rechazo de `store()`, pasa `errors`, `form_values` y la bandera que abre el modal:
 
 ```php
         if ($validator->fails()) {
@@ -1033,57 +1096,31 @@ Por último, el alta inválida reusa el mismo render con el modal abierto y lo t
         }
 ```
 
-> **Sin `only` en ese include, a propósito.** `only` aisla el contexto: si lo usas, `_form.twig` se queda
-> sin `csrf_name_key`, `csrf_value_key`, `errors` ni `form_values`, y el token sale con `name=""`. El
-> síntoma es un POST rechazado por CSRF que termina en el login, y no un error de Twig. Los `field`
-> internos sí usan `only` porque reciben todo lo que necesitan por parámetro.
+Y en el modal, reemplaza `open: false` por:
 
-**Comprobación**: toca «Agregar nota»: abre con el mismo formulario y en el mismo lugar, más el
-subtítulo y el botón ✕ que agrega el componente. Guarda con un título: todo sigue igual.
-Ahora, para el caso inválido, envía el POST salteando la validación del navegador —el campo lleva
-`required`, así que la pantalla no te deja—: abre el modal, escribe el cuerpo y en la consola del
-navegador ejecuta
-
-```js
-document.querySelector('#nota-create-modal form[method=post]').submit()
+```twig
+        open: open_create_modal|default(false)
 ```
 
-Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **abierto**, el mensaje
-«Este campo es obligatorio.» junto al campo y «Quiero conservar esto» en el cuerpo. Eso es lo que el
-`<dialog>` crudo no hacía.
+Así el alta normal nace cerrada y el rechazo la abre. `form_values` hace que `_form.twig` repinte lo
+tipeado; `errors` hace que cada campo muestre su mensaje.
 
-> Si lo haces con `curl`, el token va con `--data-urlencode`: el valor es base64 y trae `+` y `/`. Con
-> `-d "csrf_value=$V"` el `+` se convierte en espacio, el POST rechaza el CSRF y te devuelve al login
-> —303, no 422—, que parece un problema de sesión. Agrega `-w '\n%{http_code}\n'` para ver el código.
+**Comprobación**: envía el alta con el título vacío. Esperado: la respuesta es 422, el modal vuelve a
+abrirse, el campo Título muestra el error y el cuerpo que habías escrito sigue ahí. Corrige el título y
+guarda: la nota se crea y el modal se cierra al navegar.
 
 **Falla si**:
 
-- El modal abre y no se ve el botón de guardar: falta el bloque `modal-action` dentro del form.
-- Tras un alta inválida el modal sale cerrado: no estás pasando `open_create_modal`.
-- El botón «Cancelar» no cierra el modal: falta `data_modal_close: true` en su include.
-  Sin ese atributo el shell no sabe qué diálogo cerrar.
-- El alta se abre con los datos de la nota que estás editando: falta `nota: null` en el include
-  del alta; sin eso, `_form.twig` hereda la variable `nota` de la página de edición.
-- El aviso de éxito no aparece: falta `usesToastFlash()`.
+- El modal queda cerrado: falta `open_create_modal` o el modal no lo está leyendo.
+- Los errores no aparecen: no estás pasando `errors` a `_form.twig`.
+- Se borra lo tipeado: falta `form_values`.
+- El error sale en el modal de edición: `nota` está llegando con datos en el alta; revisá el `nota: null`.
 
-**Qué prueba**: con JS, el shell (`public/assets/app.js`) convierte el `open` que
-renderiza el servidor en `showModal()`: el modal entra al top layer, Escape lo
-cierra y el foco vuelve. Sin JS, el botón «Cancelar» del formulario no cierra
-(es `type="button"`); usá la X o el backdrop, que sí son `form method="dialog"`.
+**Qué no prueba**: que dos pestañas abiertas no se pisen; no hay control de concurrencia.
 
-> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline y sigue siendo válido para
-> este POST clásico. Los modales usan `data_modal_open`/`data_modal_close`, que el shell resuelve
-> con `showModal()`/`close()`; `hx-disabled-elt` no aplica porque este formulario no envía por HTMX.
-
-**Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
-`open` que permite reabrirlo desde el servidor. Úsalo para todo alta, edición y confirmación. Evita
-armar `<dialog>` a mano y pelear con el foco, el telón y el tema oscuro. Sin él, cada modal se comporta
-distinto.
-
-**Pieza — `components/ui/button.twig`**: resuelve el botón con variantes, iconos y atributos. Úsalo en
-vez de `<button class="btn …">`. Evita que cada pantalla tenga su propia idea de qué es un botón
-primario, y con `href` emite un `<a>` en vez de un `<button>`, que es lo que necesita un enlace de
-verdad.
+**Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
+todo formulario que pueda rechazarse. Evita que el usuario pierda lo escrito y que el error aparezca en
+una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
 
 ---
 
@@ -1156,7 +1193,7 @@ Y suma las rutas al archivo de rutas, que queda con cinco:
         $group->post('/{id}/delete', [NotaController::class, 'destroy']);
 ```
 
-`edit` se implementa en el paso 9 y `update`/`destroy` en los pasos 9 y 10: hasta entonces, tocar el
+`edit()` y `update()` se implementan en el paso 9; `destroy()` en el paso 10. Hasta entonces, tocar el
 lápiz da error, y eso es lo esperado en este punto.
 
 **Comprobación**: los iconos se ven igual, pero cada control ahora se anuncia como «Editar <título>» y
@@ -1179,9 +1216,9 @@ resto de la app.
 
 **Estado de partida**: paso 8 hecho; el lápiz navega a una ruta que todavía no existe.
 
-**Acción**: `edit()` abre la misma página con el modal cargado; `update()` valida y guarda. Suma
-arriba el import de la excepción, junto a los otros `use` —sin él el error que ves es
-`Class "App\Http\Controllers\HttpNotFoundException" not found`, un 500 que parece un problema de rutas:
+### 9.1 Abrir el modal con la nota
+
+**Acción**: suma el import de la excepción y crea `edit()`:
 
 ```php
 use Slim\Exception\HttpNotFoundException;
@@ -1197,14 +1234,64 @@ use Slim\Exception\HttpNotFoundException;
         }
 
         return $this->render($request, $response, 'notas/index.twig', [
-            'notas'          => Nota::orderByDesc('id')->get(),
-            'total'          => Nota::query()->count(),
-            'nota'           => $nota,
+            'notas'           => Nota::orderByDesc('id')->get(),
+            'total'           => Nota::query()->count(),
+            'nota'            => $nota,
             'open_edit_modal' => true,
-            'active'         => 'notas',
+            'active'          => 'notas',
         ]);
     }
+```
 
+`edit()` no renderiza una pantalla nueva: reusa `index.twig`, le pasa la nota y le dice que abra el
+modal de edición. Así el formulario, el modal y la lista ya están en la misma página.
+
+Ahora agrega el segundo modal, junto al del alta y **dentro** del mismo bloque `content`. Sólo se
+renderiza cuando hay `nota`:
+
+```twig
+    {% if nota is defined %}
+        {% embed 'components/ui/modal.twig' with {
+            id: 'nota-edit-modal',
+            title: 'Editar nota',
+            open: open_edit_modal|default(false)
+        } %}
+            {% block body %}
+                {% include 'notas/_form.twig' with {
+                    action: url('/notas/' ~ nota.id),
+                    submit_label: 'Guardar cambios',
+                } %}
+            {% endblock %}
+        {% endembed %}
+    {% endif %}
+```
+
+El `action` apunta a `/notas/{id}`; la ruta ya está registrada desde el paso 8, pero la acción `update()`
+todavía no existe. Por eso en este paso el botón «Guardar cambios» **no guarda**. Primero comprobamos que
+el modal abre con los datos correctos.
+
+**Comprobación**: toca el lápiz de una nota. Esperado: se abre un modal con el título y el cuerpo ya
+cargados. Un id que no existe (`/notas/99999/edit`) tiene que dar la página 404 del framework, no un
+error de PHP.
+
+**Qué no prueba**: guardar cambios. Eso es 9.2.
+
+**Falla si**:
+
+- El modal abre vacío: `nota` no está llegando, o `_form.twig` no está leyendo `nota`.
+- El lápiz abre la página pero no el modal: falta `open_edit_modal` o el `id` no coincide.
+- El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
+- Ves el modal de edición en el alta: `nota` se está pasando sin querer; el alta debe llevar `nota: null`.
+
+**Pieza — reusar `index.twig` para editar**: resuelve una sola página con dos modales y evita duplicar
+la lista. Úsalo cuando la edición comparte la pantalla con el listado. Sin esto, el alta y la edición
+tienen dos copias de la tabla y se desincronizan.
+
+### 9.2 Guardar la edición
+
+**Acción**: agrega `update()`, que valida, guarda y vuelve a la lista:
+
+```php
     public function update(Request $request, Response $response, array $args): Response
     {
         $nota = Nota::find((int) $args['id']);
@@ -1244,45 +1331,28 @@ use Slim\Exception\HttpNotFoundException;
     }
 ```
 
-Y el segundo modal, junto al del alta y **dentro** del mismo bloque `content`, que sólo se renderiza
-cuando hay nota:
+La validación es la misma que en el alta, pero el rechazo conserva `nota` y `open_edit_modal`: sin esas
+dos claves, el 422 renderiza la lista, el modal de edición no existe y lo tipeado termina en el modal
+de alta. `form_values` repinta lo que el usuario escribió; `errors` muestra el mensaje en el campo.
 
-```twig
-{% if nota is defined %}
-    {% embed 'components/ui/modal.twig' with {
-        id: 'nota-edit-modal',
-        title: 'Editar nota',
-        open: open_edit_modal|default(false)
-    } %}
-        {% block body %}
-            {% include 'notas/_form.twig' with {
-                action: url('/notas/' ~ nota.id),
-                submit_label: 'Guardar cambios',
-            } %}
-        {% endblock %}
-    {% endembed %}
-{% endif %}
-```
-
-**Comprobación**: toca el lápiz de una nota. Esperado: se abre un diálogo con el título y el cuerpo ya
-cargados. Cambia el título y guarda: vuelves a la lista, la fila muestra el título nuevo y el aviso
-«Nota actualizada.».
-
-Un id que no existe (`/notas/99999/edit`) tiene que dar la página 404 del framework, no un error de
-PHP.
+**Comprobación**: abre el lápiz de una nota, cambia el título y guarda. Esperado: vuelves a la lista,
+la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». Si dejas el título vacío, el
+modal de edición se reabre con el error y el cuerpo que habías escrito.
 
 **Falla si**:
 
-- El modal abre vacío: `nota` no está llegando, o el `_form.twig` no está leyendo `nota`/`form_values`.
-- Guardar no cambia nada: el `action` del formulario no apunta a `/notas/{id}`, o el controlador no hace `save()`.
+- Guardar no cambia nada: el `action` del formulario no apunta a `/notas/{id}`, o el controlador no
+  hace `save()`.
+- El 422 abre el modal de alta: falta `nota` o `open_edit_modal` en el render de rechazo.
+- Se pierde lo tipeado: falta `form_values`.
 - El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
 
 **Qué no prueba**: que dos personas editando a la vez no se pisen. No hay control de concurrencia, y
 este recorrido no lo agrega.
 
 **Pieza — reusar el modal para alta y edición**: resuelve el formulario una sola vez y evita dos
-pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta
-y la edición validan distinto y una de las dos se olvida de algo.
+pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta y
+la edición validan distinto y una de las dos se olvida de algo.
 
 ---
 
@@ -1553,6 +1623,8 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 **Estado de partida**: paso 11 hecho; con muchas notas la página se vuelve larga.
 
+### 12.1 Paginar la consulta
+
 **Acción**: en el controlador, suma `use Framework\Http\Pagination;` y centraliza la lectura:
 
 ```php
@@ -1575,7 +1647,45 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
     }
 ```
 
-Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada acción:
+`Pagination::paginate()` recibe la consulta, la página pedida, el tamaño y la URL base. Devuelve los
+items de esa página, el total y los datos que después usan los controles. `pageData()` traduce eso a
+las variables que ya conoce la vista.
+
+Ahora `index()` usa ese helper:
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'notas/index.twig', $this->pageData($request) + [
+            'active' => 'notas',
+        ]);
+    }
+```
+
+Todavía no toques la vista ni el helper de respuesta: primero comprobamos que el servidor recorta bien.
+
+**Comprobación**: con más de diez notas, abre directamente `/notas?page=2&per_page=10`. Esperado: ves
+las notas 11 a 20 y el total correcto. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango
+se ajusta a la última. Los controles visuales todavía no están; eso es 12.2.
+
+**Qué no prueba**: que los controles naveguen sin recargar. Prueba que la consulta y el recorte del
+servidor son correctos.
+
+**Falla si**:
+
+- Ves todas las notas en una sola página: `index()` sigue usando `get()` o `Pagination` no recibe la
+  consulta.
+- El total no coincide: estás contando otra consulta o mirando `count()` del resultado paginado.
+- Una página negativa o enorme rompe: `Pagination` normaliza, pero la página tiene que venir de la query,
+  no de un valor fijo.
+
+**Pieza — `Framework\Http\Pagination`**: resuelve conteo, recorte y página actual del lado del servidor.
+Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
+con dos mil.
+
+### 12.2 Pintar los controles y responder sólo el panel
+
+**Acción**: crea `renderIndex()`, que arma la página y decide qué devolver según el pedido:
 
 ```php
     private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
@@ -1601,12 +1711,79 @@ Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada 
     }
 ```
 
-El `if ($status >= 400)` es deliberado: un 422 reabre el formulario con errores y no
-representa una página nueva. Si empujas esa URL, el historial queda apuntando a un
-estado que el usuario no navegó.
+`index()` queda en una línea:
 
-`index()` queda en una línea (`return $this->renderIndex($request, $response);`), y `edit()` y los dos
-renders de `422` pasan a usarlo pasando lo suyo en `$extra`:
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->renderIndex($request, $response);
+    }
+```
+
+La clave está en `HX-Request`: un pedido normal recibe `index.twig` completo; un pedido de HTMX recibe
+sólo `_panel.twig`. Si devuelves la página completa a HTMX, el panel se reemplaza por **otra página
+completa** y el shell queda anidado: dos sidebars, dos headers y el contenido duplicado.
+
+Ahora agrega los controles **dentro** de `div#notas-panel`, después del `embed` y antes de cerrar el
+`div`:
+
+```twig
+    {% include 'components/pagination/simple.twig' with {
+        pagination: pagination,
+        target: '#notas-panel'
+    } %}
+</div>
+```
+
+Si dejas los controles fuera del parcial, el primer swap reemplaza el panel y los controles quedan
+apuntando a un id que sigue existiendo pero ya no se actualiza.
+
+**Pieza — `components/pagination/simple.twig`**: resuelve los controles, los estados deshabilitados y
+el selector de tamaño. Úsalo con `pagination` y un `target` que apunte a la región que se va a
+reemplazar. Evita rearmar los mismos botones en cada lista y desincronizar la página actual.
+
+`HX-Push-Url` se emite sólo si el estado es 2xx: la URL del historial tiene que representar una página
+que el usuario realmente navegó, no un 422 con errores. El guard `status >= 400` deja esa decisión en un
+solo lugar.
+
+**Comprobación**: crea más de diez notas. Esperado: se ven diez, con los controles debajo
+(Primera/Anterior, números, Siguiente/Última) y el selector de tamaño.
+
+Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
+la última página con las filas que queden; «Anterior» y «Primera» retroceden; en los extremos, los
+botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga** y queda
+**un solo** sidebar y **un solo** header.
+
+Comprueba con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
+un solo `<header>` y dos `<aside>` (el sidebar y el de avisos), y `#notas-panel` tiene que seguir
+existiendo con la paginación adentro. Si ves dos headers y cuatro asides, el servidor mandó la página
+completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
+muestra nada raro y el bug pasa igual.
+
+La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
+alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
+
+**Qué no prueba**: que un 422 no empuje la URL, ni que la edición siga abriendo su modal. Eso se cierra
+en 12.3.
+
+**Falla si**:
+
+- La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
+- Paginas y la URL no cambia: falta `HX-Push-Url`.
+- Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
+  request de HTMX, y el shell entró dentro del panel. Es el error más visible de este paso.
+- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; si no quieres eso, se
+  decide en el componente.
+- Todo aparece en una página: no estás pasando `pagination` a la vista.
+
+**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
+o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
+esa respuesta sólo repinta el formulario.
+
+### 12.3 Unificar los renders de edición y 422
+
+**Acción**: reemplaza los renders sueltos de `edit()` y de los rechazos por `renderIndex()`, pasando lo
+propio en `$extra`:
 
 ```php
         // edit()
@@ -1635,36 +1812,8 @@ En el rechazo de la edición, `'nota' => $nota` no es decorativo: `index.twig` e
 edición en `{% if nota is defined %}`. Sin esa clave el modal no se renderiza y lo tipeado aparece en
 el modal de alta, que es el que queda abierto.
 
-La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
-alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
-
-Y la paginación, **dentro** del `div#notas-panel` y después del `embed` —si la dejas afuera, el swap
-reemplaza el panel y los controles quedan apuntando a un id que sigue existiendo pero ya no se
-actualiza:
-
-```twig
-    {% include 'components/pagination/simple.twig' with {
-        pagination: pagination,
-        target: '#notas-panel'
-    } %}
-</div>
-```
-
-**Comprobación**: crea más de diez notas. Esperado: se ven diez, con los controles debajo
-(Primera/Anterior, números, Siguiente/Última) y el selector de tamaño.
-
-Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
-la última página con las filas que queden; «Anterior» y «Primera» retroceden; en los extremos, los
-botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga** y queda
-**un solo** sidebar y **un solo** header.
-
-Comprobalo con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
-un solo `<header>` y dos `<aside>` (el sidebar y el de avisos), y `#notas-panel` tiene que seguir
-existiendo con la paginación adentro. Si ves dos headers y cuatro asides, el servidor mandó la página
-completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
-muestra nada raro y el bug pasa igual.
-
-Para fijar el contrato del 422, agrega a `tests/Http/NotaTest.php`:
+El `422` pasa por el mismo `renderIndex()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
+contrato, agrega a `tests/Http/NotaTest.php`:
 
 ```php
     public function test_un_422_no_empuja_la_url(): void
@@ -1683,26 +1832,23 @@ Para fijar el contrato del 422, agrega a `tests/Http/NotaTest.php`:
     }
 ```
 
+**Comprobación**: el test de 422 pasa; el alta inválida reabre su modal con errores; la edición inválida
+reabre el modal de edición con la nota y lo tipeado; la paginación 2xx sigue empujando la URL.
+
+**Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`. Tampoco prueba la
+navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>` del selector es otra cosa.
+
 **Falla si**:
 
-- La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
-- Paginas y la URL no cambia: falta `HX-Push-Url`.
-- Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
-  request de HTMX, y el shell entró dentro del panel. Es el error más visible de este paso.
-- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; si no quieres eso, se decide en otra parte del código.
-- Todo aparece en una página: no estás pasando `pagination` a la vista.
+- Un 422 deja `HX-Push-Url`: el guard `status >= 400` no está o el estado no se pasa a `renderIndex()`.
+- El modal de edición desaparece en un 422: falta `nota` en `$extra`.
+- El alta inválida se abre en el modal de edición: sobra `nota` o `open_edit_modal` en el rechazo del
+  alta.
+- El test falla con 200: el título vacío no está llegando al validador o el token CSRF no es válido.
 
-**Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`. Tampoco prueba
-la navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>` del selector es
-otra cosa.
-
-**Pieza — `Framework\Http\Pagination` + `components/pagination/simple.twig`**: resuelven conteo,
-recorte y controles del lado del servidor. Usalos en toda lista que pueda crecer. Evitan el `get()`
-pelado, que funciona con veinte filas y se cae con dos mil.
-
-**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada o
-filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
-esa respuesta solo repinta el formulario.
+**Pieza — un solo camino de render**: resuelve la página, el parcial, el estado y la cabecera en un
+único lugar. Úsalo en toda acción que renderice el listado. Evita que el alta, la edición y la
+paginación tengan cada una su propia copia de `notas` y `total`.
 
 ---
 
@@ -1755,13 +1901,13 @@ Eso es otra conversación, y necesita más piezas.
 | El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Vuelve a sembrar con las mismas variables; el mensaje es genérico a propósito |
 | `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisa `DB_DATABASE` |
 | El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
-| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 |
+| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.5 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
-| La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
-| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
-| Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |
+| La lista trae todo | Falta `Pagination::paginate()` | Paso 12.1 |
+| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12.2 |
+| Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9.1 |
 
 ## Qué demuestra este recorrido
 
