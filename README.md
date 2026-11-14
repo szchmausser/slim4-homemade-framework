@@ -10,6 +10,9 @@ Tailwind CSS 4 se ejecuta con el **browser build** vendorizado (`tailwind-browse
 
 **Guía completa paso a paso:** [`docs/guia-stack-php-termux.md`](docs/guia-stack-php-termux.md) — instalación en Termux, cada archivo con código copiable, testing y troubleshooting.
 
+**Licencia:** MIT ([`LICENSE`](LICENSE)). **Seguridad:** [`SECURITY.md`](SECURITY.md).
+**Cambios:** [`CHANGELOG.md`](CHANGELOG.md). **Avisos de terceros:** [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md). **Contribuir:** [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 **Push a GitHub desde Termux:** [`docs/git-push-termux.md`](docs/git-push-termux.md) — por qué `pi`/scripts no comparten el `ssh-agent` y cómo resolverlo (`composer push`).
 
 **Tu primera entidad, paso a paso:** [`tutorial-crud.md`](tutorial-crud.md) — recorrido con comprobación por paso, desde un clon hasta una entidad propia con tests.
@@ -62,7 +65,8 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
 | `composer demo:contacts:remove` | Desinstala el demo de contactos, sus assets vendorizados y su tabla |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
-| `composer check:termux` | 32 o 64 bits |
+| `composer check:termux` | Imprime si el PHP es de 32 o 64 bits |
+| `composer check:32bit` | Sale 0 solo si `PHP_INT_SIZE === 4`; gate manual en Termux |
 
 Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, `demo:*`, `install:termux`, `check:termux`) son la capa de operación del esqueleto, no paquetes del runtime.
 
@@ -197,3 +201,22 @@ scripts/  Herramientas CLI (backup, lint, verificación, demo)
   + PHP-FPM.
 - **Los demos no tienen ownership.** Están pensados como ejemplos; si se convierten
   en una app multiusuario, agregar `user_id` y autorización antes de exponerlos.
+
+## Verificación 32-bit
+
+El proyecto está pensado para Termux ARM 32-bit y fue probado manualmente en ese
+entorno. El CI de GitHub corre sobre x86_64, así que no sustituye esa prueba.
+Para verificar el PHP real antes de publicar o desplegar:
+
+```bash
+composer check:32bit   # exit 0 solo si PHP_INT_SIZE === 4
+composer verify
+```
+
+`check:32bit` no está dentro de `verify` a propósito: en un entorno de 64 bits
+fallaría por diseño.
+
+## Licencia
+
+MIT. Ver [`LICENSE`](LICENSE). Los assets vendorizados y las dependencias
+conservan sus licencias; ver [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).

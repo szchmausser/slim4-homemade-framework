@@ -58,6 +58,7 @@ composer phpstan            # PHPStan nivel 5 (PHAR, sin dependencias)
 composer docs:check         # copias de docs sincronizadas
 composer docs:sync          # regenerar copias
 composer verify             # gate: lint + docs + phpstan + test + migrate:fresh
+composer check:32bit        # gate manual: exit 0 solo en PHP de 32 bits
 php -S 127.0.0.1:8080 -t public   # servidor de desarrollo (no usar 0.0.0.0 en LAN)
 ```
 

@@ -254,8 +254,33 @@ composer require --dev phpunit/phpunit
 
 ```json
 {
-    "name": "tuusuario/mi-app",
+    "name": "szchmausser/slim4-homemade-framework",
     "type": "project",
+    "description": "Esqueleto PHP server-rendered, offline y sin build para Termux/32-bit: Slim 4, Twig, HTMX, Alpine, SQLite y demos instalables.",
+    "license": "MIT",
+    "keywords": [
+        "php",
+        "slim",
+        "slim4",
+        "twig",
+        "htmx",
+        "alpinejs",
+        "sqlite",
+        "termux",
+        "offline",
+        "no-build",
+        "scaffold",
+        "server-rendered"
+    ],
+    "homepage": "https://github.com/szchmausser/slim4-homemade-framework",
+    "authors": [
+        {
+            "name": "Vioscar Rivero"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/szchmausser/slim4-homemade-framework/issues"
+    },
     "require": {
         "php": ">=8.4.1",
         "ext-mbstring": "*",
@@ -314,7 +339,8 @@ composer require --dev phpunit/phpunit
             "@migrate:fresh"
         ],
         "install:termux": "composer install --prefer-dist --no-scripts",
-        "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\""
+        "check:termux": "@php -r \"echo PHP_INT_SIZE === 4 ? '32-bit PHP detectado' : '64-bit PHP', PHP_EOL;\"",
+        "check:32bit": "@php -r \"exit(PHP_INT_SIZE === 4 ? 0 : 1);\""
     },
     "config": {
         "optimize-autoloader": true,
