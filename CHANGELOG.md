@@ -3,6 +3,16 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado semántico mientras el proyecto esté en `0.x`.
 
+## [0.1.1] - 2026-11-14
+
+### Documentación
+
+- Paso 6 del tutorial separado en seis pasos: HTML crudo del controlador, plantilla
+  Twig estática, acceso al modelo, shell, componente de lista y encabezado.
+- Referencias internas renumeradas (`6.1` a `6.6`).
+
+[0.1.1]: https://github.com/szchmausser/slim4-homemade-framework/releases/tag/v0.1.1
+
 ## [0.1.0] - 2026-11-14
 
 Primera entrega pública del esqueleto.
