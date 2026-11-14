@@ -889,7 +889,7 @@ y telón del proyecto. Ese es exactamente el problema que resuelve el componente
             variant: 'ghost',
             type: 'button',
             icon: 'x',
-            onclick: "document.getElementById('" ~ cancel_target ~ "').close()"
+            data_modal_close: true
         } only %}
         {% include 'components/ui/button.twig' with {
             label: submit_label|default('Guardar'),
@@ -914,12 +914,24 @@ Y en `index.twig`, reemplaza el `<dialog>` completo por:
             action: url('/notas'),
             submit_label: 'Crear nota',
             submit_icon: 'plus',
-            cancel_target: 'nota-create-modal',
             nota: null
         } %}
     {% endblock %}
 {% endembed %}
 ```
+
+Ahora reemplaza el botón crudo del encabezado (el `onclick` del paso 6.4) por el componente:
+
+```twig
+{% include 'components/ui/button.twig' with {
+    label: 'Agregar nota',
+    icon: 'plus',
+    data_modal_open: 'nota-create-modal'
+} only %}
+```
+
+El componente no acepta `onclick`: `data_modal_open` lo resuelve el shell
+(`public/assets/app.js`) con `showModal()`, así que el botón comparte foco, estilo y Escape con el resto.
 
 `nota: null` no es decorativo: `_form.twig` cae a `nota` cuando no hay `form_values`, y en
 `/notas/{id}/edit` el modal de alta se abriría con los datos de la nota que estás editando.
@@ -966,18 +978,20 @@ Esperado: **422** (lo ves en la pestaña Red) y el HTML vuelve con el modal **ab
 
 - El modal abre y no se ve el botón de guardar: falta el bloque `modal-action` dentro del form.
 - Tras un alta inválida el modal sale cerrado: no estás pasando `open_create_modal`.
-- El botón «Cancelar» no cierra el modal: el include de `_form.twig` no está recibiendo
-  `cancel_target`. El `onclick` sale con `getElementById('')` y no hay error de Twig.
+- El botón «Cancelar» no cierra el modal: falta `data_modal_close: true` en su include.
+  Sin ese atributo el shell no sabe qué diálogo cerrar.
 - El alta se abre con los datos de la nota que estás editando: falta `nota: null` en el include
   del alta; sin eso, `_form.twig` hereda la variable `nota` de la página de edición.
 - El aviso de éxito no aparece: falta `usesToastFlash()`.
 
-**Qué no prueba**: que Escape cierre el modal reabierto por el servidor. Un `<dialog open>` no entra al
-top layer, así que lo cierra el botón «Cancelar», no Escape.
+**Qué prueba**: con JS, el shell (`public/assets/app.js`) convierte el `open` que
+renderiza el servidor en `showModal()`: el modal entra al top layer, Escape lo
+cierra y el foco vuelve. Sin JS, el botón «Cancelar» del formulario no cierra
+(es `type="button"`); usá la X o el backdrop, que sí son `form method="dialog"`.
 
-> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline, como los `onclick` que ya usas
-> para abrir modales; no agrega bloques de JavaScript nuevos. `hx-disabled-elt` del demo de tareas no
-> sirve aquí porque este formulario no envía por HTMX: es un POST con navegación.
+> **Sobre la guarda del doble submit**: `onsubmit` es un atributo inline y sigue siendo válido para
+> este POST clásico. Los modales usan `data_modal_open`/`data_modal_close`, que el shell resuelve
+> con `showModal()`/`close()`; `hx-disabled-elt` no aplica porque este formulario no envía por HTMX.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el diálogo con título, subtítulo, pie y el estado
 `open` que permite reabrirlo desde el servidor. Úsalo para todo alta, edición y confirmación. Evita
@@ -1043,10 +1057,14 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
                         size: 'sm',
                         icon: 'trash',
                         aria_label: 'Borrar ' ~ item.titulo,
-                        onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').showModal()"
+                        data_modal_open: 'nota-delete-' ~ item.id
                     } only %}
                 </div>
 ```
+
+El componente no acepta `onclick`: `data_modal_open` le pide al shell que abra
+ese `<dialog>` con `showModal()`. Así el botón conserva foco, Escape y el
+tratamiento visual del proyecto.
 
 Y suma las rutas al archivo de rutas, que queda con cinco:
 
@@ -1158,7 +1176,6 @@ cuando hay nota:
             {% include 'notas/_form.twig' with {
                 action: url('/notas/' ~ nota.id),
                 submit_label: 'Guardar cambios',
-                cancel_target: 'nota-edit-modal'
             } %}
         {% endblock %}
     {% endembed %}
@@ -1259,7 +1276,7 @@ después del contenido:
                                 variant: 'ghost',
                                 type: 'button',
                                 icon: 'x',
-                                onclick: "document.getElementById('nota-delete-" ~ item.id ~ "').close()"
+                                data_modal_close: true
                             } only %}
                             {% include 'components/ui/button.twig' with {
                                 label: 'Borrar',
@@ -1273,7 +1290,7 @@ después del contenido:
             {% endembed %}
 ```
 
-La papelera del paso 8 ya apunta a ese diálogo con `showModal()`.
+La papelera del paso 8 ya apunta a ese diálogo con `data_modal_open`; el shell llama a `showModal()`.
 
 **Comprobación**: toca la papelera de una nota. Esperado: se abre un diálogo que dice **qué nota** vas
 a borrar —«¿Borrar «Comprar pan»? No se puede deshacer.»—, con «Cancelar» y «Borrar». «Cancelar» no
@@ -1284,7 +1301,7 @@ acción explícita en vez de cerrar un cartel del sistema.
 
 **Falla si**:
 
-- La papelera no abre nada: el `onclick` apunta a un id que no existe (el id lleva el número de fila).
+- La papelera no abre nada: el `data_modal_open` apunta a un id que no existe (el id lleva el número de fila).
 - Cancelar borra igual: el botón de cancelar tiene que ser `type: 'button'`; con `submit` el formulario
   se envía.
 - El borrado te devuelve al login con «Tu sesión expiró»: falta el `{% include 'partials/_csrf.twig' %}`
@@ -1488,14 +1505,23 @@ Y un helper que arma la página, para que el `HX-Push-Url` no se repita en cada 
         // headers y el contenido duplicado.
         $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
 
-        return $this->render($request, $response, $template, $data + $extra + [
+        $rendered = $this->render($request, $response, $template, $data + $extra + [
             'active' => 'notas',
-        ])->withStatus($status)
-            ->withHeader('HX-Push-Url', Url::path('/notas')
-                . '?page=' . $data['pagination']['current_page']
-                . '&per_page=' . $data['pagination']['per_page']);
+        ])->withStatus($status);
+
+        if ($status >= 400) {
+            return $rendered;
+        }
+
+        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
+            . '?page=' . $data['pagination']['current_page']
+            . '&per_page=' . $data['pagination']['per_page']);
     }
 ```
+
+El `if ($status >= 400)` es deliberado: un 422 reabre el formulario con errores y no
+representa una página nueva. Si empujas esa URL, el historial queda apuntando a un
+estado que el usuario no navegó.
 
 `index()` queda en una línea (`return $this->renderIndex($request, $response);`), y `edit()` y los dos
 renders de `422` pasan a usarlo pasando lo suyo en `$extra`:
@@ -1556,6 +1582,25 @@ existiendo con la paginación adentro. Si ves dos headers y cuatro asides, el se
 completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
 muestra nada raro y el bug pasa igual.
 
+Para fijar el contrato del 422, agrega a `tests/Http/NotaTest.php`:
+
+```php
+    public function test_un_422_no_empuja_la_url(): void
+    {
+        $token = self::token('/notas');
+
+        $response = self::app()->handle(self::request('POST', '/notas', [
+            'csrf_name'  => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'titulo'     => '',
+            'cuerpo'     => '',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('', $response->getHeaderLine('HX-Push-Url'));
+    }
+```
+
 **Falla si**:
 
 - La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
@@ -1573,8 +1618,9 @@ otra cosa.
 recorte y controles del lado del servidor. Usalos en toda lista que pueda crecer. Evitan el `get()`
 pelado, que funciona con veinte filas y se cae con dos mil.
 
-**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap. Úsalo en toda región paginada o
-filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
+**Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada o
+filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
+esa respuesta solo repinta el formulario.
 
 ---
 
@@ -1610,7 +1656,7 @@ confirmación, paginación y cinco tests en verde.
 
 **Falla si**:
 
-- El modal de borrado no abre: `onclick` apunta a un id sin el número de fila.
+- El modal de borrado no abre: `data_modal_open` apunta a un id sin el número de fila.
 - El alta inválida no reabre el modal: falta pasar `open_create_modal`.
 - La paginación deja de funcionar después del primer guardado: el `div` del panel quedó fuera del parcial.
 
@@ -1630,7 +1676,7 @@ Eso es otra conversación, y necesita más piezas.
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.3) |
-| La papelera no abre el diálogo | El `onclick` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en el `onclick` |
+| La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 12 |
 | Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9 |

@@ -39,7 +39,6 @@
                 action: url('/notas'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
-                cancel_target: 'nota-create-modal',
                 nota: null
             } %}
         {% endblock %}
@@ -55,7 +54,6 @@
                 {% include 'notas/_form.twig' with {
                     action: url('/notas/' ~ nota.id),
                     submit_label: 'Guardar cambios',
-                    cancel_target: 'nota-edit-modal'
                 } %}
             {% endblock %}
         {% endembed %}

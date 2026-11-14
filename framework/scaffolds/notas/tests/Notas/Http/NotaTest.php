@@ -124,6 +124,21 @@ final class NotaTest extends HttpTestCase
         self::assertNull(Nota::find($nota->id));
     }
 
+    public function test_el_422_no_empuja_la_url(): void
+    {
+        $token = self::token('/notas');
+
+        $response = self::app()->handle(self::request('POST', '/notas', [
+            'csrf_name'  => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'titulo'     => '',
+            'cuerpo'     => '',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertSame('', $response->getHeaderLine('HX-Push-Url'));
+    }
+
     public function test_sin_token_csrf_redirige_al_login_y_no_crea_nada(): void
     {
         $response = self::app()->handle(self::request('POST', '/notas', [

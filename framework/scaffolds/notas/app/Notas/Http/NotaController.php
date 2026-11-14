@@ -43,12 +43,17 @@ final class NotaController extends Controller
         // headers y el contenido duplicado.
         $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
 
-        return $this->render($request, $response, $template, $data + $extra + [
+        $rendered = $this->render($request, $response, $template, $data + $extra + [
             'active' => 'notas',
-        ])->withStatus($status)
-            ->withHeader('HX-Push-Url', Url::path('/notas')
-                . '?page=' . $data['pagination']['current_page']
-                . '&per_page=' . $data['pagination']['per_page']);
+        ])->withStatus($status);
+
+        if ($status >= 400) {
+            return $rendered;
+        }
+
+        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
+            . '?page=' . $data['pagination']['current_page']
+            . '&per_page=' . $data['pagination']['per_page']);
     }
 
     public function index(Request $request, Response $response): Response
