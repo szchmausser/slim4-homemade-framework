@@ -40,7 +40,7 @@
                     </span>
                     Listado
                 </h2>
-                <span class="badge badge-ghost">{{ contacts_count }} contactos</span>
+                <span class="badge badge-ghost" data-contact-count>{{ contacts_count }} contactos</span>
             </div>
 
             {% include 'components/table/tabulator.twig' with {
@@ -55,10 +55,10 @@
         </div>
     </section>
 
-    {# `open_create_modal`: el alta inválida reusa este mismo render con el
-       modal abierto y lo tipeado, así el usuario sigue donde estaba
-       escribiendo (S7). Con un alta exitosa el flujo es el 303 de siempre y la
-       variable no viene, así que el modal sale cerrado. #}
+    {# `open_create_modal`: el alta inválida sin JS reusa este mismo render con
+       el modal abierto y lo tipeado, así el usuario sigue donde estaba
+       escribiendo (S7). Con htmx el 422 devuelve solo el formulario y el 204
+       cierra el modal por evento; sin JS, el éxito sigue siendo 303. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-create-modal',
         title: 'Nuevo contacto',
@@ -103,11 +103,20 @@
             </form>
         {% endblock %}
     {% endembed %}
+
+    {% embed 'components/ui/modal.twig' with {
+        id: 'contact-edit-modal',
+        title: 'Editar contacto'
+    } %}
+        {% block body %}
+            <div id="contact-edit-body" class="min-h-24"></div>
+        {% endblock %}
+    {% endembed %}
 {% endblock %}
 
 {% block scripts %}
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
             crossorigin="anonymous" integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
-            crossorigin="anonymous" integrity="sha384-fiZF16JvzWJOCGngXIALGEeI0WpiqvvvRxHVp8EIzjQ0eMRVYWkNH11A8mmz9eHn"></script>
+            crossorigin="anonymous" integrity="sha384-OYmrQze8YwjKaoY2TZ03yX8ZGbyQM318sYvXR0c1P+E1XWKGTeG1MHP6XrwkpspM"></script>
 {% endblock %}

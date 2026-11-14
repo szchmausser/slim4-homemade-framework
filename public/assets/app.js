@@ -194,6 +194,19 @@ function preventDoubleSubmit() {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || form.method === 'dialog') return;
 
+        // htmx ya controla el estado con hx-disabled-elt; si además lo
+        // deshabilitamos acá, el submitter queda con aria-disabled para
+        // siempre y el snapshot de accesibilidad lo anuncia como muerto.
+        if (
+            form.hasAttribute('hx-post')
+            || form.hasAttribute('hx-get')
+            || form.hasAttribute('hx-put')
+            || form.hasAttribute('hx-patch')
+            || form.hasAttribute('hx-delete')
+        ) {
+            return;
+        }
+
         const submitter = event.submitter
             || form.querySelector('button[type="submit"], button:not([type])');
         if (!(submitter instanceof HTMLButtonElement)) return;

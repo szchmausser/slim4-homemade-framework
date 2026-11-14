@@ -35,14 +35,13 @@ final class ContactController extends Controller
     private const SORTABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
 
     /**
-     * Las acciones de contactos que completan su trabajo redirigen a
-     * /contactos; el flash de esa acción se muestra como toast al cargar la
-     * página, con el mismo host que usa el demo de tareas en sus swaps HTMX.
+     * Con htmx, una acción exitosa responde 204 + eventos y no navega: la
+     * tabla refresca sin recargar y el toast viaja en `HX-Trigger`. Sin JS,
+     * el flujo sigue siendo PRG a /contactos y el flash se muestra al cargar.
      *
-     * El redirect es PRG y no la única respuesta: un fallo de validación (o un
-     * recurso inexistente) responde 422/404 con la pantalla re-renderizada,
-     * porque ahí redirigir descartaba lo tipeado (S7) y escondía el error
-     * detrás de un toast de cinco segundos.
+     * Un fallo de validación (o un recurso inexistente) responde 422/404 con
+     * la pantalla o el formulario re-renderizado, porque ahí redirigir
+     * descartaba lo tipeado (S7).
      */
     protected function usesToastFlash(): bool
     {
@@ -60,10 +59,19 @@ final class ContactController extends Controller
         $errors = $this->validationErrors($data);
 
         if ($errors !== []) {
+            if ($this->isHtmx($request)) {
+                return $this->renderForm($request, $response, [
+                    'action' => Url::path('/contactos'),
+                    'cancel_target' => 'contact-create-modal',
+                    'submit_label' => 'Crear contacto',
+                    'submit_icon' => 'plus',
+                    'errors' => $errors,
+                    'form_values' => $this->attributes($data),
+                ], 422);
+            }
+
             // S7: nada de redirect. El modal de alta vuelve ABIERTO, con los
-            // valores tipeados y el mensaje de cada campo: el usuario sigue
-            // donde estaba escribiendo en vez de reabrirlo y tipear todo de
-            // nuevo. Sin flash: el error ya vive al lado del campo.
+            // valores tipeados y el mensaje de cada campo.
             return $this->renderIndex($request, $response, [
                 'errors' => $errors,
                 'form_values' => $this->attributes($data),
@@ -72,6 +80,11 @@ final class ContactController extends Controller
         }
 
         Contact::create($this->attributes($data));
+
+        if ($this->isHtmx($request)) {
+            return $this->hxSuccess($response, 'Contacto creado.', 'create');
+        }
+
         Flash::set('success', 'Contacto creado.');
 
         return $this->back($response);
@@ -82,10 +95,17 @@ final class ContactController extends Controller
         $contact = Contact::find((int) $args['id']);
 
         if ($contact === null) {
-            // Un contacto inexistente es un 404, no un redirect al listado: el
-            // redirect escondía el problema detrás de un aviso de cinco
-            // segundos y el usuario no entendía por qué no se abrió nada.
             throw new HttpNotFoundException($request);
+        }
+
+        if ($this->isHtmx($request)) {
+            return $this->renderForm($request, $response, [
+                'action' => Url::path('/contactos/' . $contact->getKey()),
+                'contact' => $contact,
+                'cancel_target' => 'contact-edit-modal',
+                'submit_label' => 'Guardar cambios',
+                'submit_icon' => 'check',
+            ]);
         }
 
         return $this->renderEdit($request, $response, $contact);
@@ -103,10 +123,18 @@ final class ContactController extends Controller
         $errors = $this->validationErrors($data);
 
         if ($errors !== []) {
-            // S7: esto era un 303 a /contactos, que descartaba la pantalla de
-            // edición entera —lo tipeado, el mensaje y hasta el contacto que
-            // se estaba editando—. Vuelve la misma página con los valores y
-            // los errores.
+            if ($this->isHtmx($request)) {
+                return $this->renderForm($request, $response, [
+                    'action' => Url::path('/contactos/' . $contact->getKey()),
+                    'contact' => $contact,
+                    'cancel_target' => 'contact-edit-modal',
+                    'submit_label' => 'Guardar cambios',
+                    'submit_icon' => 'check',
+                    'errors' => $errors,
+                    'form_values' => $this->attributes($data),
+                ], 422);
+            }
+
             return $this->renderEdit($request, $response, $contact, [
                 'errors' => $errors,
                 'form_values' => $this->attributes($data),
@@ -114,19 +142,32 @@ final class ContactController extends Controller
         }
 
         $contact->fill($this->attributes($data))->save();
+
+        if ($this->isHtmx($request)) {
+            return $this->hxSuccess($response, 'Contacto actualizado.', 'update');
+        }
+
         Flash::set('success', 'Contacto actualizado.');
 
         return $this->back($response);
     }
 
     /**
-     * El borrado SÍ se queda en PRG: es una acción que muta y vuelve al
-     * listado, no una vista de recurso. Un id inexistente no rompe nada (el
-     * listado es un destino válido) y el aviso viaja en el flash de siempre.
+     * El borrado sigue siendo PRG para formularios sin JS. Con htmx devuelve
+     * 204 + eventos para cerrar el modal y refrescar la tabla sin recargar.
      */
     public function destroy(Request $request, Response $response, array $args): Response
     {
         $deleted = Contact::destroy((int) $args['id']);
+
+        if ($this->isHtmx($request)) {
+            return $this->hxSuccess(
+                $response,
+                $deleted === 0 ? 'El contacto no existe.' : 'Contacto eliminado.',
+                'delete',
+                $deleted === 0 ? 'error' : 'success'
+            );
+        }
 
         $deleted === 0
             ? Flash::set('error', 'El contacto no existe.')
@@ -169,10 +210,50 @@ final class ContactController extends Controller
 
         $response->getBody()->write(json_encode([
             'last_page' => $listing['last_page'],
+            // Tabulator calcula el total como last_page * size si no recibe
+            // last_row; con el conteo exacto el "de N filas" no miente.
+            'last_row'  => $listing['total'],
             'data'      => $rows,
         ], self::JSON_FLAGS));
 
         return $response->withHeader('Content-Type', 'application/json');
+    }
+
+    private function isHtmx(Request $request): bool
+    {
+        return $request->hasHeader('HX-Request');
+    }
+
+    /**
+     * Una mutacion htmx no navega: devuelve 204 y dos eventos. `toasts` usa el
+     * mismo host que el resto de la app; `contacts:changed` lo escucha el
+     * initializer de Tabulator para refrescar sin perder pagina ni orden.
+     */
+    private function hxSuccess(
+        Response $response,
+        string $message,
+        string $action,
+        string $type = 'success'
+    ): Response {
+        $payload = [
+            'toasts' => ['items' => [['message' => $message, 'type' => $type]]],
+            'contacts:changed' => [
+                'action' => $action,
+                'count' => Contact::query()->count(),
+            ],
+        ];
+
+        return $response
+            ->withStatus(204)
+            ->withHeader('HX-Trigger', json_encode($payload, self::JSON_FLAGS));
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function renderForm(Request $request, Response $response, array $data, int $status = 200): Response
+    {
+        return $this->render($request, $response, 'contacts/_form.twig', $data)->withStatus($status);
     }
 
     private function back(Response $response): Response

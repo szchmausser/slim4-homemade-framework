@@ -78,6 +78,7 @@ final class ContactsTest extends ContactsTestCase
 
         $payload = self::json($response);
         self::assertSame(3, $payload['last_page']);
+        self::assertSame(25, $payload['last_row']);
 
         $rows = self::rows($payload);
         self::assertCount(10, $rows);
@@ -526,5 +527,127 @@ final class ContactsTest extends ContactsTestCase
         }
 
         return $names;
+    }
+
+    public function test_el_index_incluye_el_modal_de_edicion(): void
+    {
+        $html = (string) self::app()->handle(self::request('GET', '/contactos'))->getBody();
+
+        self::assertStringContainsString('id="contact-edit-modal"', $html);
+        self::assertStringContainsString('id="contact-edit-body"', $html);
+    }
+
+    public function test_store_htmx_devuelve_204_y_eventos_de_refresco(): void
+    {
+        $token = self::token('/contactos');
+
+        $response = self::app()->handle(self::request('POST', '/contactos', [
+            'csrf_name' => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'name' => 'Alta HTMX',
+            'email' => 'alta-htmx@ejemplo.com',
+            'phone' => '',
+        ], ['HX-Request' => 'true']));
+
+        self::assertSame(204, $response->getStatusCode());
+
+        $events = json_decode($response->getHeaderLine('HX-Trigger'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('create', $events['contacts:changed']['action']);
+        self::assertSame(1, $events['contacts:changed']['count']);
+        self::assertSame('Contacto creado.', $events['toasts']['items'][0]['message']);
+        self::assertSame(1, Contact::query()->where('email', 'alta-htmx@ejemplo.com')->count());
+    }
+
+    public function test_store_invalido_htmx_devuelve_solo_el_formulario(): void
+    {
+        $token = self::token('/contactos');
+
+        $response = self::app()->handle(self::request('POST', '/contactos', [
+            'csrf_name' => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'name' => '',
+            'email' => 'no-es-email',
+            'phone' => '',
+        ], ['HX-Request' => 'true']));
+
+        self::assertSame(422, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+        self::assertStringContainsString('<form', $html);
+        self::assertStringContainsString('hx-post="/contactos"', $html);
+        self::assertStringContainsString('no-es-email', $html);
+        self::assertStringNotContainsString('<!DOCTYPE html>', $html);
+        self::assertSame(0, Contact::query()->count());
+    }
+
+    public function test_edit_htmx_devuelve_solo_el_formulario(): void
+    {
+        $contact = Contact::create([
+            'name' => 'Editar HTMX',
+            'email' => 'editar-htmx@ejemplo.com',
+            'phone' => '',
+        ]);
+
+        $response = self::app()->handle(self::request(
+            'GET',
+            '/contactos/' . $contact->id . '/edit',
+            [],
+            ['HX-Request' => 'true']
+        ));
+
+        self::assertSame(200, $response->getStatusCode());
+
+        $html = (string) $response->getBody();
+        self::assertStringContainsString('hx-post="/contactos/' . $contact->id . '"', $html);
+        self::assertStringContainsString('name="name"', $html);
+        self::assertStringNotContainsString('<!DOCTYPE html>', $html);
+    }
+
+    public function test_update_htmx_devuelve_204_y_evento(): void
+    {
+        $contact = Contact::create([
+            'name' => 'Antes',
+            'email' => 'antes@ejemplo.com',
+            'phone' => '',
+        ]);
+        $token = self::token('/contactos');
+
+        $response = self::app()->handle(self::request('POST', '/contactos/' . $contact->id, [
+            'csrf_name' => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'name' => 'Despues',
+            'email' => 'despues@ejemplo.com',
+            'phone' => '',
+        ], ['HX-Request' => 'true']));
+
+        self::assertSame(204, $response->getStatusCode());
+        $events = json_decode($response->getHeaderLine('HX-Trigger'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('update', $events['contacts:changed']['action']);
+        self::assertSame('Despues', $contact->fresh()?->name);
+    }
+
+    public function test_destroy_htmx_devuelve_204_y_evento(): void
+    {
+        $contact = Contact::create([
+            'name' => 'Borrar HTMX',
+            'email' => 'borrar-htmx@ejemplo.com',
+            'phone' => '',
+        ]);
+        $token = self::token('/contactos');
+
+        $response = self::app()->handle(self::request(
+            'POST',
+            '/contactos/' . $contact->id . '/delete',
+            [
+                'csrf_name' => $token['csrf_name'],
+                'csrf_value' => $token['csrf_value'],
+            ],
+            ['HX-Request' => 'true']
+        ));
+
+        self::assertSame(204, $response->getStatusCode());
+        $events = json_decode($response->getHeaderLine('HX-Trigger'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('delete', $events['contacts:changed']['action']);
+        self::assertNull(Contact::query()->find($contact->id));
     }
 }

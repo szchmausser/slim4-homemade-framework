@@ -70,7 +70,7 @@ Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, 
 
 Los flags del demo se pasan después de `--`: `composer demo:tasks:install -- --force` reinstala, y `composer demo:tasks:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
 
-El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con **paginación y ordenamiento resueltos en el servidor** (`GET /contactos/datos`, 10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa HTMX ni la paginación server-rendered de los listados simples.
+El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con **paginación y ordenamiento resueltos en el servidor** (`GET /contactos/datos`, 10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa la paginación server-rendered de los listados simples. Las altas, ediciones y borrados usan HTMX: la tabla se refresca sin recargar la página y conserva página/orden.
 
 `respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 

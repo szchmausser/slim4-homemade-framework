@@ -3419,7 +3419,7 @@ function toastStack() {
         </script>
 
         <script src="{{ url('/assets/app.js') }}"
-                integrity="sha384-ZT1KislqpR4P4jy2WBmcB20Iix4g6oCshAKxzPQVNBWFBw461YCYzo8YZBWkQWql"
+                integrity="sha384-4ff5pjEZpTtCd6OfXQtqAfVhGh6XZjAsGRGakSnMsCGSkiS+g1kJU9i9ZTCAjzQ/"
                 crossorigin="anonymous" defer></script>
 
 {% block scripts %}{% endblock %}

@@ -24,12 +24,13 @@
 
     const actions = (contact) => `
         <div class="contact-actions">
-            <a class="btn btn-square btn-ghost btn-sm size-9"
-               href="${esc(contact.edit_url)}"
-               aria-label="Editar"
-               title="Editar">
+            <button type="button" class="btn btn-square btn-ghost btn-sm size-9"
+                    data-contact-edit
+                    data-edit-url="${esc(contact.edit_url)}"
+                    aria-label="Editar"
+                    title="Editar">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-            </a>
+            </button>
             <button type="button" class="btn btn-square btn-ghost btn-sm size-9 icon-error"
                     data-contact-delete
                     data-delete-url="${esc(contact.delete_url)}"
@@ -41,27 +42,59 @@
         </div>`;
 
     const deleteModal = document.getElementById('contact-delete-modal');
-    if (deleteModal) {
-        // Delegado en el contenedor, no en cada botón: las filas llegan por
-        // AJAX y se reemplazan al cambiar de página, así que un listener por
-        // fila moriría en el primer swap y el borrado dejaría de abrir el modal.
-        root.addEventListener('click', (event) => {
-            const trigger = event.target.closest('[data-contact-delete]');
-            if (!trigger) {
+    const editModal = document.getElementById('contact-edit-modal');
+    const editBody = document.getElementById('contact-edit-body');
+
+    // Delegado en el contenedor: las filas llegan por AJAX y se reemplazan al
+    // cambiar de página, así que un listener por fila moriría en el primer swap.
+    root.addEventListener('click', (event) => {
+        const editTrigger = event.target.closest('[data-contact-edit]');
+        if (editTrigger && editModal && editBody) {
+            event.preventDefault();
+
+            const editUrl = editTrigger.dataset.editUrl || '';
+            if (editUrl === '') {
                 return;
             }
 
-            const name = deleteModal.querySelector('[data-contact-delete-name]');
-            const form = deleteModal.querySelector('[data-contact-delete-form]');
-            if (name) {
-                name.textContent = trigger.dataset.contactName || '';
+            editBody.innerHTML = '<div class="py-6 text-center text-sm opacity-70">Cargando...</div>';
+            editModal.showModal();
+
+            if (window.htmx) {
+                window.htmx.ajax('GET', editUrl, {
+                    target: '#contact-edit-body',
+                    swap: 'innerHTML',
+                });
+            } else {
+                editBody.innerHTML = '<p class="py-4 text-sm text-error">No se pudo cargar el formulario.</p>';
             }
-            if (form) {
-                form.action = trigger.dataset.deleteUrl || '';
+
+            return;
+        }
+
+        const trigger = event.target.closest('[data-contact-delete]');
+        if (!trigger || !deleteModal) {
+            return;
+        }
+
+        const name = deleteModal.querySelector('[data-contact-delete-name]');
+        const form = deleteModal.querySelector('[data-contact-delete-form]');
+        if (name) {
+            name.textContent = trigger.dataset.contactName || '';
+        }
+        if (form) {
+            const deleteUrl = trigger.dataset.deleteUrl || '';
+            form.action = deleteUrl;
+            form.setAttribute('hx-post', deleteUrl);
+            form.setAttribute('hx-target', 'this');
+            form.setAttribute('hx-swap', 'none');
+            form.setAttribute('hx-disabled-elt', "find button[type='submit']");
+            if (window.htmx) {
+                window.htmx.process(form);
             }
-            deleteModal.showModal();
-        });
-    }
+        }
+        deleteModal.showModal();
+    });
 
     const table = new Tabulator(root, {
         ajaxURL: url,
@@ -182,6 +215,33 @@
                 formatter: (cell) => actions(cell.getRow().getData()),
             },
         ],
+    });
+
+    // Una mutación htmx devuelve 204 + `contacts:changed`; no hay navegación.
+    // Se cierran los diálogos, se limpia el alta y se recarga la página actual
+    // de la tabla (replaceData conserva page/per_page y el sorter activo).
+    document.body.addEventListener('contacts:changed', (event) => {
+        document.querySelectorAll('dialog[open]').forEach((dialog) => dialog.close());
+
+        const createForm = document.querySelector('#contact-create-modal form[hx-post]');
+        if (createForm instanceof HTMLFormElement) {
+            createForm.reset();
+        }
+
+        const badge = document.querySelector('[data-contact-count]');
+        const count = event.detail && event.detail.count;
+        if (badge && Number.isInteger(count)) {
+            badge.textContent = `${count} contactos`;
+        }
+
+        // replaceData vuelve a la pagina 1; se restaura la pagina actual (o la
+        // ultima valida si el borrado dejo la anterior fuera de rango).
+        const page = table.getPage();
+        table.replaceData().then(() => {
+            if (page > 1) {
+                table.setPage(Math.min(page, table.getPageMax()));
+            }
+        }).catch(() => {});
     });
 
     // El toggle de colapso que dibuja Tabulator es un <div> sin nombre ni
