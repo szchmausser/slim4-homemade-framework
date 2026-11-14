@@ -27,6 +27,9 @@ Cada paso tiene la misma forma, y conviene respetarla:
 - **Objetivo**: la acción concreta.
 - **Estado de partida**: qué tiene que estar hecho. Si falta, el paso dice cómo volver.
 - **Acción**: el archivo y el código, o el comando.
+- **Archivo**: cuando el cambio es un fragmento, indica la ruta y el método o bloque exacto.
+- **Antes/Después**: cuando hay que insertar o sustituir, muestra las líneas vecinas para que sepas
+  dónde va el cambio. Las líneas `// …` y `{# … #}` marcan código que no cambia.
 - **Comprobación**: qué ejecutar y **qué debes ver**, escrito antes de que lo veas.
 - **Falla si**: la señal concreta de que el paso no quedó.
 - **Qué no prueba**: el límite de esa comprobación.
@@ -602,11 +605,15 @@ flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML;
 
 ### 6.3 Ahora sí, las notas desde el modelo
 
-**Acción**: suma el import del modelo y pasale la colección a la vista:
+**Archivo**: `app/Http/Controllers/NotaController.php`.
+
+**Acción**: suma el import del modelo, junto a los demás `use`, y pasale la colección a la vista:
 
 ```php
 use App\Models\Nota;
 ```
+
+**Archivo**: el mismo controlador, método `index()`.
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -617,7 +624,16 @@ use App\Models\Nota;
     }
 ```
 
-Y en la plantilla, reemplaza el párrafo por la lista:
+**Archivo**: `resources/views/notas/index.twig`, el archivo estático de 6.2.
+
+**Antes**: el párrafo que estaba debajo del título.
+
+```twig
+    <h1>Notas</h1>
+    <p>Acá va a vivir el listado.</p>
+```
+
+**Después**: reemplaza ese párrafo por la lista.
 
 ```twig
     <h1>Notas</h1>
@@ -707,10 +723,24 @@ ya tiene empaquetado. Es el momento de reemplazarlo.
 </div>
 ```
 
-En `index.twig`, cambia el `<ul>` por el include, **sin** envolverlo:
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`.
+
+**Antes**: el `<ul>` completo de 6.4.
 
 ```twig
+            <h1 class="text-2xl font-bold">Notas</h1>
+            <ul class="space-y-2">
+                {# … el bucle completo … #}
+            </ul>
+        </div>
+```
+
+**Después**: cambia el `<ul>` por el include, **sin** envolverlo.
+
+```twig
+            <h1 class="text-2xl font-bold">Notas</h1>
             {% include 'notas/_panel.twig' %}
+        </div>
 ```
 
 El `div` con el id va adentro del parcial por una razón concreta: cuando más adelante el panel se
@@ -736,9 +766,22 @@ cada entidad tiene su propia versión con variaciones accidentales.
 
 ### 6.6 El encabezado con la acción y el contador
 
-**Acción**: en `index.twig`, reemplaza el `<h1 class="text-2xl font-bold">Notas</h1>` que dejó el paso
-6.4 —el parcial ya trae su propio `h1`— y deja esto arriba del include del panel:
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`.
+
+**Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
+
 ```twig
+        <div class="card-body gap-4">
+            <h1 class="text-2xl font-bold">Notas</h1>
+            {% include 'notas/_panel.twig' %}
+        </div>
+```
+
+**Después**: reemplaza ese `<h1>` por el encabezado con la acción y el contador; el include del panel
+queda al final, dentro del mismo `card-body`.
+
+```twig
+        <div class="card-body gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold">Notas</h1>
@@ -753,12 +796,34 @@ cada entidad tiene su propia versión con variaciones accidentales.
                 <h2 class="text-lg font-semibold">Listado</h2>
                 <span class="badge badge-ghost">{{ total }} notas</span>
             </div>
+
+            {% include 'notas/_panel.twig' %}
+        </div>
 ```
 
-Y suma el total en el controlador:
+**Archivo**: `app/Http/Controllers/NotaController.php`, método `index()`.
+
+**Antes**:
 
 ```php
-            'total'  => Nota::query()->count(),
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'notas/index.twig', [
+            'notas' => Nota::orderByDesc('id')->get(),
+        ]);
+    }
+```
+
+**Después**: agrega `total` al mismo arreglo de datos.
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'notas/index.twig', [
+            'notas' => Nota::orderByDesc('id')->get(),
+            'total' => Nota::query()->count(),
+        ]);
+    }
 ```
 
 **Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha, el badge «0 notas» y la
@@ -781,8 +846,10 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 ### 7.1 Un diálogo nativo con campos a mano
 
-**Acción**: al final de `index.twig`, **dentro del bloque `content`** y después del `</section>`, un
-`<dialog>` nativo con el formulario a mano.
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`, después de `</section>` y antes de
+`{% endblock %}`.
+
+**Acción**: agrega un `<dialog>` nativo con el formulario a mano.
 
 > El modal va **adentro** de `{% block content %}`. Si lo pones después de `{% endblock %}`, Twig lo
 > ignora sin error: el archivo se ve bien y el botón no abre nada. Es el error más silencioso de este
@@ -812,8 +879,9 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 </dialog>
 ```
 
-Y `store()` en el controlador. Vas a necesitar tres `use` más arriba del archivo, junto a los que ya
-están:
+**Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
+
+Vas a necesitar tres `use` más arriba del archivo, junto a los que ya están:
 
 ```php
 use Framework\Http\Flash;
@@ -851,14 +919,26 @@ use Framework\Validation\Validator;
     }
 ```
 
-Y la ruta que la atiende, en `routes/notas.php`, debajo del `get`:
+**Archivo**: `routes/notas.php`, dentro del `group('/notas')`.
+
+**Antes**:
 
 ```php
+        $group->get('', [NotaController::class, 'index']);
+```
+
+**Después**: agrega el `post` debajo del `get`; las dos rutas comparten el grupo y el middleware de
+sesión.
+
+```php
+        $group->get('', [NotaController::class, 'index']);
         $group->post('', [NotaController::class, 'store']);
 ```
 
 Se registra aquí, con su acción, y no en el paso 4: una ruta sin acción es una promesa que el framework
 no puede cumplir —y el error aparece recién cuando alguien la visita—.
+
+**Archivo**: el mismo controlador, dentro de la clase.
 
 Y para que el aviso llegue en una pantalla con redirect, el controlador opta por el toast del shell:
 
@@ -877,8 +957,23 @@ formulario repinta la página y **pierde lo tipeado y el modal abierto**.
 
 ### 7.2 Sustituir los campos a mano por el del proyecto
 
-**Acción**: cambia los dos pares `label` + `input` por el componente, que trae label, error asociado y
-atributos de accesibilidad:
+**Archivo**: `resources/views/notas/index.twig`, dentro del `<form>` del diálogo de 7.1.
+
+**Antes**: los dos pares `label` + `input` y los dos `hidden` de CSRF.
+
+```twig
+            <label class="label" for="titulo">Título</label>
+            <input id="titulo" name="titulo" class="input w-full" maxlength="120">
+
+            <label class="label" for="cuerpo">Cuerpo</label>
+            <input id="cuerpo" name="cuerpo" class="input w-full" maxlength="2000">
+
+            <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
+            <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
+```
+
+**Después**: cambia cada par `label` + `input` por el componente, que trae label, error asociado y
+atributos de accesibilidad.
 
 ```twig
 {% set values = form_values|default(null) %}
@@ -906,7 +1001,16 @@ atributos de accesibilidad:
 `|default('')` sobre cada campo, un título vacío tipeado a propósito volvería al valor guardado, y
 el usuario vería el dato viejo en el campo que acaba de borrar.
 
-Cambia también los dos `hidden` de CSRF por el partial que los emite:
+**Archivo**: el mismo `index.twig`, dentro del `<form>`, donde estaban los dos `hidden`.
+
+**Antes**:
+
+```twig
+            <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
+            <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
+```
+
+**Después**: reemplazalos por el partial que emite los dos campos.
 
 ```twig
             {% include 'partials/_csrf.twig' %}
@@ -990,15 +1094,24 @@ por eso funciona igual en el diálogo nativo de este paso y en el modal del proy
 Los dos botones usan `components/ui/button.twig`, el mismo que vas a ver en 8.2: encapsula variante,
 icono y cierre.
 
-En `index.twig`, reemplaza el bloque `<form> … </form>` que estaba dentro del `<dialog>` por:
+**Archivo**: `resources/views/notas/index.twig`, dentro de `<dialog id="nota-create-modal">` y de
+`<div class="modal-box">`.
+
+**Antes**: el `<form> … </form>` inline de 7.1.
+
+**Después**: reemplaza ese formulario por el include; el `<h3>` y el `<div class="modal-box">` se
+conservan.
 
 ```twig
+            <h3 class="text-lg font-bold">Nueva nota</h3>
             {% include 'notas/_form.twig' with {
                 action: url('/notas'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
                 nota: null
             } only %}
+        </div>
+    </dialog>
 ```
 
 `nota: null` parece un detalle, pero corta la herencia: cuando este mismo parcial se use en el modal de
@@ -1026,6 +1139,9 @@ cada operación repite el formulario y una de las dos se olvida de un campo.
 El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón, foco y cierre por
 Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce el id del diálogo.
 
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`, después de `</section>` y antes de
+`{% endblock %}`.
+
 **Acción**: reemplaza todo el `<dialog> … </dialog>` por el componente:
 
 ```twig
@@ -1046,7 +1162,18 @@ Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce e
     {% endembed %}
 ```
 
-Y reemplaza el botón crudo del encabezado por el botón del proyecto:
+**Archivo**: el mismo `index.twig`, dentro del `<div class="flex flex-wrap items-start …">` del
+encabezado.
+
+**Antes**:
+
+```twig
+                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    Agregar nota
+                </button>
+```
+
+**Después**: reemplaza el botón crudo por el botón del proyecto.
 
 ```twig
                 {% include 'components/ui/button.twig' with {
@@ -1081,7 +1208,22 @@ Un formulario inválido no es una página nueva: es la misma página con el moda
 lo que el usuario ya había tipeado. Si el servidor devuelve la página con el modal cerrado, el usuario
 ve el error pero pierde el contexto.
 
-**Acción**: en el rechazo de `store()`, pasa `errors`, `form_values` y la bandera que abre el modal:
+**Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`, dentro de
+`if ($validator->fails())`.
+
+**Antes**: el rechazo sólo devuelve la lista y el estado 422.
+
+```php
+        if ($validator->fails()) {
+            return $this->render($request, $response, 'notas/index.twig', [
+                'notas'  => Nota::orderByDesc('id')->get(),
+                'total'  => Nota::query()->count(),
+                'active' => 'notas',
+            ])->withStatus(422);
+        }
+```
+
+**Después**: agrega `errors`, `form_values` y `open_create_modal` al mismo render.
 
 ```php
         if ($validator->fails()) {
@@ -1096,7 +1238,16 @@ ve el error pero pierde el contexto.
         }
 ```
 
-Y en el modal, reemplaza `open: false` por:
+**Archivo**: `resources/views/notas/index.twig`, dentro del `{% embed 'components/ui/modal.twig' %}`
+del modal de alta.
+
+**Antes**:
+
+```twig
+        open: false
+```
+
+**Después**: reemplaza esa línea por:
 
 ```twig
         open: open_create_modal|default(false)
@@ -1132,8 +1283,10 @@ una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
 
 ### 8.1 Primero, el atajo que no se debe dejar
 
-**Acción**: en el bloque `row` del parcial, la fila pasa a ser flex —si no, las acciones caen debajo del
-título en vez de quedar a la derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`.
+
+**Acción**: la fila pasa a ser flex —si no, las acciones caen debajo del título en vez de quedar a la
+derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
 
 ```twig
 <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
@@ -1156,6 +1309,8 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
 > y parecería que el problema del paso es el JavaScript, cuando el problema es que **no tiene nombre**.
 
 ### 8.2 Ahora, el botón del proyecto
+
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`.
 
 **Acción**: reemplaza los dos por el componente, con icono del registro compartido y nombre accesible:
 
@@ -1185,9 +1340,20 @@ El componente no acepta `onclick`: `data_modal_open` le pide al shell que abra
 ese `<dialog>` con `showModal()`. Así el botón conserva foco, Escape y el
 tratamiento visual del proyecto.
 
-Y suma las rutas al archivo de rutas, que queda con cinco:
+**Archivo**: `routes/notas.php`, dentro del `group('/notas')`.
+
+**Antes**: el archivo sólo tiene el listado y el alta.
 
 ```php
+        $group->get('', [NotaController::class, 'index']);
+        $group->post('', [NotaController::class, 'store']);
+```
+
+**Después**: agrega las tres rutas de edición y borrado; el archivo queda con cinco.
+
+```php
+        $group->get('', [NotaController::class, 'index']);
+        $group->post('', [NotaController::class, 'store']);
         $group->get('/{id}/edit', [NotaController::class, 'edit']);
         $group->post('/{id}', [NotaController::class, 'update']);
         $group->post('/{id}/delete', [NotaController::class, 'destroy']);
@@ -1218,6 +1384,8 @@ resto de la app.
 
 ### 9.1 Abrir el modal con la nota
 
+**Archivo**: `app/Http/Controllers/NotaController.php`.
+
 **Acción**: suma el import de la excepción y crea `edit()`:
 
 ```php
@@ -1246,8 +1414,10 @@ use Slim\Exception\HttpNotFoundException;
 `edit()` no renderiza una pantalla nueva: reusa `index.twig`, le pasa la nota y le dice que abra el
 modal de edición. Así el formulario, el modal y la lista ya están en la misma página.
 
-Ahora agrega el segundo modal, junto al del alta y **dentro** del mismo bloque `content`. Sólo se
-renderiza cuando hay `nota`:
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`, después del `{% endembed %}` del
+modal de alta.
+
+Ahora agrega el segundo modal. Sólo se renderiza cuando hay `nota`:
 
 ```twig
     {% if nota is defined %}
@@ -1288,6 +1458,8 @@ la lista. Úsalo cuando la edición comparte la pantalla con el listado. Sin est
 tienen dos copias de la tabla y se desincronizan.
 
 ### 9.2 Guardar la edición
+
+**Archivo**: el mismo controlador, método `update()`.
 
 **Acción**: agrega `update()`, que valida, guarda y vuelve a la lista:
 
@@ -1364,6 +1536,9 @@ la edición validan distinto y una de las dos se olvida de algo.
 
 ### 10.1 Primero, el atajo
 
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`, en el lugar de la papelera
+del paso 8.
+
 **Acción**: envuelve la papelera en un formulario con el `confirm` del navegador:
 
 ```twig
@@ -1381,7 +1556,9 @@ la edición validan distinto y una de las dos se olvida de algo.
 </form>
 ```
 
-Y `destroy()`:
+**Archivo**: `app/Http/Controllers/NotaController.php`, método `destroy()`.
+
+**Acción**: agrega `destroy()`:
 
 ```php
     public function destroy(Request $request, Response $response, array $args): Response
@@ -1409,8 +1586,10 @@ proyecto usa un diálogo.
 
 ### 10.2 Ahora, el diálogo de confirmación
 
-**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo dentro del bloque `row`,
-después del contenido:
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`, después del contenido de la
+fila.
+
+**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo en ese lugar:
 
 ```twig
             {% embed 'components/ui/modal.twig' with {
@@ -1625,7 +1804,9 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 ### 12.1 Paginar la consulta
 
-**Acción**: en el controlador, suma `use Framework\Http\Pagination;` y centraliza la lectura:
+**Archivo**: `app/Http/Controllers/NotaController.php`.
+
+**Acción**: suma `use Framework\Http\Pagination;` y centraliza la lectura en un método privado:
 
 ```php
     private function pageData(Request $request): array
@@ -1650,6 +1831,8 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 `Pagination::paginate()` recibe la consulta, la página pedida, el tamaño y la URL base. Devuelve los
 items de esa página, el total y los datos que después usan los controles. `pageData()` traduce eso a
 las variables que ya conoce la vista.
+
+**Archivo**: el mismo controlador, método `index()`.
 
 Ahora `index()` usa ese helper:
 
@@ -1685,6 +1868,8 @@ con dos mil.
 
 ### 12.2 Pintar los controles y responder sólo el panel
 
+**Archivo**: el mismo controlador.
+
 **Acción**: crea `renderIndex()`, que arma la página y decide qué devolver según el pedido:
 
 ```php
@@ -1711,6 +1896,8 @@ con dos mil.
     }
 ```
 
+**Archivo**: el mismo controlador, método `index()`.
+
 `index()` queda en una línea:
 
 ```php
@@ -1724,10 +1911,14 @@ La clave está en `HX-Request`: un pedido normal recibe `index.twig` completo; u
 sólo `_panel.twig`. Si devuelves la página completa a HTMX, el panel se reemplaza por **otra página
 completa** y el shell queda anidado: dos sidebars, dos headers y el contenido duplicado.
 
-Ahora agrega los controles **dentro** de `div#notas-panel`, después del `embed` y antes de cerrar el
-`div`:
+**Archivo**: `resources/views/notas/_panel.twig`, dentro de `div#notas-panel`, después del `embed` y
+antes de cerrar el `div`.
+
+**Acción**: agrega los controles:
 
 ```twig
+    {% endembed %}
+
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#notas-panel'
@@ -1781,6 +1972,8 @@ o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página.
 esa respuesta sólo repinta el formulario.
 
 ### 12.3 Unificar los renders de edición y 422
+
+**Archivo**: `app/Http/Controllers/NotaController.php`, métodos `edit()`, `store()` y `update()`.
 
 **Acción**: reemplaza los renders sueltos de `edit()` y de los rechazos por `renderIndex()`, pasando lo
 propio en `$extra`:
