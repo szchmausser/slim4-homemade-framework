@@ -774,7 +774,57 @@ Una página suelta no se distingue de una app: le falta el sidebar, el header y 
 existe en una plantilla del proyecto. Heredar de ella es también la forma de no repetir los assets ni el
 marcado del shell en cada pantalla que agregues.
 
-**Acción**: reemplaza todo `resources/views/notas/index.twig` por la versión que extiende el layout:
+**Acción**: envuelve la misma vista en el layout. No cambies el contenido: el `<h1>`, la lista y el
+texto del vacío quedan como están. Lo único que aparece son los bloques.
+
+```twig
+{% extends 'layouts/app.twig' %}
+
+{% block title %}Notas{% endblock %}
+
+{% block content %}
+    <h1>Notas</h1>
+    <ul>
+        {% for item in notas %}
+            <li>{{ item.titulo }}</li>
+        {% else %}
+            <li>No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
+{% endblock %}
+```
+
+**Comprobación**: recarga `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
+header y el tema. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
+como en 6.3: un título y una lista sin estilos propios, porque todavía no los tiene.
+
+**Falla si**:
+
+- Ves la página sin sidebar: falta el `{% extends %}` o la plantilla no es `layouts/app.twig`.
+- Ves el contenido dos veces: quedó el `<!DOCTYPE html>` de 6.3 además de los bloques.
+- El título de la pestaña no cambia por página: falta el `{% block title %}`.
+
+**Qué no prueba**: que el contenido quede legible. Heredar el tema no estiliza tu marcado: eso es el paso
+siguiente.
+
+**Qué ganaste**: la pantalla es del proyecto —sidebar con tu usuario, header, tema, assets— y tuyo es sólo
+el bloque `content`. Y mira el costo: título y lista quedaron en el mismo bloque, sin nada que puedas
+reemplazar por separado.
+
+**Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
+assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
+rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
+header, y el tema se rompería en la que te olvidaras.
+
+![La misma página de 6.3 dentro del shell: sidebar, header y tema](tutorial-crud-images/06-4-shell.png)
+
+### 6.5 El diseño de la vista
+
+La página ya vive en el shell, pero el contenido sigue siendo marcado pelado: un `h1` y una lista. El
+proyecto tiene un idioma visual —tarjeta, espaciado, filas con borde— y aplicarlo es un paso aparte, para
+que se vea qué aportó el shell y qué aporta el diseño.
+
+**Acción**: envuelve el contenido en la tarjeta del proyecto y dale clases a la lista y a la fila.
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -799,25 +849,27 @@ marcado del shell en cada pantalla que agregues.
 {% endblock %}
 ```
 
-**Comprobación**: recarga `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—,
-el header, el tema y el contenido dentro de una tarjeta. **El `<body>`, el `<head>` y los assets ya no
-son tuyos.**
+**Qué hace cada clase**: `card` y `card-body` dan la tarjeta y su relleno; `space-y-2` separa las filas;
+`rounded-box`, `border` y `p-3` hacen la fila; `font-semibold` pesa el título y `opacity-60` apaga el
+vacío. Son clases de daisyUI y de Tailwind, que en este proyecto corre en el navegador.
 
-**Qué no prueba**: que los modales y los avisos funcionen; eso lo da el mismo layout, más adelante.
+**Comprobación**: la misma pantalla de 6.4, ahora con la tarjeta del proyecto y filas separadas y
+legibles. Nada de lo que ves es CSS tuyo: todo viene de las clases.
 
-**Qué ganaste**: la pantalla es del proyecto —sidebar con tu usuario, header, tema— y tuyo es sólo el
-contenido de la tarjeta. Y mira el costo: título y lista quedaron en el mismo bloque, sin nada que puedas
-reemplazar por separado. El panel se va a refrescar solo más adelante, y para eso tiene que ser una
-unidad.
+**Falla si**:
 
-**Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
-assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
-rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
-header, y el tema se rompería en la que te olvidaras.
+- Todo se ve sin bordes ni espaciado: Tailwind no arrancó, o las clases faltan en el marcado.
+- La tarjeta no aparece: falta `card`, o el contenido quedó fuera del `card-body`.
 
-![El shell completo: sidebar, header y tema](tutorial-crud-images/06-4-shell.png)
+**Qué no prueba**: que la fila sea reutilizable. Todavía es marcado de esta pantalla; el capítulo 12 la
+pasa a un componente.
 
-### 6.5 El panel a su propio archivo
+**Qué ganaste**: la vista se ve como el resto de la app y el marcado dice qué es cada cosa. Lo que sigue
+es separar el panel del resto de la página para poder refrescarlo solo.
+
+![La vista con el diseño del proyecto: tarjeta, filas y vacío](tutorial-crud-images/06-5-estilos.png)
+
+### 6.6 El panel a su propio archivo
 
 El panel es la región que más adelante se va a refrescar sola. Sepáralo del resto de la página ahora,
 todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para tenerla ordenada.
@@ -877,9 +929,9 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 > El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 12. Recién ahí, con la entidad ya
 > probada, la lista se extrae al componente del proyecto.
 
-La pantalla es la de 6.4: el panel se movió a un parcial y no cambia lo que se ve.
+La pantalla es la de 6.5: el panel se movió a un parcial y no cambia lo que se ve.
 
-### 6.6 El encabezado con la acción y el contador
+### 6.7 El encabezado con la acción y el contador
 
 La pantalla ya lista, pero no ofrece nada: para crear una nota hay que conocer la URL del paso 5, y no
 hay forma de saber cuántas hay. Necesita un encabezado que diga qué es, ofrezca la acción principal y
@@ -887,7 +939,7 @@ muestre el conteo. Escribámoslo a mano primero, para ver exactamente qué conti
 
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
-**Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
+**Antes**: después de 6.6, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
 
 ```twig
         <div class="card-body gap-4">
@@ -992,18 +1044,18 @@ vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
 
 ![El encabezado con su acción y el listado](tutorial-crud-images/06-6-encabezado.png)
 
-### 6.7 El encabezado a su componente
+### 6.8 El encabezado a su componente
 
 Fijate en lo que acabas de escribir. Esas líneas no tienen nada que ver con las notas: son la forma del
 encabezado —el icono, el título, el subtítulo, la fila que alinea la acción—. Si mañana otra pantalla
 necesita lo mismo, las copiarías; a la segunda copia una se vería distinta, y a la tercera ya no sabrías
-cuál es la buena. Es el mismo caso del panel en 6.5, y el proyecto ya lo tiene resuelto:
+cuál es la buena. Es el mismo caso del panel en 6.6, y el proyecto ya lo tiene resuelto:
 `components/ui/page-header.twig`. Usémoslo: la vista deja de describir la forma y pasa a declarar el
 contenido.
 
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
-**Antes**: el armazón de 6.6, con el botón todavía crudo.
+**Antes**: el armazón de 6.7, con el botón todavía crudo.
 
 ```twig
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -1049,7 +1101,7 @@ subtítulo desaparecen de tu vista; queda el hueco.
   formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
   vez** y no recibe variables: lo que uses, se lo pasas tú.
 
-**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
+**Comprobación**: el encabezado se ve **idéntico** al de 6.7 —título con icono, subtítulo y botón a la
 derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
 
 **Falla si**:
@@ -1072,9 +1124,9 @@ cada vista invente su variante —una con icono, otra sin, una con la acción a 
 acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.4 sin tocar el
 encabezado.
 
-La pantalla es la de 6.6: el encabezado pasó al componente y se ve igual.
+La pantalla es la de 6.7: el encabezado pasó al componente y se ve igual.
 
-### 6.8 La botonera a su componente
+### 6.9 La botonera a su componente
 
 El encabezado ya es un componente, pero el control de la esquina sigue siendo un botón suelto dentro
 del hueco. Con uno alcanza. Con dos —«Exportar» y «Agregar»— cada control se vuelve hijo directo del
@@ -1122,7 +1174,7 @@ la separación.
   el móvil.
 - `extra_class` es opcional, para alinear o separar distinto en un caso concreto.
 
-**Comprobación**: el encabezado se ve **idéntico** al de 6.7 y el botón sigue sin abrir nada.
+**Comprobación**: el encabezado se ve **idéntico** al de 6.8 y el botón sigue sin abrir nada.
 
 **Falla si**:
 
@@ -1160,9 +1212,9 @@ y su orden. El día que aparezca el segundo botón no hay espacios que ajustar n
 tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
 cada pantalla elige su `gap` y su alineación.
 
-La pantalla es la de 6.6: la botonera agrupa el control y no cambia lo que se ve.
+La pantalla es la de 6.7: la botonera agrupa el control y no cambia lo que se ve.
 
-### 6.9 Anatomía del encabezado
+### 6.10 Anatomía del encabezado
 
 Usaste el encabezado completo sin ver cómo está armado, y vale la pena mirarlo: la forma en que se
 compone es la que vas a repetir cuando hagas tus propios compuestos. La idea es simple —un wrapper que
@@ -1207,7 +1259,7 @@ encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una
 hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
 contenido.
 
-La pantalla es la de 6.6: la anatomía es lectura, no un cambio de pantalla.
+La pantalla es la de 6.7: la anatomía es lectura, no un cambio de pantalla.
 
 ---
 
@@ -1261,7 +1313,7 @@ salir del listado, y por eso el proyecto la conserva.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
 
-Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están (`Url` ya lo tienes de 6.6):
+Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están (`Url` ya lo tienes de 6.7):
 
 ```php
 use Framework\Http\Flash;
@@ -1590,7 +1642,7 @@ modal tendría que repetir sus clases.
                 } only %}
 ```
 
-El componente usa la misma delegación que el botón crudo de 6.6 —`data_modal_open` la resuelve el
+El componente usa la misma delegación que el botón crudo de 6.7 —`data_modal_open` la resuelve el
 shell— y suma lo que al `<button>` suelto le falta: variante, icono y `aria_label` cuando el texto no
 alcanza. El foco, el estilo y Escape siguen iguales para todos los botones.
 
@@ -2407,7 +2459,7 @@ que lo hace reusable, y también lo que lo vuelve difícil de leer la primera ve
 `embed`, con una diferencia: `row` se rellena **una vez por item**, porque el componente lo invoca
 dentro de su `for`.
 
-Para verlo sin el ruido de los botones, toma la fila mínima de 6.5:
+Para verlo sin el ruido de los botones, toma la fila mínima de 6.6:
 
 ```twig
 <div id="notas-panel">
@@ -2962,7 +3014,7 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.5 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
-| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.5) |
+| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.6) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
 | La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 12) |
 | La papelera no abre nada | El modal quedó fuera del bloque `row` | Muévelo adentro del bloque, después del `</li>` (capítulo 12) |
