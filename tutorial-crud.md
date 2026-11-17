@@ -937,6 +937,13 @@ página funciona igual pero el menú no resalta «Notas» y el enlace no lleva `
     }
 ```
 
+El `onclick` es el atajo, no el destino: en este proyecto **ninguna vista escribe manejadores**. El shell
+tiene un único listener delegado en `public/assets/app.js` que abre o cierra cualquier `<dialog>` a
+partir de `data-modal-open` y `data-modal-close`. Alpine no participa de esto: se ocupa del sidebar,
+el tema y los avisos; abrir un diálogo es una acción sobre un elemento del servidor, no un estado
+reactivo. El botón pierde el `onclick` en 7.4, cuando entra `components/ui/button.twig`, y desde ahí el
+manejador vive en un solo lugar para todas las pantallas.
+
 **Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha, el badge «0 notas» y la
 lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
