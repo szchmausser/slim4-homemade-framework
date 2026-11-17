@@ -499,6 +499,10 @@ Ese texto prueba una sola cosa: que la ruta está registrada. No dice si el requ
 construye la clase ni si la respuesta sale bien formada. Este paso cambia el closure por un controlador y
 devuelve un JSON que se compara cadena contra cadena, antes de que una vista meta HTML en el medio.
 
+La recompensa es de diagnóstico: si el JSON sale, el cableado está bien y cualquier problema que aparezca
+después es de la vista; si no sale, no tiene sentido tocar Twig todavía. Esa distinción es la que te
+ahorra buscar en el lugar equivocado.
+
 **Acción**: ahora el controlador. Crea `app/Http/Controllers/NotaController.php` con una sola acción:
 
 ```php
@@ -1699,7 +1703,11 @@ derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
 los dos controles **no tienen nombre**: el enlace se anuncia como «✏️» y el botón como «🗑️». Para
 alguien que no ve la pantalla, son dos botones indistinguibles.
 
-**Qué no prueba**: nada bueno. Sirve para ver el problema antes de arreglarlo.
+**Qué ganaste**: un defecto visible. Los dos controles funcionan, pero ninguno se puede anunciar; ahora
+sabes señalarlo, y el paso siguiente arregla algo que ya no es una opinión.
+
+**Qué no prueba**: nada del comportamiento. Borra y edita con un emoji igual de bien; lo que falta es
+que alguien que no ve la pantalla pueda usar la fila.
 
 > El `onclick` está interpolado con `{{ item.id }}` a propósito: sin interpolar, el botón no haría nada
 > y parecería que el problema del paso es el JavaScript, cuando el problema es que **no tiene nombre**.
@@ -2009,9 +2017,9 @@ papelera del paso 8.
 **Comprobación**: toca la papelera. Aparece el cartel del navegador «¿Borrar esta nota?». Si aceptas,
 la fila desaparece y el aviso «Nota borrada.» sale abajo a la derecha.
 
-Funciona. **Y sin embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar,
-no respeta el tema, no dice **qué** nota estás borrando y bloquea el hilo del navegador. Por eso el
-proyecto usa un diálogo.
+**Qué ganaste**: borrar funciona de punta a punta, y sabes exactamente por qué no alcanza. **Y sin
+embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar, no respeta el tema, no
+dice **qué** nota estás borrando y bloquea el hilo del navegador. Por eso el proyecto usa un diálogo.
 
 ### 10.2 Ahora, el diálogo de confirmación
 
@@ -2284,7 +2292,7 @@ sola pantalla: se lee de arriba abajo y no esconde nada. El problema aparece cua
 listado en otra entidad o cuando el estado vacío se desincroniza entre pantallas. El proyecto ya tiene
 esa pieza resuelta: `components/list/simple.twig`.
 
-### 12.1 Qué hace el componente
+**Qué hace el componente**
 
 **Componente**: `resources/views/components/list/simple.twig`. Léelo, no lo edites: ya existe y es del
 proyecto.
@@ -2385,9 +2393,6 @@ tiene el `<ul>`, ni el `for`, ni el `else`, y aun así el `<li>` se repite una v
 componente pone la estructura y el vacío; tú sólo describes una fila. Desconcierta la primera vez
 porque la indentación sugiere que el `<li>` se pinta una vez, cuando en realidad se repite.
 
-**Comprobación**: no toques nada todavía. Si puedes explicar por qué el `<li>` se repite sin un `for`
-en tu archivo, tienes el mecanismo. La aplicación completa es el paso siguiente.
-
 **Falla si** (cuando lo apliques):
 
 - La lista aparece vacía aunque haya notas: usaste `include` en vez de `embed`, o el
@@ -2397,10 +2402,10 @@ en tu archivo, tienes el mecanismo. La aplicación completa es el paso siguiente
 - La lista no aparece: el nombre del componente no coincide con `components/list/simple.twig`.
 
 **Qué ganaste**: sabes qué parte de tu fila va en cada bloque y por qué el `<li>` se repite sin un `for`
-tuyo. El panel, mientras tanto, sigue con su propio `<ul>` y su propio estado vacío. Aplicarlo es el paso
-siguiente.
+tuyo. El panel, mientras tanto, sigue con su propio `<ul>` y su propio estado vacío. Ese es el trabajo
+que sigue.
 
-### 12.2 Mover la fila completa
+**Mover la fila completa**
 
 El panel funciona y no hace falta reescribirlo: hay que cortarlo por donde el componente espera. El corte
 no es de contenido sino de responsabilidad —qué se queda en tu archivo y qué pasa al componente—, y por
@@ -2881,8 +2886,8 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
-| La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (paso 12.2) |
-| La papelera no abre nada | El modal quedó fuera del bloque `row` | Muévelo adentro del bloque, después del `</li>` (paso 12.2) |
+| La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 12) |
+| La papelera no abre nada | El modal quedó fuera del bloque `row` | Muévelo adentro del bloque, después del `</li>` (capítulo 12) |
 | La lista trae todo | Falta `Pagination::paginate()` | Paso 13.1 |
 | Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 13.2 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9.1 |
