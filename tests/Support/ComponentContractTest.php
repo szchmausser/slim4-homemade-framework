@@ -341,4 +341,30 @@ final class ComponentContractTest extends TestCase
         self::assertStringContainsString('<li class="opacity-60">Nada</li>', $html);
         self::assertStringNotContainsString('<dialog', $html);
     }
+
+    public function test_action_bar_agrupa_los_controles_en_una_fila(): void
+    {
+        // El bloque `actions` de `page-header` acepta una sola unidad: con dos
+        // controles sueltos se vuelven hijos del `justify-between` del encabezado
+        // y uno queda en el centro de la pantalla. La botonera es esa unidad.
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/ui/action-bar.twig' %}"
+            . '{% block controls %}<button>A</button><button>B</button>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertSame(1, substr_count($html, 'class="flex flex-wrap items-center gap-2"'));
+        self::assertStringContainsString('<button>A</button><button>B</button>', $html);
+    }
+
+    public function test_action_bar_acepta_clases_extra(): void
+    {
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/ui/action-bar.twig' with {extra_class: 'justify-end'} %}"
+            . '{% block controls %}<button>A</button>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertStringContainsString('class="flex flex-wrap items-center gap-2 justify-end"', $html);
+    }
 }

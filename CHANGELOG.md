@@ -13,6 +13,9 @@ de notas y contactos ponen ahí los diálogos de borrado: un `<dialog>` no es hi
 
 ### Incluido
 
+- Componente `components/ui/action-bar.twig`: fila de controles para la esquina del encabezado o una
+  tarjeta, con bloque `controls` y `extra_class`. El hueco `actions` de `page-header` acepta una sola
+  unidad: la botonera es la que agrupa varias y fija la separación, sin decidir el orden.
 - Componente `components/ui/page-header.twig`: icono opcional, título, subtítulo y bloque `actions`.
   Los demos de notas y contactos lo comparten; tasks conserva su encabezado propio porque su alta es
   un formulario inline, no un control en la esquina.

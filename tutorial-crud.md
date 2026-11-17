@@ -910,6 +910,35 @@ subtítulo desaparecen de tu vista; queda el hueco.
 - `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
   formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
   vez** y no recibe variables: lo que uses, se lo pasas tú.
+- `components/ui/action-bar.twig` (sólo cuando hay más de un control): la botonera. `page-header`
+  deja un **hueco**, no una fila: sin ella, dos controles sueltos se vuelven hijos del `justify-between`
+  del encabezado y el del medio queda flotando en el centro de la pantalla. Adentro va el bloque
+  `controls`, y el orden lo pones tú: secundario primero, primario al final.
+
+Cuando la pantalla tenga un segundo control, los dos van adentro de la botonera y en ese orden:
+
+```twig
+{% embed 'components/ui/action-bar.twig' %}
+    {% block controls %}
+        {% include 'components/ui/button.twig' with {
+            label: 'Volver',
+            variant: 'ghost',
+            icon: 'arrow-left',
+            href: url('/')
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: 'Agregar nota',
+            icon: 'plus',
+            data_modal_open: 'nota-create-modal'
+        } only %}
+    {% endblock %}
+{% endembed %}
+```
+
+El de la izquierda es secundario y el de la derecha, primario. Cuidado con el primero: en un listado,
+«Volver» duplica el sidebar y el botón del navegador, y gana su lugar recién en una pantalla de detalle.
+Los segundos controles que sí lo justifican son «Exportar», «Filtros» o «Actualizar». Este paso se queda
+con un solo botón.
 
 **Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
 derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
@@ -920,6 +949,8 @@ derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
 - Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
 - El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
 - El icono desaparece: el nombre no está en `partials/_icon.twig`.
+- Dos controles se reparten por la pantalla, uno al medio: faltó la botonera y quedaron como hijos
+  directos del `justify-between` del encabezado.
 
 **Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es un
 formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría

@@ -1,0 +1,13 @@
+{# Botonera de acciones: la fila de controles del encabezado o de una tarjeta.
+   Props: extra_class (opcional); bloque `controls`.
+   El componente es dueño de la fila —flex, wrap y gap— y de la alineación. El
+   orden lo pones vos: secundario primero, primario al final, que es donde el ojo
+   lo busca y donde el pulgar lo alcanza en el móvil.
+
+   Existe porque el hueco `actions` de `page-header` acepta UNA unidad: dos
+   controles sueltos se vuelven hijos del `justify-between` del encabezado y el
+   del medio queda flotando en el centro de la pantalla. #}
+{% set classes = ('flex flex-wrap items-center gap-2' ~ (extra_class is defined and extra_class ? ' ' ~ extra_class : ''))|trim %}
+<div class="{{ classes }}">
+    {% block controls %}{% endblock %}
+</div>
