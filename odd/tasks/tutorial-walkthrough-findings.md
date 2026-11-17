@@ -82,7 +82,7 @@ Cada hallazgo indica capítulo, síntoma observado, causa, corrección y estado.
   tutorial es fiel al demo, así que no se corrige ahí: si se arregla, hay que arreglar el demo y las
   dos vistas a la vez.
 
-## F9 — Capítulo 12.3: la comprobación menciona paginación antes de que exista (corregido)
+## F9 — Capítulo 12 (entonces 12.3): la comprobación menciona paginación antes de que exista (corregido)
 
 - **Síntoma**: «el listado sigue paginando y refrescándose sin duplicar el shell», en el capítulo 12.
   La paginación llega en el 13.
@@ -182,6 +182,8 @@ como está escrito, se comprobó en pantalla con ego-browser y se contrastó con
 namespace, el orden de los métodos y los comentarios.
 
 ## Segunda pasada: clon limpio con la guía corregida
+
+La sección 12.3 se eliminó después: el encabezado pasó a usar el componente desde 6.6.
 
 Recorrido completo desde `4a6281e` en un worktree sin `vendor/`, sin base y sin la entidad. Capítulos
 1 a 13 ejecutados literalmente; 14 no es ejecutable literalmente porque es un ejercicio sin código.

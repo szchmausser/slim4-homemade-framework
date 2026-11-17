@@ -48,7 +48,9 @@ recorrido necesita fijar para no improvisar durante la implementación.
 ## Idioma de UI (reemplaza la decisión de «sólo listar y crear»)
 
 - **Decision**: el recorrido enseña la pantalla como la escriben los demos: botón de acción en el encabezado que abre un modal de alta, acciones por fila como botones con icono y nombre accesible, edición en modal y borrado con confirmación en un diálogo. El orden de las piezas sigue la decisión de «Interacción del ejemplo»: la lista, la fila y el encabezado se escriben a mano al principio y se extraen a `components/list/simple.twig` y `components/ui/page-header.twig` al cierre, con la entidad ya probada.
-- **Rationale**: la versión anterior enseñaba a armar una pantalla con un formulario arriba de la lista, que no es lo que hace este proyecto. El objetivo del artefacto es que alguien pueda escribir una pantalla como las que ya existen, no una variante propia. Adoptar la forma de los demos no obliga a adoptar sus componentes de entrada: escribir el `<ul>`, la fila y el encabezado a mano primero es lo que hace visible qué aporta cada pieza.
+- **Rationale**: la versión anterior enseñaba a armar una pantalla con un formulario arriba de la lista, que no es lo que hace este proyecto. El objetivo del artefacto es que alguien pueda escribir una pantalla como las que ya existen, no una variante propia. Adoptar la forma de los demos no obliga a adoptar sus componentes de entrada: escribir el `<ul>` y la fila a mano primero es lo que hace visible qué aporta el componente; el
+  encabezado, en cambio, se usa desde 6.6 porque su versión a mano es el mismo markup que el
+  componente genera.
 - **Alternatives considered**: mantener sólo listar+crear (rechazada: no enseña acciones ni confirmación, que es justo el idioma); Tabulator con acciones en la grilla (rechazada: sigue fuera de alcance y agrega un vendor); edición inline como el demo de tareas (rechazada: el patrón con modales es el que el solicitante señaló como propio del proyecto).
 
 ## Validación sin contaminar el repositorio
