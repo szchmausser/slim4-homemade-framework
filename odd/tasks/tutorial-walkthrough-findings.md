@@ -183,7 +183,7 @@ namespace, el orden de los métodos y los comentarios.
 
 ## Segunda pasada: clon limpio con la guía corregida
 
-La sección 12.3 se eliminó después: el encabezado pasó a usar el componente desde 6.6.
+La sección 12.3 se eliminó después: el encabezado se escribe a mano en 6.6 y se pasa al componente en 6.7, dentro del capítulo 6.
 
 Recorrido completo desde `4a6281e` en un worktree sin `vendor/`, sin base y sin la entidad. Capítulos
 1 a 13 ejecutados literalmente; 14 no es ejecutable literalmente porque es un ejercicio sin código.

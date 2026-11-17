@@ -19,11 +19,10 @@ de notas y contactos ponen ahí los diálogos de borrado: un `<dialog>` no es hi
 
 ### Documentación
 
-- Tutorial: el paso 6 separa el panel en su propio parcial, usa `components/ui/page-header.twig`
-  desde 6.6 y deja la lista cruda hasta el capítulo 12, que extrae la fila a
-  `components/list/simple.twig` con `embed`. El encabezado ya no tiene extracción posterior:
-  escribirlo a mano era el mismo markup, siete capítulos antes del componente. Paginación y
-  repetición pasan a los capítulos 13 y 14.
+- Tutorial: el paso 6 separa el panel en su propio parcial, escribe el encabezado a mano en 6.6 y
+  lo pasa a `components/ui/page-header.twig` en 6.7, en el mismo capítulo; la lista cruda llega
+  hasta el capítulo 12, que extrae la fila a `components/list/simple.twig` con `embed`.
+  Paginación y repetición pasan a los capítulos 13 y 14.
 
 ## [0.1.1] - 2026-11-14
 

@@ -55,10 +55,9 @@ Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que es
 13. [Paginación del servidor](#13-paginación-del-servidor)
 14. [Repetir el patrón con otra entidad](#14-repetir-el-patrón-con-otra-entidad)
 
-Casi todas las piezas de UI aparecen dos veces: primero en su versión básica —HTML crudo, `<dialog>`
-nativo, `confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del
-proyecto, con lo que se gana y lo que se evita. La excepción es el encabezado de página: escribirlo a
-mano es el mismo markup que el componente genera, así que se usa el componente desde el principio. Los pasos 1 a 11 dejan la entidad completa y probada; el 12 extrae
+Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo, `<dialog>` nativo,
+`confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del proyecto, con
+lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa y probada; el 12 extrae
 la lista y el encabezado a componentes reusables, el 13 hace que la lista siga siendo usable cuando
 crece, y el 14 te deja el patrón para otra entidad tuya.
 
@@ -781,11 +780,6 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
 ### 6.6 El encabezado con la acción y el contador
 
-Aquí no hay versión «a mano»: el encabezado usa `components/ui/page-header.twig` desde el principio,
-porque escribirlo a mano produce el mismo markup para reemplazarlo después. Lo que aporta tu vista es
-el hueco: `{% block actions %}`, donde va el control de la esquina. El botón de este paso todavía es
-crudo —sólo cambia el botón, no el encabezado— y se reemplaza en 7.4.
-
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
 **Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
@@ -797,22 +791,25 @@ crudo —sólo cambia el botón, no el encabezado— y se reemplaza en 7.4.
         </div>
 ```
 
-**Después**: reemplaza ese `<h1>` por el componente, con el botón dentro de su bloque `actions`;
-el include del panel y la fila del contador quedan debajo, dentro del mismo `card-body`.
+**Después**: reemplaza ese `<h1>` por el encabezado con la acción y el contador; el include del panel
+queda al final, dentro del mismo `card-body`.
 
 ```twig
         <div class="card-body gap-4">
-            {% embed 'components/ui/page-header.twig' with {
-                icon: 'list',
-                title: 'Notas',
-                subtitle: 'Tus notas, con alta y acciones por fila.'
-            } %}
-                {% block actions %}
-                    <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
-                        Agregar nota
-                    </button>
-                {% endblock %}
-            {% endembed %}
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        Notas
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    Agregar nota
+                </button>
+            </div>
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold">Listado</h2>
@@ -858,17 +855,80 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 - El badge dice 0 con filas en la tabla: `total` no está llegando a la vista.
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
-- El título sale vacío o sin icono: `title` o `icon` no llegan al `embed`; `icon` es opcional y sin él
-  el `<h1>` pierde el `flex` que lo alinea.
-- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
+### 6.7 El encabezado a su componente
+
+Ya sabes qué es el encabezado porque lo escribiste en 6.6. Pasarlo al componente es mecánico, y por eso
+se hace aquí mismo: no hay motivo para volver sobre esto siete capítulos después.
+
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`.
+
+**Antes**: el armazón de 6.6, con el botón todavía crudo.
+
+```twig
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        Notas
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    Agregar nota
+                </button>
+            </div>
+```
+
+**Después**: el mismo contenido en `components/ui/page-header.twig`. El `<div>`, el `<h1>` y el
+subtítulo desaparecen de tu vista; queda el hueco.
+
+```twig
+            {% embed 'components/ui/page-header.twig' with {
+                icon: 'list',
+                title: 'Notas',
+                subtitle: 'Tus notas, con alta y acciones por fila.'
+            } %}
+                {% block actions %}
+                    <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                        Agregar nota
+                    </button>
+                {% endblock %}
+            {% endembed %}
+```
+
+**Qué hace cada pieza**:
+
+- `title` y `subtitle`: los mismos textos de antes. Se escapan solos. `subtitle` es opcional: si no lo
+  pasas, no queda un `<p>` vacío.
+- `icon`: opcional. Notas pasa `list` —el mismo icono del menú—; contactos usa `contacts`. El svg sale
+  del registro compartido, y si el nombre no existe no se pinta nada.
+- `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
+  formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
+  vez** y no recibe variables: lo que uses, se lo pasas tú.
+
+**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
+derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
+
+**Falla si**:
+
+- El título sale vacío: `title` no está llegando o la prop se llama distinto.
+- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
+- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
+- El icono desaparece: el nombre no está en `partials/_icon.twig`.
+
+**Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es un
+formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría
+en `block actions` sin tocar el contrato.
+
 **Pieza — `components/ui/page-header.twig`**: resuelve el icono, el título, el subtítulo y la fila de
-acciones. Úsalo en toda pantalla con encabezado de página. Evita que cada vista invente su variante
-—una con icono, otra sin, una con la acción a la derecha y otra sin acción— y que el encabezado deje
-de ser reconocible entre pantallas. `icon` y `subtitle` son opcionales y no dejan huecos; `actions`
-acepta un botón, dos o un formulario entero.
+acciones. Úsalo en toda pantalla con encabezado. Evita que cada vista invente su variante —una con
+icono, otra sin, una con la acción a la derecha y otra sin acción— y que el encabezado deje de ser
+reconocible entre pantallas. El botón cambia en 7.4 sin tocar el encabezado.
 
 ---
 
