@@ -1,0 +1,23 @@
+{# Título de página: icono opcional, `title` y `subtitle` opcional.
+   Props: icon, title, subtitle.
+
+   Es la mitad izquierda de `components/ui/page-header.twig`, que lo incluye.
+   Se puede usar suelto cuando una pantalla necesita el título sin la fila de
+   acciones: el encabezado de una tarjeta, un estado vacío, una portada.
+
+   `icon` y `subtitle` no dejan huecos: sin icono el `h1` pierde el `flex` que
+   lo alinea con el svg, y sin subtítulo no se emite el `p`. `title` y
+   `subtitle` se escapan solos. #}
+<div>
+    <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
+        {% if icon|default(false) %}
+            <span class="opacity-60" aria-hidden="true">
+                {% include 'partials/_icon.twig' with {name: icon, class: 'h-5 w-5'} %}
+            </span>
+        {% endif %}
+        {{ title }}
+    </h1>
+    {% if subtitle|default(false) %}
+        <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
+    {% endif %}
+</div>

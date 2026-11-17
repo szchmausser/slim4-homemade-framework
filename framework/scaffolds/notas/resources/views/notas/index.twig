@@ -11,11 +11,15 @@
                 subtitle: 'Tus notas, con alta y acciones por fila.'
             } %}
                 {% block actions %}
-                    {% include 'components/ui/button.twig' with {
-                        label: 'Agregar nota',
-                        icon: 'plus',
-                        data_modal_open: 'nota-create-modal'
-                    } only %}
+                    {% embed 'components/ui/action-bar.twig' %}
+                        {% block controls %}
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Agregar nota',
+                                icon: 'plus',
+                                data_modal_open: 'nota-create-modal'
+                            } only %}
+                        {% endblock %}
+                    {% endembed %}
                 {% endblock %}
             {% endembed %}
 

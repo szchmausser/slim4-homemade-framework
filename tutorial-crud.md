@@ -910,12 +910,77 @@ subtítulo desaparecen de tu vista; queda el hueco.
 - `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
   formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
   vez** y no recibe variables: lo que uses, se lo pasas tú.
-- `components/ui/action-bar.twig` (sólo cuando hay más de un control): la botonera. `page-header`
-  deja un **hueco**, no una fila: sin ella, dos controles sueltos se vuelven hijos del `justify-between`
-  del encabezado y el del medio queda flotando en el centro de la pantalla. Adentro va el bloque
-  `controls`, y el orden lo pones tú: secundario primero, primario al final.
 
-Cuando la pantalla tenga un segundo control, los dos van adentro de la botonera y en ese orden:
+**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
+derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
+
+**Falla si**:
+
+- El título sale vacío: `title` no está llegando o la prop se llama distinto.
+- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
+- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
+- El icono desaparece: el nombre no está en `partials/_icon.twig`.
+
+**Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es un
+formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría
+en `block actions` sin tocar el contrato.
+
+**Pieza — `components/ui/page-header.twig`**: resuelve la disposición del encabezado: el título a la
+izquierda, el hueco de las acciones a la derecha. No repite el markup del título, lo incluye. Evita que
+cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
+acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.4 sin tocar el
+encabezado.
+
+### 6.8 La botonera a su componente
+
+**Archivo**: `resources/views/notas/index.twig`, dentro del `{% block actions %}`.
+
+**Antes**: el botón suelto, como quedó en 6.7.
+
+```twig
+                {% block actions %}
+                    <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                        Agregar nota
+                    </button>
+                {% endblock %}
+```
+
+Con un solo botón esto funciona. Con dos, no: cada control suelto se vuelve hijo directo del
+`justify-between` del encabezado, que reparte el espacio entre todos —el título a la izquierda, el
+primero en el medio y el último a la derecha—. La botonera es la fila que falta.
+
+**Después**: el botón adentro de `components/ui/action-bar.twig`, que es dueña del `flex`, el `wrap` y
+la separación.
+
+```twig
+                {% block actions %}
+                    {% embed 'components/ui/action-bar.twig' %}
+                        {% block controls %}
+                            <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                                Agregar nota
+                            </button>
+                        {% endblock %}
+                    {% endembed %}
+                {% endblock %}
+```
+
+**Qué hace cada pieza**:
+
+- El bloque se llama `controls`, no `actions`: queda adentro del bloque `actions` del encabezado, y dos
+  bloques con el mismo nombre se leen mal.
+- El componente **no** ordena: la fila es suya, el orden es tuyo. El criterio del proyecto es secundario
+  primero y primario al final, pegado al borde: es donde el ojo lo busca y donde el pulgar lo alcanza en
+  el móvil.
+- `extra_class` es opcional, para alinear o separar distinto en un caso concreto.
+
+**Comprobación**: el encabezado se ve **idéntico** al de 6.7 y el botón sigue sin abrir nada.
+
+**Falla si**:
+
+- Dos controles se reparten por la pantalla, uno en el medio: faltó la botonera.
+- El control se estira a todo el ancho de la esquina: la fila quedó fuera del `embed`.
+
+**Cuando aparezca el segundo control**, los dos van adentro de la botonera y en este orden:
 
 ```twig
 {% embed 'components/ui/action-bar.twig' %}
@@ -935,31 +1000,56 @@ Cuando la pantalla tenga un segundo control, los dos van adentro de la botonera 
 {% endembed %}
 ```
 
-El de la izquierda es secundario y el de la derecha, primario. Cuidado con el primero: en un listado,
-«Volver» duplica el sidebar y el botón del navegador, y gana su lugar recién en una pantalla de detalle.
-Los segundos controles que sí lo justifican son «Exportar», «Filtros» o «Actualizar». Este paso se queda
-con un solo botón.
+Cuidado con el primero: en un listado, «Volver» duplica el sidebar y el botón del navegador, y gana su
+lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican son «Exportar»,
+«Filtros» o «Actualizar».
 
-**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
-derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
+**Pieza — `components/ui/action-bar.twig`**: resuelve la fila de controles del encabezado o de una
+tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
+cada pantalla elige su `gap` y su alineación.
 
-**Falla si**:
+### 6.9 Anatomía del encabezado
 
-- El título sale vacío: `title` no está llegando o la prop se llama distinto.
-- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
-- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
-- El icono desaparece: el nombre no está en `partials/_icon.twig`.
-- Dos controles se reparten por la pantalla, uno al medio: faltó la botonera y quedaron como hijos
-  directos del `justify-between` del encabezado.
+Ya lo usaste completo: el wrapper, el título y la botonera. Así está armado por dentro, para que puedas
+repetir el patrón en tus propios componentes.
 
-**Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es un
-formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría
-en `block actions` sin tocar el contrato.
+`resources/views/components/ui/page-header-title.twig` es la mitad izquierda:
 
-**Pieza — `components/ui/page-header.twig`**: resuelve el icono, el título, el subtítulo y la fila de
-acciones. Úsalo en toda pantalla con encabezado. Evita que cada vista invente su variante —una con
-icono, otra sin, una con la acción a la derecha y otra sin acción— y que el encabezado deje de ser
-reconocible entre pantallas. El botón cambia en 7.4 sin tocar el encabezado.
+```twig
+<div>
+    <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
+        {# el icono, si lo hay: {% include 'partials/_icon.twig' with {name: icon} %} #}
+        {{ title }}
+    </h1>
+    {% if subtitle|default(false) %}
+        <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
+    {% endif %}
+</div>
+```
+
+Y `resources/views/components/ui/page-header.twig` es el wrapper: no repite ese markup, lo incluye, y
+deja el hueco para la botonera.
+
+```twig
+<div class="flex flex-wrap items-start justify-between gap-3">
+    {% include 'components/ui/page-header-title.twig' with {
+        icon: icon|default(null),
+        title: title,
+        subtitle: subtitle|default(null)
+    } only %}
+    {% block actions %}{% endblock %}
+</div>
+```
+
+**Por qué la botonera se anida del lado de la vista**: en Twig, un bloque se rellena en el sitio de
+llamada, no donde se declara. `actions` se define en tu `index.twig`, así que `page-header` no puede
+envolverlo con `action-bar`. Si lo hiciera, tendría que repetir la lista de clases de la botonera y
+quedarían dos formas de hacer lo mismo.
+
+**Qué te deja**: tres contratos en vez de un bloque de markup. El título se puede usar solo —el
+encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una tabla o un listado. Cuando
+hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
+contenido.
 
 ---
 

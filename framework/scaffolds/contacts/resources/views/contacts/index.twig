@@ -20,11 +20,15 @@
                     ~ ' columnas y acciones sobre SQLite.'
             } %}
                 {% block actions %}
-                    {% include 'components/ui/button.twig' with {
-                        label: 'Agregar contacto',
-                        icon: 'plus',
-                        data_modal_open: 'contact-create-modal'
-                    } only %}
+                    {% embed 'components/ui/action-bar.twig' %}
+                        {% block controls %}
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Agregar contacto',
+                                icon: 'plus',
+                                data_modal_open: 'contact-create-modal'
+                            } only %}
+                        {% endblock %}
+                    {% endembed %}
                 {% endblock %}
             {% endembed %}
 

@@ -13,6 +13,9 @@ de notas y contactos ponen ahí los diálogos de borrado: un `<dialog>` no es hi
 
 ### Incluido
 
+- Componente `components/ui/page-header-title.twig`: icono opcional, `title` y `subtitle`; la mitad
+  izquierda de `page-header`, usable sola en una tarjeta o un estado vacío. `page-header` ahora lo
+  incluye en vez de repetir el markup.
 - Componente `components/ui/action-bar.twig`: fila de controles para la esquina del encabezado o una
   tarjeta, con bloque `controls` y `extra_class`. El hueco `actions` de `page-header` acepta una sola
   unidad: la botonera es la que agrupa varias y fija la separación, sin decidir el orden.

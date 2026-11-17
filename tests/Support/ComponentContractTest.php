@@ -367,4 +367,47 @@ final class ComponentContractTest extends TestCase
 
         self::assertStringContainsString('class="flex flex-wrap items-center gap-2 justify-end"', $html);
     }
+
+    public function test_page_header_title_emite_icono_titulo_y_subtitulo(): void
+    {
+        $html = $this->twig->createTemplate(
+            "{% include 'components/ui/page-header-title.twig' with {icon: 'contacts', title: 'Contactos', subtitle: 'Detalle'} only %}"
+        )->render(['title' => 'x']);
+
+        self::assertSame(1, substr_count($html, '<h1'));
+        self::assertStringContainsString('flex items-center gap-2 text-2xl font-bold', $html);
+        self::assertStringContainsString('<svg', $html);
+        self::assertStringContainsString('Contactos', $html);
+        self::assertStringContainsString('class="mt-1 text-sm opacity-70"', $html);
+    }
+
+    public function test_page_header_title_omite_las_partes_opcionales(): void
+    {
+        // Se puede usar suelto: sin icono no hay svg ni `flex`, sin subtítulo
+        // no hay `<p>` vacío.
+        $html = $this->twig->createTemplate(
+            "{% include 'components/ui/page-header-title.twig' with {title: 'Notas'} only %}"
+        )->render([]);
+
+        self::assertSame(1, substr_count($html, '<h1'));
+        self::assertStringContainsString('class="text-2xl font-bold"', $html);
+        self::assertStringNotContainsString('<svg', $html);
+        self::assertStringNotContainsString('<p', $html);
+    }
+
+    public function test_page_header_compone_el_titulo_con_su_componente(): void
+    {
+        // El encabezado no repite el markup del título: lo incluye. Así el bloque
+        // de título se puede usar suelto en una tarjeta o un estado vacío.
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/ui/page-header.twig' with {icon: 'list', title: 'Notas', subtitle: 'Detalle'} %}"
+            . '{% block actions %}<button>Agregar</button>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertSame(1, substr_count($html, '<h1'));
+        self::assertSame(1, substr_count($html, '<svg'));
+        self::assertStringContainsString('class="flex flex-wrap items-start justify-between gap-3"', $html);
+        self::assertStringContainsString('<button>Agregar</button>', $html);
+    }
 }
