@@ -796,7 +796,8 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 
 **Comprobación**: recarga `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
 header y el tema. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
-como en 6.3: un título y una lista sin estilos propios, porque todavía no los tiene.
+como en 6.3: un título y una lista sin estilos propios. No tiene que haber tarjeta, ni filas con borde, ni
+espaciado entre los ítems; si ves una tarjeta, estás mirando el paso siguiente.
 
 **Falla si**:
 
@@ -816,7 +817,7 @@ assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el blo
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
-![La misma página de 6.3 dentro del shell: sidebar, header y tema](tutorial-crud-images/06-4-shell.png)
+![La misma página de 6.3 dentro del shell: sin tarjeta, sin filas con borde, sin estilos propios](tutorial-crud-images/06-4-shell-sin-estilos.png)
 
 ### 6.5 El diseño de la vista
 
