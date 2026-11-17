@@ -928,6 +928,10 @@ queda al final, dentro del mismo `card-body`.
   portada aunque estés en `/notas`. Con dos migas pinta la ruta y marca la última con
   `aria-current="page"`.
 
+El repositorio tiene un test de contrato que recorre las páginas que pintan el shell y falla si alguna
+no declara `breadcrumbs` (`tests/Support/ShellBreadcrumbContractTest.php`): el olvido no llega a
+producción.
+
 Agrega también `use Framework\Http\Url;`, que necesitas para el `href`.
 
 ```php
