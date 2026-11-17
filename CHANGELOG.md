@@ -11,6 +11,13 @@ Versionado semántico mientras el proyecto esté en `0.x`.
   Los demos de notas y contactos lo comparten; tasks conserva su encabezado propio porque su alta es
   un formulario inline, no un control en la esquina.
 
+### Documentación
+
+- Tutorial: el paso 6 separa el panel en su propio parcial y deja la lista cruda hasta el capítulo
+  12, que extrae la fila a `components/list/simple.twig` con `embed` y el encabezado a
+  `components/ui/page-header.twig`. Paginación y repetición pasan a los capítulos 13 y 14;
+  referencias internas resincronizadas.
+
 ## [0.1.1] - 2026-11-14
 
 ### Documentación

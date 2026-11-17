@@ -51,13 +51,15 @@ Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que es
 9. [Editar en el mismo modal](#9-editar-en-el-mismo-modal)
 10. [Borrar: del confirm del navegador al diálogo del proyecto](#10-borrar-del-confirm-del-navegador-al-diálogo-del-proyecto)
 11. [Tests que reemplazan lo que hacías a mano](#11-tests-que-reemplazan-lo-que-hacías-a-mano)
-12. [Paginación del servidor](#12-paginación-del-servidor)
-13. [Repetir el patrón con otra entidad](#13-repetir-el-patrón-con-otra-entidad)
+12. [Extraer la lista y el encabezado a componentes](#12-extraer-la-lista-y-el-encabezado-a-componentes)
+13. [Paginación del servidor](#13-paginación-del-servidor)
+14. [Repetir el patrón con otra entidad](#14-repetir-el-patrón-con-otra-entidad)
 
 Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo, `<dialog>` nativo,
 `confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del proyecto, con
-lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa; el 12 la vuelve usable
-cuando crece, y el 13 te deja el patrón para otra entidad tuya.
+lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa y probada; el 12 extrae
+la lista y el encabezado a componentes reusables, el 13 hace que la lista siga siendo usable cuando
+crece, y el 14 te deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notas:install` (se quita con `composer demo:notas:remove`). Sirve para comparar, no para
@@ -638,8 +640,8 @@ use App\Models\Nota;
 ```twig
     <h1>Notas</h1>
     <ul>
-        {% for nota in notas %}
-            <li>{{ nota.titulo }}</li>
+        {% for item in notas %}
+            <li>{{ item.titulo }}</li>
         {% else %}
             <li>No hay notas todavía.</li>
         {% endfor %}
@@ -677,9 +679,9 @@ sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y
         <div class="card-body gap-4">
             <h1 class="text-2xl font-bold">Notas</h1>
             <ul class="space-y-2">
-                {% for nota in notas %}
+                {% for item in notas %}
                     <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                        <span class="font-semibold">{{ nota.titulo }}</span>
+                        <span class="font-semibold">{{ item.titulo }}</span>
                     </li>
                 {% else %}
                     <li class="opacity-60">No hay notas todavía.</li>
@@ -701,31 +703,31 @@ assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el blo
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
-### 6.5 Sustituir la lista a mano por el componente
+### 6.5 El panel a su propio archivo
 
-La lista de arriba funciona, pero el `{% for %} … {% else %}` es exactamente el markup que el proyecto
-ya tiene empaquetado. Es el momento de reemplazarlo.
+El panel es la región que más adelante se va a refrescar sola. Sepáralo del resto de la página ahora,
+todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para tenerla ordenada.
 
-**Acción**: crea `resources/views/notas/_panel.twig`, que se envuelve a sí mismo:
+**Acción**: mueve el `<ul>` completo de 6.4 a un parcial nuevo,
+`resources/views/notas/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
 
 ```twig
 <div id="notas-panel">
-    {% embed 'components/list/simple.twig' with {
-        items: notas,
-        empty: 'No hay notas todavía.'
-    } %}
-        {% block row %}
+    <ul class="space-y-2">
+        {% for item in notas %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 <span class="font-semibold">{{ item.titulo }}</span>
             </li>
-        {% endblock %}
-    {% endembed %}
+        {% else %}
+            <li class="opacity-60">No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
 </div>
 ```
 
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
-**Antes**: el `<ul>` completo de 6.4.
+**Antes**:
 
 ```twig
             <h1 class="text-2xl font-bold">Notas</h1>
@@ -743,26 +745,23 @@ ya tiene empaquetado. Es el momento de reemplazarlo.
         </div>
 ```
 
-El `div` con el id va adentro del parcial por una razón concreta: cuando más adelante el panel se
-intercambie con HTMX y `outerHTML`, la respuesta **reemplaza** al elemento apuntado. Si el `div`
-viviera en `index.twig`, el primer swap se lo llevaría junto con su id, y todo lo que apunte a
-`#notas-panel` quedaría apuntando a algo que ya no existe.
-
 **Comprobación**: la lista se ve **idéntica** a la de 6.4, con y sin notas.
 
-**Qué ganaste**: el estado vacío, el `<ul>` y el recorrido ya no están en tu archivo; tu bloque dice
-sólo cómo se ve **una fila**. Y cuando en el paso 12 entre la paginación, el mismo componente la
-respeta sin cambiar tu bloque.
+**Por qué el `div` va adentro**: cuando más adelante el panel se intercambie con HTMX y `outerHTML`,
+la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en `index.twig`, el primer swap
+se lo llevaría junto con su id, y todo lo que apunte a `#notas-panel` quedaría apuntando a algo que ya
+no existe.
 
 **Falla si**:
 
 - La lista desaparece: el include no está o apunta a otro nombre.
-- Ves la fila con el objeto entero o vacía: dentro del bloque la variable se llama `item`, no `nota`,
-  y Twig imprime vacío en vez de protestar.
+- Ves dos listas: quedó el `<ul>` original y además el include.
 
-**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Úsalo
-para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
-cada entidad tiene su propia versión con variaciones accidentales.
+**Qué ganaste**: el panel es ahora una unidad que se puede reemplazar sin tocar el resto de la
+página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
+
+> El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 12. Recién ahí, con la entidad ya
+> probada, la lista se extrae al componente del proyecto.
 
 ### 6.6 El encabezado con la acción y el contador
 
@@ -784,7 +783,12 @@ queda al final, dentro del mismo `card-body`.
         <div class="card-body gap-4">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h1 class="text-2xl font-bold">Notas</h1>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        Notas
+                    </h1>
                     <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
                 <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
@@ -835,6 +839,9 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
+
+> El armazón del encabezado se queda a la vista hasta 12.3. El botón cambia antes, en 7.4; el `<div>`,
+> el `<h1>` y el subtítulo recién se extraen cuando la entidad ya está probada.
 
 ---
 
@@ -1283,7 +1290,7 @@ una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
 
 ### 8.1 Primero, el atajo que no se debe dejar
 
-**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`.
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
 **Acción**: la fila pasa a ser flex —si no, las acciones caen debajo del título en vez de quedar a la
 derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
@@ -1310,7 +1317,7 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
 
 ### 8.2 Ahora, el botón del proyecto
 
-**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`.
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
 **Acción**: reemplaza los dos por el componente, con icono del registro compartido y nombre accesible:
 
@@ -1536,8 +1543,8 @@ la edición validan distinto y una de las dos se olvida de algo.
 
 ### 10.1 Primero, el atajo
 
-**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`, en el lugar de la papelera
-del paso 8.
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`, en el lugar de la
+papelera del paso 8.
 
 **Acción**: envuelve la papelera en un formulario con el `confirm` del navegador:
 
@@ -1586,10 +1593,10 @@ proyecto usa un diálogo.
 
 ### 10.2 Ahora, el diálogo de confirmación
 
-**Archivo**: `resources/views/notas/_panel.twig`, dentro del bloque `row`, después del contenido de la
+**Archivo**: `resources/views/notas/_panel.twig`, dentro del `{% for %}`, después del `</li>` de la
 fila.
 
-**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo en ese lugar:
+**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo justo después del `</li>`:
 
 ```twig
             {% embed 'components/ui/modal.twig' with {
@@ -1796,13 +1803,316 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 ---
 
-## 12. Paginación del servidor
+## 12. Extraer la lista y el encabezado a componentes
+
+**Objetivo**: sacar de tu panel el `<ul>`, el recorrido y el estado vacío, y del `index.twig` el
+armazón del encabezado. Te quedas sólo con la fila y con el contenido.
+
+**Estado de partida**: paso 11 hecho; la entidad funciona y los tests están en verde.
+
+Hasta acá el `<ul>`, el recorrido y la fila viven en `_panel.twig`, y el encabezado vive a mano en
+`index.twig`. Eso está bien mientras hay una sola pantalla: se lee de arriba abajo y no esconde nada.
+El problema aparece cuando quieres repetir el listado en otra entidad o cuando el estado vacío y el
+encabezado se desincronizan entre demos. El proyecto ya tiene esas dos piezas resueltas:
+`components/list/simple.twig` y `components/ui/page-header.twig`.
+
+### 12.1 Qué hace el componente
+
+**Archivo**: `resources/views/components/list/simple.twig`.
+
+```twig
+{# Lista simple con estado vacío.
+   Props: items, empty, list_class, empty_class.
+   El bloque `row` se renderiza una vez por item y recibe `item`; el markup de
+   cada fila queda en el dominio que lo usa. #}
+<ul class="{{ list_class|default('space-y-2') }}">
+    {% for item in items %}
+        {% block row %}{% endblock %}
+    {% else %}
+        <li class="{{ empty_class|default('opacity-60') }}">{{ empty|default('No hay registros todavía.') }}</li>
+    {% endfor %}
+</ul>
+```
+
+**Qué hace cada pieza**:
+
+- `<ul class="{{ list_class|default('space-y-2') }}">`: el componente es dueño del contenedor.
+  `list_class` es opcional; si no lo pasas, usa `space-y-2`. `default` **reemplaza** el valor, no lo
+  fusiona: para agregar una clase tienes que repetir `space-y-2`.
+- `{% for item in items %}`: recorre la colección que le pases. `item` es cada elemento.
+- `{% block row %}{% endblock %}`: un bloque vacío es un punto de extensión. Ahí entra tu fila. Está
+  **dentro del `for`**, así que tu fila ve el `item` de esa vuelta.
+- `{% else %}`: pertenece al `for`. Se ejecuta cuando `items` está vacío, sin agregar un `{% if %}`
+  alrededor de todo.
+- `{{ empty|default('No hay registros todavía.') }}` dentro de un `<li>`: el estado vacío ocupa una
+  fila más de la lista; `empty_class` es su clase opcional.
+
+El componente no sabe nada de `notas` ni de `titulo`: sólo sabe recorrer y dejar un hueco. Eso es lo
+que lo hace reusable, y también lo que lo vuelve difícil de leer la primera vez.
+
+**Cómo se rellena el hueco**: ya lo hiciste con el modal. En 7.4 reemplazaste el `<dialog>` por
+`components/ui/modal.twig` y escribiste un `{% block body %}`; el modal puso el resto. Aquí es el mismo
+`embed`, con una diferencia: `row` se rellena **una vez por item**, porque el componente lo invoca
+dentro de su `for`.
+
+Para verlo sin el ruido de los botones, toma la fila mínima de 6.5:
+
+```twig
+<div id="notas-panel">
+    <ul class="space-y-2">
+        {% for item in notas %}
+            <li class="rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-semibold">{{ item.titulo }}</span>
+            </li>
+        {% else %}
+            <li class="opacity-60">No hay notas todavía.</li>
+        {% endfor %}
+    </ul>
+</div>
+```
+
+El equivalente con el componente es:
+
+```twig
+<div id="notas-panel">
+    {% embed 'components/list/simple.twig' with {
+        items: notas,
+        empty: 'No hay notas todavía.'
+    } %}
+        {% block row %}
+            <li class="rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-semibold">{{ item.titulo }}</span>
+            </li>
+        {% endblock %}
+    {% endembed %}
+</div>
+```
+
+**Qué hace cada línea del `embed`**:
+
+- `embed 'components/list/simple.twig'`: incluye el componente y te deja reemplazar sus bloques. Un
+  `include` común no puede: copia el componente tal cual y el bloque `row` quedaría vacío.
+- `with { items: notas, empty: '…' }`: pasa variables al scope del componente. `items` alimenta su
+  `for`; `empty` es el texto de su `else`.
+- `{% block row %}`: rellena el bloque vacío. Se renderiza **donde el componente lo invoca**, o sea
+  dentro de `{% for item in items %}`; por eso `item` es la nota de esa vuelta.
+- `{% endembed %}`: cierra el `embed`, no un `include`.
+
+**El orden de render**: `embed` carga el componente; el componente abre el `<ul>`; recorre `items` y,
+en cada vuelta, llega al `{% block row %}`, donde pinta tu fila con el `item` de esa vuelta. Si
+`items` está vacío, el `else` pinta el vacío y tu bloque no se ejecuta.
+
+**La inversión**: compara los dos bloques. Producen el mismo HTML, pero en el segundo tu archivo no
+tiene el `<ul>`, ni el `for`, ni el `else`, y aun así el `<li>` se repite una vez por nota. El
+componente pone la estructura y el vacío; tú sólo describes una fila. Desconcierta la primera vez
+porque la indentación sugiere que el `<li>` se pinta una vez, cuando en realidad se repite.
+
+**Comprobación**: no toques nada todavía. Si puedes explicar por qué el `<li>` se repite sin un `for`
+en tu archivo, tienes el mecanismo. La aplicación completa es el paso siguiente.
+
+**Falla si** (cuando lo apliques):
+
+- La lista aparece vacía aunque haya notas: usaste `include` en vez de `embed`, o el
+  `{% block row %}` quedó fuera del `embed`.
+- Las filas salen vacías: escribiste `{{ item }}` en vez de `{{ item.titulo }}`.
+- Aparece «No hay registros todavía.» en vez de tu texto: `empty` no está llegando al componente.
+- La lista no aparece: el nombre del componente no coincide con `components/list/simple.twig`.
+
+### 12.2 Mover la fila completa
+
+**Archivo**: `resources/views/notas/_panel.twig`.
+
+**Antes**: el `<div id="notas-panel">` con el `<ul>`, el `{% for %}`, el `<li>` con los dos botones, el
+modal de borrado después del `<li>` y el `{% else %}` del vacío.
+
+**Regla**: todo lo que está entre `<li>` y `</li>` —título y botones—, más el modal que va justo
+después, se mudan tal cual adentro de `{% block row %}`. Lo único que desaparece es el `<ul>`, el
+`{% for %}`, el `{% else %}` y el `<li>` del vacío: eso ya lo pone el componente.
+
+**Después**: el archivo completo queda así.
+
+```twig
+<div id="notas-panel">
+    {% embed 'components/list/simple.twig' with {
+        items: notas,
+        empty: 'No hay notas todavía.'
+    } %}
+        {% block row %}
+            <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-semibold">{{ item.titulo }}</span>
+                <div class="flex shrink-0 items-center gap-1">
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'pencil',
+                        aria_label: 'Editar ' ~ item.titulo,
+                        href: url('/notas/' ~ item.id ~ '/edit')
+                    } only %}
+
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'trash',
+                        aria_label: 'Borrar ' ~ item.titulo,
+                        data_modal_open: 'nota-delete-' ~ item.id
+                    } only %}
+                </div>
+            </li>
+
+            {% embed 'components/ui/modal.twig' with {
+                id: 'nota-delete-' ~ item.id,
+                title: 'Borrar nota'
+            } %}
+                {% block body %}
+                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                          onsubmit="this.querySelector('[type=submit]').disabled = true">
+                        {% include 'partials/_csrf.twig' %}
+                        <div class="modal-action">
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Cancelar',
+                                variant: 'ghost',
+                                type: 'button',
+                                icon: 'x',
+                                data_modal_close: true
+                            } only %}
+                            {% include 'components/ui/button.twig' with {
+                                label: 'Borrar',
+                                variant: 'error',
+                                type: 'submit',
+                                icon: 'trash'
+                            } only %}
+                        </div>
+                    </form>
+                {% endblock %}
+            {% endembed %}
+        {% endblock %}
+    {% endembed %}
+</div>
+```
+
+**Dos detalles que importan**:
+
+- El modal sigue **después** del `</li>`, no adentro. Si lo metes dentro, pasa a ser un hijo más del
+  `flex` y descoloca la fila. Ahí, dentro del bloque, sigue estando dentro del `for`, así que conserva
+  `item.id` y cada nota abre su propio diálogo.
+- `block row` es la única parte de tu archivo que se repite por nota. Si copias el
+  `<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
+
+**Comprobación**: la lista se ve **idéntica** a la del paso 10, con y sin notas; el lápiz abre el modal
+de edición; la papelera abre el diálogo que dice **qué nota** vas a borrar; borrar elimina una sola
+nota; `composer test` sigue en verde.
+
+**Falla si**:
+
+- Con notas, la lista se ve vacía: el `{% block row %}` quedó fuera del `embed` o el `embed` apunta a
+  otro nombre.
+- La papelera no abre nada: el modal quedó fuera del `{% block row %}` (o del `for`) y el id no
+  coincide con `data_modal_open`.
+- La fila se descoloca: el modal quedó dentro del `<li>` y entró en el `flex`.
+- «No hay notas todavía.» no aparece: `empty` no está llegando.
+
+**Qué no prueba**: que el HTML sea idéntico carácter por carácter. `composer test` prueba el contrato
+HTTP —códigos, datos guardados, mensajes—, no el markup. La comparación visual la haces tú.
+
+**Qué ganaste**: el panel ya no sabe cuántas filas hay ni qué pasa si no hay ninguna; sólo describe una
+fila. La próxima entidad que hagas puede reusar el componente sin copiar el `<ul>` ni el vacío.
+
+**Pieza — `components/list/simple.twig`**: resuelve el `<ul>`, el recorrido y el estado vacío. Úsalo
+para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
+cada entidad tiene su propia versión con variaciones accidentales.
+
+### 12.3 El encabezado a su componente
+
+**Archivo**: `resources/views/notas/index.twig`, bloque `content`.
+
+**Antes**: el armazón de 6.6, con el botón que ya es el del proyecto desde 7.4.
+
+```twig
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'partials/_icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        Notas
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                {% include 'components/ui/button.twig' with {
+                    label: 'Agregar nota',
+                    icon: 'plus',
+                    data_modal_open: 'nota-create-modal'
+                } only %}
+            </div>
+```
+
+**Después**: el mismo contenido en `components/ui/page-header.twig`.
+
+```twig
+            {% embed 'components/ui/page-header.twig' with {
+                icon: 'list',
+                title: 'Notas',
+                subtitle: 'Tus notas, con alta y acciones por fila.'
+            } %}
+                {% block actions %}
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Agregar nota',
+                        icon: 'plus',
+                        data_modal_open: 'nota-create-modal'
+                    } only %}
+                {% endblock %}
+            {% endembed %}
+```
+
+**Qué hace cada pieza**:
+
+- `title` y `subtitle`: son los mismos textos de antes. Se escapan solos. `subtitle` es opcional: si
+  no lo pasas, no queda un `<p>` vacío.
+- `icon`: opcional. Notas pasa `list` —el mismo icono del menú— y contactos `contacts`; el svg sale del
+  registro compartido. Si no lo pasas, el `<h1>` queda sólo con el texto y sin el `flex` que alinea el
+  icono.
+- `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
+  formulario. Es el mismo hueco que `body` en el modal y `row` en la lista.
+
+**La diferencia con la lista**: acá el bloque se pinta **una sola vez**. No hay `for` alrededor, así
+que no hay variable implícita: todo lo que uses se lo pasás vos. Si el encabezado se pintara una vez
+por item, tendrías un `<h1>` por fila.
+
+**Comprobación**: el encabezado se ve **idéntico** —título, subtítulo y botón en la misma posición—,
+el botón sigue abriendo el modal, el listado sigue paginando y refrescándose sin duplicar el shell, y
+`composer test` queda en verde.
+
+**Falla si**:
+
+- El título sale vacío: `title` no está llegando o la prop se llama distinto.
+- Queda una línea en blanco debajo del título: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
+- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
+- En notas o contactos desaparece el icono: `icon` no está llegando al componente.
+
+**Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es
+un formulario inline, no un botón en la esquina— y se queda como está a propósito. El componente no lo
+obliga a cambiar: si algún día lo adopta, el formulario entra en `block actions` sin tocar el contrato.
+
+**Qué ganaste**: el armazón del encabezado ya no vive en tu vista. Si mañana cambia el espaciado, el
+tamaño del título o la posición del icono, cambia una vez y las pantallas que lo usan se enteran.
+
+**Pieza — `components/ui/page-header.twig`**: resuelve el icono, el título, el subtítulo y la fila de
+acciones. Úsalo en toda pantalla con encabezado de página. Evita que cada vista invente su variante
+—una con icono, otra sin, una con la acción a la derecha y otra sin acción— y que el encabezado deje
+de ser reconocible entre demos. Sin él, tres pantallas terminan con tres formas del mismo concepto.
+
+---
+
+## 13. Paginación del servidor
 
 **Objetivo**: que la lista siga siendo usable cuando crezca.
 
-**Estado de partida**: paso 11 hecho; con muchas notas la página se vuelve larga.
+**Estado de partida**: paso 12 hecho; con muchas notas la página se vuelve larga.
 
-### 12.1 Paginar la consulta
+### 13.1 Paginar la consulta
 
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
@@ -1849,7 +2159,7 @@ Todavía no toques la vista ni el helper de respuesta: primero comprobamos que e
 
 **Comprobación**: con más de diez notas, abre directamente `/notas?page=2&per_page=10`. Esperado: ves
 las notas 11 a 20 y el total correcto. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango
-se ajusta a la última. Los controles visuales todavía no están; eso es 12.2.
+se ajusta a la última. Los controles visuales todavía no están; eso es 13.2.
 
 **Qué no prueba**: que los controles naveguen sin recargar. Prueba que la consulta y el recorte del
 servidor son correctos.
@@ -1866,7 +2176,7 @@ servidor son correctos.
 Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
 con dos mil.
 
-### 12.2 Pintar los controles y responder sólo el panel
+### 13.2 Pintar los controles y responder sólo el panel
 
 **Archivo**: el mismo controlador.
 
@@ -1955,7 +2265,7 @@ La cabecera se emite con la página que el **servidor** recortó, no con la que 
 alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
 
 **Qué no prueba**: que un 422 no empuje la URL, ni que la edición siga abriendo su modal. Eso se cierra
-en 12.3.
+en 13.3.
 
 **Falla si**:
 
@@ -1971,7 +2281,7 @@ en 12.3.
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
 esa respuesta sólo repinta el formulario.
 
-### 12.3 Unificar los renders de edición y 422
+### 13.3 Unificar los renders de edición y 422
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, métodos `edit()`, `store()` y `update()`.
 
@@ -2045,19 +2355,21 @@ paginación tengan cada una su propia copia de `notas` y `total`.
 
 ---
 
-## 13. Repetir el patrón con otra entidad
+## 14. Repetir el patrón con otra entidad
 
 **Objetivo**: aplicar el mismo camino a una entidad propia.
 
-**Estado de partida**: pasos 1 a 12 hechos.
+**Estado de partida**: pasos 1 a 13 hechos.
 
 | Qué cambia | Qué no cambia |
 |---|---|
 | El nombre de la entidad y de la tabla | El orden de los pasos |
 | Los campos y sus reglas de validación | Los modales de alta, edición y borrado |
 | El contenido de la fila | Las acciones por fila con nombre accesible |
-| Los textos visibles | La paginación del servidor y `HX-Push-Url` |
-| Los datos de los tests | Los cinco casos del cierre |
+| Los textos visibles | La lista en `components/list/simple.twig` |
+| Los datos de los tests | La paginación del servidor y `HX-Push-Url` |
+| La cantidad de registros de prueba | El encabezado en `components/ui/page-header.twig` |
+| El icono y el subtítulo del encabezado | Los cinco casos del cierre |
 
 **Los archivos a tocar**, en orden:
 
@@ -2096,17 +2408,19 @@ Eso es otra conversación, y necesita más piezas.
 | El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.5 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
-| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Movelo adentro del parcial (paso 6.5) |
+| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
-| La lista trae todo | Falta `Pagination::paginate()` | Paso 12.1 |
-| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 12.2 |
+| La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (paso 12.2) |
+| La papelera no abre nada | El modal quedó fuera del bloque `row` | Muévelo adentro del bloque, después del `</li>` (paso 12.2) |
+| La lista trae todo | Falta `Pagination::paginate()` | Paso 13.1 |
+| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 13.2 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9.1 |
 
 ## Qué demuestra este recorrido
 
 Que agregar una entidad a este framework tiene un orden, y que ese orden tiene comprobaciones. Las
 piezas que usaste —migraciones, modelo, archivo de rutas, `render()`, validador, CSRF, `layouts/app.twig`,
-`components/list`, `components/form`, `components/ui/{button,modal}`, paginación, `HttpTestCase`— no
+`components/list`, `components/form`, `components/ui/{button,modal,page-header}`, paginación, `HttpTestCase`— no
 son opcionales: son el idioma del proyecto.
 
 Y que ese idioma se aprende por contraste: cada pieza apareció primero en su versión básica y después
