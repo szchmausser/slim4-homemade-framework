@@ -268,8 +268,8 @@ class Nota extends Model
 composer lint
 ```
 
-Esperado: `Lint OK (N archivos)`, con un archivo **más** que en la corrida anterior a crear el
-modelo.
+Esperado: un archivo **más** que antes de crear el modelo. Corre `composer lint` **antes** de crearlo y
+anota el total: en un clon limpio dice `Lint OK (79 archivos)`, y después de este archivo, `80`.
 
 **Falla si**:
 
@@ -662,9 +662,10 @@ use App\Models\Nota;
     </ul>
 ```
 
-**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Si insertas una nota a mano
-(`vendor/bin/phinx seed:run` cuando exista el seed, o un `INSERT` puntual), aparece su título. El
-escapado de Twig convierte `<` y `&` en entidades: no uses `|raw` para datos de usuario.
+**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Todavía no hay seed de `notas`: inserta
+una fila a mano —un `INSERT` puntual contra `database/database.sqlite`, o el modelo que acabas de
+crear— y aparece su título. El escapado de Twig convierte `<` y `&` en entidades: no uses `|raw` para
+datos de usuario.
 
 **Qué no prueba**: el shell ni los componentes visuales. Prueba el recorrido
 controlador → modelo → plantilla.
@@ -1287,19 +1288,28 @@ tipeado; `errors` hace que cada campo muestre su mensaje.
 
 **Comprobación**: el servidor ya sabe rechazar, pero la pantalla no lo deja llegar: el campo lleva
 `required`, así que el navegador bloquea el envío con su propio globo y el POST nunca sale. Para ver el
-422 hay que mandar el formulario sin pasar por esa validación. Con sesión iniciada y `curl`:
+422 hay que mandar el formulario sin pasar por esa validación, y para eso hace falta una sesión. El
+bloque completo, de la nada al 422: los tres pasos van en el mismo shell porque comparten el archivo
+de cookies.
 
 ```bash
-# 1. el par CSRF y la cookie de sesión salen del propio formulario
-curl -s -c /tmp/c.txt -b /tmp/c.txt http://127.0.0.1:8080/notas > /tmp/notas.html
+J=/tmp/notas-cookies.txt
+rm -f $J
+
+# 1. iniciar sesión. El jar arranca vacío: sin este paso, todo lo que sigue responde 303 a /login.
+curl -s -c $J http://127.0.0.1:8080/login > /tmp/login.html
+csrf_name=$(grep -o 'name="csrf_name" value="[^"]*"' /tmp/login.html | head -1 | sed 's/.*value="//;s/"//')
+csrf_value=$(grep -o 'name="csrf_value" value="[^"]*"' /tmp/login.html | head -1 | sed 's/.*value="//;s/"//')
+curl -s -o /dev/null -w 'login=%{http_code}' -b $J -c $J --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" --data-urlencode "email=dev@ejemplo.com" --data-urlencode "password=una-clave-de-8-o-mas" http://127.0.0.1:8080/login; echo
+# login=303. Un 200 acá significa que la sesión no se creó y el POST de abajo va a dar 303 otra vez.
+
+# 2. con la sesión, el par CSRF del alta sale del propio listado
+curl -s -c $J -b $J http://127.0.0.1:8080/notas > /tmp/notas.html
 csrf_name=$(grep -o 'name="csrf_name" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
 csrf_value=$(grep -o 'name="csrf_value" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
 
-# 2. POST con el título vacío: tiene que responder 422 y traer el modal abierto
-curl -s -o /tmp/resp.html -w '%{http_code}\n' -b /tmp/c.txt \
-  --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" \
-  --data-urlencode "titulo=" --data-urlencode "cuerpo=cuerpo que debe sobrevivir" \
-  http://127.0.0.1:8080/notas
+# 3. POST con el título vacío: tiene que responder 422 y traer el modal abierto
+curl -s -o /tmp/resp.html -w 'post=%{http_code}' -b $J --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" --data-urlencode "titulo=" --data-urlencode "cuerpo=cuerpo que debe sobrevivir" http://127.0.0.1:8080/notas; echo
 grep -c 'nota-create-modal[^>]*open' /tmp/resp.html   # 1
 grep -c 'Este campo es obligatorio.' /tmp/resp.html    # 1
 grep -c 'cuerpo que debe sobrevivir' /tmp/resp.html    # 1
@@ -1891,7 +1901,8 @@ encabezado se desincronizan entre demos. El proyecto ya tiene esas dos piezas re
 
 ### 12.1 Qué hace el componente
 
-**Archivo**: `resources/views/components/list/simple.twig`.
+**Componente**: `resources/views/components/list/simple.twig`. Léelo, no lo edites: ya existe y es del
+proyecto.
 
 ```twig
 {# Lista simple con estado vacío.
@@ -2084,9 +2095,9 @@ editar —un blanco más grande que el lápiz, útil en el móvil— y debajo ap
 El `cuerpo` lo vienes guardando desde el capítulo 7 y hasta ahora no se veía en ninguna parte: una nota
 con cuerpo y otra sin él se veían igual. El lápiz se queda; los dos caminos llevan al mismo modal.
 
-**Comprobación**: la lista se ve **idéntica** a la del paso 10, con y sin notas; el lápiz abre el modal
-de edición; la papelera abre el diálogo que dice **qué nota** vas a borrar; borrar elimina una sola
-nota; `composer test` sigue en verde.
+**Comprobación**: la lista se ve como en el paso 10 salvo los dos cambios de la fila —título enlazado y
+`cuerpo` visible—, y sigue igual con y sin notas; el lápiz abre el modal de edición; la papelera abre el
+diálogo que dice **qué nota** vas a borrar; borrar elimina una sola nota; `composer test` sigue en verde.
 
 **Falla si**:
 
@@ -2341,7 +2352,8 @@ botones que no aplican salen deshabilitados. En todos los casos la página **no 
 Comprueba con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
 un solo `<header>` y dos `<aside>` —el sidebar y la nota del pie—, y `#notas-panel` tiene que seguir
 existiendo con la paginación adentro. Los avisos son un `<div class="toast-host">`, no un `<aside>`; no
-lo cuentes. Si ves dos headers y cuatro asides, el servidor mandó la página
+lo cuentes. Cuenta **elementos**, no coincidencias de texto: hay un `<aside>` escrito dentro de un
+comentario de JS que no es parte del DOM. Si ves dos headers y cuatro asides, el servidor mandó la página
 completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
 muestra nada raro y el bug pasa igual.
 

@@ -180,3 +180,61 @@ servidor en `127.0.0.1:8090` (el 8080 estaba ocupado por otro proceso). Cada cap
 como está escrito, se comprobó en pantalla con ego-browser y se contrastó contra
 `framework/scaffolds/notas/`. Al terminar, el diff contra el demo quedó reducido a los nombres de
 namespace, el orden de los métodos y los comentarios.
+
+## Segunda pasada: clon limpio con la guía corregida
+
+Recorrido completo desde `4a6281e` en un worktree sin `vendor/`, sin base y sin la entidad. Capítulos
+1 a 13 ejecutados literalmente; 14 no es ejecutable literalmente porque es un ejercicio sin código.
+
+### Resultado
+
+Cada comprobación de los capítulos 1 a 13 se reprodujo y dio lo que la guía anticipa: instalación,
+migración, modelo (79 a 80 archivos de lint), rutas (303 sin sesión, 200 con sesión), JSON exacto,
+HTML crudo sin shell, Twig idéntico, escapado, shell, parcial, encabezado con `active`, alta con
+toast, campos del componente, parcial del formulario, modal, 422 con modal abierto, botones con
+nombre accesible, edición en modal, 404, borrado con `confirm()`, diálogo por fila, los cinco tests,
+la extracción a `simple.twig` y a `page-header`, paginación del servidor (`10/25/6` filas según el
+caso, `?page=99` recortado), `HX-Request` con 0 headers y 0 asides en la respuesta, y el 422 sin
+`HX-Push-Url`. Suite completa al cierre: **160 tests, 1328 aserciones**.
+
+### F18 — 7.5: la receta `curl` no iniciaba sesión (corregido)
+
+- **Síntoma**: ejecutada tal cual, el `GET /notas` devolvía 0 bytes (303 a `/login`) y el POST daba 303
+  a `/login` con los tres `grep -c` en `0`. El texto decía «con sesión iniciada», pero el bloque nunca
+  iniciaba sesión.
+- **Causa**: error introducido en la primera pasada. La comprobación se había hecho con un `fetch`
+  desde la página, que ya llevaba la cookie; el bloque de shell, con un jar vacío, no.
+- **Corrección**: el bloque arranca con el login por `curl` (par CSRF del formulario de acceso, `-c`
+  y `-b` sobre el mismo jar) y sigue con el alta. Reejecutado desde el propio archivo: `login=303`,
+  `post=422`, greps `1/1/1`.
+
+### F19 — Capítulos 3, 6.3, 12.1, 12.2 y 13.2: redacción ambigua (corregido)
+
+- **3**: la comprobación exigía «un archivo más que en la corrida anterior» sin decir cuándo correr el
+  lint. Ahora indica correrlo antes y da el total de un clon limpio (79, luego 80).
+- **6.3**: mandaba a `phinx seed:run` «cuando exista el seed», y no existe seed de `notas` en ese
+  punto. Ahora propone un `INSERT` puntual o el modelo, que sí existe.
+- **12.1**: presentaba `components/list/simple.twig` bajo el mismo encabezado **Archivo** que se usa
+  para los archivos a editar. Pasa a **Componente**, con «léelo, no lo edites».
+- **12.2**: decía que la lista se ve «idéntica» a la del paso 10, y el mismo apartado introduce dos
+  cambios en la fila. Ahora nombra los dos cambios.
+- **13.2**: «dos `<aside>`» confunde si se cuenta texto, porque hay un `<aside>` dentro de un comentario
+  de JS. Ahora aclara que se cuentan elementos.
+
+### Observado y no corregido
+
+- **`<dialog>` dentro de `<ul>`**: el modal de borrado se emite dentro del bloque `row`, que el
+  componente pinta dentro del `<ul>`. El DOM funciona, pero no es HTML válido en cuanto a modelo de
+  contenido. El demo hace lo mismo; arreglarlo exige que el componente admita un bloque posterior a la
+  lista, así que es un cambio de componente y de demo, no de redacción.
+- **Capítulo 14**: es un ejercicio, no un paso con código; no admite ejecución literal. Sus
+  instrucciones (middleware de sesión, registro de iconos, numeración de migraciones) se corrigieron en
+  la primera pasada y se contrastaron contra el demo, pero no se ejercitaron con una segunda entidad.
+- **`1 notas`** (F8) sigue igual: es del demo.
+
+### Método
+
+Worktree nuevo desde `4a6281e`; lectura en orden, sin adelantar capítulos; cada comprobación ejecutada
+con el comando de la guía o un equivalente `curl`/HTML cuando era de navegador. El recorrido lo ejecutó
+un worker sin permiso de editar la guía, para que una corrección no se validara a sí misma. La
+comprobación visual la hizo el orquestador con ego-browser sobre el estado final.
