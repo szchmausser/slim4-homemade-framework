@@ -1025,7 +1025,7 @@ Ese `data-modal-open` no necesita un manejador en la vista: en este proyecto **n
 JavaScript para abrir un diálogo**. El shell tiene un único listener delegado en `public/assets/app.js`
 que busca el atributo, resuelve el id y llama `showModal()`. Alpine no participa: se ocupa del sidebar,
 el tema y los avisos, y abrir un diálogo es una acción sobre un elemento del servidor, no un estado
-reactivo. En 7.4 el botón pasa a `components/ui/button.twig`, que trae la misma delegación más
+reactivo. En 7.5 el botón pasa a `components/ui/button.twig`, que trae la misma delegación más
 variante, icono y nombre accesible; el mecanismo no cambia.
 
 **Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha y la lista vacía. El botón
@@ -1122,7 +1122,7 @@ tamaño del título o la posición del icono, cambia una vez y todas las pantall
 **Pieza — `components/ui/page-header.twig`**: resuelve la disposición del encabezado: el título a la
 izquierda, el hueco de las acciones a la derecha. No repite el markup del título, lo incluye. Evita que
 cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
-acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.4 sin tocar el
+acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.5 sin tocar el
 encabezado.
 
 ![La pantalla no cambia: el encabezado viene del componente](tutorial-crud-images/06-7-encabezado.png)
@@ -1312,6 +1312,20 @@ salir del listado, y por eso el proyecto la conserva.
 </dialog>
 ```
 
+**Comprobación**: toca «Agregar nota»: se abre el diálogo nativo, con sus dos campos y los dos botones.
+«Cancelar» lo cierra. Guarda con un título: **no pasa nada todavía** —el formulario apunta a `/notas`
+con `POST`, y esa ruta no existe hasta el paso siguiente—.
+
+**Qué no prueba**: que la nota se guarde. Este paso sólo monta el diálogo y su formulario.
+
+![El diálogo nativo abierto, con los campos a mano](tutorial-crud-images/07-1-dialogo-nativo.png)
+
+### 7.2 La acción que guarda
+
+El formulario ya tiene a dónde apuntar, pero del otro lado no hay nada: el `POST /notas` no está
+registrado y el controlador no sabe recibirlo. Este paso cierra el circuito —ruta, validación, guardado y
+aviso— y es el primero en el que crear una nota funciona de punta a punta.
+
 **Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
 
 Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están (`Url` ya lo tienes de 6.7):
@@ -1380,24 +1394,25 @@ Y para que el aviso llegue en una pantalla con redirect, el controlador opta por
     }
 ```
 
-**Comprobación**: toca «Agregar nota»: se abre el diálogo nativo. Guarda con un título: vuelves a
-`/notas`, la nota aparece y el aviso «Nota creada.» sale abajo a la derecha.
+**Comprobación**: guarda con un título. Vuelves a `/notas`, la nota aparece en la lista y el aviso
+«Nota creada.» sale abajo a la derecha. El `cuerpo` es opcional: si lo dejas vacío, se guarda como
+`null`, no como cadena vacía.
 
-**Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este
-formulario repinta la página y **pierde lo tipeado y el modal abierto**.
+**Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este formulario
+repinta la página y **pierde lo tipeado y el modal abierto**: eso es el paso 7.6.
 
 **Qué ganaste**: el alta funciona de punta a punta: el diálogo abre, el servidor valida, la nota aparece
 en la lista y el aviso sale abajo a la derecha. Y mira el costo: dos `label` y dos `input` escritos a
 mano, sin marca de opcional, sin un lugar donde el error caiga al lado del campo y con el par de CSRF
 repetido en cada formulario.
 
-![El diálogo nativo, abierto desde el botón](tutorial-crud-images/07-1-dialogo-nativo.png)
+![Después de guardar: la nota en la lista y el aviso de éxito](tutorial-crud-images/07-2-guardada.png)
 
-### 7.2 Sustituir los campos a mano por el del proyecto
+### 7.3 Sustituir los campos a mano por el del proyecto
 
 El formulario se envía, pero no se puede rechazar bien: no hay dónde poner el error y, cuando lo haya, no
 estará pegado al campo que lo causó. El componente del proyecto resuelve el campo entero —label, marca de
-opcional, mensaje y atributos de accesibilidad—, y ese contrato es el que 7.5 necesita para mostrar un
+opcional, mensaje y atributos de accesibilidad—, y ese contrato es el que 7.6 necesita para mostrar un
 rechazo.
 
 **Archivo**: `resources/views/notas/index.twig`, dentro del `<form>` del diálogo de 7.1.
@@ -1465,7 +1480,7 @@ label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantie
 `maxlength`. Mira el HTML con el inspector: `label for` coincide con el `id` del input.
 
 > Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
-> error**, y eso llega en el paso 7.5, cuando el controlador empieza a devolver `errors`. En este paso
+> error**, y eso llega en el paso 7.6, cuando el controlador empieza a devolver `errors`. En este paso
 > el formulario todavía no tiene cómo producirlos.
 
 **Qué ganaste**: el campo como una unidad con su label, su marca de opcional y el lugar donde irá el
@@ -1480,7 +1495,7 @@ causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apunt
 
 ![Los campos del componente: label asociado y «(opcional)»](tutorial-crud-images/07-2-campos.png)
 
-### 7.3 Extraer el formulario a un parcial
+### 7.4 Extraer el formulario a un parcial
 
 El formulario ya está bien armado, pero vive adentro del `<dialog>` y del bloque `content`: no hay manera
 de usarlo en un segundo lugar sin copiarlo. El capítulo 9 necesita el mismo formulario para editar, con
@@ -1592,9 +1607,9 @@ un `<dialog>` armado a mano y el otro llama a `showModal()` por su cuenta. Eso e
 la edición tengan campos o validaciones distintas. Úsalo cuando los campos son los mismos. Sin esto,
 cada operación repite el formulario y una de las dos se olvida de un campo.
 
-La pantalla es la de 7.2: el formulario se movió a un parcial y se ve igual.
+La pantalla es la de 7.3: el formulario se movió a un parcial y se ve igual.
 
-### 7.4 Reemplazar el `<dialog>` crudo por el modal del proyecto
+### 7.5 Reemplazar el `<dialog>` crudo por el modal del proyecto
 
 El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón, foco y cierre por
 Escape. Y el botón del encabezado todavía es un `<button>` suelto: cada pantalla que necesite abrir ese
@@ -1669,7 +1684,7 @@ cada pantalla inventa su forma de abrir y cerrar, y el foco se comporta distinto
 
 ![El modal del proyecto, con telón, tema y botones del componente](tutorial-crud-images/07-4-modal.png)
 
-### 7.5 Reabrir el modal con errores 422
+### 7.6 Reabrir el modal con errores 422
 
 Un formulario inválido no es una página nueva: es la misma página con el modal abierto, los errores y
 lo que el usuario ya había tipeado. Si el servidor devuelve la página con el modal cerrado, el usuario
@@ -2047,7 +2062,7 @@ de alta. `form_values` repinta lo que el usuario escribió; `errors` muestra el 
 
 **Comprobación**: abre el lápiz de una nota, cambia el título y guarda. Esperado: vuelves a la lista,
 la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». El rechazo se comprueba igual
-que en 7.5 —el campo también lleva `required`, así que el navegador no deja enviarlo vacío—: con el
+que en 7.6 —el campo también lleva `required`, así que el navegador no deja enviarlo vacío—: con el
 mismo POST por `curl` contra `/notas/{id}`, esperando 422, el modal de edición abierto, el error y el
 cuerpo conservado.
 
@@ -2504,7 +2519,7 @@ proyecto.
 El componente no sabe nada de `notas` ni de `titulo`: sólo sabe recorrer y dejar un hueco. Eso es lo
 que lo hace reusable, y también lo que lo vuelve difícil de leer la primera vez.
 
-**Cómo se rellena el hueco**: ya lo hiciste con el modal. En 7.4 reemplazaste el `<dialog>` por
+**Cómo se rellena el hueco**: ya lo hiciste con el modal. En 7.5 reemplazaste el `<dialog>` por
 `components/ui/modal.twig` y escribiste un `{% block body %}`; el modal puso el resto. Aquí es el mismo
 `embed`, con una diferencia: `row` se rellena **una vez por item**, porque el componente lo invoca
 dentro de su `for`.
@@ -3127,7 +3142,7 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Vuelve a sembrar con las mismas variables; el mensaje es genérico a propósito |
 | `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisa `DB_DATABASE` |
 | El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
-| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.5 y 9.2) |
+| El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.6 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.6) |
