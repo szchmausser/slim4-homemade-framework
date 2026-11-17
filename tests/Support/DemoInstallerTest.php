@@ -197,7 +197,11 @@ final class DemoInstallerTest extends TestCase
 
             self::assertNotSame(0, $exit);
             self::assertStringContainsString('Install revertido', $stderr);
-            self::assertStringContainsString('table `notas` already exists', $stderr);
+            // No se fija el texto de Phinx: según qué otra migración de `notas`
+            // exista, el error es la tabla duplicada o el nombre de clase
+            // duplicado. Lo que importa es que la DB falló y los archivos se
+            // revirtieron.
+            self::assertStringContainsString('La DB fallo:', $stderr);
             foreach ($this->installedPaths('notas') as $relative) {
                 self::assertFileDoesNotExist($this->root . '/' . $relative, 'Quedó residuo: ' . $relative);
             }
