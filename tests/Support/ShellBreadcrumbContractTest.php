@@ -8,10 +8,10 @@ namespace Tests\Support;
  * Contrato del shell: toda página que pinta el header declara su miga de pan.
  *
  * Por qué existe: el header decide entre la miga declarada y un fallback de un
- * solo «Inicio». Ese fallback es legítimo —el recorrido del tutorial pinta el
- * shell desde 6.2, tres pasos antes de enseñar `breadcrumbs`, y la portada usa
- * un único crumb—, pero mientras nadie lo compruebe un olvido se ve igual que
- * una página en la raíz: el header miente y nada falla.
+ * solo «Inicio». Ese fallback es legítimo —`tutorial-crud.md` pinta el shell en
+ * 6.4 y recién enseña `breadcrumbs` en 6.6, y la portada usa un único crumb—,
+ * pero mientras nadie lo compruebe un olvido se ve igual que una página en la
+ * raíz: el header miente y nada falla.
  *
  * El marcador es el **header** (`id="collapse-btn"`), no el sidebar: una vista
  * puede reemplazar el bloque `sidebar` y entonces un marcador puesto ahí
@@ -40,7 +40,21 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
                 continue;
             }
 
+            // Rutas del harness (`tests/bootstrap.php`): existen para provocar
+            // errores, no son páginas del producto.
+            if (str_starts_with($pattern, '/_test/')) {
+                continue;
+            }
+
             $response = $app->handle(self::request('GET', $pattern));
+
+            // Una página rota no puede saltearse el contrato por no responder
+            // 200: sin esto, un 500 esconde la página y el test sigue verde.
+            self::assertLessThan(
+                500,
+                $response->getStatusCode(),
+                "La página `{$pattern}` devolvió {$response->getStatusCode()}: no se pudo comprobar su miga."
+            );
 
             if ($response->getStatusCode() !== 200) {
                 continue;
