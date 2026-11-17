@@ -1782,7 +1782,7 @@ en él, y por eso la validación también vive en `store()`.
 
 **Qué ganaste**: un formulario rechazado vuelve con el modal abierto, el error junto al campo y lo que
 habías escrito; el `required` del navegador queda como primera barrera en vez de única. Y mira el costo:
-cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.4 eso se
+cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.5 eso se
 junta en un solo método.
 
 **Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
@@ -2913,7 +2913,7 @@ recarga la página entera, con el parpadeo y el scroll que eso trae. Eso se resu
 
 ![El paginador al pie del panel: rango, selector de tamaño y botones](tutorial-crud-images/13-2-paginador.png)
 
-### 13.3 Responder sólo la región y empujar la URL
+### 13.3 Responder sólo la región
 
 Los controles ya existen, pero cada clic es una navegación completa: el servidor devuelve la página
 entera, el navegador la repinta y volvés al tope. HTMX evita eso reemplazando sólo el panel, y para que
@@ -2932,17 +2932,9 @@ el pedido:
         // headers y el contenido duplicado.
         $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
 
-        $rendered = $this->render($request, $response, $template, $data + $extra + [
+        return $this->render($request, $response, $template, $data + $extra + [
             'active' => 'notas',
         ])->withStatus($status);
-
-        if ($status >= 400) {
-            return $rendered;
-        }
-
-        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
-            . '?page=' . $data['pagination']['current_page']
-            . '&per_page=' . $data['pagination']['per_page']);
     }
 ```
 
@@ -2955,42 +2947,79 @@ el pedido:
     }
 ```
 
-`HX-Push-Url` se emite sólo si el estado es 2xx: la URL del historial tiene que representar una página
-que el usuario realmente navegó, no un 422 con errores. El guard `status >= 400` deja esa decisión en un
-solo lugar.
+La clave está en `HX-Request`: un pedido normal recibe `index.twig` completo; un pedido de HTMX recibe
+sólo `_panel.twig`. Si devuelves la página completa a HTMX, el panel se reemplaza por **otra página
+completa** y el shell queda anidado: dos sidebars, dos headers y el contenido duplicado.
 
-**Comprobación**: en `/notas`, toca «Siguiente». Esperado: el rango pasa a «Mostrando 11 al 20 de N», la
-página 2 queda marcada, la URL cambia a `/notas?page=2&per_page=10` y **no hay recarga**: el scroll se
-queda donde estaba y sigue habiendo un solo sidebar y un solo header.
+**Comprobación**: en `/notas`, toca «Siguiente». El rango pasa a «Mostrando 11 al 20 de N» y la página 2
+queda marcada, **sin recarga**: el scroll se queda donde estaba. Cuenta en la **página entera** —un solo
+`<header>` y dos `<aside>`, el sidebar y la nota del pie—: si ves dos headers y cuatro asides, el
+servidor mandó la página completa y el shell quedó **al lado** del panel. Los avisos son un
+`<div class="toast-host">`, no un `<aside>`; hay además un `<aside>` escrito dentro de un comentario de
+JS que no es parte del DOM.
 
-Cuenta en la **página entera**, no dentro del panel: un solo `<header>` y dos `<aside>` —el sidebar y la
-nota del pie—. Los avisos son un `<div class="toast-host">`, no un `<aside>`; no los cuentes. Hay un
-`<aside>` escrito dentro de un comentario de JS que no es parte del DOM. Si ves dos headers y cuatro
-asides, el servidor mandó la página completa y el shell quedó **al lado** del panel: mirar sólo
-`#notas-panel` no muestra nada raro y el bug pasa igual.
-
-La cabecera se emite con la página que el **servidor** recortó: si alguien pide `?page=99` sobre tres
-páginas, la URL que queda es la 3.
+La URL todavía **no** cambia: la barra sigue en `/notas`. Eso es el paso siguiente.
 
 **Falla si**:
 
-- Paginas y la URL no cambia: falta `HX-Push-Url`, o el estado no se pasa a `renderIndex()`.
-- Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
-  request de HTMX.
-- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; se decide en el
-  componente.
-- Todo aparece en una página: `index()` no está usando `renderIndex()`.
+- Paginas y ves dos sidebars o dos headers: el servidor devolvió la página completa a un request de
+  HTMX.
+- El rango no cambia: `index()` no está usando `renderIndex()`, o los controles quedaron fuera del
+  parcial.
 
-**Qué no prueba**: que un 422 no empuje la URL, ni que la edición siga abriendo su modal. Eso se cierra
-en 13.4.
+**Qué no prueba**: que la URL del historial diga la página que estás viendo, ni que un 422 no la
+empuje. Eso es 13.4.
+
+![Después de «Siguiente»: el rango cambia y el shell no se duplica, pero la URL sigue en /notas](tutorial-crud-images/13-2-paginador-pagina-2.png)
+
+### 13.4 La URL honesta
+
+El swap funciona, pero la barra de direcciones quedó atrás: estás viendo la página 2 y la URL dice
+`/notas`. Si recargás o compartís el enlace, volvés a la primera. HTMX puede empujar la URL que el
+servidor sirvió, y sólo cuando la respuesta es una navegación real.
+
+**Archivo**: el mismo `renderIndex()`.
+
+**Acción**: después de renderizar, emite `HX-Push-Url` con la página que el **servidor** recortó; y no la
+emitas en un error.
+
+```php
+        $rendered = $this->render($request, $response, $template, $data + $extra + [
+            'active' => 'notas',
+        ])->withStatus($status);
+
+        if ($status >= 400) {
+            return $rendered;
+        }
+
+        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
+            . '?page=' . $data['pagination']['current_page']
+            . '&per_page=' . $data['pagination']['per_page']);
+```
+
+El guard `status >= 400` deja esa decisión en un solo lugar: la URL del historial tiene que representar
+una página que el usuario realmente navegó, no un 422 con errores.
+
+**Comprobación**: toca «Siguiente» y mira la barra: pasa a `/notas?page=2&per_page=10`. Recarga: seguís en
+la página 2. Prueba «Última» y `?page=99` escrito a mano: la URL que queda es la última página real, no la
+que pediste.
+
+**Falla si**:
+
+- Paginas y la URL no cambia: falta el `withHeader`, o el estado no se pasa a `renderIndex()`.
+- Un 422 empuja la URL: falta el guard, o el estado no viaja.
+- La URL dice la página pedida y no la servida: estás usando la query del request en vez de
+  `pagination.current_page`.
+
+**Qué no prueba**: que un rechazo del formulario no cambie la URL. Eso se cierra con el test de 13.5.
 
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
 esa respuesta sólo repinta el formulario.
 
-![Después de «Siguiente»: rango 11 al 20, página 2 marcada y URL empujada](tutorial-crud-images/13-2-paginador-pagina-2.png)
+![La misma pantalla: ahora la barra de direcciones dice la página que el servidor sirvió](tutorial-crud-images/13-2-paginador-pagina-2.png)
 
-### 13.4 Unificar los renders de edición y 422
+### 13.5 Unificar los renders de edición y 422
 
 Los renders del listado están repetidos en tres métodos, y la repetición ya tiene un costo concreto: cada
 uno decide por su cuenta si empuja `HX-Push-Url`, si pasa `active` y en qué estado devuelve la página. Con
