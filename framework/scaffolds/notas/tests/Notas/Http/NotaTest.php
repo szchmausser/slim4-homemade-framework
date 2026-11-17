@@ -79,6 +79,8 @@ final class NotaTest extends HttpTestCase
         $paginaEdicion = (string) self::app()->handle(
             self::request('GET', '/notas/' . $nota->id . '/edit')
         )->getBody();
+        self::assertStringContainsString('aria-label="Miga de pan"', $paginaEdicion);
+        self::assertStringContainsString('aria-current="page">Notas', $paginaEdicion);
         self::assertStringNotContainsString(
             'value="Antes"',
             self::dialogHtml($paginaEdicion, 'nota-create-modal'),

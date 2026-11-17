@@ -49,6 +49,18 @@ final class ContactsTest extends ContactsTestCase
      * RequireAuthMiddleware. Sin sesión no hay datos, ni siquiera para un GET
      * que parece sólo lectura.
      */
+    public function test_la_pagina_de_edicion_declara_su_miga_y_marca_la_actual(): void
+    {
+        $contact = Contact::create(['name' => 'Miga', 'email' => 'miga@ejemplo.com']);
+
+        $html = (string) self::app()->handle(
+            self::request('GET', '/contactos/' . $contact->id . '/edit')
+        )->getBody();
+
+        self::assertStringContainsString('aria-label="Miga de pan"', $html);
+        self::assertStringContainsString('aria-current="page">Editar', $html);
+    }
+
     public function test_el_endpoint_de_datos_requiere_sesion(): void
     {
         Contact::create(['name' => 'Ana Torres', 'email' => 'ana@ejemplo.com']);

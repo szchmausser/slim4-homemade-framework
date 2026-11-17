@@ -37,6 +37,9 @@ final class EditTaskTest extends TasksTestCase
 
         $html = (string) $response->getBody();
 
+        self::assertStringContainsString('aria-label="Miga de pan"', $html);
+        self::assertStringContainsString('aria-current="page">Tareas', $html);
+
         // El query string de posicion lo fija tests/Http/ListStateContractTest;
         // aca solo importa que el guardado apunte al recurso correcto.
         self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
