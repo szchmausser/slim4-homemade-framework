@@ -780,6 +780,10 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
 ### 6.6 El encabezado con la acción y el contador
 
+La pantalla ya lista, pero no ofrece nada: para crear una nota hay que conocer la URL del paso 5, y no
+hay forma de saber cuántas hay. Necesita un encabezado que diga qué es, ofrezca la acción principal y
+muestre el conteo. Escribámoslo a mano primero, para ver exactamente qué contiene.
+
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
 **Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
@@ -790,6 +794,10 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
             {% include 'notas/_panel.twig' %}
         </div>
 ```
+
+El botón va en la esquina: es la acción principal y el ojo la busca ahí. Por eso el título y el botón
+comparten una fila —título a la izquierda, acción a la derecha— y debajo queda la fila del listado con
+el contador.
 
 **Después**: reemplaza ese `<h1>` por el encabezado con la acción y el contador; el include del panel
 queda al final, dentro del mismo `card-body`.
@@ -858,10 +866,18 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
+**Qué ganaste**: la pantalla ya dice qué es, ofrece la acción y cuenta las filas. Y mirá el costo: el
+encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
+vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
+
 ### 6.7 El encabezado a su componente
 
-Ya sabes qué es el encabezado porque lo escribiste en 6.6. Pasarlo al componente es mecánico, y por eso
-se hace aquí mismo: no hay motivo para volver sobre esto siete capítulos después.
+Fijate en lo que acabas de escribir. Esas líneas no tienen nada que ver con las notas: son la forma del
+encabezado —el icono, el título, el subtítulo, la fila que alinea la acción—. Si mañana otra pantalla
+necesita lo mismo, las copiarías; a la segunda copia una se vería distinta, y a la tercera ya no sabrías
+cuál es la buena. Es el mismo caso del panel en 6.5, y el proyecto ya lo tiene resuelto:
+`components/ui/page-header.twig`. Usémoslo: la vista deja de describir la forma y pasa a declarar el
+contenido.
 
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
@@ -925,6 +941,9 @@ derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
 formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría
 en `block actions` sin tocar el contrato.
 
+**Qué ganaste**: el armazón del encabezado ya no vive en tu vista. Si mañana cambia el espaciado, el
+tamaño del título o la posición del icono, cambia una vez y todas las pantallas que lo usan se enteran.
+
 **Pieza — `components/ui/page-header.twig`**: resuelve la disposición del encabezado: el título a la
 izquierda, el hueco de las acciones a la derecha. No repite el markup del título, lo incluye. Evita que
 cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
@@ -932,6 +951,12 @@ acción— y que el encabezado deje de ser reconocible entre pantallas. El botó
 encabezado.
 
 ### 6.8 La botonera a su componente
+
+El encabezado ya es un componente, pero el control de la esquina sigue siendo un botón suelto dentro
+del hueco. Con uno alcanza. Con dos —«Exportar» y «Agregar»— cada control se vuelve hijo directo del
+`justify-between` del encabezado, que reparte el espacio entre todos: el primero queda flotando en el
+medio de la pantalla, lejos de la esquina. La fila que falta también es un componente, y el proyecto
+ya lo tiene. Usémoslo.
 
 **Archivo**: `resources/views/notas/index.twig`, dentro del `{% block actions %}`.
 
@@ -1004,14 +1029,19 @@ Cuidado con el primero: en un listado, «Volver» duplica el sidebar y el botón
 lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican son «Exportar»,
 «Filtros» o «Actualizar».
 
+**Qué ganaste**: la botonera es dueña del `flex`, el `wrap` y la separación; tu vista pone los controles
+y su orden. El día que aparezca el segundo botón no hay espacios que ajustar ni clases que recordar.
+
 **Pieza — `components/ui/action-bar.twig`**: resuelve la fila de controles del encabezado o de una
 tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
 cada pantalla elige su `gap` y su alineación.
 
 ### 6.9 Anatomía del encabezado
 
-Ya lo usaste completo: el wrapper, el título y la botonera. Así está armado por dentro, para que puedas
-repetir el patrón en tus propios componentes.
+Usaste el encabezado completo sin ver cómo está armado, y vale la pena mirarlo: la forma en que se
+compone es la que vas a repetir cuando hagas tus propios compuestos. La idea es simple —un wrapper que
+pone la disposición y dos piezas que aportan el contenido— y se ve mejor en el código que en la
+explicación.
 
 `resources/views/components/ui/page-header-title.twig` es la mitad izquierda:
 
