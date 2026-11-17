@@ -28,15 +28,20 @@ corregir cada error u omisión que impida llegar al estado que produce `composer
 
 ## Tasks
 
-- **T1** — Revisar el diff pendiente y correr `composer verify` (S1, S5). Hecho en `main`.
-- **T2** — Commitear los cambios pendientes en unidades revisables: componente compartido y
-  reestructuración del tutorial (S1, S5).
-- **T3** — Preparar un entorno limpio de recorrido, sin `.git` y sin base previa, y arrancarlo (S3).
-- **T4** — Seguir los capítulos 1 a 5 y registrar hallazgos (S3, S6).
-- **T5** — Seguir los capítulos 6 a 10, observando la pantalla en cada uno (S3, S6, S7).
-- **T6** — Seguir los capítulos 11 a 14, incluida la paginación y la repetición del patrón (S3, S6).
-- **T7** — Corregir el tutorial con los hallazgos y volver a verificar las comprobaciones tocadas (S3).
-- **T8** — Comparar el resultado escrito a mano contra `composer demo:notas:install` (S4).
+- **T1** — Revisar el diff pendiente y correr `composer verify` (S1, S5). Hecho.
+- **T2** — Commitear los cambios pendientes en dos unidades revisables (S1, S5). Hecho:
+  `c04037e` (componente compartido) y `e05e11e` (reestructuración del tutorial).
+- **T3** — Preparar un entorno limpio de recorrido (S3). Hecho: worktree
+  `slim4-homemade-framework-walkthrough`, servidor en `127.0.0.1:8090`, sesión sembrada.
+- **T4** — Seguir los capítulos 1 a 5 (S3, S6). Hecho; hallazgos F1 y F2.
+- **T5** — Seguir los capítulos 6 a 10, con la pantalla a la vista (S3, S6, S7). Hecho; F3 a F6,
+  F9 y F17.
+- **T6** — Seguir los capítulos 11 a 14 (S3, S6). Hecho; F10 a F16.
+- **T7** — Corregir el tutorial con los hallazgos (S3). Hecho: 17 hallazgos, 15 corregidos, 2
+  documentados sin tocar el tutorial (`1 notas`, que es del demo).
+- **T8** — Comparar el resultado escrito a mano contra `composer demo:notas:install` (S4). Hecho: el
+  diff contra `framework/scaffolds/notas/` queda en nombres de namespace, orden de métodos y
+  comentarios.
 
 ## Log
 
@@ -53,3 +58,12 @@ corregir cada error u omisión que impida llegar al estado que produce `composer
 - **L2**: hallazgo de entorno — en esta sesión no hay herramienta de navegador (ni MCP `gsd-browser`
   cargado ni CLI `ego`). La progresión visual se comprueba por HTTP contra el servidor de desarrollo
   y por captura del HTML renderizado, no por automatización de navegador.
+- **L3**: corrección de L2 — existe la skill `ego-browser` y su CLI. El navegador estaba cerrado. Con
+  el navegador abierto, la progresión se observó con capturas por capítulo en el espacio
+  `tutorial CRUD walkthrough` (id 1).
+- **L4**: resultado del recorrido — el tutorial es seguible de punta a punta; los 17 hallazgos están
+  en `odd/tasks/tutorial-walkthrough-findings.md`. Dos de ellos rompían el recorrido en silencio (F4,
+  el `only` que vacía el CSRF; F12, el `+` que descarta el título del fixture) y uno dejaba la suite en
+  rojo (F10).
+- **L5**: el resultado escrito a mano equivale al demo, salvo namespace, orden de métodos y
+  comentarios; el diff se comprobó archivo por archivo.

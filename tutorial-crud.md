@@ -68,6 +68,10 @@ nombres —el demo vive en `App\Notas\…` porque tiene que ser removible; el re
 `App\Models\Nota` y `App\Http\Controllers\NotaController`, que es donde va una entidad tuya—. El
 comportamiento y las vistas son los mismos.
 
+Míralo **antes** de empezar, en un clon limpio: el demo y tu `notas` son la misma entidad —misma tabla,
+misma clase de migración— y no pueden estar instalados a la vez. Si ya seguiste el recorrido, cópialo
+para comparar en lugar de instalarlo encima.
+
 ## 1. Arrancar la app hasta tener sesión
 
 **Objetivo**: pasar de un clon sin configurar a una app respondiendo, con sesión iniciada.
@@ -113,8 +117,12 @@ ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-de-8-o-mas \
 Y levanta el servidor de desarrollo:
 
 ```bash
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
+
+`127.0.0.1` y no `0.0.0.0`: con `0.0.0.0` el servidor escucha en todas las interfaces y la app sale a
+la red local, donde el administrador que acabas de sembrar tiene acceso a todo. Si necesitas verla
+desde otro dispositivo, hay un túnel con TLS para eso; el binding abierto no es el atajo.
 
 **Comprobación**: abre `http://localhost:8080/login` en el navegador. Tienes que ver el formulario de
 acceso. Entra con el email y la contraseña que sembraste: después del login el navegador te lleva a la
@@ -152,7 +160,7 @@ ls database/migrations/
 
 Vas a ver archivos como `002_create_users_table.php` y `003_create_remember_tokens.php`. La
 convención del proyecto es **numeración secuencial**, no timestamps, así que toma el siguiente
-número libre. Si el último es `006_...`, tu archivo es `007_create_notas_table.php`:
+número libre. Si la última es `010_...`, tu archivo es `011_create_notas_table.php`:
 
 ```php
 <?php
@@ -181,8 +189,14 @@ vendor/bin/phinx migrate
 **Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
 `20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. Sirve, pero su versión
 es un **timestamp**, y este proyecto usa numeración secuencial porque los timestamps saturan el entero
-de 32 bits en bases grandes. Así que, si lo usas, renombralo a `007_create_notas_table.php`: la versión
+de 32 bits en bases grandes. Así que, si lo usas, renombralo a `011_create_notas_table.php`: la versión
 sale del prefijo del archivo y el nombre de la clase no cambia.
+
+> **`007` y `008` están tomados** por las migraciones de los demos de notas y contactos. No son
+> números libres aunque no veas esos archivos en `database/migrations/`: viven en
+> `framework/scaffolds/*/database/migrations/<demo>/` y el instalador del demo los copia con esa
+> versión. Si tu entidad usa uno de esos números, `composer demo:notas:install` aborta después con una
+> colisión que no esperabas.
 
 Por eso el recorrido crea el archivo a mano: son veinte líneas, y el nombre —que es lo que Phinx toma
 como versión— queda bien desde el principio. Si algún día armas un demo instalable, el generador acepta
@@ -542,7 +556,7 @@ entrada. Ahora `index()` deja de devolver JSON.
 <head><meta charset="utf-8"><title>Notas</title></head>
 <body>
     <h1>Notas</h1>
-    <p>Acá va a vivir el listado.</p>
+    <p>Aquí va a vivir el listado.</p>
 </body>
 </html>
 HTML;
@@ -575,7 +589,7 @@ ve igual y no sabes dónde mirar.
 <head><meta charset="utf-8"><title>Notas</title></head>
 <body>
     <h1>Notas</h1>
-    <p>Acá va a vivir el listado.</p>
+    <p>Aquí va a vivir el listado.</p>
 </body>
 </html>
 ```
@@ -609,7 +623,7 @@ flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML;
 
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
-**Acción**: suma el import del modelo, junto a los demás `use`, y pasale la colección a la vista:
+**Acción**: suma el import del modelo, junto a los demás `use`, y pásale la colección a la vista:
 
 ```php
 use App\Models\Nota;
@@ -632,7 +646,7 @@ use App\Models\Nota;
 
 ```twig
     <h1>Notas</h1>
-    <p>Acá va a vivir el listado.</p>
+    <p>Aquí va a vivir el listado.</p>
 ```
 
 **Después**: reemplaza ese párrafo por la lista.
@@ -648,7 +662,7 @@ use App\Models\Nota;
     </ul>
 ```
 
-**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Si insertás una nota a mano
+**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Si insertas una nota a mano
 (`vendor/bin/phinx seed:run` cuando exista el seed, o un `INSERT` puntual), aparece su título. El
 escapado de Twig convierte `<` y `&` en entidades: no uses `|raw` para datos de usuario.
 
@@ -818,14 +832,17 @@ queda al final, dentro del mismo `card-body`.
     }
 ```
 
-**Después**: agrega `total` al mismo arreglo de datos.
+**Después**: agrega `total` al mismo arreglo de datos, y de paso `active`, que es lo que el sidebar
+compara con la clave `key` de `config/navigation/notas.php` para marcar la entrada. Sin `active`, la
+página funciona igual pero el menú no resalta «Notas» y el enlace no lleva `aria-current="page"`.
 
 ```php
     public function index(Request $request, Response $response): Response
     {
         return $this->render($request, $response, 'notas/index.twig', [
-            'notas' => Nota::orderByDesc('id')->get(),
-            'total' => Nota::query()->count(),
+            'notas'  => Nota::orderByDesc('id')->get(),
+            'total'  => Nota::query()->count(),
+            'active' => 'notas',
         ]);
     }
 ```
@@ -1116,10 +1133,15 @@ conservan.
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
                 nota: null
-            } only %}
+            } %}
         </div>
     </dialog>
 ```
+
+Sin `only` en ese `include`. `_form.twig` incluye `partials/_csrf.twig`, que necesita las cuatro
+variables del token; `render()` las inyecta en el contexto de `index.twig`, y `only` corta justo ese
+contexto. Con `only` los dos campos ocultos salen con `name=""` y el POST termina en un 303 al login
+sin ningún mensaje.
 
 `nota: null` parece un detalle, pero corta la herencia: cuando este mismo parcial se use en el modal de
 edición, no queremos que el alta se abra con los datos de la nota que se está editando.
@@ -1164,7 +1186,7 @@ Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce e
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
                 nota: null
-            } only %}
+            } %}
         {% endblock %}
     {% endembed %}
 ```
@@ -1263,16 +1285,38 @@ del modal de alta.
 Así el alta normal nace cerrada y el rechazo la abre. `form_values` hace que `_form.twig` repinte lo
 tipeado; `errors` hace que cada campo muestre su mensaje.
 
-**Comprobación**: envía el alta con el título vacío. Esperado: la respuesta es 422, el modal vuelve a
-abrirse, el campo Título muestra el error y el cuerpo que habías escrito sigue ahí. Corrige el título y
-guarda: la nota se crea y el modal se cierra al navegar.
+**Comprobación**: el servidor ya sabe rechazar, pero la pantalla no lo deja llegar: el campo lleva
+`required`, así que el navegador bloquea el envío con su propio globo y el POST nunca sale. Para ver el
+422 hay que mandar el formulario sin pasar por esa validación. Con sesión iniciada y `curl`:
+
+```bash
+# 1. el par CSRF y la cookie de sesión salen del propio formulario
+curl -s -c /tmp/c.txt -b /tmp/c.txt http://127.0.0.1:8080/notas > /tmp/notas.html
+csrf_name=$(grep -o 'name="csrf_name" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
+csrf_value=$(grep -o 'name="csrf_value" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
+
+# 2. POST con el título vacío: tiene que responder 422 y traer el modal abierto
+curl -s -o /tmp/resp.html -w '%{http_code}\n' -b /tmp/c.txt \
+  --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" \
+  --data-urlencode "titulo=" --data-urlencode "cuerpo=cuerpo que debe sobrevivir" \
+  http://127.0.0.1:8080/notas
+grep -c 'nota-create-modal[^>]*open' /tmp/resp.html   # 1
+grep -c 'Este campo es obligatorio.' /tmp/resp.html    # 1
+grep -c 'cuerpo que debe sobrevivir' /tmp/resp.html    # 1
+```
+
+Los tres `grep -c` tienen que dar `1`: modal abierto, error junto al campo y lo tipeado conservado.
+Desde el capítulo 11 el mismo caso queda como test y se corre con `vendor/bin/phpunit --filter NotaTest`.
+
+El `required` se queda: es defensa en profundidad. El navegador ahorra el viaje; el servidor no confía
+en él, y por eso la validación también vive en `store()`.
 
 **Falla si**:
 
 - El modal queda cerrado: falta `open_create_modal` o el modal no lo está leyendo.
 - Los errores no aparecen: no estás pasando `errors` a `_form.twig`.
 - Se borra lo tipeado: falta `form_values`.
-- El error sale en el modal de edición: `nota` está llegando con datos en el alta; revisá el `nota: null`.
+- El error sale en el modal de edición: `nota` está llegando con datos en el alta; revisa el `nota: null`.
 
 **Qué no prueba**: que dos pestañas abiertas no se pisen; no hay control de concurrencia.
 
@@ -1515,8 +1559,10 @@ dos claves, el 422 renderiza la lista, el modal de edición no existe y lo tipea
 de alta. `form_values` repinta lo que el usuario escribió; `errors` muestra el mensaje en el campo.
 
 **Comprobación**: abre el lápiz de una nota, cambia el título y guarda. Esperado: vuelves a la lista,
-la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». Si dejas el título vacío, el
-modal de edición se reabre con el error y el cuerpo que habías escrito.
+la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». El rechazo se comprueba igual
+que en 7.5 —el campo también lleva `required`, así que el navegador no deja enviarlo vacío—: con el
+mismo POST por `curl` contra `/notas/{id}`, esperando 422, el modal de edición abierto, el error y el
+cuerpo conservado.
 
 **Falla si**:
 
@@ -1596,7 +1642,29 @@ proyecto usa un diálogo.
 **Archivo**: `resources/views/notas/_panel.twig`, dentro del `{% for %}`, después del `</li>` de la
 fila.
 
-**Acción**: saca el `onsubmit` y el formulario de la fila, y pon el diálogo justo después del `</li>`:
+**Acción**: desenvolvé la papelera y pon el diálogo justo después del `</li>`. El botón no se va: deja
+de estar envuelto por el `<form>` y recupera `data_modal_open`, que es lo que el shell usa para abrir
+el diálogo. La fila queda así:
+
+```twig
+            <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
+                <span class="font-semibold">{{ item.titulo }}</span>
+                <div class="flex shrink-0 items-center gap-1">
+                    {# … el lápiz de 8.2 … #}
+
+                    {% include 'components/ui/button.twig' with {
+                        label: '',
+                        variant: 'ghost',
+                        size: 'sm',
+                        icon: 'trash',
+                        aria_label: 'Borrar ' ~ item.titulo,
+                        data_modal_open: 'nota-delete-' ~ item.id
+                    } only %}
+                </div>
+            </li>
+```
+
+Después del `</li>`, dentro del mismo `{% for %}`, va el diálogo:
 
 ```twig
             {% embed 'components/ui/modal.twig' with {
@@ -1628,7 +1696,9 @@ fila.
             {% endembed %}
 ```
 
-La papelera del paso 8 ya apunta a ese diálogo con `data_modal_open`; el shell llama a `showModal()`.
+La papelera ya apunta a ese diálogo con `data_modal_open`; el shell llama a `showModal()` al tocarla.
+Ese `id` lleva el número de fila: un id fijo abriría siempre el mismo diálogo, con el título de otra
+nota.
 
 **Comprobación**: toca la papelera de una nota. Esperado: se abre un diálogo que dice **qué nota** vas
 a borrar —«¿Borrar «Comprar pan»? No se puede deshacer.»—, con «Cancelar» y «Borrar». «Cancelar» no
@@ -1693,7 +1763,10 @@ final class NotaTest extends HttpTestCase
 
     private function crear(array $datos = []): Nota
     {
-        return Nota::create(['titulo' => 'De prueba'] + $datos);
+        // `$datos` primero: con el default a la izquierda, el `+` de PHP
+        // descarta el título que pasa cada test y todas las filas se llaman
+        // «De prueba». El test igual pasa si sólo comprueba el estado final.
+        return Nota::create($datos + ['titulo' => 'De prueba']);
     }
 
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
@@ -1781,7 +1854,7 @@ final class NotaTest extends HttpTestCase
 vendor/bin/phpunit --filter NotaTest
 ```
 
-Esperado: cinco tests en verde.
+Esperado: cinco tests en verde. En 13.3 se suma el sexto, el del 422 con `HX-Push-Url`.
 
 **Falla si**:
 
@@ -1810,7 +1883,7 @@ armazón del encabezado. Te quedas sólo con la fila y con el contenido.
 
 **Estado de partida**: paso 11 hecho; la entidad funciona y los tests están en verde.
 
-Hasta acá el `<ul>`, el recorrido y la fila viven en `_panel.twig`, y el encabezado vive a mano en
+Hasta aquí el `<ul>`, el recorrido y la fila viven en `_panel.twig`, y el encabezado vive a mano en
 `index.twig`. Eso está bien mientras hay una sola pantalla: se lee de arriba abajo y no esconde nada.
 El problema aparece cuando quieres repetir el listado en otra entidad o cuando el estado vacío y el
 encabezado se desincronizan entre demos. El proyecto ya tiene esas dos piezas resueltas:
@@ -1939,7 +2012,12 @@ después, se mudan tal cual adentro de `{% block row %}`. Lo único que desapare
     } %}
         {% block row %}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <div class="min-w-0">
+                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
+                    {% if item.cuerpo %}
+                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
+                    {% endif %}
+                </div>
                 <div class="flex shrink-0 items-center gap-1">
                     {% include 'components/ui/button.twig' with {
                         label: '',
@@ -2000,6 +2078,11 @@ después, se mudan tal cual adentro de `{% block row %}`. Lo único que desapare
   `item.id` y cada nota abre su propio diálogo.
 - `block row` es la única parte de tu archivo que se repite por nota. Si copias el
   `<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
+
+**Y dos cambios en la fila, para cerrar la diferencia con el demo**: el título pasa a ser un enlace a
+editar —un blanco más grande que el lápiz, útil en el móvil— y debajo aparece el `cuerpo` cuando existe.
+El `cuerpo` lo vienes guardando desde el capítulo 7 y hasta ahora no se veía en ninguna parte: una nota
+con cuerpo y otra sin él se veían igual. El lápiz se queda; los dos caminos llevan al mismo modal.
 
 **Comprobación**: la lista se ve **idéntica** a la del paso 10, con y sin notas; el lápiz abre el modal
 de edición; la papelera abre el diálogo que dice **qué nota** vas a borrar; borrar elimina una sola
@@ -2077,13 +2160,13 @@ cada entidad tiene su propia versión con variaciones accidentales.
 - `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
   formulario. Es el mismo hueco que `body` en el modal y `row` en la lista.
 
-**La diferencia con la lista**: acá el bloque se pinta **una sola vez**. No hay `for` alrededor, así
-que no hay variable implícita: todo lo que uses se lo pasás vos. Si el encabezado se pintara una vez
+**La diferencia con la lista**: aquí el bloque se pinta **una sola vez**. No hay `for` alrededor, así
+que no hay variable implícita: todo lo que uses se lo pasas tú. Si el encabezado se pintara una vez
 por item, tendrías un `<h1>` por fila.
 
 **Comprobación**: el encabezado se ve **idéntico** —título, subtítulo y botón en la misma posición—,
-el botón sigue abriendo el modal, el listado sigue paginando y refrescándose sin duplicar el shell, y
-`composer test` queda en verde.
+el botón sigue abriendo el modal y `composer test` queda en verde. La paginación todavía no existe:
+llega en el capítulo 13, y hasta entonces la lista trae todo.
 
 **Falla si**:
 
@@ -2256,8 +2339,9 @@ botones que no aplican salen deshabilitados. En todos los casos la página **no 
 **un solo** sidebar y **un solo** header.
 
 Comprueba con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
-un solo `<header>` y dos `<aside>` (el sidebar y el de avisos), y `#notas-panel` tiene que seguir
-existiendo con la paginación adentro. Si ves dos headers y cuatro asides, el servidor mandó la página
+un solo `<header>` y dos `<aside>` —el sidebar y la nota del pie—, y `#notas-panel` tiene que seguir
+existiendo con la paginación adentro. Los avisos son un `<div class="toast-host">`, no un `<aside>`; no
+lo cuentes. Si ves dos headers y cuatro asides, el servidor mandó la página
 completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
 muestra nada raro y el bug pasa igual.
 
@@ -2369,23 +2453,34 @@ paginación tengan cada una su propia copia de `notas` y `total`.
 | Los textos visibles | La lista en `components/list/simple.twig` |
 | Los datos de los tests | La paginación del servidor y `HX-Push-Url` |
 | La cantidad de registros de prueba | El encabezado en `components/ui/page-header.twig` |
-| El icono y el subtítulo del encabezado | Los cinco casos del cierre |
+| El icono y el subtítulo del encabezado | Los seis casos del cierre |
 
 **Los archivos a tocar**, en orden:
 
-1. `database/migrations/NNN_create_<entidad>_table.php`
+1. `database/migrations/NNN_create_<entidad>_table.php`. Toma el siguiente número libre de
+   `database/migrations/`, nunca `007` ni `008`: esas versiones las reservan los demos de notas y
+   contactos desde `framework/scaffolds/*/database/migrations/<demo>/`.
 2. `app/Models/<Entidad>.php`
-3. `routes/<entidad>.php` (el arranque lo carga solo) y `config/navigation/<entidad>.php`
+3. `routes/<entidad>.php` (el arranque lo carga solo, con `->add(RequireAuthMiddleware::class)` en el
+   grupo; sin eso tu CRUD queda público) y `config/navigation/<entidad>.php`
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/Http/<Entidad>Test.php`
 
-Si quieres un punto de comparación ya hecho, `composer demo:notas:install` instala esta misma entidad
-como demo removible, con ocho tests.
+Para el icono del encabezado y del menú usa un nombre del registro compartido —los de
+`resources/views/partials/_icon.twig`, que ya incluyen `list`, `contacts`, `pencil` y `trash`—: un nombre
+que no existe no rompe nada pero **no pinta nada**, ni el svg del `<h1>` ni el del sidebar. Si necesitas
+un glifo nuevo, agrégalo ahí primero.
+
+**Sobre el demo como punto de comparación**: `composer demo:notas:install` instala una entidad `notas`
+con el mismo nombre de tabla y la misma clase de migración que acabas de escribir, así que **no convive
+con tu versión**: el instalador aborta, o con `--force` copia los archivos y después revierte todo
+porque la tabla ya existe. Para comparar, usa un clon limpio sin la entidad —o el demo antes de
+empezar—. Es la misma entidad, no dos que puedan estar juntas.
 
 **Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
-confirmación, paginación y cinco tests en verde.
+confirmación, paginación y seis tests en verde.
 
 **Falla si**:
 
@@ -2408,6 +2503,7 @@ Eso es otra conversación, y necesita más piezas.
 | El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.5 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
+| El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
 | La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (paso 12.2) |
