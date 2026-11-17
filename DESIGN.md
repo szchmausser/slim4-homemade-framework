@@ -69,7 +69,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 
 ### Componentes reutilizables
 
-- `components/ui/button.twig`: botón o enlace con `variant`, `size`, `icon`, `href`, `type`, `onclick`, `aria_label`, `extra_class` y atributos HTMX/`data-focus-key` opcionales.
+- `components/ui/button.twig`: botón o enlace con `label`, `variant`, `size`, `icon`, `icon_class`, `href`, `type`, `name`, `value`, `title`, `aria_label`, `disabled`, `target`, `extra_class`, `data_modal_open`, `data_modal_close` y atributos HTMX/`data-focus-key` opcionales. Con `href` emite `<a>`; sin `href`, `<button>`. No emite `onclick`: abrir o cerrar un diálogo se pide con `data_modal_open`/`data_modal_close`, que resuelve el shell.
 - `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle`, `open` y bloque `body`. `open` emite el atributo nativo del `<dialog>` y sirve para devolver desde el servidor un formulario inválido con su modal abierto, sin JS; un `<dialog open>` no entra al top layer, así que Escape no lo cierra y el cierre queda en los botones.
 - `components/ui/page-header.twig`: encabezado de página con `icon` opcional, `title`, `subtitle` y bloque `actions` para el control de la esquina —un botón, dos o un formulario—. Fija el casco que antes se armaba a mano en cada vista: el icono del registro compartido, el título, el subtítulo y la fila que alinea la acción. `icon` y `subtitle` son opcionales y no dejan huecos vacíos.
 - `components/feedback/alert.twig`: aviso semántico con icono y `role`; variantes `error`, `success` e `info`.
