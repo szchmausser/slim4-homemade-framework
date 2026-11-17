@@ -895,7 +895,7 @@ queda al final, dentro del mismo `card-body`.
                     </h1>
                     <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
-                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                     Agregar nota
                 </button>
             </div>
@@ -933,12 +933,12 @@ no resalta «Notas» y el enlace no lleva `aria-current="page"`.
     }
 ```
 
-El `onclick` es el atajo, no el destino: en este proyecto **ninguna vista escribe manejadores**. El shell
-tiene un único listener delegado en `public/assets/app.js` que abre o cierra cualquier `<dialog>` a
-partir de `data-modal-open` y `data-modal-close`. Alpine no participa de esto: se ocupa del sidebar,
-el tema y los avisos; abrir un diálogo es una acción sobre un elemento del servidor, no un estado
-reactivo. El botón pierde el `onclick` en 7.4, cuando entra `components/ui/button.twig`, y desde ahí el
-manejador vive en un solo lugar para todas las pantallas.
+Ese `data-modal-open` no necesita un manejador en la vista: en este proyecto **ninguna vista escribe
+JavaScript para abrir un diálogo**. El shell tiene un único listener delegado en `public/assets/app.js`
+que busca el atributo, resuelve el id y llama `showModal()`. Alpine no participa: se ocupa del sidebar,
+el tema y los avisos, y abrir un diálogo es una acción sobre un elemento del servidor, no un estado
+reactivo. En 7.4 el botón pasa a `components/ui/button.twig`, que trae la misma delegación más
+variante, icono y nombre accesible; el mecanismo no cambia.
 
 **Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha y la lista vacía. El botón
 todavía no abre nada: el modal es el paso 7.
@@ -977,7 +977,7 @@ contenido.
                     </h1>
                     <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
-                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                     Agregar nota
                 </button>
             </div>
@@ -993,7 +993,7 @@ subtítulo desaparecen de tu vista; queda el hueco.
                 subtitle: 'Tus notas, con alta y acciones por fila.'
             } %}
                 {% block actions %}
-                    <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                         Agregar nota
                     </button>
                 {% endblock %}
@@ -1047,7 +1047,7 @@ ya lo tiene. Usémoslo.
 
 ```twig
                 {% block actions %}
-                    <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                    <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                         Agregar nota
                     </button>
                 {% endblock %}
@@ -1064,7 +1064,7 @@ la separación.
                 {% block actions %}
                     {% embed 'components/ui/action-bar.twig' %}
                         {% block controls %}
-                            <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                            <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                                 Agregar nota
                             </button>
                         {% endblock %}
@@ -1206,8 +1206,7 @@ salir del listado, y por eso el proyecto la conserva.
             <input id="cuerpo" name="cuerpo" class="input w-full" maxlength="2000">
 
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost"
-                        onclick="document.getElementById('nota-create-modal').close()">Cancelar</button>
+                <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
                 <button type="submit" class="btn btn-primary">Crear nota</button>
             </div>
         </form>
@@ -1495,7 +1494,8 @@ cada operación repite el formulario y una de las dos se olvida de un campo.
 ### 7.4 Reemplazar el `<dialog>` crudo por el modal del proyecto
 
 El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón, foco y cierre por
-Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce el id del diálogo.
+Escape. Y el botón del encabezado todavía es un `<button>` suelto: cada pantalla que necesite abrir ese
+modal tendría que repetir sus clases.
 
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`, después de `</section>` y antes de
 `{% endblock %}`.
@@ -1525,7 +1525,7 @@ Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce e
 **Antes**:
 
 ```twig
-                <button class="btn btn-primary gap-2" onclick="document.getElementById('nota-create-modal').showModal()">
+                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
                     Agregar nota
                 </button>
 ```
@@ -1540,8 +1540,9 @@ Escape. Además, el botón del encabezado todavía usa un `onclick` que conoce e
                 } only %}
 ```
 
-El componente no acepta `onclick`: `data_modal_open` lo resuelve el shell
-(`public/assets/app.js`) con `showModal()`, así que el botón comparte foco, estilo y Escape con el resto.
+El componente usa la misma delegación que el botón crudo de 6.6 —`data_modal_open` la resuelve el
+shell— y suma lo que al `<button>` suelto le falta: variante, icono y `aria_label` cuando el texto no
+alcanza. El foco, el estilo y Escape siguen iguales para todos los botones.
 
 **Comprobación**: el botón sigue abriendo el modal, ahora con el telón y el tema del proyecto. Escape,
 el botón de cerrar y «Cancelar» lo cierran; crear una nota sigue igual.
@@ -1560,7 +1561,7 @@ sólo declara el título, el subtítulo y el cuerpo. El costo se ve al rechazar:
 cerrado, así que un 422 deja el error en una página sin contexto.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el `<dialog>`, el telón, el foco y el cierre. Úsalo
-para todo modal del proyecto. Evita rearmar el mismo diálogo con `onclick` y clases sueltas. Sin él,
+para todo modal del proyecto. Evita rearmar el mismo diálogo a mano en cada vista. Sin él,
 cada pantalla inventa su forma de abrir y cerrar, y el foco se comporta distinto en cada una.
 
 ### 7.5 Reabrir el modal con errores 422
@@ -1692,8 +1693,7 @@ derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
     <span class="font-semibold">{{ item.titulo }}</span>
     <div class="flex shrink-0 items-center gap-1">
         <a class="btn btn-ghost btn-sm" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">✏️</a>
-        <button class="btn btn-ghost btn-sm"
-                onclick="document.getElementById('nota-delete-{{ item.id }}')">🗑️</button>
+        <button class="btn btn-ghost btn-sm" data-modal-open="nota-delete-{{ item.id }}">🗑️</button>
     </div>
 </li>
 ```
@@ -1708,8 +1708,9 @@ sabes señalarlo, y el paso siguiente arregla algo que ya no es una opinión.
 **Qué no prueba**: nada del comportamiento. Borra y edita con un emoji igual de bien; lo que falta es
 que alguien que no ve la pantalla pueda usar la fila.
 
-> El `onclick` está interpolado con `{{ item.id }}` a propósito: sin interpolar, el botón no haría nada
-> y parecería que el problema del paso es el JavaScript, cuando el problema es que **no tiene nombre**.
+> El `data-modal-open` apunta a un diálogo que todavía no existe —llega en el capítulo 10—, y eso es a
+> propósito: así el botón parece conectado y el único defecto que queda a la vista es que **no tiene
+> nombre**. Si el atajo fallara además por otro lado, el paso dejaría de hablar de accesibilidad.
 
 ### 8.2 Ahora, el botón del proyecto
 
@@ -1744,7 +1745,7 @@ rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
                 </div>
 ```
 
-El componente no acepta `onclick`: `data_modal_open` le pide al shell que abra
+El componente no recibe manejadores: `data_modal_open` le pide al shell que abra
 ese `<dialog>` con `showModal()`. Así el botón conserva foco, Escape y el
 tratamiento visual del proyecto.
 
