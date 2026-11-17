@@ -813,7 +813,7 @@ queda al final, dentro del mismo `card-body`.
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold">Listado</h2>
-                <span class="badge badge-ghost">{{ total }} notas</span>
+                <span class="badge badge-ghost">{{ total }} {{ total == 1 ? 'nota' : 'notas' }}</span>
             </div>
 
             {% include 'notas/_panel.twig' %}
@@ -1674,9 +1674,14 @@ el diálogo. La fila queda así:
             </li>
 ```
 
-Después del `</li>`, dentro del mismo `{% for %}`, va el diálogo:
+Y después de la `</ul>`, todavía dentro de `#notas-panel`, el diálogo. Va aquí y no dentro del
+`<li>` porque un `<dialog>` no es hijo válido de una `<ul>`, y porque un hijo más del `flex` de la
+fila la descoloca. Recorre las notas otra vez porque este bloque se emite una sola vez:
+
 
 ```twig
+    </ul>
+    {% for item in notas %}
             {% embed 'components/ui/modal.twig' with {
                 id: 'nota-delete-' ~ item.id,
                 title: 'Borrar nota'
@@ -1704,6 +1709,7 @@ Después del `</li>`, dentro del mismo `{% for %}`, va el diálogo:
                     </form>
                 {% endblock %}
             {% endembed %}
+            {% endfor %}
 ```
 
 La papelera ya apunta a ese diálogo con `data_modal_open`; el shell llama a `showModal()` al tocarla.
@@ -1908,7 +1914,11 @@ proyecto.
 {# Lista simple con estado vacío.
    Props: items, empty, list_class, empty_class.
    El bloque `row` se renderiza una vez por item y recibe `item`; el markup de
-   cada fila queda en el dominio que lo usa. #}
+   cada fila queda en el dominio que lo usa.
+   El bloque `after` se emite DESPUÉS del `</ul>`: es donde van los diálogos de
+   cada fila. Un `<dialog>` es hijo inválido de una `<ul>` —sólo admite `<li>` y
+   elementos de soporte de script—, así que el componente reserva ese lugar en
+   vez de obligar a meterlo adentro de la fila. #}
 <ul class="{{ list_class|default('space-y-2') }}">
     {% for item in items %}
         {% block row %}{% endblock %}
@@ -1916,6 +1926,7 @@ proyecto.
         <li class="{{ empty_class|default('opacity-60') }}">{{ empty|default('No hay registros todavía.') }}</li>
     {% endfor %}
 </ul>
+{% block after %}{% endblock %}
 ```
 
 **Qué hace cada pieza**:
@@ -1928,6 +1939,10 @@ proyecto.
   **dentro del `for`**, así que tu fila ve el `item` de esa vuelta.
 - `{% else %}`: pertenece al `for`. Se ejecuta cuando `items` está vacío, sin agregar un `{% if %}`
   alrededor de todo.
+- `{% block after %}{% endblock %}`: se emite **después** del `</ul>`. Ahí van los diálogos por fila:
+  un `<dialog>` no es hijo válido de una lista, así que el componente no te deja meterlo en la fila.
+  Este bloque se pinta una sola vez y no recibe `item`; si necesitas uno por fila, recorre `items`
+  vos.
 - `{{ empty|default('No hay registros todavía.') }}` dentro de un `<li>`: el estado vacío ocupa una
   fila más de la lista; `empty_class` es su clase opcional.
 
@@ -2007,11 +2022,12 @@ en tu archivo, tienes el mecanismo. La aplicación completa es el paso siguiente
 **Archivo**: `resources/views/notas/_panel.twig`.
 
 **Antes**: el `<div id="notas-panel">` con el `<ul>`, el `{% for %}`, el `<li>` con los dos botones, el
-modal de borrado después del `<li>` y el `{% else %}` del vacío.
+bloque de diálogos después de la `</ul>` y el `{% else %}` del vacío.
 
-**Regla**: todo lo que está entre `<li>` y `</li>` —título y botones—, más el modal que va justo
-después, se mudan tal cual adentro de `{% block row %}`. Lo único que desaparece es el `<ul>`, el
-`{% for %}`, el `{% else %}` y el `<li>` del vacío: eso ya lo pone el componente.
+**Regla**: lo que está entre `<li>` y `</li>` —título y botones— va adentro de `{% block row %}`. El
+recorrido de diálogos que sigue a la `</ul>` va adentro de `{% block after %}`: el componente lo emite en
+ese mismo lugar. Lo único que desaparece es el `<ul>`, el `{% for %}`, el `{% else %}` y el `<li>` del
+vacío: eso ya lo pone el componente.
 
 **Después**: el archivo completo queda así.
 
@@ -2049,34 +2065,40 @@ después, se mudan tal cual adentro de `{% block row %}`. Lo único que desapare
                     } only %}
                 </div>
             </li>
+        {% endblock %}
 
-            {% embed 'components/ui/modal.twig' with {
-                id: 'nota-delete-' ~ item.id,
-                title: 'Borrar nota'
-            } %}
-                {% block body %}
-                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
-                          onsubmit="this.querySelector('[type=submit]').disabled = true">
-                        {% include 'partials/_csrf.twig' %}
-                        <div class="modal-action">
-                            {% include 'components/ui/button.twig' with {
-                                label: 'Cancelar',
-                                variant: 'ghost',
-                                type: 'button',
-                                icon: 'x',
-                                data_modal_close: true
-                            } only %}
-                            {% include 'components/ui/button.twig' with {
-                                label: 'Borrar',
-                                variant: 'error',
-                                type: 'submit',
-                                icon: 'trash'
-                            } only %}
-                        </div>
-                    </form>
-                {% endblock %}
-            {% endembed %}
+        {# Los diálogos van en `after`, fuera de la `<ul>`. Recorren `notas` otra
+           vez porque este bloque se emite una sola vez, sin `item`. #}
+        {% block after %}
+            {% for item in notas %}
+                {% embed 'components/ui/modal.twig' with {
+                    id: 'nota-delete-' ~ item.id,
+                    title: 'Borrar nota'
+                } %}
+                    {% block body %}
+                        <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                        <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                              onsubmit="this.querySelector('[type=submit]').disabled = true">
+                            {% include 'partials/_csrf.twig' %}
+                            <div class="modal-action">
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Cancelar',
+                                    variant: 'ghost',
+                                    type: 'button',
+                                    icon: 'x',
+                                    data_modal_close: true
+                                } only %}
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Borrar',
+                                    variant: 'error',
+                                    type: 'submit',
+                                    icon: 'trash'
+                                } only %}
+                            </div>
+                        </form>
+                    {% endblock %}
+                {% endembed %}
+            {% endfor %}
         {% endblock %}
     {% endembed %}
 </div>
@@ -2084,9 +2106,9 @@ después, se mudan tal cual adentro de `{% block row %}`. Lo único que desapare
 
 **Dos detalles que importan**:
 
-- El modal sigue **después** del `</li>`, no adentro. Si lo metes dentro, pasa a ser un hijo más del
-  `flex` y descoloca la fila. Ahí, dentro del bloque, sigue estando dentro del `for`, así que conserva
-  `item.id` y cada nota abre su propio diálogo.
+- Los diálogos van en `after`, no dentro de la fila: adentro serían un hijo más del `flex` y
+descolocarían la fila, y además un `<dialog>` no es hijo válido de la `<ul>`. `after` se emite después
+del cierre, así que cada nota necesita su vuelta: de ahí el `{% for item in notas %}` propio.
 - `block row` es la única parte de tu archivo que se repite por nota. Si copias el
   `<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
 

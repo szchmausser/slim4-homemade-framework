@@ -223,18 +223,9 @@ caso, `?page=99` recortado), `HX-Request` con 0 headers y 0 asides en la respues
 
 ### Observado y no corregido
 
-- **`<dialog>` dentro de `<ul>`**: el modal de borrado se emite dentro del bloque `row`, que el
-  componente pinta dentro del `<ul>`. El DOM funciona, pero no es HTML válido en cuanto a modelo de
-  contenido. El demo hace lo mismo; arreglarlo exige que el componente admita un bloque posterior a la
-  lista, así que es un cambio de componente y de demo, no de redacción.
-- **Capítulo 14**: es un ejercicio, no un paso con código; no admite ejecución literal. Sus
-  instrucciones (middleware de sesión, registro de iconos, numeración de migraciones) se corrigieron en
-  la primera pasada y se contrastaron contra el demo, pero no se ejercitaron con una segunda entidad.
-- **`1 notas`** (F8) sigue igual: es del demo.
+- **Capítulo 14**: es un ejercicio del lector, no un paso del libro, así que no se ejecuta de nuestro
+  lado. Sus instrucciones se corrigieron en la primera pasada y se contrastaron contra el demo.
 
-### Método
-
-Worktree nuevo desde `4a6281e`; lectura en orden, sin adelantar capítulos; cada comprobación ejecutada
-con el comando de la guía o un equivalente `curl`/HTML cuando era de navegador. El recorrido lo ejecutó
-un worker sin permiso de editar la guía, para que una corrección no se validara a sí misma. La
-comprobación visual la hizo el orquestador con ego-browser sobre el estado final.
+Todo lo demás se corrigió: el `<dialog>` salió de la `<ul>` con el bloque `after` de
+`components/list/simple.twig` (dos tests de contrato), y los badges de notas y contactos distinguen
+singular de plural.

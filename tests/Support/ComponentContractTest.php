@@ -312,4 +312,33 @@ final class ComponentContractTest extends TestCase
         self::assertStringNotContainsString('<p', $html);
         self::assertStringNotContainsString('items-center', $html);
     }
+
+    public function test_lista_simple_emite_el_bloque_after_fuera_de_la_lista(): void
+    {
+        // `after` existe para los diálogos por fila: un `<dialog>` no es hijo
+        // válido de una `<ul>`, así que el componente reserva un lugar después
+        // del cierre en vez de obligar a meterlo adentro de la fila.
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/list/simple.twig' with {items: ['uno'], empty: 'Nada'} %}"
+            . '{% block row %}<li class="fila">{{ item }}</li>{% endblock %}'
+            . '{% block after %}<dialog id="borrar-1"></dialog>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertSame(1, substr_count($html, '<ul'));
+        self::assertStringContainsString('<li class="fila">uno</li>', $html);
+        self::assertMatchesRegularExpression('/<\/ul>\s*<dialog id="borrar-1">/', $html);
+    }
+
+    public function test_lista_simple_sin_bloque_after_no_agrega_nada(): void
+    {
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/list/simple.twig' with {items: [], empty: 'Nada'} %}"
+            . '{% block row %}<li>{{ item }}</li>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertStringContainsString('<li class="opacity-60">Nada</li>', $html);
+        self::assertStringNotContainsString('<dialog', $html);
+    }
 }

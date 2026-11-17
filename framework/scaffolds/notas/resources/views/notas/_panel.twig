@@ -31,34 +31,41 @@
                     } only %}
                 </div>
             </li>
+        {% endblock %}
 
-            {% embed 'components/ui/modal.twig' with {
-                id: 'nota-delete-' ~ item.id,
-                title: 'Borrar nota'
-            } %}
-                {% block body %}
-                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
-                          onsubmit="this.querySelector('[type=submit]').disabled = true">
-                        {% include 'partials/_csrf.twig' %}
-                        <div class="modal-action">
-                            {% include 'components/ui/button.twig' with {
-                                label: 'Cancelar',
-                                variant: 'ghost',
-                                type: 'button',
-                                icon: 'x',
-                                data_modal_close: true
-                            } only %}
-                            {% include 'components/ui/button.twig' with {
-                                label: 'Borrar',
-                                variant: 'error',
-                                type: 'submit',
-                                icon: 'trash'
-                            } only %}
-                        </div>
-                    </form>
-                {% endblock %}
-            {% endembed %}
+        {# Los diálogos van en `after`, fuera de la `<ul>`: un `<dialog>` no es
+           hijo válido de una lista. Recorren `notas` otra vez porque este bloque
+           se emite una sola vez, sin `item`. #}
+        {% block after %}
+            {% for item in notas %}
+                {% embed 'components/ui/modal.twig' with {
+                    id: 'nota-delete-' ~ item.id,
+                    title: 'Borrar nota'
+                } %}
+                    {% block body %}
+                        <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                        <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                              onsubmit="this.querySelector('[type=submit]').disabled = true">
+                            {% include 'partials/_csrf.twig' %}
+                            <div class="modal-action">
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Cancelar',
+                                    variant: 'ghost',
+                                    type: 'button',
+                                    icon: 'x',
+                                    data_modal_close: true
+                                } only %}
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Borrar',
+                                    variant: 'error',
+                                    type: 'submit',
+                                    icon: 'trash'
+                                } only %}
+                            </div>
+                        </form>
+                    {% endblock %}
+                {% endembed %}
+            {% endfor %}
         {% endblock %}
     {% endembed %}
 

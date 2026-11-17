@@ -1,7 +1,11 @@
 {# Lista simple con estado vacío.
    Props: items, empty, list_class, empty_class.
    El bloque `row` se renderiza una vez por item y recibe `item`; el markup de
-   cada fila queda en el dominio que lo usa. #}
+   cada fila queda en el dominio que lo usa.
+   El bloque `after` se emite DESPUÉS del `</ul>`: es donde van los diálogos de
+   cada fila. Un `<dialog>` es hijo inválido de una `<ul>` —sólo admite `<li>` y
+   elementos de soporte de script—, así que el componente reserva ese lugar en
+   vez de obligar a meterlo adentro de la fila. #}
 <ul class="{{ list_class|default('space-y-2') }}">
     {% for item in items %}
         {% block row %}{% endblock %}
@@ -9,3 +13,4 @@
         <li class="{{ empty_class|default('opacity-60') }}">{{ empty|default('No hay registros todavía.') }}</li>
     {% endfor %}
 </ul>
+{% block after %}{% endblock %}

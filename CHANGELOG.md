@@ -5,6 +5,12 @@ Versionado semántico mientras el proyecto esté en `0.x`.
 
 ## [Unreleased]
 
+### Corregido
+
+- `components/list/simple.twig` expone un bloque `after`, que se emite después del `</ul>`. Los demos
+de notas y contactos ponen ahí los diálogos de borrado: un `<dialog>` no es hijo válido de una lista.
+- Los badges de notas y contactos distinguen singular de plural («1 nota», «1 contacto»).
+
 ### Incluido
 
 - Componente `components/ui/page-header.twig`: icono opcional, título, subtítulo y bloque `actions`.

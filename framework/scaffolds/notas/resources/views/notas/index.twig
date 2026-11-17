@@ -21,7 +21,7 @@
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold">Listado</h2>
-                <span class="badge badge-ghost">{{ total }} notas</span>
+                <span class="badge badge-ghost">{{ total }} {{ total == 1 ? 'nota' : 'notas' }}</span>
             </div>
 
             {% include 'notas/_panel.twig' %}

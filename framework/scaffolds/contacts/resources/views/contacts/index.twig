@@ -30,7 +30,7 @@
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold">Listado</h2>
-                <span class="badge badge-ghost" data-contact-count>{{ contacts_count }} contactos</span>
+                <span class="badge badge-ghost" data-contact-count>{{ contacts_count }} {{ contacts_count == 1 ? 'contacto' : 'contactos' }}</span>
             </div>
 
             {% include 'components/table/tabulator.twig' with {
