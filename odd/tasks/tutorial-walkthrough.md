@@ -37,8 +37,9 @@ corregir cada error u omisión que impida llegar al estado que produce `composer
 - **T5** — Seguir los capítulos 6 a 10, con la pantalla a la vista (S3, S6, S7). Hecho; F3 a F6,
   F9 y F17.
 - **T6** — Seguir los capítulos 11 a 14 (S3, S6). Hecho; F10 a F16.
-- **T7** — Corregir el tutorial con los hallazgos (S3). Hecho: 17 hallazgos, 15 corregidos, 2
-  documentados sin tocar el tutorial (`1 notas`, que es del demo).
+- **T7** — Corregir el tutorial con los hallazgos (S3). Hecho: 17 hallazgos, **16 corregidos**, 1
+  documentado sin tocar el tutorial (`1 notas`, que es del demo: arreglarlo exige tocar el demo y las
+  dos vistas a la vez).
 - **T8** — Comparar el resultado escrito a mano contra `composer demo:notas:install` (S4). Hecho: el
   diff contra `framework/scaffolds/notas/` queda en nombres de namespace, orden de métodos y
   comentarios.
@@ -67,3 +68,12 @@ corregir cada error u omisión que impida llegar al estado que produce `composer
   rojo (F10).
 - **L5**: el resultado escrito a mano equivale al demo, salvo namespace, orden de métodos y
   comentarios; el diff se comprobó archivo por archivo.
+- **L6**: ninguno de los 16 hallazgos corregidos exigió cambiar un demo instalable
+  (`git diff e05e11e..HEAD -- framework/scaffolds/` está vacío). En cada discrepancia el demo era el
+  correcto y la guía la que se había desviado. Los únicos cambios en demos son los de `c04037e`, la
+  estandarización del encabezado que ya estaba pendiente.
+- **L7**: límite de esta pasada — la guía corregida **no se volvió a recorrer entera** desde un clon
+  limpio. Se reejecutó y observó cada comprobación tocada (6.6, 7.3, 7.4, 7.5, 10.2, 11, 12.2, 12.3,
+  13.2 y el test del instalador), pero no el libro completo de nuevo. La receta `curl` de 7.5 se validó
+  con un POST equivalente desde la página (422, modal abierto, error, cuerpo conservado), no con el
+  bloque de shell tal como está escrito. El capítulo 14 no se ejercitó con una segunda entidad real.
