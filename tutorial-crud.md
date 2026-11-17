@@ -1767,7 +1767,7 @@ en él, y por eso la validación también vive en `store()`.
 
 **Qué ganaste**: un formulario rechazado vuelve con el modal abierto, el error junto al campo y lo que
 habías escrito; el `required` del navegador queda como primera barrera en vez de única. Y mira el costo:
-cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.3 eso se
+cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.4 eso se
 junta en un solo método.
 
 **Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
@@ -2371,7 +2371,7 @@ final class NotaTest extends HttpTestCase
 vendor/bin/phpunit --filter NotaTest
 ```
 
-Esperado: cinco tests en verde. En 13.3 se suma el sexto, el del 422 con `HX-Push-Url`.
+Esperado: cinco tests en verde. En 13.4 se suma el sexto, el del 422 con `HX-Push-Url`.
 
 **Falla si**:
 
@@ -2739,18 +2739,56 @@ están, y la única forma de cambiar de página es escribir la query a mano.
 Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
 con dos mil.
 
-![La página 2 pedida a mano: el servidor ya recorta](tutorial-crud-images/13-1-pagina-2.png)
+![La página 2 pedida a mano: diez filas y todavía sin controles](tutorial-crud-images/13-1-pagina-2-sin-controles.png)
 
-### 13.2 Pintar los controles y responder sólo el panel
+### 13.2 Pintar los controles
 
 El servidor ya recorta, pero la vista no lo sabe: recibe diez notas y no tiene con qué pedir las
-siguientes. Este paso pinta los controles y, al mismo tiempo, resuelve lo que aparece al usarlos —con
-HTMX cada clic reemplaza la región, así que la respuesta tiene que ser la región y no la página entera—.
-Las dos cosas van juntas o el swap rompe el shell.
+siguientes. Falta el paginador, y falta que viaje **dentro** del panel: cuando HTMX reemplace la región,
+los controles tienen que venir con ella o quedan apuntando a un id que ya no se actualiza.
 
-**Archivo**: el mismo controlador.
+**Archivo**: `resources/views/notas/_panel.twig`, dentro de `div#notas-panel`, después del `embed` y
+antes de cerrar el `div`.
 
-**Acción**: crea `renderIndex()`, que arma la página y decide qué devolver según el pedido:
+**Acción**: agrega los controles:
+
+```twig
+    {% endembed %}
+
+    {% include 'components/pagination/simple.twig' with {
+        pagination: pagination,
+        target: '#notas-panel'
+    } %}
+</div>
+```
+
+**Pieza — `components/pagination/simple.twig`**: resuelve los controles, los estados deshabilitados y
+el selector de tamaño. Úsalo con `pagination` y un `target` que apunte a la región que se va a
+reemplazar. Evita rearmar los mismos botones en cada lista y desincronizar la página actual.
+
+**Comprobación**: con más de diez notas, abre `/notas`. Esperado: diez filas y, debajo, «Mostrando 1 al
+10 de N registros», el selector de tamaño y los botones Primera/Anterior/1/2/3/Siguiente/Última. En la
+primera página, «Primera» y «Anterior» salen deshabilitados.
+
+**Falla si**:
+
+- No aparecen los controles: falta el `include` o no está dentro del `div` del panel.
+- Los números no coinciden con las filas: no estás pasando `pagination` a la vista.
+- Los controles aparecen pero al paginar desaparecen: quedaron fuera del parcial.
+
+**Qué no prueba**: que paginar funcione. En este paso los controles son enlaces normales: cada clic
+recarga la página entera, con el parpadeo y el scroll que eso trae. Eso se resuelve en 13.3.
+
+![El paginador al pie del panel: rango, selector de tamaño y botones](tutorial-crud-images/13-2-paginador.png)
+
+### 13.3 Responder sólo la región y empujar la URL
+
+Los controles ya existen, pero cada clic es una navegación completa: el servidor devuelve la página
+entera, el navegador la repinta y volvés al tope. HTMX evita eso reemplazando sólo el panel, y para que
+funcione la respuesta tiene que ser **la región**, no la página.
+
+**Archivo**: el mismo controlador. Crea `renderIndex()`, que arma la página y decide qué devolver según
+el pedido:
 
 ```php
     private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
@@ -2776,9 +2814,7 @@ Las dos cosas van juntas o el swap rompe el shell.
     }
 ```
 
-**Archivo**: el mismo controlador, método `index()`.
-
-`index()` queda en una línea:
+**Archivo**: el mismo controlador, método `index()`. Queda en una línea:
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -2787,80 +2823,42 @@ Las dos cosas van juntas o el swap rompe el shell.
     }
 ```
 
-La clave está en `HX-Request`: un pedido normal recibe `index.twig` completo; un pedido de HTMX recibe
-sólo `_panel.twig`. Si devuelves la página completa a HTMX, el panel se reemplaza por **otra página
-completa** y el shell queda anidado: dos sidebars, dos headers y el contenido duplicado.
-
-**Archivo**: `resources/views/notas/_panel.twig`, dentro de `div#notas-panel`, después del `embed` y
-antes de cerrar el `div`.
-
-**Acción**: agrega los controles:
-
-```twig
-    {% endembed %}
-
-    {% include 'components/pagination/simple.twig' with {
-        pagination: pagination,
-        target: '#notas-panel'
-    } %}
-</div>
-```
-
-Si dejas los controles fuera del parcial, el primer swap reemplaza el panel y los controles quedan
-apuntando a un id que sigue existiendo pero ya no se actualiza.
-
-**Pieza — `components/pagination/simple.twig`**: resuelve los controles, los estados deshabilitados y
-el selector de tamaño. Úsalo con `pagination` y un `target` que apunte a la región que se va a
-reemplazar. Evita rearmar los mismos botones en cada lista y desincronizar la página actual.
-
 `HX-Push-Url` se emite sólo si el estado es 2xx: la URL del historial tiene que representar una página
 que el usuario realmente navegó, no un 422 con errores. El guard `status >= 400` deja esa decisión en un
 solo lugar.
 
-**Comprobación**: crea más de diez notas. Esperado: se ven diez, con los controles debajo
-(Primera/Anterior, números, Siguiente/Última) y el selector de tamaño.
+**Comprobación**: en `/notas`, toca «Siguiente». Esperado: el rango pasa a «Mostrando 11 al 20 de N», la
+página 2 queda marcada, la URL cambia a `/notas?page=2&per_page=10` y **no hay recarga**: el scroll se
+queda donde estaba y sigue habiendo un solo sidebar y un solo header.
 
-Probalos uno por uno: cambiar el tamaño a 25 muestra las 25 que haya y actualiza la URL; «Última» va a
-la última página con las filas que queden; «Anterior» y «Primera» retroceden; en los extremos, los
-botones que no aplican salen deshabilitados. En todos los casos la página **no se recarga** y queda
-**un solo** sidebar y **un solo** header.
+Cuenta en la **página entera**, no dentro del panel: un solo `<header>` y dos `<aside>` —el sidebar y la
+nota del pie—. Los avisos son un `<div class="toast-host">`, no un `<aside>`; no los cuentes. Hay un
+`<aside>` escrito dentro de un comentario de JS que no es parte del DOM. Si ves dos headers y cuatro
+asides, el servidor mandó la página completa y el shell quedó **al lado** del panel: mirar sólo
+`#notas-panel` no muestra nada raro y el bug pasa igual.
 
-Comprueba con el inspector después de paginar, pero contando en la **página entera**: tiene que haber
-un solo `<header>` y dos `<aside>` —el sidebar y la nota del pie—, y `#notas-panel` tiene que seguir
-existiendo con la paginación adentro. Los avisos son un `<div class="toast-host">`, no un `<aside>`; no
-lo cuentes. Cuenta **elementos**, no coincidencias de texto: hay un `<aside>` escrito dentro de un
-comentario de JS que no es parte del DOM. Si ves dos headers y cuatro asides, el servidor mandó la página
-completa: el shell queda **al lado** del panel y no adentro, así que mirar sólo `#notas-panel` no
-muestra nada raro y el bug pasa igual.
-
-La cabecera se emite con la página que el **servidor** recortó, no con la que pidió el cliente: si
-alguien pide `?page=99` sobre tres páginas, la URL que queda es la 3.
-
-**Qué no prueba**: que un 422 no empuje la URL, ni que la edición siga abriendo su modal. Eso se cierra
-en 13.3.
+La cabecera se emite con la página que el **servidor** recortó: si alguien pide `?page=99` sobre tres
+páginas, la URL que queda es la 3.
 
 **Falla si**:
 
-- La paginación no navega: el `div` con el id quedó fuera del parcial y el primer swap se lo llevó.
-- Paginas y la URL no cambia: falta `HX-Push-Url`.
+- Paginas y la URL no cambia: falta `HX-Push-Url`, o el estado no se pasa a `renderIndex()`.
 - Después de paginar ves **dos** sidebars o dos headers: el servidor devolvió la página completa a un
-  request de HTMX, y el shell entró dentro del panel. Es el error más visible de este paso.
-- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; si no quieres eso, se
-  decide en el componente.
-- Todo aparece en una página: no estás pasando `pagination` a la vista.
+  request de HTMX.
+- Cambias el tamaño y vuelves a la página 1: es lo esperado al cambiar el tamaño; se decide en el
+  componente.
+- Todo aparece en una página: `index()` no está usando `renderIndex()`.
 
-**Qué ganaste**: la lista navega sin recargar, los controles viajan con el panel en cada swap y la URL del
-historial dice la página que el servidor sirvió. Y mira el costo: `edit()` y los dos rechazos del
-formulario arman a mano su propia copia de `notas` y `active`, que ahora viene paginada.
-Unificarlos es 13.3.
+**Qué no prueba**: que un 422 no empuje la URL, ni que la edición siga abriendo su modal. Eso se cierra
+en 13.4.
 
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
 esa respuesta sólo repinta el formulario.
 
-![Los controles de la paginación dentro del panel](tutorial-crud-images/13-2-paginacion.png)
+![Después de «Siguiente»: rango 11 al 20, página 2 marcada y URL empujada](tutorial-crud-images/13-2-paginador-pagina-2.png)
 
-### 13.3 Unificar los renders de edición y 422
+### 13.4 Unificar los renders de edición y 422
 
 Los renders del listado están repetidos en tres métodos, y la repetición ya tiene un costo concreto: cada
 uno decide por su cuenta si empuja `HX-Push-Url`, si pasa `active` y en qué estado devuelve la página. Con
