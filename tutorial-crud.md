@@ -153,6 +153,10 @@ migraciones corrieron y que la sesión se crea. No prueba nada de tu entidad, qu
 costo: nada de eso sabe que vas a crear notas. No hay tabla, ni modelo, ni ruta, así que la entidad
 empieza en el paso siguiente.
 
+![El formulario de acceso](tutorial-crud-images/01-login.png)
+
+![La portada con el usuario en el pie del sidebar](tutorial-crud-images/01-portada.png)
+
 ---
 
 ## 2. La migración de `notas`
@@ -416,6 +420,8 @@ Sin esta pieza tendrías todas las rutas del proyecto en un archivo que crece si
 grupo, no ruta por ruta, para que no se te olvide ninguna. Evita el clásico «me olvidé de proteger el
 POST». Sin él, `curl` podría crear filas sin sesión.
 
+![La ruta responde el texto plano, sin shell](tutorial-crud-images/04-1-ruta-texto.png)
+
 ---
 
 ### 4.2 El menú: llegar sin escribir la URL
@@ -486,6 +492,8 @@ entidad es dejar su archivo; quitarla es borrarlo.
 > Si tu entidad es además un **demo instalable**, el mismo archivo lleva `summary` (el texto de la
 > tarjeta en la portada) y el nombre del demo, y la portada la lista con su estado *Instalado* u
 > *Opcional*. Para una entidad de tu app alcanza con `label`, `href`, `icon`, `key` y `position`.
+
+![El menú lateral ya ofrece «Notas»](tutorial-crud-images/04-2-menu.png)
 
 ---
 
@@ -585,6 +593,8 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 interpretar nada. El costo es que no hay pantalla ni datos: el controlador devuelve una constante. Lo que
 sigue es darle una vista.
 
+![El JSON exacto, comparado cadena contra cadena](tutorial-crud-images/05-json.png)
+
 ---
 
 ## 6. La pantalla del listado: del HTML crudo al shell
@@ -639,6 +649,8 @@ ve igual y no sabes dónde mirar.
 ruta. El costo salta a la vista: hay HTML adentro de un método PHP, con su `<head>` y su `<title>`, y
 cada línea nueva lo vuelve más difícil de leer.
 
+![HTML del controlador: sin sidebar, header ni tema](tutorial-crud-images/06-1-html-crudo.png)
+
 ### 6.2 Mover ese HTML a una plantilla Twig
 
 Ese HTML vive donde no debería: mezcla la respuesta con la presentación y no hay dónde poner un bucle sin
@@ -682,6 +694,8 @@ encargar del escapado cuando entren los datos, pero eso todavía no ocurre.
 **Pieza — `Controller::render()`**: resuelve la plantilla, le inyecta los datos comunes (CSRF, usuario,
 flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML; evita repetir el
 `withHeader('Content-Type', ...)` y el manejo de la vista.
+
+![La misma página desde Twig: cambia dónde vive el HTML](tutorial-crud-images/06-2-twig.png)
 
 ### 6.3 Ahora sí, las notas desde el modelo
 
@@ -752,6 +766,8 @@ otro sitio. El shell es el paso siguiente.
 **Pieza — Eloquent**: `Nota::orderByDesc('id')->get()` devuelve una colección de modelos. El modelo
 sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y no consulta la base.
 
+![La lista con una nota, ya escapada por Twig](tutorial-crud-images/06-3-lista.png)
+
 ### 6.4 Ahora, el shell del proyecto
 
 Una página suelta no se distingue de una app: le falta el sidebar, el header y el tema, y todo eso ya
@@ -798,6 +814,8 @@ unidad.
 assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
+
+![El shell completo: sidebar, header y tema](tutorial-crud-images/06-4-shell.png)
 
 ### 6.5 El panel a su propio archivo
 
@@ -858,6 +876,8 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
 > El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 12. Recién ahí, con la entidad ya
 > probada, la lista se extrae al componente del proyecto.
+
+La pantalla es la de 6.4: el panel se movió a un parcial y no cambia lo que se ve.
 
 ### 6.6 El encabezado con la acción y el contador
 
@@ -970,6 +990,8 @@ todavía no abre nada: el modal es el paso 7.
 encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
 vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
 
+![El encabezado con su acción y el listado](tutorial-crud-images/06-6-encabezado.png)
+
 ### 6.7 El encabezado a su componente
 
 Fijate en lo que acabas de escribir. Esas líneas no tienen nada que ver con las notas: son la forma del
@@ -1049,6 +1071,8 @@ izquierda, el hueco de las acciones a la derecha. No repite el markup del títul
 cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
 acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.4 sin tocar el
 encabezado.
+
+La pantalla es la de 6.6: el encabezado pasó al componente y se ve igual.
 
 ### 6.8 La botonera a su componente
 
@@ -1136,6 +1160,8 @@ y su orden. El día que aparezca el segundo botón no hay espacios que ajustar n
 tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
 cada pantalla elige su `gap` y su alineación.
 
+La pantalla es la de 6.6: la botonera agrupa el control y no cambia lo que se ve.
+
 ### 6.9 Anatomía del encabezado
 
 Usaste el encabezado completo sin ver cómo está armado, y vale la pena mirarlo: la forma en que se
@@ -1180,6 +1206,8 @@ quedarían dos formas de hacer lo mismo.
 encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una tabla o un listado. Cuando
 hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
 contenido.
+
+La pantalla es la de 6.6: la anatomía es lectura, no un cambio de pantalla.
 
 ---
 
@@ -1310,6 +1338,8 @@ en la lista y el aviso sale abajo a la derecha. Y mira el costo: dos `label` y d
 mano, sin marca de opcional, sin un lugar donde el error caiga al lado del campo y con el par de CSRF
 repetido en cada formulario.
 
+![El diálogo nativo, abierto desde el botón](tutorial-crud-images/07-1-dialogo-nativo.png)
+
 ### 7.2 Sustituir los campos a mano por el del proyecto
 
 El formulario se envía, pero no se puede rechazar bien: no hay dónde poner el error y, cuando lo haya, no
@@ -1394,6 +1424,8 @@ causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apunt
 
 **Pieza — `partials/_csrf.twig`**: resuelve los dos campos ocultos del token. Va **dentro** de todo
 `<form>` que mute datos. Evita el rechazo con redirect al login que no explica nada.
+
+![Los campos del componente: label asociado y «(opcional)»](tutorial-crud-images/07-2-campos.png)
 
 ### 7.3 Extraer el formulario a un parcial
 
@@ -1507,6 +1539,8 @@ un `<dialog>` armado a mano y el otro llama a `showModal()` por su cuenta. Eso e
 la edición tengan campos o validaciones distintas. Úsalo cuando los campos son los mismos. Sin esto,
 cada operación repite el formulario y una de las dos se olvida de un campo.
 
+La pantalla es la de 7.2: el formulario se movió a un parcial y se ve igual.
+
 ### 7.4 Reemplazar el `<dialog>` crudo por el modal del proyecto
 
 El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón, foco y cierre por
@@ -1579,6 +1613,8 @@ cerrado, así que un 422 deja el error en una página sin contexto.
 **Pieza — `components/ui/modal.twig`**: resuelve el `<dialog>`, el telón, el foco y el cierre. Úsalo
 para todo modal del proyecto. Evita rearmar el mismo diálogo a mano en cada vista. Sin él,
 cada pantalla inventa su forma de abrir y cerrar, y el foco se comporta distinto en cada una.
+
+![El modal del proyecto, con telón, tema y botones del componente](tutorial-crud-images/07-4-modal.png)
 
 ### 7.5 Reabrir el modal con errores 422
 
@@ -1685,6 +1721,8 @@ junta en un solo método.
 todo formulario que pueda rechazarse. Evita que el usuario pierda lo escrito y que el error aparezca en
 una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
 
+![El rechazo 422: modal abierto, error junto al campo y lo tipeado intacto](tutorial-crud-images/07-5-error-422.png)
+
 ---
 
 ## 8. Las acciones por fila: del icono mudo al botón accesible
@@ -1727,6 +1765,8 @@ que alguien que no ve la pantalla pueda usar la fila.
 > El `data-modal-open` apunta a un diálogo que todavía no existe —llega en el capítulo 10—, y eso es a
 > propósito: así el botón parece conectado y el único defecto que queda a la vista es que **no tiene
 > nombre**. Si el atajo fallara además por otro lado, el paso dejaría de hablar de accesibilidad.
+
+![Los iconos con emoji: se ven, pero no se anuncian](tutorial-crud-images/08-1-emojis.png)
 
 ### 8.2 Ahora, el botón del proyecto
 
@@ -1799,6 +1839,8 @@ resto de la app.
 
 - Los botones aparecen como cuadrados vacíos: falta el `icon`, o el nombre no existe en el registro.
 - El lápiz no navega: `href` no llega (con `href` el componente emite `<a>`).
+
+![Los botones del proyecto, con nombre accesible](tutorial-crud-images/08-2-acciones.png)
 
 ---
 
@@ -1895,6 +1937,8 @@ framework en vez de un error de PHP. Falta lo obvio al primer clic: «Guardar ca
 la lista. Úsalo cuando la edición comparte la pantalla con el listado. Sin esto, el alta y la edición
 tienen dos copias de la tabla y se desincronizan.
 
+![El modal de edición con los datos de la nota](tutorial-crud-images/09-1-editar.png)
+
 ### 9.2 Guardar la edición
 
 El modal muestra la nota correcta y el `action` ya apunta a `/notas/{id}`; del otro lado no hay nadie
@@ -1973,6 +2017,8 @@ pareja de cadenas; el capítulo 13 unifica los renders, no las reglas.
 pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta y
 la edición validan distinto y una de las dos se olvida de algo.
 
+![La fila actualizada y el aviso «Nota actualizada.»](tutorial-crud-images/09-2-actualizada.png)
+
 ---
 
 ## 10. Borrar: del confirm del navegador al diálogo del proyecto
@@ -2035,6 +2081,8 @@ la fila desaparece y el aviso «Nota borrada.» sale abajo a la derecha.
 embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar, no respeta el tema, no
 dice **qué** nota estás borrando y bloquea el hilo del navegador. Por eso el proyecto usa un diálogo.
 
+Sin captura: el `confirm()` es un diálogo del sistema y no se puede fotografiar desde el navegador; su texto es «¿Borrar esta nota?».
+
 ### 10.2 Ahora, el diálogo de confirmación
 
 El atajo dejó la papelera envuelta en un `<form>`, así que el botón perdió el `data_modal_open` que el
@@ -2070,7 +2118,6 @@ el diálogo. La fila queda así:
 Y después de la `</ul>`, todavía dentro de `#notas-panel`, el diálogo. Va aquí y no dentro del
 `<li>` porque un `<dialog>` no es hijo válido de una `<ul>`, y porque un hijo más del `flex` de la
 fila la descoloca. Recorre las notas otra vez porque este bloque se emite una sola vez:
-
 
 ```twig
     </ul>
@@ -2135,6 +2182,8 @@ no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuel
 > el `action` por JavaScript. Aquí el diálogo vive en cada fila para no agregar JS: es más markup, pero
 > es server-rendered y no depende de estado del cliente. Con decenas de filas, el modal único con JS
 > vuelve a tener sentido.
+
+![El diálogo que dice qué nota se borra](tutorial-crud-images/10-2-borrar.png)
 
 ---
 
@@ -2293,6 +2342,8 @@ esa red es el paso siguiente.
 **Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el
 request con cuerpo de formulario y los tokens (`token()`). Úsalo como base de todos tus tests HTTP.
 Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
+
+Sin captura: este paso no cambia la pantalla, cambia lo que la comprueba.
 
 ---
 
@@ -2547,6 +2598,8 @@ fila. La próxima entidad que hagas puede reusar el componente sin copiar el `<u
 para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
 cada entidad tiene su propia versión con variaciones accidentales.
 
+![La fila final: título enlazado y cuerpo visible](tutorial-crud-images/12-2-fila.png)
+
 ---
 
 ## 13. Paginación del servidor
@@ -2632,6 +2685,8 @@ están, y la única forma de cambiar de página es escribir la query a mano.
 **Pieza — `Framework\Http\Pagination`**: resuelve conteo, recorte y página actual del lado del servidor.
 Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
 con dos mil.
+
+![La página 2 pedida a mano: el servidor ya recorta](tutorial-crud-images/13-1-pagina-2.png)
 
 ### 13.2 Pintar los controles y responder sólo el panel
 
@@ -2749,6 +2804,8 @@ Unificarlos es 13.3.
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
 esa respuesta sólo repinta el formulario.
+
+![Los controles de la paginación dentro del panel](tutorial-crud-images/13-2-paginacion.png)
 
 ### 13.3 Unificar los renders de edición y 422
 
