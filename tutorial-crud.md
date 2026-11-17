@@ -78,6 +78,11 @@ para comparar en lugar de instalarlo encima.
 
 **Estado de partida**: el repositorio clonado, terminal en la raíz del proyecto.
 
+El clon no arranca: falta `.env`, faltan las dependencias y falta la base. Antes de escribir la primera
+línea de la entidad, el proyecto tiene que quedar en un estado comprobable —una app que responde, un
+esquema aplicado y una sesión abierta—, porque desde el paso 2 cada comprobación se hace con la app
+corriendo y el usuario adentro.
+
 **Acción**:
 
 ```bash
@@ -144,6 +149,10 @@ migraciones corrieron y que la sesión se crea. No prueba nada de tu entidad, qu
 > Ya existe un administrador con acceso a todo. Si vas a exponer esta app fuera de tu máquina, ese
 > usuario es un problema pendiente, no parte del recorrido.
 
+**Qué ganaste**: la app arranca, la base tiene el esquema aplicado y entras con tu usuario. Y mira el
+costo: nada de eso sabe que vas a crear notas. No hay tabla, ni modelo, ni ruta, así que la entidad
+empieza en el paso siguiente.
+
 ---
 
 ## 2. La migración de `notas`
@@ -151,6 +160,10 @@ migraciones corrieron y que la sesión se crea. No prueba nada de tu entidad, qu
 **Objetivo**: crear la tabla. Sin tabla, el modelo no puede guardar nada.
 
 **Estado de partida**: el paso 1 hecho; `composer migrate` corre sin errores.
+
+La app responde, pero no tiene dónde guardar una nota: la primera escritura va a terminar en `no such
+table`. En este proyecto el esquema se escribe en migraciones y no a mano en la base, así que el primer
+archivo de la entidad es el que crea la tabla y el que permite deshacerla.
 
 **Acción**: mira qué números de migración están libres:
 
@@ -220,6 +233,10 @@ que el esquema se puede crear y revertir.
 > mensaje de error lo da la capa de validación, que es la que puede explicarle al usuario qué
 > corregir.
 
+**Qué ganaste**: la tabla `notas` existe, con sus columnas y su marcha atrás —`phinx rollback` la baja
+sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
+controlador es justo lo que el proyecto evita.
+
 **Pieza — migraciones Phinx con numeración secuencial**: resuelven el versionado del esquema sin
 depender de un ORM que lo adivine. Usalas siempre que cambie el esquema. Evitan el problema de los
 timestamps, que saturan enteros de 32 bits en bases grandes. Sin esta pieza tendrías que aplicar SQL
@@ -232,6 +249,10 @@ a mano y acordarte del orden; el proyecto ya tiene el mecanismo, sólo hay que e
 **Objetivo**: poder leer y escribir la tabla desde PHP sin SQL escrito a mano.
 
 **Estado de partida**: paso 2 hecho, la tabla existe.
+
+Con la tabla creada, el problema pasa a ser desde dónde escribirla. Un controlador que arma la sentencia
+a mano repite el nombre de la tabla, el orden de las columnas y el escapado en cada acción; el proyecto
+usa una clase por tabla, y esa clase queda como el único lugar que conoce `notas`.
 
 **Acción**: crea `app/Models/Nota.php`:
 
@@ -284,6 +305,10 @@ error aparece ahí, con `no such table: notas`.
 > El modelo sí se puede comprobar desde la terminal: `php -r 'require "bootstrap/app.php"; echo
 > App\Models\Nota::query()->count(), PHP_EOL;'` imprime `0` sin avisos.
 
+**Qué ganaste**: `Nota::query()` alcanza la tabla y el resto de los pasos puede leer y escribir sin SQL
+escrito a mano. El costo es que todavía nadie la usa: no hay ruta que la llame, así que el modelo existe
+y no se ve en ninguna pantalla.
+
 **Pieza — Eloquent standalone**: resuelve el acceso a datos con un modelo por tabla. Úsalo para
 toda lectura y escritura; el proyecto no escribe SQL a mano en los controladores. Evita el SQL
 disperso por las vistas y los controladores. Sin él tendrías que preparar sentencias y mapear filas a
@@ -299,6 +324,13 @@ para llegar sin escribir la URL a mano.
 **Estado de partida**: pasos 1 a 3 hechos.
 
 ### 4.1 Un archivo de rutas por entidad
+
+El modelo ya sabe leer la tabla, pero la app no tiene por dónde pedirla: `/notas` no existe para el
+framework. Este paso se lo dice, en un archivo propio en lugar de tocar el arranque de la app, para que
+agregar una entidad no obligue a editar infraestructura compartida.
+
+El archivo tiene una sola idea: un grupo bajo `/notas` con la protección aplicada al grupo, y adentro una
+ruta que devuelve un texto fijo. Con eso alcanza para saber si el registro funciona.
 
 **Acción**: el archivo de rutas de tu entidad, `routes/notas.php`:
 
@@ -371,6 +403,10 @@ en el paso 5.
 - **Cada archivo devuelve un closure** que recibe la app: `return function (App $app) { … };`. Si no
   devuelve uno, el archivo se carga y no registra nada, sin error.
 
+**Qué ganaste**: `/notas` existe, responde un texto que sólo puede salir de esta ruta y exige sesión, así
+que el registro quedó comprobado sin haber escrito el controlador. Falta lo demás: no hay pantalla, ni
+datos, ni un camino para llegar sin teclear la URL.
+
 **Pieza — un archivo de rutas por entidad, cargado por convención**: resuelve la separación entre «la
 ruta existe» y «el arranque de la app». Cada entidad tiene su archivo y el arranque los levanta solo.
 Evita meter rutas de dominio dentro de `bootstrap/app.php`, que es arranque del framework y no tuyo.
@@ -438,6 +474,10 @@ hasta ella (4.2); lo que se ve al llegar es el paso 6.
 - **La `key` sí importa**: es el valor que la página declara como `active` para que el sidebar la marque.
 - **`position` ordena**, no el orden alfabético ni el nombre del archivo.
 
+**Qué ganaste**: la pantalla tiene puerta: el menú la ofrece en cualquier página y se arma solo, sin
+editar `sidebar.twig`. Lo que sigue sin existir es la pantalla misma: el capítulo 5 deja el controlador,
+y el 6 la vista.
+
 **Pieza — convención de navegación**: cada módulo declara su entrada en `config/navigation/<módulo>.php`
 y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad —que
 además están copiados en la documentación del framework y obligarían a `docs:sync`—. Agregar una
@@ -454,6 +494,10 @@ entidad es dejar su archivo; quitarla es borrarlo.
 **Objetivo**: comprobar que tu ruta responde algo, antes de involucrar vistas y formularios.
 
 **Estado de partida**: paso 4 hecho; `/notas` responde el texto de prueba `notas: ruta registrada`.
+
+Ese texto prueba una sola cosa: que la ruta está registrada. No dice si el request llega, si el contenedor
+construye la clase ni si la respuesta sale bien formada. Este paso cambia el closure por un controlador y
+devuelve un JSON que se compara cadena contra cadena, antes de que una vista meta HTML en el medio.
 
 **Acción**: ahora el controlador. Crea `app/Http/Controllers/NotaController.php` con una sola acción:
 
@@ -533,6 +577,10 @@ controlador → respuesta, que es lo que se rompe primero cuando algo está mal 
 > es cadena contra cadena. Cuando en el paso 6 entre una vista, la comprobación pasa a ser visual y
 > menos precisa.
 
+**Qué ganaste**: el camino request → ruta → controlador → respuesta funciona, y lo puedes verificar sin
+interpretar nada. El costo es que no hay pantalla ni datos: el controlador devuelve una constante. Lo que
+sigue es darle una vista.
+
 ---
 
 ## 6. La pantalla del listado: del HTML crudo al shell
@@ -544,6 +592,10 @@ básico y sin mezclar capas.
 entrada. Ahora `index()` deja de devolver JSON.
 
 ### 6.1 Primero, un HTML mínimo desde el controlador
+
+El JSON se compara de un vistazo, pero no es una pantalla: no tiene `<head>`, ni tema, ni menú, y no hay
+dónde poner una lista. `index()` tiene que devolver HTML. Escríbelo a mano dentro del método para ver qué
+hace falta, antes de que Twig se haga cargo.
 
 **Acción**: todavía no crees una vista ni toques el modelo. Haz que `index()` devuelva HTML directo:
 
@@ -579,7 +631,15 @@ se hablan.
 controlador. Si mezclas Twig y Eloquent desde el principio, un error de cualquiera de las tres capas se
 ve igual y no sabes dónde mirar.
 
+**Qué ganaste**: `index()` devuelve una página y, si no se ve, el problema está en el controlador o en la
+ruta. El costo salta a la vista: hay HTML adentro de un método PHP, con su `<head>` y su `<title>`, y
+cada línea nueva lo vuelve más difícil de leer.
+
 ### 6.2 Mover ese HTML a una plantilla Twig
+
+Ese HTML vive donde no debería: mezcla la respuesta con la presentación y no hay dónde poner un bucle sin
+retorcer el heredoc. Twig resuelve las dos cosas a la vez —un archivo para la vista y el escapado de los
+datos que van a entrar después—, y por eso el contenido se mueve tal cual, sin cambios.
 
 **Acción**: crea `resources/views/notas/index.twig` con el mismo contenido, todavía estático:
 
@@ -620,6 +680,10 @@ flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML;
 `withHeader('Content-Type', ...)` y el manejo de la vista.
 
 ### 6.3 Ahora sí, las notas desde el modelo
+
+La vista ya se renderiza, pero el controlador no consulta nada: el `<h1>` y el párrafo son fijos. Este
+paso conecta las tres piezas que hasta aquí estaban sueltas —modelo, controlador y plantilla— y es el
+primero que puede fallar por datos y no por cableado.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
@@ -677,10 +741,18 @@ controlador → modelo → plantilla.
   no coincide con el `{% for %}`.
 - Aparece HTML crudo del título: alguien agregó `|raw`; quitalo.
 
+**Qué ganaste**: la pantalla muestra lo que hay en la tabla y, si está vacía, lo dice. Lo que se ve, sin
+embargo, es el HTML suelto de 6.1: sin tema, sin menú y sin el usuario del paso 1, como una página de
+otro sitio. El shell es el paso siguiente.
+
 **Pieza — Eloquent**: `Nota::orderByDesc('id')->get()` devuelve una colección de modelos. El modelo
 sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y no consulta la base.
 
 ### 6.4 Ahora, el shell del proyecto
+
+Una página suelta no se distingue de una app: le falta el sidebar, el header y el tema, y todo eso ya
+existe en una plantilla del proyecto. Heredar de ella es también la forma de no repetir los assets ni el
+marcado del shell en cada pantalla que agregues.
 
 **Acción**: reemplaza todo `resources/views/notas/index.twig` por la versión que extiende el layout:
 
@@ -712,6 +784,11 @@ el header, el tema y el contenido dentro de una tarjeta. **El `<body>`, el `<hea
 son tuyos.**
 
 **Qué no prueba**: que los modales y los avisos funcionen; eso lo da el mismo layout, más adelante.
+
+**Qué ganaste**: la pantalla es del proyecto —sidebar con tu usuario, header, tema— y tuyo es sólo el
+contenido de la tarjeta. Y mira el costo: título y lista quedaron en el mismo bloque, sin nada que puedas
+reemplazar por separado. El panel se va a refrescar solo más adelante, y para eso tiene que ser una
+unidad.
 
 **Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
 assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
@@ -866,7 +943,7 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
-**Qué ganaste**: la pantalla ya dice qué es, ofrece la acción y cuenta las filas. Y mirá el costo: el
+**Qué ganaste**: la pantalla ya dice qué es, ofrece la acción y cuenta las filas. Y mira el costo: el
 encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
 vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
 
@@ -1091,6 +1168,14 @@ contenido.
 
 ### 7.1 Un diálogo nativo con campos a mano
 
+La pantalla lista y cuenta las filas, pero no hay forma de crear una: el botón «Agregar nota» no abre
+nada, porque no existe la acción que reciba el formulario. Este paso agrega el alta completa —diálogo,
+campos y `store()`— en su versión mínima, para que funcione antes de embellecerla.
+
+El diálogo se declara al final del bloque, cerrado, y lo abre el botón del encabezado por su `id`: así el
+formulario no ocupa lugar en la página hasta que alguien lo pide. Es la forma más barata de tener alta sin
+salir del listado, y por eso el proyecto la conserva.
+
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`, después de `</section>` y antes de
 `{% endblock %}`.
 
@@ -1200,7 +1285,17 @@ Y para que el aviso llegue en una pantalla con redirect, el controlador opta por
 **Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este
 formulario repinta la página y **pierde lo tipeado y el modal abierto**.
 
+**Qué ganaste**: el alta funciona de punta a punta: el diálogo abre, el servidor valida, la nota aparece
+en la lista y el aviso sale abajo a la derecha. Y mira el costo: dos `label` y dos `input` escritos a
+mano, sin marca de opcional, sin un lugar donde el error caiga al lado del campo y con el par de CSRF
+repetido en cada formulario.
+
 ### 7.2 Sustituir los campos a mano por el del proyecto
+
+El formulario se envía, pero no se puede rechazar bien: no hay dónde poner el error y, cuando lo haya, no
+estará pegado al campo que lo causó. El componente del proyecto resuelve el campo entero —label, marca de
+opcional, mensaje y atributos de accesibilidad—, y ese contrato es el que 7.5 necesita para mostrar un
+rechazo.
 
 **Archivo**: `resources/views/notas/index.twig`, dentro del `<form>` del diálogo de 7.1.
 
@@ -1281,6 +1376,10 @@ causó. Con `error`, el input sale con `aria-invalid` y `aria-describedby` apunt
 `<form>` que mute datos. Evita el rechazo con redirect al login que no explica nada.
 
 ### 7.3 Extraer el formulario a un parcial
+
+El formulario ya está bien armado, pero vive adentro del `<dialog>` y del bloque `content`: no hay manera
+de usarlo en un segundo lugar sin copiarlo. El capítulo 9 necesita el mismo formulario para editar, con
+otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copias después.
 
 **Acción**: mueve el formulario que hoy vive dentro del `<dialog>` a
 `resources/views/notas/_form.twig`:
@@ -1380,6 +1479,10 @@ no vuelve a abrir nada; eso llega en 7.5.
   está renderizando adentro.
 - El formulario se envía a la URL equivocada: `action` no se está pasando o quedó el `action` viejo.
 
+**Qué ganaste**: el formulario es un archivo con contrato —`action`, etiqueta del botón, valores— y el
+diálogo sólo lo incluye. Lo que todavía no es del proyecto es el diálogo y el botón que lo abre: uno es
+un `<dialog>` armado a mano y el otro llama a `showModal()` por su cuenta. Eso es 7.4.
+
 **Pieza — un formulario, dos operaciones**: resuelve el formulario una sola vez y evita que el alta y
 la edición tengan campos o validaciones distintas. Úsalo cuando los campos son los mismos. Sin esto,
 cada operación repite el formulario y una de las dos se olvida de un campo.
@@ -1446,6 +1549,10 @@ cerrado (`open: false`).
 - El botón no abre nada: `data_modal_open` no coincide con el `id` del modal.
 - Ves el formulario fuera del modal: el `embed` no está dentro de `{% block content %}`.
 - El modal abre con datos de otra nota: falta `nota: null` en el include del alta.
+
+**Qué ganaste**: el modal es del proyecto —telón, foco, cierre con Escape y botón de cerrar— y tu vista
+sólo declara el título, el subtítulo y el cuerpo. El costo se ve al rechazar: el modal nace siempre
+cerrado, así que un 422 deja el error en una página sin contexto.
 
 **Pieza — `components/ui/modal.twig`**: resuelve el `<dialog>`, el telón, el foco y el cierre. Úsalo
 para todo modal del proyecto. Evita rearmar el mismo diálogo con `onclick` y clases sueltas. Sin él,
@@ -1549,6 +1656,11 @@ en él, y por eso la validación también vive en `store()`.
 
 **Qué no prueba**: que dos pestañas abiertas no se pisen; no hay control de concurrencia.
 
+**Qué ganaste**: un formulario rechazado vuelve con el modal abierto, el error junto al campo y lo que
+habías escrito; el `required` del navegador queda como primera barrera en vez de única. Y mira el costo:
+cada render de rechazo repite a mano la lista, el total, el estado y las claves del modal. En 13.3 eso se
+junta en un solo método.
+
 **Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
 todo formulario que pueda rechazarse. Evita que el usuario pierda lo escrito y que el error aparezca en
 una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
@@ -1562,6 +1674,10 @@ una pantalla sin contexto. Sin esto, el 422 se ve como una recarga cualquiera.
 **Estado de partida**: paso 7 hecho; hay al menos una nota en la lista.
 
 ### 8.1 Primero, el atajo que no se debe dejar
+
+La fila muestra el título y nada más: no hay forma de llegar a una nota ni de quitarla desde la pantalla.
+El atajo más rápido es un emoji en un enlace y otro en un botón, y este paso lo escribe a propósito, para
+ver el resultado y su falla antes de arreglarla.
 
 **Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
@@ -1589,6 +1705,11 @@ alguien que no ve la pantalla, son dos botones indistinguibles.
 > y parecería que el problema del paso es el JavaScript, cuando el problema es que **no tiene nombre**.
 
 ### 8.2 Ahora, el botón del proyecto
+
+El atajo deja dos controles que existen y no se pueden usar: uno se anuncia como «✏️», el otro como
+«🗑️», y el botón de borrar ni siquiera abre algo. Este paso los sustituye por el botón del proyecto, que
+trae el icono del registro compartido y el nombre que anuncia el lector de pantalla, y registra las tres
+rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
 
 **Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
@@ -1640,7 +1761,8 @@ tratamiento visual del proyecto.
 ```
 
 `edit()` y `update()` se implementan en el paso 9; `destroy()` en el paso 10. Hasta entonces, tocar el
-lápiz da error, y eso es lo esperado en este punto.
+lápiz da error, y eso es lo esperado en este punto: la ruta existe y la acción no, así que el error
+sale del contenedor y no del framework como un 404.
 
 **Comprobación**: los iconos se ven igual, pero cada control ahora se anuncia como «Editar <título>» y
 «Borrar <título>». El lápiz navega a `/notas/{id}/edit`; la papelera todavía no abre nada, porque el
@@ -1660,9 +1782,18 @@ resto de la app.
 
 **Objetivo**: editar una nota reusando el formulario y el diálogo del alta.
 
-**Estado de partida**: paso 8 hecho; el lápiz navega a una ruta que todavía no existe.
+**Estado de partida**: paso 8 hecho; el lápiz navega a `/notas/{id}/edit`, una ruta que existe pero
+cuya acción todavía no.
 
 ### 9.1 Abrir el modal con la nota
+
+El lápiz ya navega, pero del otro lado no hay nada: `/notas/{id}/edit` no tiene acción y un id inexistente
+tampoco tiene respuesta. Este paso crea `edit()` y el segundo modal, y deja el guardado para 9.2 para
+comprobar primero que los datos llegan enteros.
+
+La edición no agrega campos: el formulario ya está escrito y lo que falta es un segundo modal que lo
+envuelva con otro `action`. Por eso `index.twig` crece con un `embed` más, envuelto en un `if` que lo deja
+existir sólo cuando hay `nota`.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
@@ -1733,11 +1864,19 @@ error de PHP.
 - El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
 - Ves el modal de edición en el alta: `nota` se está pasando sin querer; el alta debe llevar `nota: null`.
 
+**Qué ganaste**: el modal abre con el título y el cuerpo guardados, y un id que no existe da la 404 del
+framework en vez de un error de PHP. Falta lo obvio al primer clic: «Guardar cambios» no guarda, porque
+`update()` todavía no existe. Eso es 9.2.
+
 **Pieza — reusar `index.twig` para editar**: resuelve una sola página con dos modales y evita duplicar
 la lista. Úsalo cuando la edición comparte la pantalla con el listado. Sin esto, el alta y la edición
 tienen dos copias de la tabla y se desincronizan.
 
 ### 9.2 Guardar la edición
+
+El modal muestra la nota correcta y el `action` ya apunta a `/notas/{id}`; del otro lado no hay nadie
+escuchando. Este paso agrega `update()` y con él la otra mitad del contrato: validar, guardar y volver a
+la lista con el aviso, o rechazar sin perder lo escrito.
 
 **Archivo**: el mismo controlador, método `update()`.
 
@@ -1804,6 +1943,10 @@ cuerpo conservado.
 **Qué no prueba**: que dos personas editando a la vez no se pisen. No hay control de concurrencia, y
 este recorrido no lo agrega.
 
+**Qué ganaste**: editar funciona de punta a punta y reusa el formulario, el modal y las reglas del alta.
+Y mira el costo: esas reglas quedaron escritas dos veces, en `store()` y en `update()`, con la misma
+pareja de cadenas; el capítulo 13 unifica los renders, no las reglas.
+
 **Pieza — reusar el modal para alta y edición**: resuelve el formulario una sola vez y evita dos
 pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta y
 la edición validan distinto y una de las dos se olvida de algo.
@@ -1817,6 +1960,10 @@ la edición validan distinto y una de las dos se olvida de algo.
 **Estado de partida**: paso 9 hecho; la papelera no hace nada.
 
 ### 10.1 Primero, el atajo
+
+La papelera existe desde 8.2 y no hace nada: no hay ruta que la atienda. Borrar es la única operación del
+recorrido que no tiene vuelta atrás, así que este paso la conecta de punta a punta con la confirmación
+más barata que hay —la del navegador— antes de reemplazarla por una que diga qué se borra.
 
 **Archivo**: `resources/views/notas/_panel.twig`, dentro del `<li>` del `{% for %}`, en el lugar de la
 papelera del paso 8.
@@ -1867,6 +2014,11 @@ no respeta el tema, no dice **qué** nota estás borrando y bloquea el hilo del 
 proyecto usa un diálogo.
 
 ### 10.2 Ahora, el diálogo de confirmación
+
+El atajo dejó la papelera envuelta en un `<form>`, así que el botón perdió el `data_modal_open` que el
+paso 8.2 le había puesto. Recuperarlo no es sólo quitar el formulario: el diálogo tiene que existir una
+vez por fila, con el id que el botón nombra, y vivir fuera de la lista sin descolocarla. Ese es el trabajo
+del paso.
 
 **Archivo**: `resources/views/notas/_panel.twig`, dentro del `{% for %}`, después del `</li>` de la
 fila.
@@ -1969,6 +2121,11 @@ no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuel
 **Objetivo**: convertir en automático lo que venías comprobando a mano.
 
 **Estado de partida**: pasos 1 a 10 hechos y comprobados en pantalla.
+
+Todo lo que comprobaste hasta aquí fue a mano y no quedó registrado: si mañana cambias el controlador, el
+único que lo nota eres tú, y sólo si repites las visitas. Los tests convierten esas comprobaciones en algo
+que corre en segundos —el 303 del alta, el 422 con lo tipeado, el 404 del id inexistente— y ese es el piso
+que necesita cualquier cambio posterior.
 
 **Acción**: crea `tests/Http/NotaTest.php`:
 
@@ -2105,6 +2262,11 @@ qué código, qué guarda y qué mensaje.
 > **Checkpoint**: aquí tienes la entidad completa —crear, editar, borrar con confirmación y tests—. Si
 > esto no funciona, lo que sigue no lo arregla.
 
+**Qué ganaste**: cinco casos que antes comprobabas a mano ahora fallan solos cuando algo se rompe, y
+corren con el mismo comando que el resto de la suite. El límite es el del contrato: los tests miran
+códigos, filas y mensajes, no markup, así que el HTML puede cambiar sin que ninguno se queje. Extraer con
+esa red es el paso siguiente.
+
 **Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el
 request con cuerpo de formulario y los tokens (`token()`). Úsalo como base de todos tus tests HTTP.
 Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
@@ -2159,7 +2321,7 @@ proyecto.
 - `{% block after %}{% endblock %}`: se emite **después** del `</ul>`. Ahí van los diálogos por fila:
   un `<dialog>` no es hijo válido de una lista, así que el componente no te deja meterlo en la fila.
   Este bloque se pinta una sola vez y no recibe `item`; si necesitas uno por fila, recorre `items`
-  vos.
+  tú.
 - `{{ empty|default('No hay registros todavía.') }}` dentro de un `<li>`: el estado vacío ocupa una
   fila más de la lista; `empty_class` es su clase opcional.
 
@@ -2234,7 +2396,15 @@ en tu archivo, tienes el mecanismo. La aplicación completa es el paso siguiente
 - Aparece «No hay registros todavía.» en vez de tu texto: `empty` no está llegando al componente.
 - La lista no aparece: el nombre del componente no coincide con `components/list/simple.twig`.
 
+**Qué ganaste**: sabes qué parte de tu fila va en cada bloque y por qué el `<li>` se repite sin un `for`
+tuyo. El panel, mientras tanto, sigue con su propio `<ul>` y su propio estado vacío. Aplicarlo es el paso
+siguiente.
+
 ### 12.2 Mover la fila completa
+
+El panel funciona y no hace falta reescribirlo: hay que cortarlo por donde el componente espera. El corte
+no es de contenido sino de responsabilidad —qué se queda en tu archivo y qué pasa al componente—, y por
+eso el paso no muestra un fragmento: muestra el archivo entero antes y después.
 
 **Archivo**: `resources/views/notas/_panel.twig`.
 
@@ -2367,6 +2537,10 @@ cada entidad tiene su propia versión con variaciones accidentales.
 
 ### 13.1 Paginar la consulta
 
+La lista trae todo lo que hay en la tabla, y con cien notas la página tarda y el scroll no termina.
+Recortar en el navegador no sirve: el HTML ya viajó. La paginación tiene que ocurrir en el servidor,
+sobre la consulta, y este paso la agrega sin tocar todavía la vista.
+
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
 **Acción**: suma `use Framework\Http\Pagination;` y centraliza la lectura en un método privado:
@@ -2425,11 +2599,20 @@ servidor son correctos.
 - Una página negativa o enorme rompe: `Pagination` normaliza, pero la página tiene que venir de la query,
   no de un valor fijo.
 
+**Qué ganaste**: la consulta se recorta y el total es el de la tabla, no el de la página, así que el badge
+y los controles pueden decir la verdad. Lo que falta se ve en pantalla: los controles no existen y la
+única forma de cambiar de página es escribir la query a mano.
+
 **Pieza — `Framework\Http\Pagination`**: resuelve conteo, recorte y página actual del lado del servidor.
 Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
 con dos mil.
 
 ### 13.2 Pintar los controles y responder sólo el panel
+
+El servidor ya recorta, pero la vista no lo sabe: recibe diez notas y no tiene con qué pedir las
+siguientes. Este paso pinta los controles y, al mismo tiempo, resuelve lo que aparece al usarlos —con
+HTMX cada clic reemplaza la región, así que la respuesta tiene que ser la región y no la página entera—.
+Las dos cosas van juntas o el swap rompe el shell.
 
 **Archivo**: el mismo controlador.
 
@@ -2532,11 +2715,20 @@ en 13.3.
   decide en el componente.
 - Todo aparece en una página: no estás pasando `pagination` a la vista.
 
+**Qué ganaste**: la lista navega sin recargar, los controles viajan con el panel en cada swap y la URL del
+historial dice la página que el servidor sirvió. Y mira el costo: `edit()` y los dos rechazos del
+formulario arman a mano su propia copia de `notas`, `total` y `active`, que ahora viene paginada.
+Unificarlos es 13.3.
+
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
 esa respuesta sólo repinta el formulario.
 
 ### 13.3 Unificar los renders de edición y 422
+
+Los renders del listado están repetidos en tres métodos, y la repetición ya tiene un costo concreto: cada
+uno decide por su cuenta si empuja `HX-Push-Url`, si pasa `active` y en qué estado devuelve la página. Con
+un solo camino, esa decisión vive en un lugar y el 422 no puede olvidarse de nada.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, métodos `edit()`, `store()` y `update()`.
 
@@ -2604,6 +2796,10 @@ navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>`
   alta.
 - El test falla con 200: el título vacío no está llegando al validador o el token CSRF no es válido.
 
+**Qué ganaste**: hay un método que arma la página, elige el parcial y decide la cabecera, y los tres casos
+lo llaman con lo suyo. Lo que queda afuera es deliberado: las reglas de validación siguen en `store()` y
+en `update()`, porque no son parte del render.
+
 **Pieza — un solo camino de render**: resuelve la página, el parcial, el estado y la cabecera en un
 único lugar. Úsalo en toda acción que renderice el listado. Evita que el alta, la edición y la
 paginación tengan cada una su propia copia de `notas` y `total`.
@@ -2615,6 +2811,10 @@ paginación tengan cada una su propia copia de `notas` y `total`.
 **Objetivo**: aplicar el mismo camino a una entidad propia.
 
 **Estado de partida**: pasos 1 a 13 hechos.
+
+El recorrido funcionó una vez, sobre `notas`. Lo que se repite no es esa entidad sino el patrón: qué
+archivos aparecen siempre, qué cambia con el dominio y en qué orden se comprueban. Este capítulo lo deja
+escrito para que la segunda entidad no te obligue a releer los trece anteriores.
 
 | Qué cambia | Qué no cambia |
 |---|---|
@@ -2661,6 +2861,10 @@ confirmación, paginación y seis tests en verde.
 
 **Qué no prueba**: que el patrón sirva para entidades con relaciones, permisos por fila o adjuntos.
 Eso es otra conversación, y necesita más piezas.
+
+**Qué ganaste**: tienes el orden, los archivos y las piezas fijas, así que la segunda entidad es cuestión
+de reemplazar nombres y campos en vez de decidir de nuevo. Y tienes una salida cuando algo no encaja: la
+tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 
 ---
 
