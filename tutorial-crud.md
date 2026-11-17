@@ -780,6 +780,11 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
 ### 6.6 El encabezado con la acción y el contador
 
+Este encabezado se escribe aquí **a mano** y se extrae en **12.3** a
+`components/ui/page-header.twig`, cuando la entidad ya está probada. Es la misma progresión que la
+lista: primero las piezas a la vista, después el componente. El botón es la excepción y ya es el del
+proyecto desde 7.4; el `<div>`, el `<h1>` y el subtítulo se extraen recién en 12.3.
+
 **Archivo**: `resources/views/notas/index.twig`, bloque `content`.
 
 **Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
@@ -857,9 +862,6 @@ lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
-
-> El armazón del encabezado se queda a la vista hasta 12.3. El botón cambia antes, en 7.4; el `<div>`,
-> el `<h1>` y el subtítulo recién se extraen cuando la entidad ya está probada.
 
 ---
 
