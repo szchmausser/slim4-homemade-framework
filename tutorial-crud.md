@@ -2411,7 +2411,7 @@ sola pantalla: se lee de arriba abajo y no esconde nada. El problema aparece cua
 listado en otra entidad o cuando el estado vacío se desincroniza entre pantallas. El proyecto ya tiene
 esa pieza resuelta: `components/list/simple.twig`.
 
-**Qué hace el componente**
+### 12.1 Qué hace el componente
 
 **Componente**: `resources/views/components/list/simple.twig`. Léelo, no lo edites: ya existe y es del
 proyecto.
@@ -2524,23 +2524,20 @@ porque la indentación sugiere que el `<li>` se pinta una vez, cuando en realida
 tuyo. El panel, mientras tanto, sigue con su propio `<ul>` y su propio estado vacío. Ese es el trabajo
 que sigue.
 
-**Mover la fila completa**
+![La pantalla no cambia: el componente se lee](tutorial-crud-images/08-2-acciones.png)
 
-El panel funciona y no hace falta reescribirlo: hay que cortarlo por donde el componente espera. El corte
-no es de contenido sino de responsabilidad —qué se queda en tu archivo y qué pasa al componente—, y por
-eso el paso no muestra un fragmento: muestra el archivo entero antes y después.
+### 12.2 La fila al componente
 
 **Archivo**: `resources/views/notas/_panel.twig`.
 
 **Antes**: el `<div id="notas-panel">` con el `<ul>`, el `{% for %}`, el `<li>` con los dos botones, el
-bloque de diálogos después de la `</ul>` y el `{% else %}` del vacío.
+recorrido de diálogos debajo de la lista y el `{% else %}` del vacío.
 
-**Regla**: lo que está entre `<li>` y `</li>` —título y botones— va adentro de `{% block row %}`. El
-recorrido de diálogos que sigue a la `</ul>` va adentro de `{% block after %}`: el componente lo emite en
-ese mismo lugar. Lo único que desaparece es el `<ul>`, el `{% for %}`, el `{% else %}` y el `<li>` del
-vacío: eso ya lo pone el componente.
+**Regla**: lo que está entre `<li>` y `</li>` —título y botones— va adentro de `{% block row %}`. Lo
+único que desaparece es el `<ul>`, el `{% for %}`, el `{% else %}` y el `<li>` del vacío: eso ya lo pone
+el componente. Los diálogos, por ahora, se quedan donde están.
 
-**Después**: el archivo completo queda así.
+**Después**: el panel queda así.
 
 ```twig
 <div id="notas-panel">
@@ -2550,12 +2547,7 @@ vacío: eso ya lo pone el componente.
     } %}
         {% block row %}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
-                <div class="min-w-0">
-                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
-                    {% if item.cuerpo %}
-                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
-                    {% endif %}
-                </div>
+                <span class="font-semibold">{{ item.titulo }}</span>
                 <div class="flex shrink-0 items-center gap-1">
                     {% include 'components/ui/button.twig' with {
                         label: '',
@@ -2577,69 +2569,53 @@ vacío: eso ya lo pone el componente.
                 </div>
             </li>
         {% endblock %}
-
-        {# Los diálogos van en `after`, fuera de la `<ul>`. Recorren `notas` otra
-           vez porque este bloque se emite una sola vez, sin `item`. #}
-        {% block after %}
-            {% for item in notas %}
-                {% embed 'components/ui/modal.twig' with {
-                    id: 'nota-delete-' ~ item.id,
-                    title: 'Borrar nota'
-                } %}
-                    {% block body %}
-                        <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                        <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
-                              onsubmit="this.querySelector('[type=submit]').disabled = true">
-                            {% include 'partials/_csrf.twig' %}
-                            <div class="modal-action">
-                                {% include 'components/ui/button.twig' with {
-                                    label: 'Cancelar',
-                                    variant: 'ghost',
-                                    type: 'button',
-                                    icon: 'x',
-                                    data_modal_close: true
-                                } only %}
-                                {% include 'components/ui/button.twig' with {
-                                    label: 'Borrar',
-                                    variant: 'error',
-                                    type: 'submit',
-                                    icon: 'trash'
-                                } only %}
-                            </div>
-                        </form>
-                    {% endblock %}
-                {% endembed %}
-            {% endfor %}
-        {% endblock %}
     {% endembed %}
+
+    {% for item in notas %}
+        {% embed 'components/ui/modal.twig' with {
+            id: 'nota-delete-' ~ item.id,
+            title: 'Borrar nota'
+        } %}
+            {% block body %}
+                <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                      onsubmit="this.querySelector('[type=submit]').disabled = true">
+                    {% include 'partials/_csrf.twig' %}
+                    <div class="modal-action">
+                        {% include 'components/ui/button.twig' with {
+                            label: 'Cancelar',
+                            variant: 'ghost',
+                            type: 'button',
+                            icon: 'x',
+                            data_modal_close: true
+                        } only %}
+                        {% include 'components/ui/button.twig' with {
+                            label: 'Borrar',
+                            variant: 'error',
+                            type: 'submit',
+                            icon: 'trash'
+                        } only %}
+                    </div>
+                </form>
+            {% endblock %}
+        {% endembed %}
+    {% endfor %}
 </div>
 ```
 
-**Dos detalles que importan**:
+`block row` es la única parte de tu archivo que se repite por nota. Si copias el
+`<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
 
-- Los diálogos van en `after`, no dentro de la fila: adentro serían un hijo más del `flex` y
-descolocarían la fila, y además un `<dialog>` no es hijo válido de la `<ul>`. `after` se emite después
-del cierre, así que cada nota necesita su vuelta: de ahí el `{% for item in notas %}` propio.
-- `block row` es la única parte de tu archivo que se repite por nota. Si copias el
-  `<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
-
-**Y dos cambios en la fila, para cerrar la diferencia con el demo**: el título pasa a ser un enlace a
-editar —un blanco más grande que el lápiz, útil en el móvil— y debajo aparece el `cuerpo` cuando existe.
-El `cuerpo` lo vienes guardando desde el capítulo 7 y hasta ahora no se veía en ninguna parte: una nota
-con cuerpo y otra sin él se veían igual. El lápiz se queda; los dos caminos llevan al mismo modal.
-
-**Comprobación**: la lista se ve como en el paso 10 salvo los dos cambios de la fila —título enlazado y
-`cuerpo` visible—, y sigue igual con y sin notas; el lápiz abre el modal de edición; la papelera abre el
-diálogo que dice **qué nota** vas a borrar; borrar elimina una sola nota; `composer test` sigue en verde.
+**Comprobación**: la lista se ve **idéntica** a la del paso 10, con y sin notas; el lápiz abre el modal
+de edición; la papelera abre el diálogo que dice **qué nota** vas a borrar; borrar elimina una sola nota;
+`composer test` sigue en verde.
 
 **Falla si**:
 
 - Con notas, la lista se ve vacía: el `{% block row %}` quedó fuera del `embed` o el `embed` apunta a
   otro nombre.
-- La papelera no abre nada: el modal quedó fuera del `{% block row %}` (o del `for`) y el id no
-  coincide con `data_modal_open`.
-- La fila se descoloca: el modal quedó dentro del `<li>` y entró en el `flex`.
 - «No hay notas todavía.» no aparece: `empty` no está llegando.
+- La fila se descoloca: el modal quedó dentro del `<li>` y entró en el `flex`.
 
 **Qué no prueba**: que el HTML sea idéntico carácter por carácter. `composer test` prueba el contrato
 HTTP —códigos, datos guardados, mensajes—, no el markup. La comparación visual la haces tú.
@@ -2651,7 +2627,99 @@ fila. La próxima entidad que hagas puede reusar el componente sin copiar el `<u
 para todo listado simple. Evita repetir el mismo bucle en cada pantalla y olvidarte del vacío. Sin él,
 cada entidad tiene su propia versión con variaciones accidentales.
 
-![La fila final: título enlazado y cuerpo visible](tutorial-crud-images/12-2-fila.png)
+![La pantalla no cambia: la lista viaja al componente](tutorial-crud-images/08-2-acciones.png)
+
+### 12.3 Los diálogos a su bloque
+
+El panel ya usa el componente, pero los diálogos siguen siendo un segundo recorrido escrito a mano justo
+debajo. Eso funciona en esta pantalla y en ninguna más: quien reusa la lista tiene que acordarse de
+repetirlo, y en el orden correcto. El componente reserva un bloque para eso.
+
+**Archivo**: `resources/views/notas/_panel.twig`.
+
+**Antes**: el `{% for item in notas %}` con los `modal.twig`, después del `{% endembed %}`.
+
+**Después**: el mismo recorrido, tal cual, adentro de `{% block after %}`, que el componente emite
+después del `</ul>`. El bloque se pinta una sola vez y no recibe `item`, así que el `for` propio es
+necesario.
+
+```twig
+        {% block after %}
+            {% for item in notas %}
+                {% embed 'components/ui/modal.twig' with {
+                    id: 'nota-delete-' ~ item.id,
+                    title: 'Borrar nota'
+                } %}
+                    {# … el cuerpo del modal, igual que en 10.2 … #}
+                {% endembed %}
+            {% endfor %}
+        {% endblock %}
+    {% endembed %}
+</div>
+```
+
+**Por qué `after` y no la fila**: adentro del `<li>` el diálogo sería un hijo más del `flex` y
+descolocaría la fila; además un `<dialog>` no es hijo válido de una `<ul>`. El bloque lo emite después
+del cierre, así que el HTML queda válido y la fila no se entera.
+
+**Comprobación**: la pantalla no cambia; la papelera sigue abriendo el diálogo de su nota y borrar
+elimina una sola fila. Lo que cambió es de quién es el recorrido: ahora vive dentro del contrato de la
+lista.
+
+**Falla si**:
+
+- La papelera no abre nada: el `for` quedó fuera del `embed` o perdió el `block after`.
+- Aparecen dos juegos de diálogos: quedó el recorrido viejo además del nuevo.
+
+**Qué ganaste**: el panel tiene ahora dos bloques y ninguna estructura propia. Quien reusa el componente
+hereda también el lugar correcto para sus diálogos.
+
+![La pantalla no cambia: los diálogos ya estaban fuera de la lista](tutorial-crud-images/08-2-acciones.png)
+
+### 12.4 Enriquecer la fila
+
+Con el componente en su lugar, la fila todavía muestra sólo el título. Y hay un dato que vienes
+guardando desde el capítulo 7 y no se ve en ninguna parte: el `cuerpo`. Una nota con cuerpo y otra sin él
+se ven igual, y eso es una pérdida silenciosa.
+
+**Archivo**: `resources/views/notas/_panel.twig`, dentro de `{% block row %}`.
+
+**Antes**:
+
+```twig
+                <span class="font-semibold">{{ item.titulo }}</span>
+```
+
+**Después**: el título pasa a ser un enlace a editar —un blanco más grande que el lápiz, útil en el
+móvil— y debajo aparece el cuerpo cuando existe.
+
+```twig
+                <div class="min-w-0">
+                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
+                    {% if item.cuerpo %}
+                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
+                    {% endif %}
+                </div>
+```
+
+El `min-w-0` no es decorativo: sin él, un título largo empuja los botones fuera de la tarjeta. El lápiz
+se queda; los dos caminos llevan al mismo modal.
+
+**Comprobación**: cada fila muestra el título como enlace y, si la nota tiene cuerpo, una línea más
+debajo. Las notas sin cuerpo se ven igual que antes. El clic en el título abre el modal de edición, igual
+que el lápiz.
+
+**Falla si**:
+
+- El cuerpo no aparece aunque la nota lo tenga: falta el `{% if item.cuerpo %}` o el campo no se guardó.
+- Los botones se salen de la tarjeta: falta el `min-w-0` en el contenedor del título.
+- El título no es un enlace: quedó el `<span>` anterior.
+
+**Qué ganaste**: la fila dice todo lo que la nota tiene, y el título es un blanco de clic más generoso
+que un icono de 16 píxeles.
+
+![La fila final: título enlazado y cuerpo visible](tutorial-crud-images/12-4-fila-final.png)
+
 
 ---
 
