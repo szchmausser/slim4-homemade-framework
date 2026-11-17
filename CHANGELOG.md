@@ -3,6 +3,14 @@
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Versionado semántico mientras el proyecto esté en `0.x`.
 
+## [Unreleased]
+
+### Incluido
+
+- Componente `components/ui/page-header.twig`: icono opcional, título, subtítulo y bloque `actions`.
+  Los demos de notas y contactos lo comparten; tasks conserva su encabezado propio porque su alta es
+  un formulario inline, no un control en la esquina.
+
 ## [0.1.1] - 2026-11-14
 
 ### Documentación

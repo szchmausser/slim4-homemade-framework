@@ -5,17 +5,19 @@
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-bold">Notas</h1>
-                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
-                </div>
-                {% include 'components/ui/button.twig' with {
-                    label: 'Agregar nota',
-                    icon: 'plus',
-                    data_modal_open: 'nota-create-modal'
-                } only %}
-            </div>
+            {% embed 'components/ui/page-header.twig' with {
+                icon: 'list',
+                title: 'Notas',
+                subtitle: 'Tus notas, con alta y acciones por fila.'
+            } %}
+                {% block actions %}
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Agregar nota',
+                        icon: 'plus',
+                        data_modal_open: 'nota-create-modal'
+                    } only %}
+                {% endblock %}
+            {% endembed %}
 
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-lg font-semibold">Listado</h2>

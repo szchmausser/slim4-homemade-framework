@@ -280,4 +280,36 @@ final class ComponentContractTest extends TestCase
         self::assertStringContainsString('Contenido', $html);
         self::assertStringContainsString('modal-backdrop', $html);
     }
+
+    public function test_page_header_compone_titulo_subtitulo_y_acciones(): void
+    {
+        // El encabezado fija el casco que antes se armaba a mano en cada demo:
+        // icono del registro compartido, título, subtítulo y la fila que manda
+        // el control a la derecha. El bloque `actions` es el único hueco.
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/ui/page-header.twig' with {icon: 'contacts', title: 'Contactos', subtitle: 'Detalle'} %}"
+            . '{% block actions %}<button type="button">Agregar</button>{% endblock %}'
+            . '{% endembed %}'
+        )->render([]);
+
+        self::assertSame(1, substr_count($html, '<h1'));
+        self::assertStringContainsString('class="flex flex-wrap items-start justify-between gap-3"', $html);
+        self::assertStringContainsString('class="flex items-center gap-2 text-2xl font-bold"', $html);
+        self::assertStringContainsString('<svg', $html);
+        self::assertStringContainsString('Contactos', $html);
+        self::assertStringContainsString('class="mt-1 text-sm opacity-70"', $html);
+        self::assertStringContainsString('<button type="button">Agregar</button>', $html);
+    }
+
+    public function test_page_header_omite_partes_opcionales(): void
+    {
+        $html = $this->twig->createTemplate(
+            "{% embed 'components/ui/page-header.twig' with {title: 'Notas'} %}{% endembed %}"
+        )->render([]);
+
+        self::assertStringContainsString('class="text-2xl font-bold"', $html);
+        self::assertStringNotContainsString('<svg', $html);
+        self::assertStringNotContainsString('<p', $html);
+        self::assertStringNotContainsString('items-center', $html);
+    }
 }
