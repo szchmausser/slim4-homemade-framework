@@ -30,6 +30,13 @@ final class NotaController extends Controller
         return [
             'notas'      => $paginacion['items'],
             'pagination' => $paginacion,
+            // La miga la lee el header del shell: Inicio como enlace y Notas
+            // como página actual. Sin esto el header cae en su fallback y
+            // muestra «Inicio» como si estuvieras en la portada.
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'href' => Url::path('/')],
+                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
+            ],
         ];
     }
 

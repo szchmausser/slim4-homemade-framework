@@ -46,6 +46,8 @@ final class NotaTest extends HttpTestCase
 
         $lista = self::app()->handle(self::request('GET', '/notas'));
         self::assertStringContainsString('Primera nota', (string) $lista->getBody());
+        self::assertStringContainsString('aria-label="Miga de pan"', (string) $lista->getBody());
+        self::assertStringContainsString('aria-current="page">Notas', (string) $lista->getBody());
     }
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void

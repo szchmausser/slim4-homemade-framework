@@ -919,16 +919,27 @@ queda al final, dentro del mismo `card-body`.
     }
 ```
 
-**Después**: agrega `active`, que es lo que el sidebar compara con la clave `key` de
-`config/navigation/notas.php` para marcar la entrada. Sin `active`, la página funciona igual pero el menú
-no resalta «Notas» y el enlace no lleva `aria-current="page"`.
+**Después**: el arreglo de datos suma dos cosas que **lee el shell, no tu vista**:
+
+- `active`: el sidebar lo compara con la clave `key` de `config/navigation/notas.php` para marcar la
+  entrada. Sin él, la página funciona igual pero el menú no resalta «Notas».
+- `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Su fallback es un
+  único «Inicio» marcado como actual, así que sin esta clave el encabezado dice que estás en la
+  portada aunque estés en `/notas`. Con dos migas pinta la ruta y marca la última con
+  `aria-current="page"`.
+
+Agrega también `use Framework\Http\Url;`, que necesitas para el `href`.
 
 ```php
     public function index(Request $request, Response $response): Response
     {
         return $this->render($request, $response, 'notas/index.twig', [
-            'notas'  => Nota::orderByDesc('id')->get(),
-            'active' => 'notas',
+            'notas'       => Nota::orderByDesc('id')->get(),
+            'active'      => 'notas',
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'href' => Url::path('/')],
+                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
+            ],
         ]);
     }
 ```
@@ -946,6 +957,8 @@ todavía no abre nada: el modal es el paso 7.
 **Falla si**:
 
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
+- El header sigue diciendo «Inicio»: falta `breadcrumbs`, o la última miga no lleva `current` y el
+  encabezado la pinta como enlace.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
@@ -1216,11 +1229,10 @@ salir del listado, y por eso el proyecto la conserva.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
 
-Vas a necesitar tres `use` más arriba del archivo, junto a los que ya están:
+Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están (`Url` ya lo tienes de 6.6):
 
 ```php
 use Framework\Http\Flash;
-use Framework\Http\Url;
 use Framework\Validation\Validator;
 ```
 
@@ -2184,6 +2196,7 @@ final class NotaTest extends HttpTestCase
 
         $lista = self::app()->handle(self::request('GET', '/notas'));
         self::assertStringContainsString('Primera nota', (string) $lista->getBody());
+        self::assertStringContainsString('aria-current="page">Notas', (string) $lista->getBody());
     }
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
@@ -2561,15 +2574,21 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
         );
 
         return [
-            'notas'      => $paginacion['items'],
-            'pagination' => $paginacion,
+            'notas'       => $paginacion['items'],
+            'pagination'  => $paginacion,
+            'breadcrumbs' => [
+                ['label' => 'Inicio', 'href' => Url::path('/')],
+                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
+            ],
         ];
     }
 ```
 
 `Pagination::paginate()` recibe la consulta, la página pedida, el tamaño y la URL base. Devuelve los
 items de esa página y los datos que después usan los controles —incluido el total, que la paginación
-muestra por su cuenta—. `pageData()` traduce eso a las variables que ya conoce la vista.
+muestra por su cuenta—. `pageData()` traduce eso a las variables que ya conoce la vista. `breadcrumbs` viaja acá y no en `index()` para que el parcial de
+HTMX y los rechazos también lo lleven: si se quedara en `index()`, la región devuelta por HTMX perdería
+la miga.
 
 **Archivo**: el mismo controlador, método `index()`.
 
