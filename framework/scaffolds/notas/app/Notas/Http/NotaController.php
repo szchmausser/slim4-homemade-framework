@@ -29,7 +29,6 @@ final class NotaController extends Controller
 
         return [
             'notas'      => $paginacion['items'],
-            'total'      => $paginacion['total'],
             'pagination' => $paginacion,
         ];
     }

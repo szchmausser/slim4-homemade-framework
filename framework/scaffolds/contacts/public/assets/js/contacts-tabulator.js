@@ -228,12 +228,6 @@
             createForm.reset();
         }
 
-        const badge = document.querySelector('[data-contact-count]');
-        const count = event.detail && event.detail.count;
-        if (badge && Number.isInteger(count)) {
-            badge.textContent = `${count} contactos`;
-        }
-
         // replaceData vuelve a la pagina 1; se restaura la pagina actual (o la
         // ultima valida si el borrado dejo la anterior fuera de rango).
         const page = table.getPage();

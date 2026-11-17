@@ -900,10 +900,7 @@ queda al final, dentro del mismo `card-body`.
                 </button>
             </div>
 
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-lg font-semibold">Listado</h2>
-                <span class="badge badge-ghost">{{ total }} {{ total == 1 ? 'nota' : 'notas' }}</span>
-            </div>
+            <h2 class="text-lg font-semibold">Listado</h2>
 
             {% include 'notas/_panel.twig' %}
         </div>
@@ -922,16 +919,15 @@ queda al final, dentro del mismo `card-body`.
     }
 ```
 
-**Después**: agrega `total` al mismo arreglo de datos, y de paso `active`, que es lo que el sidebar
-compara con la clave `key` de `config/navigation/notas.php` para marcar la entrada. Sin `active`, la
-página funciona igual pero el menú no resalta «Notas» y el enlace no lleva `aria-current="page"`.
+**Después**: agrega `active`, que es lo que el sidebar compara con la clave `key` de
+`config/navigation/notas.php` para marcar la entrada. Sin `active`, la página funciona igual pero el menú
+no resalta «Notas» y el enlace no lleva `aria-current="page"`.
 
 ```php
     public function index(Request $request, Response $response): Response
     {
         return $this->render($request, $response, 'notas/index.twig', [
             'notas'  => Nota::orderByDesc('id')->get(),
-            'total'  => Nota::query()->count(),
             'active' => 'notas',
         ]);
     }
@@ -944,12 +940,11 @@ el tema y los avisos; abrir un diálogo es una acción sobre un elemento del ser
 reactivo. El botón pierde el `onclick` en 7.4, cuando entra `components/ui/button.twig`, y desde ahí el
 manejador vive en un solo lugar para todas las pantallas.
 
-**Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha, el badge «0 notas» y la
-lista vacía. El botón todavía no abre nada: el modal es el paso 7.
+**Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha y la lista vacía. El botón
+todavía no abre nada: el modal es el paso 7.
 
 **Falla si**:
 
-- El badge dice 0 con filas en la tabla: `total` no está llegando a la vista.
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
@@ -1244,7 +1239,6 @@ use Framework\Validation\Validator;
         if ($validator->fails()) {
             return $this->render($request, $response, 'notas/index.twig', [
                 'notas'  => Nota::orderByDesc('id')->get(),
-                'total'  => Nota::query()->count(),
                 'active' => 'notas',
             ])->withStatus(422);
         }
@@ -1584,7 +1578,6 @@ ve el error pero pierde el contexto.
         if ($validator->fails()) {
             return $this->render($request, $response, 'notas/index.twig', [
                 'notas'  => Nota::orderByDesc('id')->get(),
-                'total'  => Nota::query()->count(),
                 'active' => 'notas',
             ])->withStatus(422);
         }
@@ -1596,7 +1589,6 @@ ve el error pero pierde el contexto.
         if ($validator->fails()) {
             return $this->render($request, $response, 'notas/index.twig', [
                 'notas'             => Nota::orderByDesc('id')->get(),
-                'total'             => Nota::query()->count(),
                 'errors'            => $validator->errors(),
                 'form_values'       => $data,
                 'open_create_modal' => true,
@@ -1669,7 +1661,7 @@ en él, y por eso la validación también vive en `store()`.
 
 **Qué ganaste**: un formulario rechazado vuelve con el modal abierto, el error junto al campo y lo que
 habías escrito; el `required` del navegador queda como primera barrera en vez de única. Y mira el costo:
-cada render de rechazo repite a mano la lista, el total, el estado y las claves del modal. En 13.3 eso se
+cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.3 eso se
 junta en un solo método.
 
 **Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
@@ -1829,7 +1821,6 @@ use Slim\Exception\HttpNotFoundException;
 
         return $this->render($request, $response, 'notas/index.twig', [
             'notas'           => Nota::orderByDesc('id')->get(),
-            'total'           => Nota::query()->count(),
             'nota'            => $nota,
             'open_edit_modal' => true,
             'active'          => 'notas',
@@ -1917,7 +1908,6 @@ la lista con el aviso, o rechazar sin perder lo escrito.
         if ($validator->fails()) {
             return $this->render($request, $response, 'notas/index.twig', [
                 'notas'           => Nota::orderByDesc('id')->get(),
-                'total'           => Nota::query()->count(),
                 'errors'          => $validator->errors(),
                 'form_values'     => $data,
                 'nota'            => $nota,
@@ -2571,15 +2561,14 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
 
         return [
             'notas'      => $paginacion['items'],
-            'total'      => $paginacion['total'],
             'pagination' => $paginacion,
         ];
     }
 ```
 
 `Pagination::paginate()` recibe la consulta, la página pedida, el tamaño y la URL base. Devuelve los
-items de esa página, el total y los datos que después usan los controles. `pageData()` traduce eso a
-las variables que ya conoce la vista.
+items de esa página y los datos que después usan los controles —incluido el total, que la paginación
+muestra por su cuenta—. `pageData()` traduce eso a las variables que ya conoce la vista.
 
 **Archivo**: el mismo controlador, método `index()`.
 
@@ -2597,7 +2586,7 @@ Ahora `index()` usa ese helper:
 Todavía no toques la vista ni el helper de respuesta: primero comprobamos que el servidor recorta bien.
 
 **Comprobación**: con más de diez notas, abre directamente `/notas?page=2&per_page=10`. Esperado: ves
-las notas 11 a 20 y el total correcto. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango
+las notas 11 a 20, y la paginación dice «Mostrando 11 al 20 de N registros». `?page=1&per_page=25` muestra hasta 25; una página fuera de rango
 se ajusta a la última. Los controles visuales todavía no están; eso es 13.2.
 
 **Qué no prueba**: que los controles naveguen sin recargar. Prueba que la consulta y el recorte del
@@ -2607,13 +2596,14 @@ servidor son correctos.
 
 - Ves todas las notas en una sola página: `index()` sigue usando `get()` o `Pagination` no recibe la
   consulta.
-- El total no coincide: estás contando otra consulta o mirando `count()` del resultado paginado.
+- El rango de la paginación no coincide: `Pagination` cuenta la tabla entera, no la página; si el
+  número no cambia al moverte, la consulta que le pasaste ya venía recortada.
 - Una página negativa o enorme rompe: `Pagination` normaliza, pero la página tiene que venir de la query,
   no de un valor fijo.
 
-**Qué ganaste**: la consulta se recorta y el total es el de la tabla, no el de la página, así que el badge
-y los controles pueden decir la verdad. Lo que falta se ve en pantalla: los controles no existen y la
-única forma de cambiar de página es escribir la query a mano.
+**Qué ganaste**: la consulta se recorta y el total es el de la tabla, no el de la página, así que la
+paginación podrá decir la verdad cuando existan sus controles. Lo que falta se ve en pantalla: todavía no
+están, y la única forma de cambiar de página es escribir la query a mano.
 
 **Pieza — `Framework\Http\Pagination`**: resuelve conteo, recorte y página actual del lado del servidor.
 Úsalo en toda lista que pueda crecer. Evita el `get()` pelado, que funciona con veinte filas y se cae
@@ -2729,7 +2719,7 @@ en 13.3.
 
 **Qué ganaste**: la lista navega sin recargar, los controles viajan con el panel en cada swap y la URL del
 historial dice la página que el servidor sirvió. Y mira el costo: `edit()` y los dos rechazos del
-formulario arman a mano su propia copia de `notas`, `total` y `active`, que ahora viene paginada.
+formulario arman a mano su propia copia de `notas` y `active`, que ahora viene paginada.
 Unificarlos es 13.3.
 
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
@@ -2814,7 +2804,7 @@ en `update()`, porque no son parte del render.
 
 **Pieza — un solo camino de render**: resuelve la página, el parcial, el estado y la cabecera en un
 único lugar. Úsalo en toda acción que renderice el listado. Evita que el alta, la edición y la
-paginación tengan cada una su propia copia de `notas` y `total`.
+paginación tengan cada una su propia copia de `notas` y `active`.
 
 ---
 

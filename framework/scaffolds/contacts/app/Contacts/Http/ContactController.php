@@ -275,7 +275,6 @@ final class ContactController extends Controller
             // El badge cuenta en la base: las filas ya no viajan en el HTML, así
             // que un `count($rows)` sobre un array local ya no existe. El
             // listado completo lo pide la tabla a /contactos/datos.
-            'contacts_count' => Contact::query()->count(),
             'breadcrumbs' => [
                 ['label' => 'Inicio', 'href' => Url::path('/')],
                 ['label' => 'Contactos', 'icon' => 'contacts', 'current' => true],

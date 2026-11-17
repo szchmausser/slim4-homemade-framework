@@ -32,10 +32,7 @@
                 {% endblock %}
             {% endembed %}
 
-            <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 class="text-lg font-semibold">Listado</h2>
-                <span class="badge badge-ghost" data-contact-count>{{ contacts_count }} {{ contacts_count == 1 ? 'contacto' : 'contactos' }}</span>
-            </div>
+            <h2 class="text-lg font-semibold">Listado</h2>
 
             {% include 'components/table/tabulator.twig' with {
                 id: 'contacts-table',
@@ -112,5 +109,5 @@
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
             crossorigin="anonymous" integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
-            crossorigin="anonymous" integrity="sha384-OYmrQze8YwjKaoY2TZ03yX8ZGbyQM318sYvXR0c1P+E1XWKGTeG1MHP6XrwkpspM"></script>
+            crossorigin="anonymous" integrity="sha384-iCE7CM5NZOLy0tN0U59oKVPPjQbXb9Q3BjX3h51CF2VmtqZpA/YZ/Erz2LI4URCV"></script>
 {% endblock %}

@@ -38,8 +38,6 @@ final class ContactsTest extends ContactsTestCase
         // estaba embebida llega ahora por el endpoint que la tabla consulta.
         $rows = self::rows(self::json(self::app()->handle(self::request('GET', self::dataUrl()))));
         self::assertSame('Ana Torres', $rows[0]['name']);
-        self::assertStringContainsString('1 contacto', $html, 'El badge cuenta en la base, no en un array.');
-        self::assertStringNotContainsString('1 contactos', $html, 'El badge distingue singular de plural.');
         self::assertStringContainsString('/assets/vendor/tabulator/6.7.1/tabulator.min.js', $html);
         self::assertStringContainsString('contact-create-modal', $html);
         self::assertStringContainsString('contact-delete-modal', $html);

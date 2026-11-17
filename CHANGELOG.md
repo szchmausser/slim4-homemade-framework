@@ -9,7 +9,9 @@ Versionado semántico mientras el proyecto esté en `0.x`.
 
 - `components/list/simple.twig` expone un bloque `after`, que se emite después del `</ul>`. Los demos
 de notas y contactos ponen ahí los diálogos de borrado: un `<dialog>` no es hijo válido de una lista.
-- Los badges de notas y contactos distinguen singular de plural («1 nota», «1 contacto»).
+- Se quitó el contador de registros del encabezado de notas y contactos: el total ya lo informa la
+  paginación, y el encabezado queda con título, subtítulo y acciones. Se van el badge, la variable
+  `total` del recorrido, `contacts_count` y el bloque del JS de contactos que actualizaba el número.
 
 ### Incluido
 
