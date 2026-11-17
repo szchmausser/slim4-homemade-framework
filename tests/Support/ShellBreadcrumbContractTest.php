@@ -28,6 +28,7 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
 
         $app = self::app();
         $revisadas = [];
+        $pedidas = 0;
 
         foreach ($app->getRouteCollector()->getRoutes() as $route) {
             if (!in_array('GET', $route->getMethods(), true)) {
@@ -36,13 +37,6 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
 
             $pattern = $route->getPattern();
 
-            // La portada es la raíz: su miga correcta es un solo «Inicio» y no
-            // debe emitir `<nav>`. El fallback y esa miga se ven igual, así que
-            // no hay señal que distinguir.
-            if ($pattern === '/') {
-                continue;
-            }
-
             // Las rutas con parámetros necesitan datos que este contrato no
             // tiene: las cubre cada test de su entidad.
             if (str_contains($pattern, '{')) {
@@ -50,6 +44,7 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
             }
 
             $response = $app->handle(self::request('GET', $pattern));
+            $pedidas++;
 
             if ($response->getStatusCode() !== 200) {
                 continue;
@@ -63,6 +58,13 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
                 continue;
             }
 
+            // La portada es la raíz: su miga correcta es un solo «Inicio» y no
+            // debe emitir `<nav>`. El fallback y esa miga se ven igual, así que
+            // no hay señal que distinguir. Se pidió, pero no se evalúa acá.
+            if ($pattern === '/') {
+                continue;
+            }
+
             $revisadas[] = $pattern;
 
             self::assertStringContainsString(
@@ -73,9 +75,11 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
             );
         }
 
-        // Si el recorrido no encontró ninguna página, el contrato estaría
-        // pasando por vacío: la app siempre tiene al menos la portada.
-        self::assertNotSame([], $revisadas, 'El recorrido no encontró ninguna página que pinte el shell.');
+        // La guarda contra un pase vacío no puede exigir demos instalados: en
+        // un clon sin demos la única página con shell es la portada. Que se
+        // haya pedido al menos una ruta demuestra que el recorrido corrió.
+        self::assertGreaterThan(0, $pedidas, 'El recorrido no pidió ninguna ruta GET con sesión.');
+        self::assertSame(count($revisadas), count(array_unique($revisadas)), 'El recorrido repitió una ruta.');
     }
 
     public function test_el_fallback_del_header_no_finge_una_miga(): void
