@@ -929,7 +929,7 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 > El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 12. Recién ahí, con la entidad ya
 > probada, la lista se extrae al componente del proyecto.
 
-La pantalla es la de 6.5: el panel se movió a un parcial y no cambia lo que se ve.
+![La pantalla no cambia: la lista vive ahora en su propio parcial](tutorial-crud-images/06-5-estilos.png)
 
 ### 6.7 El encabezado con la acción y el contador
 
@@ -1042,7 +1042,7 @@ todavía no abre nada: el modal es el paso 7.
 encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
 vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
 
-![El encabezado con su acción y el listado](tutorial-crud-images/06-6-encabezado.png)
+![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
 
 ### 6.8 El encabezado a su componente
 
@@ -1124,7 +1124,7 @@ cada vista invente su variante —una con icono, otra sin, una con la acción a 
 acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.4 sin tocar el
 encabezado.
 
-La pantalla es la de 6.7: el encabezado pasó al componente y se ve igual.
+![La pantalla no cambia: el encabezado viene del componente](tutorial-crud-images/06-7-encabezado.png)
 
 ### 6.9 La botonera a su componente
 
@@ -1212,7 +1212,7 @@ y su orden. El día que aparezca el segundo botón no hay espacios que ajustar n
 tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
 cada pantalla elige su `gap` y su alineación.
 
-La pantalla es la de 6.7: la botonera agrupa el control y no cambia lo que se ve.
+![La pantalla no cambia: la botonera agrupa el control de la esquina](tutorial-crud-images/06-7-encabezado.png)
 
 ### 6.10 Anatomía del encabezado
 
@@ -1259,7 +1259,7 @@ encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una
 hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
 contenido.
 
-La pantalla es la de 6.7: la anatomía es lectura, no un cambio de pantalla.
+![La pantalla no cambia: la anatomía explica cómo se compone](tutorial-crud-images/06-7-encabezado.png)
 
 ---
 
