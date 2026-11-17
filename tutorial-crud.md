@@ -2246,12 +2246,16 @@ no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuel
 
 **Estado de partida**: pasos 1 a 10 hechos y comprobados en pantalla.
 
-Todo lo que comprobaste hasta aquí fue a mano y no quedó registrado: si mañana cambias el controlador, el
-único que lo nota eres tú, y sólo si repites las visitas. Los tests convierten esas comprobaciones en algo
-que corre en segundos —el 303 del alta, el 422 con lo tipeado, el 404 del id inexistente— y ese es el piso
-que necesita cualquier cambio posterior.
+Ya sabes que la entidad funciona porque la usaste. Lo que no sabes es cuándo vas a romperla: un cambio
+en el controlador, una ruta que se muda, un campo que deja de validarse. Los tests que vienen fijan esos
+contratos, y se escriben en tres tandas para que cada una tenga un objetivo claro.
 
-**Acción**: crea `tests/Http/NotaTest.php`:
+### 11.1 El alta y su rechazo
+
+Los dos primeros tests cubren el camino que más se toca: crear y ser rechazado. El segundo es el que
+importa de verdad, porque una validación que no repinta el modal es una validación que el usuario pierde.
+
+**Acción**: crea `tests/Http/NotaTest.php` con el esqueleto y los dos tests del alta:
 
 ```php
 <?php
@@ -2284,7 +2288,6 @@ final class NotaTest extends HttpTestCase
         // «De prueba». El test igual pasa si sólo comprueba el estado final.
         return Nota::create($datos + ['titulo' => 'De prueba']);
     }
-
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
     {
         $token = self::token('/notas');
@@ -2323,7 +2326,40 @@ final class NotaTest extends HttpTestCase
         self::assertStringContainsString('Texto que quiero conservar', $html);
         self::assertMatchesRegularExpression('/nota-create-modal[^>]*open/', $html);
     }
+}
+```
 
+**Comprobación**:
+
+```bash
+vendor/bin/phpunit --filter NotaTest
+```
+
+Esperado: dos tests en verde.
+
+**Falla si**:
+
+- El test falla en `Location` (`/login` en vez de `/notas`): el token no está llegando, aunque el
+  primer `assertSame(303, …)` pase igual. Sin HTMX el rechazo de CSRF es un 303 al login, no un 400.
+  `HttpTestCase::token()` te da el par.
+- El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo;
+  revisa `open_create_modal`.
+- El test del alta pasa pero el de la lista no encuentra el título: el `GET /notas` no está viendo la
+  fila que se creó, así que el problema está en la vista y no en el test.
+
+**Qué no prueba**: que la pantalla se vea bien. Prueba el contrato HTTP del alta: código, datos guardados
+y mensaje.
+
+![La pantalla no cambia: el test comprueba lo que ya viste](tutorial-crud-images/08-2-acciones.png)
+
+### 11.2 Editar y borrar
+
+Los dos siguientes cubren las acciones por fila. Son más cortos porque el camino ya está montado: cada
+uno comprueba qué se guarda y adónde se vuelve.
+
+**Acción**: agrega estos dos métodos dentro de la clase.
+
+```php
     public function test_edita_una_nota(): void
     {
         $nota = $this->crear(['titulo' => 'Antes']);
@@ -2352,7 +2388,28 @@ final class NotaTest extends HttpTestCase
         self::assertSame(303, $response->getStatusCode());
         self::assertNull(Nota::find($nota->id));
     }
+```
 
+**Comprobación**: `vendor/bin/phpunit --filter NotaTest` — cuatro tests en verde.
+
+**Falla si**:
+
+- El de edición falla en `Nota::find($nota->id)`: el `update()` no está guardando, o el `action` del
+  formulario no apunta a `/notas/{id}`.
+- El de borrado deja la fila: `destroy()` no se ejecutó, o la ruta `/{id}/delete` no está registrada.
+
+**Qué no prueba**: que la edición y el borrado se vean como los diseñaste. Eso lo cubre el navegador.
+
+![La pantalla no cambia: los tests cubren las acciones ya construidas](tutorial-crud-images/08-2-acciones.png)
+
+### 11.3 El 404 y el cierre
+
+El último test no escribe nada: comprueba que un identificador inexistente recibe una página, no un error
+de PHP. Es el que evita que un enlace viejo tumbe la app.
+
+**Acción**: agrega el quinto método.
+
+```php
     public function test_avisa_cuando_el_identificador_no_existe(): void
     {
         $response = self::app()->handle(self::request('GET', '/notas/99999/edit'));
@@ -2362,41 +2419,33 @@ final class NotaTest extends HttpTestCase
         self::assertNotSame('', $html, 'Un 404 mudo no avisa nada.');
         self::assertLessThan(4096, strlen($html), 'Un 404 no debería gastar la página de depuración.');
     }
-}
 ```
 
 **Comprobación**:
 
 ```bash
-vendor/bin/phpunit --filter NotaTest
+vendor/bin/phpunit
 ```
 
-Esperado: cinco tests en verde. En 13.4 se suma el sexto, el del 422 con `HX-Push-Url`.
+Esperado: la suite completa en verde, con cinco tests de `NotaTest`. En 13.5 se suma el sexto, el del
+422 con `HX-Push-Url`.
 
 **Falla si**:
 
-- El test falla en `Location` (`/login` en vez de `/notas`): el token no está llegando, aunque el
-  primer `assertSame(303, …)` pase igual. Sin HTMX el rechazo de CSRF es un 303 al login, no un 400.
-  `HttpTestCase::token()` te da el par.
-- El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo; revisa `open_create_modal`.
 - La suite completa falla después: falta el `tearDown` que limpia `notas`.
+- El 404 llega con cuerpo vacío: el framework no está renderizando su página de error.
 
 **Qué no prueba**: que la pantalla se vea bien, ni que los diálogos abran. Prueba el contrato HTTP:
-qué código, qué guarda y qué mensaje.
+qué código, qué guarda y qué mensaje. La comparación visual ya la hiciste paso a paso.
 
 > **Checkpoint**: aquí tienes la entidad completa —crear, editar, borrar con confirmación y tests—. Si
 > esto no funciona, lo que sigue no lo arregla.
-
-**Qué ganaste**: cinco casos que antes comprobabas a mano ahora fallan solos cuando algo se rompe, y
-corren con el mismo comando que el resto de la suite. El límite es el del contrato: los tests miran
-códigos, filas y mensajes, no markup, así que el HTML puede cambiar sin que ninguno se queje. Extraer con
-esa red es el paso siguiente.
 
 **Pieza — `Tests\Support\HttpTestCase`**: resuelve el arranque de la app, la sesión inyectada, el
 request con cuerpo de formulario y los tokens (`token()`). Úsalo como base de todos tus tests HTTP.
 Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
-Sin captura: este paso no cambia la pantalla, cambia lo que la comprueba.
+![La pantalla no cambia: el 404 y la suite cierran el capítulo](tutorial-crud-images/08-2-acciones.png)
 
 ---
 
