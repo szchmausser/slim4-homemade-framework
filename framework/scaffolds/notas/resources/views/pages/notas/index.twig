@@ -25,7 +25,7 @@
 
             <h2 class="text-lg font-semibold">Listado</h2>
 
-            {% include 'notas/_panel.twig' %}
+            {% include 'pages/notas/_panel.twig' %}
         </div>
     </section>
 
@@ -38,7 +38,7 @@
         {% block body %}
             {# `nota: null` corta la herencia de `_form.twig`: en /notas/{id}/edit
                el alta se abriría con los datos de la nota que se está editando. #}
-            {% include 'notas/_form.twig' with {
+            {% include 'pages/notas/_form.twig' with {
                 action: url('/notas'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
@@ -54,7 +54,7 @@
             open: open_edit_modal|default(false)
         } %}
             {% block body %}
-                {% include 'notas/_form.twig' with {
+                {% include 'pages/notas/_form.twig' with {
                     action: url('/notas/' ~ nota.id),
                     submit_label: 'Guardar cambios',
                 } %}

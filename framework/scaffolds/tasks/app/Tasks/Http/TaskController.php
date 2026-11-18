@@ -84,7 +84,7 @@ class TaskController extends Controller
         $response = $this->render(
             $request,
             $response,
-            $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
+            $request->hasHeader('HX-Request') ? 'pages/tasks/_panel.twig' : 'pages/tasks/index.twig',
             $data
         );
 

@@ -253,7 +253,7 @@ final class ContactController extends Controller
      */
     private function renderForm(Request $request, Response $response, array $data, int $status = 200): Response
     {
-        return $this->render($request, $response, 'contacts/_form.twig', $data)->withStatus($status);
+        return $this->render($request, $response, 'pages/contacts/_form.twig', $data)->withStatus($status);
     }
 
     private function back(Response $response): Response
@@ -270,7 +270,7 @@ final class ContactController extends Controller
      */
     private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
-        $response = $this->render($request, $response, 'contacts/index.twig', [
+        $response = $this->render($request, $response, 'pages/contacts/index.twig', [
             'active' => 'contacts',
             // El badge cuenta en la base: las filas ya no viajan en el HTML, así
             // que un `count($rows)` sobre un array local ya no existe. El
@@ -298,7 +298,7 @@ final class ContactController extends Controller
         array $extra = [],
         int $status = 200
     ): Response {
-        $response = $this->render($request, $response, 'contacts/edit.twig', [
+        $response = $this->render($request, $response, 'pages/contacts/edit.twig', [
             'active' => 'contacts',
             'contact' => $contact,
             'breadcrumbs' => [

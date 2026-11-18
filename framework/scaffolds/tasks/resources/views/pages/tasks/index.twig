@@ -4,7 +4,7 @@
 
 {# El CSS del demo viaja con el demo: si se desinstala, el archivo se borra
    con el resto del scaffold y el shell no queda con reglas huérfanas. #}
-{% block styles %}{% include 'tasks/_styles.twig' %}{% endblock %}
+{% block styles %}{% include 'pages/tasks/_styles.twig' %}{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
@@ -76,7 +76,7 @@
         } only %}
     </form>
 
-    {% include 'tasks/_panel.twig' %}
+    {% include 'pages/tasks/_panel.twig' %}
         </div>
     </section>
 {% endblock %}

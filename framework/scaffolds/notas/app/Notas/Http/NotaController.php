@@ -47,7 +47,7 @@ final class NotaController extends Controller
         // Con HX-Request va SÓLO la región. Si devuelves la página entera, el
         // swap mete el shell del layout adentro del panel: dos sidebars, dos
         // headers y el contenido duplicado.
-        $template = $request->hasHeader('HX-Request') ? 'notas/_panel.twig' : 'notas/index.twig';
+        $template = $request->hasHeader('HX-Request') ? 'pages/notas/_panel.twig' : 'pages/notas/index.twig';
 
         $rendered = $this->render($request, $response, $template, $data + $extra + [
             'active' => 'notas',

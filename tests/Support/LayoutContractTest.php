@@ -195,7 +195,7 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_alta_de_tareas_solo_se_limpia_con_un_200_del_servidor(): void
     {
-        $form = self::view('framework/scaffolds/tasks/resources/views/tasks/index.twig');
+        $form = self::view('framework/scaffolds/tasks/resources/views/pages/tasks/index.twig');
 
         self::assertPattern(
             '/hx-on::after-request="if \(event\.detail\.xhr\.status === 200\) this\.reset\(\)"/',

@@ -57,7 +57,7 @@
         open: open_create_modal|default(false)
     } %}
         {% block body %}
-            {% include 'contacts/_form.twig' with {
+            {% include 'pages/contacts/_form.twig' with {
                 action: url('/contactos'),
                 submit_label: 'Crear contacto',
                 submit_icon: 'plus',
