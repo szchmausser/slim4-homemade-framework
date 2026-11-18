@@ -1831,6 +1831,17 @@ abstract class Controller
         return false;
     }
 
+    /**
+     * Variables que este controlador agrega a TODAS sus vistas sin repetir
+     * `$extra` en cada acción (marca, menú, flags). Vacío por defecto: es un
+     * punto de extensión, no una utilidad.
+     *
+     * Precedencia en `render()`: el `$extra` de la acción gana sobre esto, y
+     * esto gana sobre los datos comunes y el CSRF. El contrato lo fija
+     * `tests/Support/ControllerViewDefaultsTest.php`.
+     *
+     * @return array<string, mixed>
+     */
     protected function viewDefaults(): array
     {
         return [];
