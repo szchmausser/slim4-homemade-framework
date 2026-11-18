@@ -12,15 +12,10 @@ use Slim\Psr7\Factory\ServerRequestFactory;
 use Slim\Psr7\Factory\StreamFactory;
 
 /**
- * El scaffolding que tests/Http repetía clase por clase: `app()`, `request()`,
- * `token()`, el login manual del setUp y la limpieza del tearDown.
- *
- * Las copias ya habían divergido donde más duele: la versión mínima de
- * `request()` no mandaba Content-Type ni StreamFactory con el body, así que un
- * POST armado con ella salteaba `BodyParsingMiddleware`, `getParsedBody()`
- * llegaba vacío y la validación fallaba sin mensaje. Aquí vive el superset
- * —body de verdad, headers arbitrarios— y con dos argumentos se comporta
- * exactamente igual que la copia mínima.
+ * Base común de los tests HTTP: `app()`, `request()`, `token()`, `loginAs()` y
+ * `tearDown()`. El body viaja crudo y con su Content-Type para que lo parsee
+ * `BodyParsingMiddleware`: sin ellos `getParsedBody()` llega vacío y la
+ * validación falla sin mensaje.
  *
  * Lo que NO vive aquí es lo que necesita una sola clase: la IP del throttle
  * (LoginThrottleTest arma su propio request) y el prefijo de ruta

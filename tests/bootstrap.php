@@ -11,9 +11,8 @@ use Symfony\Component\Console\Output\NullOutput;
 
 // Los tests corren contra un SQLite real, no contra :memory:. Asi el esquema
 // lo define Phinx (las mismas migraciones que usa la app): si una migracion
-// se rompe, pierde una FK o diverge del modelo, la suite lo ve. Un :memory:
-// propio por conexion obligaba a duplicar el esquema a mano, justo lo que
-// este cambio elimina. El archivo es unico por proceso: dos `composer verify`
+// se rompe, pierde una FK o diverge del modelo, la suite lo ve. El archivo es
+// unico por proceso: dos `composer verify`
 // en paralelo ya no comparten phinxlog ni se pisan las tablas.
 $db = dirname(__DIR__) . '/storage/cache/tests/app-'
     . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sqlite';

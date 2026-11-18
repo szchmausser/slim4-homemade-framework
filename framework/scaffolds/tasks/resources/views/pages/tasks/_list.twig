@@ -18,7 +18,7 @@
    esa MISMA clave en el markup recién intercambiado. La clave sale del id de
    la tarea, lo único estable entre un render y el siguiente: el índice de la
    fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
-   del <script> de layouts/app.twig. #}
+   de public/assets/app.js. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
     empty: 'No hay tareas todavía.',
@@ -159,8 +159,8 @@
                             {% endif %}
                         </button>
                         {# `tooltip-estado`: gancho para apagar el x-transition en
-                           "reducir movimiento". El override vive en el
-                           <style> del layout porque Alpine aplica la
+                           "reducir movimiento". El override vive en
+                           pages/tasks/_styles.twig porque Alpine aplica la
                            transición sobre el nodo, y una clase de proyecto
                            es la única forma de apuntarle sin depender de sus
                            atributos internos.

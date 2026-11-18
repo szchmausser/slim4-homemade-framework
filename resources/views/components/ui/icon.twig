@@ -2,10 +2,8 @@
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
    `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package|menu|chevrons-left|power|clock. `class` opcional.
 
-   Un solo wrapper `<svg>` y un mapa nombre → contenido interno: antes cada
-   nombre repetía los mismos 8 atributos del wrapper en su propia rama, así que
-   agregar o corregir uno era acordarse de tocarlo 23 veces. El mapa deja una
-   única definición por icono y un wrapper único; el contenido va con `|raw`
+   Un solo wrapper `<svg>` y un mapa nombre → contenido interno: una única
+   definición por icono y un wrapper único; el contenido va con `|raw`
    porque es markup propio del registro, no dato de usuario.
 
    El path del lápiz es el mismo que pinta el formatter de

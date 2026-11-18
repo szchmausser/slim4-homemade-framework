@@ -91,7 +91,7 @@ The process "php -S 0.0.0.0:8080 -t public" exceeded the timeout of 300 seconds
 El `php -S` estaba perfecto; lo bajó Composer. Por eso el servidor de desarrollo se levanta sin intermediario:
 
 ```bash
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
 
 `composer serve` quedó como guarda (`scripts/serve.php`): aborta con el mensaje de arriba en vez de morir a los 5 minutos. Si necesitas el servidor vivo sin cerrar la terminal, `tmux` + `termux-wake-lock` (guía, caps. 17.1 y 17.2).

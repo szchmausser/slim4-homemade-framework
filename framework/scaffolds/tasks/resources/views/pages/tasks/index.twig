@@ -25,7 +25,7 @@
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
        quedaría pegado tras crear la tarea. La condición es el STATUS y no
        `event.detail.successful`: un fallo de validación responde 422 y ese 422
-       sí swapea (ver el handler de htmx:beforeSwap en layouts/app.twig), así
+       sí swapea (ver `beforeSwap` en public/assets/app.js), así
        que esa bandera sería true justamente cuando el texto tipeado es lo
        único que el usuario tiene para corregir. El server ya conserva el título
        en el camino de edición (`editing_title`); esto es la otra mitad de la
@@ -48,8 +48,7 @@
        TaskController::respond, que siempre pasa pageData). #}
     {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
        submit y usa su atributo, pero sin JS el formulario tiene que poder
-       enviarse solo. Antes solo existia hx-post, asi que un submit nativo hacia
-       GET a la URL actual, recargaba y no creaba nada, sin avisar. #}
+       enviarse solo. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"

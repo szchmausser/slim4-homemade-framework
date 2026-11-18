@@ -34,15 +34,6 @@ final class ContactController extends Controller
      */
     private const SORTABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
 
-    /**
-     * Con htmx, una acción exitosa responde 204 + eventos y no navega: la
-     * tabla refresca sin recargar y el toast viaja en `HX-Trigger`. Sin JS,
-     * el flujo sigue siendo PRG a /contactos y el flash se muestra al cargar.
-     *
-     * Un fallo de validación (o un recurso inexistente) responde 422/404 con
-     * la pantalla o el formulario re-renderizado, porque ahí redirigir
-     * descartaba lo tipeado (S7).
-     */
     public function index(Request $request, Response $response): Response
     {
         return $this->renderList($request, $response);
@@ -266,9 +257,6 @@ final class ContactController extends Controller
     {
         $response = $this->render($request, $response, 'pages/contacts/index.twig', [
             'active' => 'contacts',
-            // El badge cuenta en la base: las filas ya no viajan en el HTML, así
-            // que un `count($rows)` sobre un array local ya no existe. El
-            // listado completo lo pide la tabla a /contactos/datos.
             'breadcrumbs' => [
                 ['label' => 'Inicio', 'href' => Url::path('/')],
                 ['label' => 'Contactos', 'icon' => 'contacts', 'current' => true],
@@ -351,11 +339,6 @@ final class ContactController extends Controller
 
     /**
      * Errores por campo de un alta o una edición; vacío cuando pasa.
-     *
-     * Reemplaza al viejo `valid()`, que mezclaba la validación con el flash: el
-     * fallo sólo dejaba un mensaje suelto y los errores por campo —lo que la
-     * vista necesita para marcar el input (S4)— se perdían. Quien llama decide
-     * qué hacer con ellos.
      *
      * El nombre NO es `errors()` a propósito: `Validator::errors()` es un
      * accesor de sólo lectura y este helper valida (construye un validador y

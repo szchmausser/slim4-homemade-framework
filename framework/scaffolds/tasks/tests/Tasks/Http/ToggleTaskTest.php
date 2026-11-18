@@ -19,11 +19,6 @@ final class ToggleTaskTest extends TasksTestCase
     protected function setUp(): void
     {
         // /tareas exige login (RequireAuth): estos tests entran logueados.
-        //
-        // Aquí había un GET /login previo: en un proceso fresco session_start()
-        // pisaba $_SESSION y el login manual se perdía. tests/bootstrap.php ya
-        // abre la sesión centralmente, así que ese request quedó muerto y se
-        // fue con la duplicación.
         self::loginAs();
     }
 

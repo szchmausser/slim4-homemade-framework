@@ -96,9 +96,7 @@ final class CodeBlocks
             }
             // Las rutas inexistentes NO se descartan: si un documento declara una
             // copia de un archivo que se movió o se borró, docs:check tiene que
-            // fallar en vez de saltear el bloque en silencio. Antes este `continue`
-            // dejaba el control muerto y una reorganización de vistas pasaba sin
-            // que nadie se enterara.
+            // fallar en vez de saltear el bloque en silencio.
             $found[$path] = true;
         }
 

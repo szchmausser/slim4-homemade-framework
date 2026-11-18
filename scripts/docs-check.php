@@ -7,8 +7,8 @@ declare(strict_types=1);
 //
 // Además verifica las COPIAS: cada bloque de código de docs/ que declara un
 // archivo del repo (la prosa justo encima, con la ruta entre backticks) tiene
-// que ser idéntico a ese archivo. Sin esto la guía se pudre sola: la primera
-// medición encontró 27 de 56 copias viejas. Arreglo: `composer docs:sync`.
+// que ser idéntico a ese archivo. Sin esto la guía se pudre sola. Arreglo:
+// `composer docs:sync`.
 // Un fragmento se marca con `excerpt` en el info string y queda afuera.
 //
 // El plan de mejoras queda excluido a propósito: es el artefacto que define

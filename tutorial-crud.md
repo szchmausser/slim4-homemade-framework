@@ -1202,7 +1202,11 @@ explicación.
 ```twig
 <div>
     <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
-        {# el icono, si lo hay: {% include 'components/ui/icon.twig' with {name: icon} %} #}
+        {% if icon|default(false) %}
+            <span class="opacity-60" aria-hidden="true">
+                {% include 'components/ui/icon.twig' with {name: icon, class: 'h-5 w-5'} %}
+            </span>
+        {% endif %}
         {{ title }}
     </h1>
     {% if subtitle|default(false) %}

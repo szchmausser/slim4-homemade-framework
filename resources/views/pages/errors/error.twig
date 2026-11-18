@@ -10,9 +10,7 @@
     <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
-       de JS de esta página. Antes no estaba: un error salía siempre en claro
-       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
-       excepción del sistema. Sin el script, corregir `data-theme` después del
+       de JS de esta página. Sin el script, corregir `data-theme` después del
        paint mostraría el flash que los otros layouts evitan. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
 

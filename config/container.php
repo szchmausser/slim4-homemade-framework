@@ -91,9 +91,10 @@ return [
 
     Twig::class => function () {
         $twig = Twig::create(__DIR__ . '/../resources/views', [
-            // Con 'cache' => false, Twig re-parsea cada .twig en cada request.
-            // En un ARM de 32 bits eso se nota. El caché va a disco, así que
-            // remember crear el directorio y agregarlo al .gitignore.
+            // Con 'cache' => false, Twig re-parsea cada .twig en cada request:
+            // en un ARM de 32 bits eso se nota. El caché va a disco;
+            // bootstrap/app.php ya crea el directorio y /storage/cache/ ya está
+            // en .gitignore.
             'cache'       => __DIR__ . '/../storage/cache/twig',
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
@@ -229,9 +230,7 @@ return [
 
                 // Sin htmx no hay toast que escuchar, así que el aviso tiene
                 // que viajar en el flash y aparecer donde el usuario cae: el
-                // login, que es la vista que renderiza `flash_error`. Antes el
-                // redirect era a '/' y sin flash: el usuario perdía lo tipeado
-                // sin enterarse de por qué.
+                // login, que es la vista que renderiza `flash_error`.
                 Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app

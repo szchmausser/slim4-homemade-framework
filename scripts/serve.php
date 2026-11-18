@@ -9,7 +9,7 @@ declare(strict_types=1);
 // para que el comando viejo falle con la instrucción correcta en vez de morir
 // a los 5 minutos sin explicación.
 //
-// Servidor de desarrollo: php -S 0.0.0.0:8080 -t public
+// Servidor de desarrollo: php -S 127.0.0.1:8080 -t public
 
 fwrite(STDERR, <<<'TXT'
 
@@ -23,7 +23,7 @@ defecto) y lo mata al vencer:
 Un servidor web no puede vivir dentro de un script de un solo tiro. Usa el
 comando directo:
 
-    php -S 0.0.0.0:8080 -t public
+    php -S 127.0.0.1:8080 -t public
 
 TXT . PHP_EOL);
 

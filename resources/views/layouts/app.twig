@@ -314,7 +314,6 @@
         {% include 'layouts/parts/sidebar.twig' %}
     {% endblock %}
 
-    {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
         {% block header %}
             {% include 'layouts/parts/topbar.twig' %}
@@ -325,8 +324,8 @@
         {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
-            {# El flash vive en tasks/_panel.twig, que es la región que HTMX
-               reemplaza en los swaps parciales: aquí no se renderiza. #}
+            {# El flash no se pinta acá: cada pantalla lo renderiza en su región
+               o viaja en HX-Trigger-After-Swap. #}
             {% block content %}{% endblock %}
         </main>
 

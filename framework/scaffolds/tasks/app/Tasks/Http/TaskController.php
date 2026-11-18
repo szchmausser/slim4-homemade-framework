@@ -229,10 +229,10 @@ class TaskController extends Controller
             // y la fila sigue en modo formulario conservando lo tipeado. Un
             // banner con el mismo texto lo diría dos veces, y el canal de
             // avisos queda para lo que no es un campo.
-            // Sin esto el input se repinta con task.title (guardado) y el
-            // usuario pierde lo que escribió justo cuando aparece el error.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
+                // Sin esto el input se repinta con task.title (guardado) y el
+                // usuario pierde lo que escribió justo cuando aparece el error.
                 'editing_title' => $data['title'] ?? '',
                 'errors'        => $validator->errors(),
             ], 422);

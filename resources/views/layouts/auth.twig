@@ -1,3 +1,6 @@
+{# Layout de autenticacion, sin sidebar ni header. El shell de la app ofrece
+   navegacion a una ruta protegida, que sin sesion redirige de vuelta a este
+   mismo formulario. #}
 <!DOCTYPE html>
 <html lang="es" data-theme="light">
 <head>
@@ -47,9 +50,9 @@
         }
         .login-field:focus-within .login-field-icon { color: var(--color-primary); }
 
-        /* `.label` de daisyUI ya pinta al 60 % y el `opacity-80` de la vista
-           lo bajaba a ~48 %. El texto queda al 80 % real; el checkbox sube su
-           borde al 50 % para que el control no desaparezca sobre base-100. */
+        /* `.label` de daisyUI ya pinta al 60 %; acá el texto queda al 80 % real.
+           El checkbox sube su borde al 50 % para que el control no desaparezca
+           sobre base-100. */
         label.login-remember {
             color: color-mix(in oklab, var(--color-base-content) 80%, transparent);
             opacity: 1;
@@ -77,9 +80,6 @@
     {% block head %}{% endblock %}
 </head>
 <body class="bg-base-200 text-base-content">
-    {# Layout de autenticacion, sin sidebar ni header. El shell de la app
-       ofrece navegacion a una ruta protegida, que sin sesion redirige de vuelta a este
-       mismo formulario: era una puerta que no lleva a ningun lado. #}
     <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
         <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">
             {% include 'components/ui/logo.twig' %}

@@ -58,9 +58,6 @@ abstract class Controller
             $flash = ['error' => null, 'success' => null, 'info' => null];
         }
 
-        // Opt-in para pantallas que no usan htmx pero quieren el mismo stack
-        // de toasts para el flash de una acción con redirect (p. ej. el CRUD
-        // de contactos). En htmx el canal sigue siendo HX-Trigger-After-Swap.
         $toastItems = [];
         if (!$request->hasHeader('HX-Request') && $this->toastFlash) {
             foreach (self::FLASH_ORDER as $type) {

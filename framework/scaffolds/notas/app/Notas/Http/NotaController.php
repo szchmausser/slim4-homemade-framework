@@ -62,12 +62,12 @@ final class NotaController extends Controller
      * `store()` y `update()`. Existe para que esos cuatro caminos compartan la
      * plantilla, el `active`, la paginación y la URL, en un solo lugar.
      *
-     * @param array<string, mixed> $extra  datos del llamador: errores, lo tipeado, el modal a abrir
-     * @param int                  $status estado HTTP de la respuesta; 422 en un rechazo
-     *
      * Con `HX-Request` devuelve sólo el panel: si vuelve la página entera, el
      * swap anida el shell (dos sidebars, dos headers). Emite `HX-Push-Url` sólo
      * en 2xx, porque un 422 no es una página que el usuario haya navegado.
+     *
+     * @param array<string, mixed> $extra  datos del llamador: errores, lo tipeado, el modal a abrir
+     * @param int                  $status estado HTTP de la respuesta; 422 en un rechazo
      */
     private function renderList(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {

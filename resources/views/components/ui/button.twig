@@ -7,9 +7,8 @@
    registro compartido.
 
    `href` elige la etiqueta: con `href` sale un `<a>`, sin `href` un
-   `<button>`. Todos los atributos salen de UN solo bloque compartido: antes
-   cada rama repetía las mismas 13 guardas y se desincronizaban entre sí (el
-   enlace ignoraba `disabled` en silencio, el botón ignoraba `target`).
+   `<button>`. Todos los atributos salen de UN solo bloque compartido, así que
+   el enlace y el botón no pueden aceptar cosas distintas.
 
    Cada prop tiene efecto en la etiqueta que le corresponde: `type`, `name` y
    `value` sólo existen en `<button>` (un enlace no envía formularios) y

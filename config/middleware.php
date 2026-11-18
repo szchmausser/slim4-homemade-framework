@@ -18,29 +18,29 @@ return function (App $app) {
     $debug = Env::bool('APP_DEBUG');
     $isLocal = Env::get('APP_ENV', 'local') === 'local';
 
-    // 6to (el más cercano al controlador): valida el token CSRF
+    // Valida el token CSRF
     $app->add(Guard::class);
 
-    // 5to: parsea form-urlencoded/JSON antes de que Guard lo necesite
+    // Parsea form-urlencoded/JSON antes de que Guard lo necesite
     $app->addBodyParsingMiddleware();
 
-    // 4to: inyecta helpers de ruta a Twig
+    // Inyecta helpers de ruta a Twig
     $app->add(TwigMiddleware::create($app, $container->get(Twig::class)));
 
-    // 3ro: resuelve la ruta solicitada
+    // Resuelve la ruta solicitada
     $app->addRoutingMiddleware();
 
     // Entre sesión y routing: resume remember-me con la sesión ya abierta.
     // En orden de ejecución corre justo después de SessionMiddleware.
     $app->add(RememberMeMiddleware::class);
 
-    // 2do: arranca la sesión nativa para toda la app
+    // Arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);
 
-    // 1ro: captura errores de todas las capas de abajo
+    // Captura errores de todas las capas de abajo
     $errorMiddleware = $app->addErrorMiddleware($debug, true, true);
 
-    // 0ro (el más externo): los headers tienen que ENVOLVER al error middleware,
+    // Los headers tienen que ENVOLVER al error middleware,
     // porque es él quien genera las respuestas 404 y 500 — y esas también
     // necesitan los headers. Como add() es LIFO, lo que se agrega ÚLTIMO es lo
     // más externo: por eso esta línea va aquí abajo y no arriba del todo.

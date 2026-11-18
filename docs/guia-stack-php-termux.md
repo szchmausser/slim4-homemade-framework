@@ -523,9 +523,10 @@ return [
 
     Twig::class => function () {
         $twig = Twig::create(__DIR__ . '/../resources/views', [
-            // Con 'cache' => false, Twig re-parsea cada .twig en cada request.
-            // En un ARM de 32 bits eso se nota. El caché va a disco, así que
-            // remember crear el directorio y agregarlo al .gitignore.
+            // Con 'cache' => false, Twig re-parsea cada .twig en cada request:
+            // en un ARM de 32 bits eso se nota. El caché va a disco;
+            // bootstrap/app.php ya crea el directorio y /storage/cache/ ya está
+            // en .gitignore.
             'cache'       => __DIR__ . '/../storage/cache/twig',
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
@@ -661,9 +662,7 @@ return [
 
                 // Sin htmx no hay toast que escuchar, así que el aviso tiene
                 // que viajar en el flash y aparecer donde el usuario cae: el
-                // login, que es la vista que renderiza `flash_error`. Antes el
-                // redirect era a '/' y sin flash: el usuario perdía lo tipeado
-                // sin enterarse de por qué.
+                // login, que es la vista que renderiza `flash_error`.
                 Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app
@@ -776,29 +775,29 @@ return function (App $app) {
     $debug = Env::bool('APP_DEBUG');
     $isLocal = Env::get('APP_ENV', 'local') === 'local';
 
-    // 6to (el más cercano al controlador): valida el token CSRF
+    // Valida el token CSRF
     $app->add(Guard::class);
 
-    // 5to: parsea form-urlencoded/JSON antes de que Guard lo necesite
+    // Parsea form-urlencoded/JSON antes de que Guard lo necesite
     $app->addBodyParsingMiddleware();
 
-    // 4to: inyecta helpers de ruta a Twig
+    // Inyecta helpers de ruta a Twig
     $app->add(TwigMiddleware::create($app, $container->get(Twig::class)));
 
-    // 3ro: resuelve la ruta solicitada
+    // Resuelve la ruta solicitada
     $app->addRoutingMiddleware();
 
     // Entre sesión y routing: resume remember-me con la sesión ya abierta.
     // En orden de ejecución corre justo después de SessionMiddleware.
     $app->add(RememberMeMiddleware::class);
 
-    // 2do: arranca la sesión nativa para toda la app
+    // Arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);
 
-    // 1ro: captura errores de todas las capas de abajo
+    // Captura errores de todas las capas de abajo
     $errorMiddleware = $app->addErrorMiddleware($debug, true, true);
 
-    // 0ro (el más externo): los headers tienen que ENVOLVER al error middleware,
+    // Los headers tienen que ENVOLVER al error middleware,
     // porque es él quien genera las respuestas 404 y 500 — y esas también
     // necesitan los headers. Como add() es LIFO, lo que se agrega ÚLTIMO es lo
     // más externo: por eso esta línea va aquí abajo y no arriba del todo.
@@ -911,9 +910,7 @@ El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code
     <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
-       de JS de esta página. Antes no estaba: un error salía siempre en claro
-       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
-       excepción del sistema. Sin el script, corregir `data-theme` después del
+       de JS de esta página. Sin el script, corregir `data-theme` después del
        paint mostraría el flash que los otros layouts evitan. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
 
@@ -1742,9 +1739,6 @@ abstract class Controller
             $flash = ['error' => null, 'success' => null, 'info' => null];
         }
 
-        // Opt-in para pantallas que no usan htmx pero quieren el mismo stack
-        // de toasts para el flash de una acción con redirect (p. ej. el CRUD
-        // de contactos). En htmx el canal sigue siendo HX-Trigger-After-Swap.
         $toastItems = [];
         if (!$request->hasHeader('HX-Request') && $this->toastFlash) {
             foreach (self::FLASH_ORDER as $type) {
@@ -2078,10 +2072,10 @@ class TaskController extends Controller
             // y la fila sigue en modo formulario conservando lo tipeado. Un
             // banner con el mismo texto lo diría dos veces, y el canal de
             // avisos queda para lo que no es un campo.
-            // Sin esto el input se repinta con task.title (guardado) y el
-            // usuario pierde lo que escribió justo cuando aparece el error.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
+                // Sin esto el input se repinta con task.title (guardado) y el
+                // usuario pierde lo que escribió justo cuando aparece el error.
                 'editing_title' => $data['title'] ?? '',
                 'errors'        => $validator->errors(),
             ], 422);
@@ -3352,7 +3346,6 @@ El layout que los integra, completo, es `resources/views/layouts/app.twig`:
         {% include 'layouts/parts/sidebar.twig' %}
     {% endblock %}
 
-    {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
         {% block header %}
             {% include 'layouts/parts/topbar.twig' %}
@@ -3363,8 +3356,8 @@ El layout que los integra, completo, es `resources/views/layouts/app.twig`:
         {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
-            {# El flash vive en tasks/_panel.twig, que es la región que HTMX
-               reemplaza en los swaps parciales: aquí no se renderiza. #}
+            {# El flash no se pinta acá: cada pantalla lo renderiza en su región
+               o viaja en HX-Trigger-After-Swap. #}
             {% block content %}{% endblock %}
         </main>
 
@@ -3502,10 +3495,8 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
    `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package|menu|chevrons-left|power|clock. `class` opcional.
 
-   Un solo wrapper `<svg>` y un mapa nombre → contenido interno: antes cada
-   nombre repetía los mismos 8 atributos del wrapper en su propia rama, así que
-   agregar o corregir uno era acordarse de tocarlo 23 veces. El mapa deja una
-   única definición por icono y un wrapper único; el contenido va con `|raw`
+   Un solo wrapper `<svg>` y un mapa nombre → contenido interno: una única
+   definición por icono y un wrapper único; el contenido va con `|raw`
    porque es markup propio del registro, no dato de usuario.
 
    El path del lápiz es el mismo que pinta el formatter de
@@ -3738,7 +3729,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             </p>
         </div>
 
-        {# Franja de características operativas #}
         <div class="border-t border-base-300 bg-base-300 p-6 sm:p-8 lg:px-10 lg:py-7">
             <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">Características operativas</h2>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -3807,7 +3797,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                 </div>
 
                 <div class="grid gap-6 sm:grid-cols-2 lg:gap-8">
-                    {# Backend & Núcleo #}
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-backend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
@@ -3847,7 +3836,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         </dl>
                     </div>
 
-                    {# Frontend & UI #}
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-frontend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
@@ -3879,7 +3867,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         </dl>
                     </div>
 
-                    {# Datos & Persistencia #}
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-datos" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
@@ -3903,7 +3890,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         </dl>
                     </div>
 
-                    {# Calidad & Desarrollo #}
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-desarrollo" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
@@ -3991,7 +3977,6 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                     </div>
                 {% endfor %}
 
-                {# Card Requisitos #}
                 <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">
                     <h3 id="requirements-title" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                         <span class="inline-flex shrink-0" aria-hidden="true">
@@ -4108,7 +4093,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
        vive fuera de #tareas-panel, así que el swap no lo toca y el texto
        quedaría pegado tras crear la tarea. La condición es el STATUS y no
        `event.detail.successful`: un fallo de validación responde 422 y ese 422
-       sí swapea (ver el handler de htmx:beforeSwap en layouts/app.twig), así
+       sí swapea (ver `beforeSwap` en public/assets/app.js), así
        que esa bandera sería true justamente cuando el texto tipeado es lo
        único que el usuario tiene para corregir. El server ya conserva el título
        en el camino de edición (`editing_title`); esto es la otra mitad de la
@@ -4131,8 +4116,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
        TaskController::respond, que siempre pasa pageData). #}
     {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
        submit y usa su atributo, pero sin JS el formulario tiene que poder
-       enviarse solo. Antes solo existia hx-post, asi que un submit nativo hacia
-       GET a la URL actual, recargaba y no creaba nada, sin avisar. #}
+       enviarse solo. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
@@ -4170,7 +4154,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 ```twig
 {# `tabindex="-1"`: marca el panel como destino de foco programático (no
    entra en el orden de tabulación). Es el fallback de `restoreFocusAfterSwap()`
-   en app.twig cuando la acción hizo desaparecer el control que la disparó:
+   en public/assets/app.js cuando la acción hizo desaparecer el control que la disparó:
    borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
    los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
    no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
@@ -4263,7 +4247,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
    esa MISMA clave en el markup recién intercambiado. La clave sale del id de
    la tarea, lo único estable entre un render y el siguiente: el índice de la
    fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
-   del <script> de layouts/app.twig. #}
+   de public/assets/app.js. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
     empty: 'No hay tareas todavía.',
@@ -4404,8 +4388,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             {% endif %}
                         </button>
                         {# `tooltip-estado`: gancho para apagar el x-transition en
-                           "reducir movimiento". El override vive en el
-                           <style> del layout porque Alpine aplica la
+                           "reducir movimiento". El override vive en
+                           pages/tasks/_styles.twig porque Alpine aplica la
                            transición sobre el nodo, y una clase de proyecto
                            es la única forma de apuntarle sin depender de sus
                            atributos internos.
@@ -4675,53 +4659,23 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 `resources/views/components/pagination/simple.twig` (portable: sin ids ni rutas propias, todo por params — `pagination`, `target` obligatorio, `swap`/`show_size` opcionales; así sirve en cualquier ruta sin cambios):
 
 ```twig
-{# Paginación reutilizable (daisyUI + HTMX). Params obligatorios: pagination
-   (ver Pagination::paginate) y target (selector hx-target). Opcionales: swap
-   (default outerHTML) y show_size (default true). Sin ids ni rutas propias:
-   todo sale de los params, así sirve en cualquier ruta sin cambios.
-   Cada <a> lleva `href` ADEMÁS de `hx-get`, y ambos reciben la MISMA URL: un
-   <a> sin href no tiene rol de enlace ni entra en el orden de tabulación, así
-   que con teclado o lector de pantalla las páginas 2+ eran inalcanzables.
-   Las URLs son navegación real, pero htmx sigue interceptando el click cuando
-   está cargado: el href es el fallback, no un segundo camino.
+{# Paginación reutilizable (daisyUI + HTMX).
+   Obligatorios: pagination (ver Pagination::paginate) y target (selector hx-target).
+   Opcionales: swap (default outerHTML), show_size (default true) y label (default «registros»).
 
-   El control de tamaño tenía el problema inverso: sólo `hx-get` +
-   `hx-trigger="change"`, así que sin JS era una pieza muerta al lado de
-   enlaces que sí navegan. Ahora vive dentro de un `<form method="get">` que
-   envía nativo (`per_page` es su único campo) y el submit que lo dispara está
-   en un `<noscript>`: con JS manda htmx, como antes, y no aparece ningún
-   botón de más. El form no envuelve otro form: el componente entero vive dentro
-   de `#tareas-panel`.
+   Cada <a> lleva `href` y `hx-get` con la MISMA URL: sin href no tiene rol de enlace ni entra en el
+   orden de tabulación, así que con teclado o lector de pantalla las páginas 2+ serían inalcanzables.
+   Con JS cargado, htmx intercepta el click: el href es el fallback, no un segundo camino. El control
+   de tamaño vive en un `<form method="get">` con `per_page` como único campo, y el submit sin JS está
+   en un `<noscript>`: con JS manda htmx y no aparece ningún botón de más.
 
-   Composición en móvil, que es donde estaba roto a 390px. Antes todo caía en
-   una columna pegada a la izquierda —contador, y debajo una fila `flex-wrap`
-   con la etiqueta y los controles— sin ritmo entre las piezas ni relación
-   entre el control y la navegación. Ahora son tres líneas centradas con el
-   mismo `gap-3` entre ellas: contador, controles, "Registros por página". El
-   ancho de teléfono es el caso por defecto (`flex-col` sin prefijo) y `sm:`
-   devuelve la fila de escritorio que ya funcionaba: contador a la izquierda,
-   control de tamaño y paginación a la derecha, todo centrado en vertical.
+   La página actual es un `<span>` con `aria-current="page"`, no un `<button>`: no hace nada, y un
+   control enfocable que se anuncia como botón y no responde a Enter es peor que texto. Conserva
+   `tabindex="-1"` y `data-focus-key` para que el foco programático vuelva tras el swap.
 
-   El orden del DOM es el de móvil —controles antes de la etiqueta— para que
-   lo que se ve en el teléfono, lo que se lee y el orden de tabulación sean lo
-   mismo; en escritorio la etiqueta recupera el primer lugar con
-   `sm:order-first`. Se resuelve con utilidades y no duplicando markup porque
-   este componente es uno solo para los dos anchos.
-
-   Los controles son botones independientes, no un `join`: Tabulator separa
-   sus fichas con un gap de 8px y cada una conserva su borde y radio. Un
-   `join` las pegaba y compartía bordes, y rompía esa lectura. Los números
-   llevan `pagination-control--square` para que los glifos no
-   decidan el ancho de la ficha; Primera, Anterior, Siguiente y Última usan
-   texto, como el paginador de Tabulator, porque son acciones de salto. Los
-   controles deshabilitados se siguen leyendo deshabilitados
-   (`pagination-control--disabled` + `disabled`) y la página actual sigue
-   siendo la única con relleno pleno (`pagination-control--active`).
-
-   El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era
-   la forma de pedir prestado lo que el elemento ya significa. La clase
-   `pagination-footer` mantiene la separación, el fondo y el borde del footer
-   de Tabulator. #}
+   Sin `join`: Tabulator separa sus fichas con un gap de 8px y cada una conserva su borde y radio.
+   El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era la forma de pedir
+   prestado lo que el elemento ya significa. #}
 {% if pagination.total > 0 %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
@@ -4729,31 +4683,16 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
-        {# Bordes y estado actual de la paginación. Los enlaces llevaban el
-           mismo fondo que la página y un borde de ~1.1:1, así que los números
-           se leían como texto suelto; `btn-outline` les da un contorno que
-           existe en los dos temas. La página actual era `btn-active` (un gris
-           pálido de relleno): indistinguible de una flecha deshabilitada, es
-           decir, no se podía saber dónde se está parado. `btn-primary` la
-           vuelve la única ficha con relleno de color pleno contra `base-100`,
-           distinta de los enlaces (contorno, sin relleno) y de las flechas
-           deshabilitadas (fondo base, sin contorno), en claro y en oscuro.
-
-           La pagina actual es un `<span>` y no un `<button>`: no hace nada,
-           y un control enfocable que se anuncia como boton y no responde a
-           Enter es peor que texto. Conserva las mismas clases y
-           `aria-current="page"`, que es lo que la identifica como el lugar
-           donde se esta parado. Todo lo demas sigue siendo accionable. #}
+        {# Contorno en los enlaces y relleno pleno en la página actual
+           (`pagination-control` y `--active`): se distinguen entre sí y de las
+           flechas deshabilitadas, en claro y en oscuro. #}
         {% if show_size|default(true) %}
-        {# Etiqueta visible, no sólo `aria-label`: el texto dice qué controla el
+        {# Etiqueta visible y no sólo `aria-label`: el texto dice qué controla el
            select sin depender de que el lector de pantalla lo anuncie, y el
            nombre accesible queda idéntico para no anunciar dos cosas distintas.
-           No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta (~4.4:1
-           sobre base-200, bajo AA para 14px) y ese color lo heredaría el select.
-           El mismo tono del contador de arriba, con `opacity-70` sólo en el
-           texto, da ~6:1 y deja el select a tinta plena.
-           Va antes de los controles en el DOM y en la pantalla, como el
-           selector de Tabulator; en móvil conserva ese orden. #}
+           No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta y ese
+           color lo heredaría el select; `.pagination-label` usa el 75 %, el
+           mismo tono del contador, y deja el select a tinta plena. #}
         <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
             <label class="flex items-center gap-2">
                 <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
@@ -5193,9 +5132,8 @@ use Symfony\Component\Console\Output\NullOutput;
 
 // Los tests corren contra un SQLite real, no contra :memory:. Asi el esquema
 // lo define Phinx (las mismas migraciones que usa la app): si una migracion
-// se rompe, pierde una FK o diverge del modelo, la suite lo ve. Un :memory:
-// propio por conexion obligaba a duplicar el esquema a mano, justo lo que
-// este cambio elimina. El archivo es unico por proceso: dos `composer verify`
+// se rompe, pierde una FK o diverge del modelo, la suite lo ve. El archivo es
+// unico por proceso: dos `composer verify`
 // en paralelo ya no comparten phinxlog ni se pisan las tablas.
 $db = dirname(__DIR__) . '/storage/cache/tests/app-'
     . getmypid() . '-' . bin2hex(random_bytes(4)) . '.sqlite';
@@ -7140,9 +7078,7 @@ Causa: `composer require respect/validation` sin el `^2.0`. Corrige el `require`
     <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
 
     {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
-       de JS de esta página. Antes no estaba: un error salía siempre en claro
-       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
-       excepción del sistema. Sin el script, corregir `data-theme` después del
+       de JS de esta página. Sin el script, corregir `data-theme` después del
        paint mostraría el flash que los otros layouts evitan. #}
     <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
 
