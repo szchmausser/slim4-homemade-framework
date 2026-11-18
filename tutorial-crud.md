@@ -463,6 +463,10 @@ entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notas`, que responde el texto de prueba del paso anterior.
 
+Si tu ventana es angosta —por debajo del breakpoint `lg`— el sidebar está colapsado detrás del botón
+☰ del header: ábrelo y ahí está la entrada. Las capturas están a ancho de escritorio justamente para
+que el menú se vea.
+
 **Falla si**:
 
 - No aparece: falta el directorio `config/navigation/`, el archivo no termina en `.php`, o le falta
@@ -493,7 +497,11 @@ entidad es dejar su archivo; quitarla es borrarlo.
 > tarjeta en la portada) y el nombre del demo, y la portada la lista con su estado *Instalado* u
 > *Opcional*. Para una entidad de tu app alcanza con `label`, `href`, `icon`, `key` y `position`.
 
-![El menú lateral ya ofrece «Notas»](tutorial-crud-images/04-2-menu.png)
+Las dos capturas, antes y después de crear el archivo:
+
+![Antes: el menú lateral sólo tiene «Inicio»](tutorial-crud-images/04-2-menu-sin-notas.png)
+
+![Después: «Notas» aparece debajo de «Inicio»](tutorial-crud-images/04-2-menu-con-notas.png)
 
 ---
 
