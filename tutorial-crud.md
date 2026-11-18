@@ -989,18 +989,13 @@ queda al final, dentro del mismo `card-body`.
   portada aunque estés en `/notas`. Con dos migas pinta la ruta y marca la última con
   `aria-current="page"`.
 
-Agrega también `use Framework\Http\Url;`, que necesitas para el `href`.
-
 ```php
     public function index(Request $request, Response $response): Response
     {
         return $this->render($request, $response, 'pages/notas/index.twig', [
             'notas'       => Nota::orderByDesc('id')->get(),
             'active'      => 'notas',
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ]);
     }
 ```
@@ -2768,22 +2763,16 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
 ```php
     private function pageData(Request $request): array
     {
-        $query = $request->getQueryParams();
-
-        $paginacion = Pagination::paginate(
+        $paginacion = Pagination::fromRequest(
             Nota::orderByDesc('id'),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            $request,
             Url::path('/notas')
         );
 
         return [
             'notas'       => $paginacion['items'],
             'pagination'  => $paginacion,
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ];
     }
 ```

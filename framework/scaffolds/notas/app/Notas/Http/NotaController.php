@@ -33,12 +33,9 @@ final class NotaController extends Controller
      */
     private function pageData(Request $request): array
     {
-        $query = $request->getQueryParams();
-
-        $paginacion = Pagination::paginate(
+        $paginacion = Pagination::fromRequest(
             Nota::orderByDesc('id'),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            $request,
             Url::path('/notas')
         );
 
@@ -48,10 +45,7 @@ final class NotaController extends Controller
             // La miga la lee el header del shell: Inicio como enlace y Notas
             // como página actual. Sin esto el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Notas', 'icon' => 'list', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ];
     }
 

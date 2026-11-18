@@ -17,13 +17,18 @@ use Slim\Views\Twig;
 use Twig\Loader\ArrayLoader;
 
 /**
- * Contrato de `Controller::viewDefaults()`.
+ * Contrato de `Controller::viewDefaults()` y de las migas de pan.
  *
- * Es el punto de extensión por el que un controlador agrega variables a todas
- * sus vistas sin reescribir `render()` ni repetir `$extra` en cada acción. El
- * repo no lo sobrescribe en ningún lado, así que este test es lo que garantiza
- * que el hook funciona y que el orden de precedencia es el que dice el
- * docblock: `$extra` gana sobre `viewDefaults()`.
+ * `viewDefaults()` es el punto de extensión por el que un controlador agrega
+ * variables a todas sus vistas sin reescribir `render()` ni repetir `$extra` en
+ * cada acción. El repo no lo sobrescribe en ningún lado, así que este test es lo
+ * que garantiza que el hook funciona y que el orden de precedencia es el que
+ * dice el docblock: `$extra` gana sobre `viewDefaults()`.
+ *
+ * `breadcrumbs()`/`breadcrumbsFor()` son las dos formas que el shell sabe
+ * pintar (dos migas y tres migas). La forma importa: la clave `icon` viaja sólo
+ * cuando hay icono (una miga con `icon => null` pinta un hueco) y `current` sólo
+ * en la última.
  */
 final class ControllerViewDefaultsTest extends TestCase
 {
@@ -40,16 +45,45 @@ final class ControllerViewDefaultsTest extends TestCase
         self::assertStringNotContainsString('marca:Notas', $html);
     }
 
+    public function test_breadcrumbs_arma_dos_migas_con_icono(): void
+    {
+        self::assertSame([
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => 'Notas', 'icon' => 'list', 'current' => true],
+        ], self::controlador()->migasParaTest('Notas', 'list'));
+    }
+
+    public function test_breadcrumbs_sin_icono_no_incluye_la_clave(): void
+    {
+        $crumbs = self::controlador()->migasParaTest('Notas');
+
+        self::assertCount(2, $crumbs);
+        self::assertSame('Notas', $crumbs[1]['label']);
+        self::assertTrue($crumbs[1]['current']);
+        self::assertArrayNotHasKey('icon', $crumbs[1]);
+    }
+
+    public function test_breadcrumbs_for_arma_tres_migas_con_la_ultima_actual(): void
+    {
+        self::assertSame([
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => 'Contactos', 'href' => '/contactos'],
+            ['label' => 'Editar', 'current' => true],
+        ], self::controlador()->migasForParaTest('Contactos', '/contactos', 'Editar'));
+    }
+
     /**
-     * @param array<string, mixed> $extra
+     * Doble de `Controller`: hereda la base y publica los helpers protegidos.
+     * El tipo nativo es la base; los métodos `*ParaTest` existen sólo en el
+     * doble y se resuelven en runtime (tests/ queda fuera del alcance de PHPStan).
      */
-    private static function renderizar(array $extra): string
+    private static function controlador(): Controller
     {
         $twig = new Twig(new ArrayLoader([
             'fixture.twig' => 'marca:{{ marca }}|usuario:{{ user_id is defined ? user_id : "sin-sesion" }}',
         ]));
 
-        $controlador = new class ($twig, new Guard(new ResponseFactory())) extends Controller {
+        return new class ($twig, new Guard(new ResponseFactory())) extends Controller {
             /**
              * @param array<string, mixed> $extra
              */
@@ -58,15 +92,39 @@ final class ControllerViewDefaultsTest extends TestCase
                 return $this->render($request, $response, 'fixture.twig', $extra);
             }
 
+            /**
+             * @return array<int, array<string, mixed>>
+             */
+            public function migasParaTest(string $label, ?string $icon = null): array
+            {
+                return $this->breadcrumbs($label, $icon);
+            }
+
+            /**
+             * @return array<int, array<string, mixed>>
+             */
+            public function migasForParaTest(string $label, string $href, string $action): array
+            {
+                return $this->breadcrumbsFor($label, $href, $action);
+            }
+
             /** @return array<string, mixed> */
             protected function viewDefaults(): array
             {
                 return ['marca' => 'Notas'];
             }
         };
+    }
 
+    /**
+     * @param array<string, mixed> $extra
+     */
+    private static function renderizar(array $extra): string
+    {
         $request = (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/fixture');
 
-        return (string) $controlador->renderParaTest($request, new SlimResponse(), $extra)->getBody();
+        return (string) self::controlador()
+            ->renderParaTest($request, new SlimResponse(), $extra)
+            ->getBody();
     }
 }

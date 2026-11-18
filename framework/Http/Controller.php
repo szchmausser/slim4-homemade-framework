@@ -97,6 +97,56 @@ abstract class Controller
     }
 
     /**
+     * Dos migas: Inicio y la pantalla actual.
+     *
+     * La forma la lee el header del shell (`{label, href?, icon?, current?}`):
+     * `icon` viaja sólo cuando hay icono —una miga con `icon => null` pinta un
+     * hueco— y `current` marca la última para que se pinte como texto y no como
+     * enlace.
+     *
+     * @param string      $label texto de la pantalla, sin prefijo de marca
+     * @param string|null $icon  nombre del icono; null cuando la pantalla no lleva
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function breadcrumbs(string $label, ?string $icon = null): array
+    {
+        $current = ['label' => $label];
+
+        if ($icon !== null) {
+            $current['icon'] = $icon;
+        }
+
+        $current['current'] = true;
+
+        return [
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            $current,
+        ];
+    }
+
+    /**
+     * Tres migas: Inicio, el listado padre y la acción actual.
+     *
+     * El `href` entra tal cual: el llamador decide si es un `Url::path()` o una
+     * URL propia, igual que hacía a mano. Se separó de breadcrumbs() en vez de
+     * agregarle parámetros opcionales porque las dos formas se leen distintas y
+     * con tres argumentos posicionales una llamada no dice cuál se está armando.
+     *
+     * @param string $href destino del listado padre, ya resuelto con Url::path()
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function breadcrumbsFor(string $label, string $href, string $action): array
+    {
+        return [
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => $label, 'href' => $href],
+            ['label' => $action, 'current' => true],
+        ];
+    }
+
+    /**
      * Emite los avisos de una acción htmx como evento `toasts`.
      *
      * - `After-Swap` y no `HX-Trigger` a secas: en un ARM de 32 bits el swap

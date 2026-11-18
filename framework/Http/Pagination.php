@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Framework\Http;
 
 use Illuminate\Database\Eloquent\Builder;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
@@ -49,6 +50,30 @@ final class Pagination
             // mantenga su propia copia de la lista.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
+    }
+
+    /**
+     * Pagina leyendo `page` y `per_page` del query string.
+     *
+     * Es exactamente la lectura que repetían los controladores de listado:
+     * `page` ausente vale 1, `per_page` ausente vale DEFAULT_PER_PAGE y todo lo
+     * demás lo decide paginate(). Delegar acá y no copiar el cálculo evita que
+     * el recorte y los defaults se desincronicen entre pantallas.
+     *
+     * @param string $baseUrl destino de la paginación, ya resuelto con Url::path()
+     *
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     */
+    public static function fromRequest(Builder $query, ServerRequestInterface $request, string $baseUrl): array
+    {
+        $params = $request->getQueryParams();
+
+        return self::paginate(
+            $query,
+            (int) ($params['page'] ?? 1),
+            (int) ($params['per_page'] ?? self::DEFAULT_PER_PAGE),
+            $baseUrl
+        );
     }
 
     public static function clampPerPage(mixed $value): int

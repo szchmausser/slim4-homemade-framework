@@ -25,12 +25,9 @@ class TaskController extends Controller
      */
     private function pageData(Request $request): array
     {
-        $query = $request->getQueryParams();
-
-        $listing = Pagination::paginate(
+        $listing = Pagination::fromRequest(
             Task::orderByDesc('id'),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            $request,
             // Con el prefijo ya aplicado: base_url es la fuente de la
             // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
             // de más abajo, así que las tres heredan el prefijo sin saberlo.
@@ -75,10 +72,7 @@ class TaskController extends Controller
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
         $data = $this->pageData($request) + $extra + [
             'active' => 'tareas',
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Tareas', 'icon' => 'tasks', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
         $response = $this->render(

@@ -167,17 +167,16 @@ final class ContactController extends Controller
      * el orden resueltos en el servidor.
      *
      * La página y el tamaño se leen con los nombres que ya usa el resto de la
-     * app (`page`, `per_page`) y se delegan a Pagination::paginate, que cuenta,
-     * clampea y recorta.
+     * app (`page`, `per_page`) y se delegan a Pagination::fromRequest, que
+     * pagina con count + slice y aplica el clamp de siempre.
      */
     public function data(Request $request, Response $response): Response
     {
         $query = $request->getQueryParams();
 
-        $listing = Pagination::paginate(
+        $listing = Pagination::fromRequest(
             $this->sortedContacts($query['sort'] ?? null),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            $request,
             Url::path('/contactos/datos')
         );
 
@@ -257,10 +256,7 @@ final class ContactController extends Controller
     {
         $response = $this->render($request, $response, 'pages/contacts/index.twig', [
             'active' => 'contacts',
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Contactos', 'icon' => 'contacts', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Contactos', 'contacts'),
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);
@@ -283,11 +279,7 @@ final class ContactController extends Controller
         $response = $this->render($request, $response, 'pages/contacts/edit.twig', [
             'active' => 'contacts',
             'contact' => $contact,
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Contactos', 'href' => Url::path('/contactos')],
-                ['label' => 'Editar', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbsFor('Contactos', Url::path('/contactos'), 'Editar'),
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);

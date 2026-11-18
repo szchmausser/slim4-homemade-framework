@@ -1778,6 +1778,56 @@ abstract class Controller
     }
 
     /**
+     * Dos migas: Inicio y la pantalla actual.
+     *
+     * La forma la lee el header del shell (`{label, href?, icon?, current?}`):
+     * `icon` viaja sólo cuando hay icono —una miga con `icon => null` pinta un
+     * hueco— y `current` marca la última para que se pinte como texto y no como
+     * enlace.
+     *
+     * @param string      $label texto de la pantalla, sin prefijo de marca
+     * @param string|null $icon  nombre del icono; null cuando la pantalla no lleva
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function breadcrumbs(string $label, ?string $icon = null): array
+    {
+        $current = ['label' => $label];
+
+        if ($icon !== null) {
+            $current['icon'] = $icon;
+        }
+
+        $current['current'] = true;
+
+        return [
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            $current,
+        ];
+    }
+
+    /**
+     * Tres migas: Inicio, el listado padre y la acción actual.
+     *
+     * El `href` entra tal cual: el llamador decide si es un `Url::path()` o una
+     * URL propia, igual que hacía a mano. Se separó de breadcrumbs() en vez de
+     * agregarle parámetros opcionales porque las dos formas se leen distintas y
+     * con tres argumentos posicionales una llamada no dice cuál se está armando.
+     *
+     * @param string $href destino del listado padre, ya resuelto con Url::path()
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function breadcrumbsFor(string $label, string $href, string $action): array
+    {
+        return [
+            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => $label, 'href' => $href],
+            ['label' => $action, 'current' => true],
+        ];
+    }
+
+    /**
      * Emite los avisos de una acción htmx como evento `toasts`.
      *
      * - `After-Swap` y no `HX-Trigger` a secas: en un ARM de 32 bits el swap
@@ -1868,12 +1918,9 @@ class TaskController extends Controller
      */
     private function pageData(Request $request): array
     {
-        $query = $request->getQueryParams();
-
-        $listing = Pagination::paginate(
+        $listing = Pagination::fromRequest(
             Task::orderByDesc('id'),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
+            $request,
             // Con el prefijo ya aplicado: base_url es la fuente de la
             // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
             // de más abajo, así que las tres heredan el prefijo sin saberlo.
@@ -1918,10 +1965,7 @@ class TaskController extends Controller
         // puede pisar `tasks`/`pagination` (ni el header de abajo).
         $data = $this->pageData($request) + $extra + [
             'active' => 'tareas',
-            'breadcrumbs' => [
-                ['label' => 'Inicio', 'href' => Url::path('/')],
-                ['label' => 'Tareas', 'icon' => 'tasks', 'current' => true],
-            ],
+            'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
         $response = $this->render(
@@ -4557,6 +4601,7 @@ declare(strict_types=1);
 namespace Framework\Http;
 
 use Illuminate\Database\Eloquent\Builder;
+use Psr\Http\Message\ServerRequestInterface;
 
 /**
  * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
@@ -4601,6 +4646,30 @@ final class Pagination
             // mantenga su propia copia de la lista.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
+    }
+
+    /**
+     * Pagina leyendo `page` y `per_page` del query string.
+     *
+     * Es exactamente la lectura que repetían los controladores de listado:
+     * `page` ausente vale 1, `per_page` ausente vale DEFAULT_PER_PAGE y todo lo
+     * demás lo decide paginate(). Delegar acá y no copiar el cálculo evita que
+     * el recorte y los defaults se desincronicen entre pantallas.
+     *
+     * @param string $baseUrl destino de la paginación, ya resuelto con Url::path()
+     *
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     */
+    public static function fromRequest(Builder $query, ServerRequestInterface $request, string $baseUrl): array
+    {
+        $params = $request->getQueryParams();
+
+        return self::paginate(
+            $query,
+            (int) ($params['page'] ?? 1),
+            (int) ($params['per_page'] ?? self::DEFAULT_PER_PAGE),
+            $baseUrl
+        );
     }
 
     public static function clampPerPage(mixed $value): int
