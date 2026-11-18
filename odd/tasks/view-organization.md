@@ -59,13 +59,12 @@ su feature (`pages/notas/_panel.twig`). Los componentes nunca llevan guion bajo.
 
 ## Tasks
 
-- **T1** — Ficha, inventario y reglas escritas (S1, S2, S5).
-- **T2** — Mover el framework: shell, átomos, csrf, pantallas; renombrar `topbar`; actualizar includes,
-  rutas, manejador de errores y tests de contrato (S1, S2).
-- **T3** — Guardarraíl: test de estructura de vistas (S2).
-- **T4** — Demos: vistas, controladores, rutas internas y mapeo del instalador (S3).
-- **T5** — Tutorial: rutas de archivos, fragmentos de código y figura de capítulo 14 (S4).
-- **T6** — `DESIGN.md`, `CHANGELOG`, docs copiadas y verificación completa (S1, S5).
+- **T1** — Ficha, inventario y reglas escritas (S1, S2, S5). Hecho.
+- **T2** — Mover el framework (S1, S2). Hecho: `1793992`.
+- **T3** — Guardarraíl: test de estructura de vistas (S2). Hecho: `ViewStructureTest`, 6 casos.
+- **T4** — Demos (S3). Hecho: `d50d6ba`; notas 11 tests, contactos 25, tareas 52.
+- **T5** — Tutorial (S4). Hecho: `296ef4f`.
+- **T6** — `DESIGN.md`, `CHANGELOG`, docs copiadas y verificación (S1, S5). Hecho: 169 tests.
 
 ## Log
 
@@ -86,3 +85,6 @@ su feature (`pages/notas/_panel.twig`). Los componentes nunca llevan guion bajo.
   asegurarte que el tutorial […] siga esa convencion».
 - **L3**: inventario — 22 archivos en `resources/views`; `_icon` es la pieza más usada (29 includes);
   10 `class="btn` fuera de `components/` (home ×3, login, error, topbar ×2, sidebar, toasts).
+
+- **L4**: cierre — framework, demos, tutorial y docs alineados en tres commits sobre
+  `feat/view-organization`. Push y merge quedan a decisión del usuario.
