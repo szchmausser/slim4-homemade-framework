@@ -123,7 +123,7 @@ if ($command === 'install') {
         foreach ($conflicts as $relative) {
             fwrite(STDERR, "  - {$relative}" . PHP_EOL);
         }
-        fwrite(STDERR, "Usa --force para sobrescribirlos o composer {$commandPrefix}:remove primero." . PHP_EOL);
+        fwrite(STDERR, "Usa `composer {$commandPrefix}:install -- --force` para sobrescribirlos, o `composer {$commandPrefix}:remove` primero." . PHP_EOL);
         exit(1);
     }
 
@@ -218,7 +218,7 @@ if (!$noFiles) {
         foreach ($edited as $relative) {
             fwrite(STDERR, "  - {$relative}" . PHP_EOL);
         }
-        fwrite(STDERR, "Usa --force para respaldarlos y borrarlos, o --no-files para tocar solo la DB." . PHP_EOL);
+        fwrite(STDERR, "Usa `composer {$commandPrefix}:remove -- --force` para respaldarlos y borrarlos, o `--no-files` para tocar solo la DB." . PHP_EOL);
         exit(1);
     }
 }
@@ -237,11 +237,11 @@ if (!$noFiles) {
     $removed = removeDemoFiles($root, $files, $force, $name);
     // Sin esto quedan plantillas compiladas de vistas que ya no existen.
     clearTwigCache($root);
-}
-if ($removed === 0) {
-    echo "No había archivos del scaffold {$name} instalados.\n";
-} else {
-    echo "Scaffold {$name} removido ({$removed} archivos).\n";
+    if ($removed === 0) {
+        echo "No había archivos del scaffold {$name} instalados.\n";
+    } else {
+        echo "Scaffold {$name} removido ({$removed} archivos).\n";
+    }
 }
 
 if ($noDb) {
