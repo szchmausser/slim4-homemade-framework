@@ -5,6 +5,16 @@ Versionado semántico mientras el proyecto esté en `0.x`.
 
 ## [Unreleased]
 
+### Incluido
+
+- `components/ui/button.twig` acepta `icon_position: 'end'`; `components/form/field.twig` acepta
+  `icon`, `icon_class`, `wrap_class` y `autofocus`. Los cinco CTA de página y los dos campos del login
+  usan los componentes en vez de reescribir su markup.
+- `components/ui/icon.twig` suma `menu`, `chevrons-left`, `power` y `clock`, y su wrapper declara
+  `aria-hidden`: el icono es decorativo y el nombre lo lleva el control.
+- `tests/Support/ViewComponentsTest.php`: una vista no escribe botones, campos, diálogos ni svg a mano.
+  Las excepciones del chrome están declaradas en el test y en `DESIGN.md`.
+
 ### Cambiado
 
 - `resources/views` reorganizado por rol: `layouts/` con sus fragmentos en `parts/`, `components/<familia>/`

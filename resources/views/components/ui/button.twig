@@ -1,7 +1,7 @@
 {# Botón/enlace estándar sobre daisyUI.
    Props: label, variant (primary|ghost|outline|error), size (xs|sm|md|lg),
    href, type, data_modal_open, data_modal_close, icon, icon_class, aria_label, title, name, value,
-   disabled, target, extra_class. También acepta atributos HTMX opcionales
+   disabled, target, extra_class, icon_position ('start'|'end'). También acepta atributos HTMX opcionales
    (hx_get, hx_post, hx_put, hx_delete, hx_target, hx_swap, hx_headers,
    hx_include) y data_focus_key. El texto se escapa; los iconos salen del
    registro compartido.
@@ -34,6 +34,7 @@
 {% set icon_markup %}{% if icon is defined and icon %}{% include 'components/ui/icon.twig' with { name: icon, class: icon_class|default('h-4 w-4') } %}{% endif %}{% endset %}
 {% set is_link = href is defined and href %}
 {% set is_disabled = disabled|default(false) %}
+{% set icon_first = icon_position|default('start') == 'start' %}
     <{{ is_link ? 'a' : 'button' }}{% if is_link and not is_disabled %} href="{{ href }}"{% endif %}{% if not is_link %} type="{{ type|default('button') }}"{% endif %}{% if is_link and is_disabled %} aria-disabled="true" tabindex="-1"{% endif %}
             class="{{ classes }}"
             {% if not is_link and name is defined %}name="{{ name }}"{% endif %}
@@ -53,6 +54,7 @@
             {% if hx_headers is defined %}hx-headers="{{ hx_headers }}"{% endif %}
             {% if hx_include is defined %}hx-include="{{ hx_include }}"{% endif %}
             {% if not is_link and is_disabled %}disabled{% endif %}>
-        {{ icon_markup }}
+        {% if icon_first %}{{ icon_markup }}{% endif %}
         {% if label is defined and label %}<span>{{ label }}</span>{% endif %}
+        {% if not icon_first %}{{ icon_markup }}{% endif %}
     </{{ is_link ? 'a' : 'button' }}>

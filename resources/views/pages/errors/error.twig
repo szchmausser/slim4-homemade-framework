@@ -78,7 +78,11 @@
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
                     <h1 class="error-title">{{ mensaje }}</h1>
-                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Volver al inicio',
+                        href: url('/'),
+                        extra_class: 'btn-block'
+                    } only %}
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
-   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package. `class` opcional.
+   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package|menu|chevrons-left|power|clock. `class` opcional.
 
    Un solo wrapper `<svg>` y un mapa nombre → contenido interno: antes cada
    nombre repetía los mismos 8 atributos del wrapper en su propia rama, así que
@@ -20,6 +20,10 @@
     'arrow-right': '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
     'arrow-left': '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
     'check': '<path d="m20 6-11 11-5-5"/>',
+    'menu': '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+    'chevrons-left': '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>',
+    'power': '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>',
+    'clock': '<circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/>',
     'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     'rotate': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     'list': '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
@@ -37,7 +41,7 @@
     'package': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>'
 } %}
 {% if name is defined and icons[name] is defined %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}">{{ icons[name]|raw }}</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}" aria-hidden="true">{{ icons[name]|raw }}</svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee

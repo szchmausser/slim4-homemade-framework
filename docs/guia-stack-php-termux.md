@@ -979,7 +979,11 @@ El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
                     <h1 class="error-title">{{ mensaje }}</h1>
-                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Volver al inicio',
+                        href: url('/'),
+                        extra_class: 'btn-block'
+                    } only %}
                 </div>
             </div>
         </div>
@@ -3506,7 +3510,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
    fuente para que el mismo nombre renderice EL MISMO svg en toda la app.
-   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package. `class` opcional.
+   `name`: home|tasks|contacts|mail|lock|arrow-right|arrow-left|alert-circle|info|plus|pencil|trash|check-circle|check|x|rotate|list|layers|server|monitor|database|wrench|package|menu|chevrons-left|power|clock. `class` opcional.
 
    Un solo wrapper `<svg>` y un mapa nombre → contenido interno: antes cada
    nombre repetía los mismos 8 atributos del wrapper en su propia rama, así que
@@ -3526,6 +3530,10 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
     'arrow-right': '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
     'arrow-left': '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
     'check': '<path d="m20 6-11 11-5-5"/>',
+    'menu': '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+    'chevrons-left': '<polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/>',
+    'power': '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/>',
+    'clock': '<circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/>',
     'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     'rotate': '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
     'list': '<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>',
@@ -3543,7 +3551,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
     'package': '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>'
 } %}
 {% if name is defined and icons[name] is defined %}
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}">{{ icons[name]|raw }}</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="{{ class|default('h-5 w-5 shrink-0') }}" aria-hidden="true">{{ icons[name]|raw }}</svg>
 {% else %}
 {# Nombre desconocido: NO se renderiza nada. Antes esta rama caía a la casa, y
    un icono equivocado que parece válido es peor que un hueco: el typo se lee
@@ -3613,53 +3621,48 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                        quedaban sin nombre accesible. `.fieldset-legend` es un
                        selector de clase (no `legend.fieldset-legend`), así que el
                        formato es el mismo. #}
-                    <fieldset class="fieldset">
-                        <label class="fieldset-legend" for="login-email">Email</label>
-                        <div class="login-field">
-                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'components/ui/icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
-                            </span>
-                            <input id="login-email" type="email" name="email" required autocomplete="username"
-                                   value="{{ email|default('') }}"
-                                   {% if email_error %}aria-invalid="true" aria-describedby="login-email-error"{% endif %}
-                                   placeholder="tu@ejemplo.com"
-                                   class="input login-input h-11 w-full pl-10">
-                        </div>
-                        {# El mensaje va FUERA de `.login-field`: ese div es el
-                           contenedor `relative` del icono y `inset-y-0` lo
-                           estira a todo el alto, asi que un <p> adentro lo
-                           bajaría del centro del input. #}
-                        {% if email_error %}
-                            <p id="login-email-error" class="text-error text-sm" role="alert">{{ email_error }}</p>
-                        {% endif %}
-                    </fieldset>
-                    <fieldset class="fieldset">
-                        <label class="fieldset-legend" for="login-password">Clave</label>
-                        <div class="login-field">
-                            <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'components/ui/icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
-                            </span>
-                            <input id="login-password" type="password" name="password" required autocomplete="current-password"
-                                   {% if password_error %}aria-invalid="true" aria-describedby="login-password-error"{% endif %}
-                                   placeholder="••••••••"
-                                   class="input login-input h-11 w-full pl-10">
-                        </div>
-                        {% if password_error %}
-                            <p id="login-password-error" class="text-error text-sm" role="alert">{{ password_error }}</p>
-                        {% endif %}
-                    </fieldset>
+                    {% include 'components/form/field.twig' with {
+                        name: 'email',
+                        id: 'login-email',
+                        label: 'Email',
+                        type: 'email',
+                        value: email|default(''),
+                        required: true,
+                        autocomplete: 'username',
+                        placeholder: 'tu@ejemplo.com',
+                        icon: 'mail',
+                        wrap_class: 'login-field',
+                        icon_class: 'login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3',
+                        input_class: 'input login-input h-11 w-full pl-10',
+                        error: email_error|default(null)
+                    } only %}
+                    {% include 'components/form/field.twig' with {
+                        name: 'password',
+                        id: 'login-password',
+                        label: 'Clave',
+                        type: 'password',
+                        required: true,
+                        autocomplete: 'current-password',
+                        placeholder: '••••••••',
+                        icon: 'lock',
+                        wrap_class: 'login-field',
+                        icon_class: 'login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3',
+                        input_class: 'input login-input h-11 w-full pl-10',
+                        error: password_error|default(null)
+                    } only %}
                     <label class="label login-remember cursor-pointer justify-start gap-2.5 text-sm">
                         <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
                         {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
                            el formato de la fila lo da el `label` de afuera. #}
                         <span>Recordarme 30 días</span>
                     </label>
-                    <button type="submit" class="btn btn-primary w-full gap-2">
-                        <span>Entrar</span>
-                        <span aria-hidden="true">
-                            {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                        </span>
-                    </button>
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Entrar',
+                        type: 'submit',
+                        icon: 'arrow-right',
+                        icon_position: 'end',
+                        extra_class: 'w-full'
+                    } only %}
                 </form>
             </div>
         </div>
@@ -3713,24 +3716,24 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                 </div>
                 {% if not user_id %}
                     <div>
-                        <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
-                            <span>Ingresar</span>
-                            <span aria-hidden="true">
-                                {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                            </span>
-                        </a>
+                        {% include 'components/ui/button.twig' with {
+                            label: 'Ingresar',
+                            href: url('/login'),
+                            icon: 'arrow-right',
+                            icon_position: 'end'
+                        } only %}
                     </div>
                 {% else %}
                     {% set instalados = demo_modules|filter(m => m.installed) %}
                     {% if instalados is not empty %}
                         <div class="flex flex-wrap gap-2">
                             {% for module in instalados %}
-                                <a href="{{ url(module.href) }}" class="btn btn-primary gap-2">
-                                    <span>Abrir {{ module.label|lower }}</span>
-                                    <span aria-hidden="true">
-                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                    </span>
-                                </a>
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Abrir ' ~ (module.label|lower),
+                                    href: url(module.href),
+                                    icon: 'arrow-right',
+                                    icon_position: 'end'
+                                } only %}
                             {% endfor %}
                         </div>
                     {% endif %}
@@ -3976,12 +3979,14 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 
                         {% if module.installed %}
                             <div class="pt-1">
-                                <a href="{{ url(module.href) }}" class="btn btn-primary btn-sm w-full gap-2">
-                                    <span>Abrir {{ module.label|lower }}</span>
-                                    <span aria-hidden="true">
-                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
-                                    </span>
-                                </a>
+                                {% include 'components/ui/button.twig' with {
+                                    label: 'Abrir ' ~ (module.label|lower),
+                                    href: url(module.href),
+                                    icon: 'arrow-right',
+                                    icon_position: 'end',
+                                    size: 'sm',
+                                    extra_class: 'w-full'
+                                } only %}
                             </div>
                             <div class="border-t border-base-300 pt-3">
                                 <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
@@ -4403,9 +4408,9 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                                 :aria-expanded="open ? 'true' : 'false'"
                                 aria-label="{{ estado_texto }}">
                             {% if task.status == 'completado' %}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-success" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                                {% include 'components/ui/icon.twig' with {name: 'tasks', class: 'h-5 w-5 icon-success'} %}
                             {% else %}
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 icon-pending" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 12 12 17 16 15"/></svg>
+                                {% include 'components/ui/icon.twig' with {name: 'clock', class: 'h-5 w-5 icon-pending'} %}
                             {% endif %}
                         </button>
                         {# `tooltip-estado`: gancho para apagar el x-transition en
@@ -7215,7 +7220,11 @@ Causa: `composer require respect/validation` sin el `^2.0`. Corrige el `require`
                 <div class="card-body error-body">
                     <span class="badge badge-neutral">Error {{ code }}</span>
                     <h1 class="error-title">{{ mensaje }}</h1>
-                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
+                    {% include 'components/ui/button.twig' with {
+                        label: 'Volver al inicio',
+                        href: url('/'),
+                        extra_class: 'btn-block'
+                    } only %}
                 </div>
             </div>
         </div>

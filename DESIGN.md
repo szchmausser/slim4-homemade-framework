@@ -69,7 +69,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 
 ### Componentes reutilizables
 
-- `components/ui/button.twig`: botón o enlace con `label`, `variant`, `size`, `icon`, `icon_class`, `href`, `type`, `name`, `value`, `title`, `aria_label`, `disabled`, `target`, `extra_class`, `data_modal_open`, `data_modal_close` y atributos HTMX/`data-focus-key` opcionales. Con `href` emite `<a>`; sin `href`, `<button>`. No emite `onclick`: abrir o cerrar un diálogo se pide con `data_modal_open`/`data_modal_close`, que resuelve el shell.
+- `components/ui/button.twig`: botón o enlace con `label`, `variant`, `size`, `icon`, `icon_class`, `href`, `type`, `name`, `value`, `title`, `aria_label`, `disabled`, `target`, `extra_class`, `icon_position` (`start` por defecto, `end` para los CTA con flecha), `data_modal_open`, `data_modal_close` y atributos HTMX/`data-focus-key` opcionales. Con `href` emite `<a>`; sin `href`, `<button>`. No emite `onclick`: abrir o cerrar un diálogo se pide con `data_modal_open`/`data_modal_close`, que resuelve el shell.
 - `components/ui/modal.twig`: `<dialog>` de daisyUI con `id`, `title`, `subtitle`, `open` y bloque `body`. `open` emite el atributo nativo del `<dialog>` y sirve para devolver desde el servidor un formulario inválido con su modal abierto, sin JS; un `<dialog open>` no entra al top layer, así que Escape no lo cierra y el cierre queda en los botones.
 - `components/ui/page-header-title.twig`: icono opcional, `title` y `subtitle` opcional; emite el `<h1>`
   y el párrafo sin dejar huecos. Es la mitad izquierda de `page-header` y se puede usar solo: encabezado
@@ -98,6 +98,18 @@ Una carpeta por pregunta, y una sola respuesta:
 Familias de componentes: `ui` (presentación genérica: botón, icono, logo, botonera, modal, encabezado),
 `form`, `feedback`, `list`, `table`, `pagination`. Una familia nueva se declara en
 `tests/Support/ViewStructureTest`.
+
+**Excepciones de composición**, con su razón y su guard (`tests/Support/ViewComponentsTest.php`):
+
+- El chrome del shell (`layouts/parts/{topbar,sidebar,toasts}.twig`) usa botones con directivas de
+  Alpine (`x-bind`, `@click`, `swap`). `button.twig` no las acepta a propósito: aceptarlas lo convertiría
+  en contenedor de comportamiento. Sus `<svg>` con `x-show` y el par sol/luna (`swap`, estilo `fill`)
+  tampoco salen del registro.
+- `components/ui/modal.twig` dibuja su propio botón de cierre: está dentro de la capa de componentes.
+- Un checkbox o radio inline se permite mientras no exista su componente; `field.twig` cubre inputs de
+  texto.
+- Todo icono funcional sale de `components/ui/icon.twig`; el único svg propio es la marca
+  (`components/ui/logo.twig`).
 
 Los componentes no llevan guion bajo y no incluyen desde `pages/` ni desde `layouts/`: el guion bajo es
 para fragmentos internos (`pages/notas/_panel.twig`, `pages/errors/_htmx.twig`). `partials/` ya no
