@@ -1393,14 +1393,9 @@ no puede cumplir —y el error aparece recién cuando alguien la visita—.
 
 **Archivo**: el mismo controlador, dentro de la clase.
 
-Y para que el aviso llegue en una pantalla con redirect, el controlador opta por el toast del shell:
-
-```php
-    protected function usesToastFlash(): bool
-    {
-        return true;
-    }
-```
+Y el aviso no necesita ninguna declaración: el `Controller` base manda el flash como toast del shell
+(`protected bool $toastFlash = true`), que es lo que el layout pinta. Si tu pantalla renderiza el banner
+inline (`flash_*`), ahí sí la excepción se declara con `$toastFlash = false` —nunca al revés—.
 
 **Por qué redirige en vez de devolver la página**: el `POST` mutó, y si respondiera la página el navegador
 quedaría con la URL del formulario: refrescar reenviaría el alta y crearías dos. El 303 le dice «andá a esa
@@ -3187,7 +3182,7 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El POST te devuelve al login con «Tu sesión expiró» | Falta el token de CSRF en el formulario | `{% include 'components/form/csrf.twig' %}` dentro del `<form>` |
 | El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Vuelve a sembrar con las mismas variables; el mensaje es genérico a propósito |
 | `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisa `DB_DATABASE` |
-| El aviso de éxito no aparece | Falta `usesToastFlash()` en el controlador | Pasa el método a `true` |
+| El aviso de éxito no aparece | Tu layout no pinta toasts, o el controlador puso `$toastFlash = false` | Dejá el default (`true`) si usás el shell; sólo es `false` para layouts con banner |
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.6 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |

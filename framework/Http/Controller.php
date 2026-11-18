@@ -24,6 +24,15 @@ abstract class Controller
      */
     private const FLASH_ORDER = ['error', 'success', 'info'];
 
+    /**
+     * Canal del aviso en una página completa (sin htmx). `true` por defecto
+     * porque el shell pinta `toast_items` y NO pinta banner: con `false`, un
+     * controlador nuevo perdería el aviso de `Flash::set()` sin ningún error.
+     * Poné `false` sólo si tu layout renderiza el banner inline (`flash_*`);
+     * es el caso de la pantalla de acceso.
+     */
+    protected bool $toastFlash = true;
+
     public function __construct(protected Twig $view, protected Guard $guard) {}
 
     protected function render(Request $request, Response $response, string $template, array $extra = []): Response
@@ -56,7 +65,7 @@ abstract class Controller
         // de toasts para el flash de una acción con redirect (p. ej. el CRUD
         // de contactos). En htmx el canal sigue siendo HX-Trigger-After-Swap.
         $toastItems = [];
-        if (!$request->hasHeader('HX-Request') && $this->usesToastFlash()) {
+        if (!$request->hasHeader('HX-Request') && $this->toastFlash) {
             foreach (self::FLASH_ORDER as $type) {
                 if ($flash[$type] !== null && $flash[$type] !== '') {
                     $toastItems[] = ['message' => $flash[$type], 'type' => $type];
@@ -127,16 +136,6 @@ abstract class Controller
             ['toasts' => ['items' => $items]],
             JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE
         ));
-    }
-
-    /**
-     * Las pantallas con redirect no tienen un swap de htmx donde colgar el
-     * evento `toasts`; si lo activan, el layout recibe `toast_items` y el host
-     * los incorpora al inicializarse.
-     */
-    protected function usesToastFlash(): bool
-    {
-        return false;
     }
 
     /**

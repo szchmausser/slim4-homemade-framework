@@ -43,11 +43,6 @@ final class ContactController extends Controller
      * la pantalla o el formulario re-renderizado, porque ahí redirigir
      * descartaba lo tipeado (S7).
      */
-    protected function usesToastFlash(): bool
-    {
-        return true;
-    }
-
     public function index(Request $request, Response $response): Response
     {
         return $this->renderList($request, $response);

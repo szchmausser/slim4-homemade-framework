@@ -205,10 +205,4 @@ final class NotaController extends Controller
 
         return $this->redirect($response, '/notas');
     }
-
-    /** El aviso de esta pantalla viaja como toast del shell, no inline. */
-    protected function usesToastFlash(): bool
-    {
-        return true;
-    }
 }

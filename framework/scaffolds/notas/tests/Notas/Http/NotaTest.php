@@ -50,6 +50,25 @@ final class NotaTest extends HttpTestCase
         self::assertStringContainsString('aria-current="page">Notas', (string) $lista->getBody());
     }
 
+    public function test_el_aviso_de_exito_llega_al_host_de_toasts_por_defecto(): void
+    {
+        // Sin declarar nada en el controlador: el default del framework manda
+        // el flash como toast del shell, que es lo que el layout pinta.
+        $token = self::token('/notas');
+
+        self::app()->handle(self::request('POST', '/notas', [
+            'csrf_name'  => $token['csrf_name'],
+            'csrf_value' => $token['csrf_value'],
+            'titulo'     => 'Con aviso',
+            'cuerpo'     => '',
+        ]));
+
+        $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
+
+        self::assertStringContainsString('toast-host', $html);
+        self::assertStringContainsString('Nota creada.', $html);
+    }
+
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
     {
         $token = self::token('/notas');
