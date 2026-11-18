@@ -6,7 +6,7 @@
     <title>{% block title %}Mi App{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
-    {% include 'partials/layout/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
+    {% include 'layouts/parts/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
 
     <style>
         [x-cloak] { display: none !important; }
@@ -35,7 +35,7 @@
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
-        {% include 'partials/layout/ink-tokens.twig' %}
+        {% include 'layouts/parts/ink-tokens.twig' %}
         :root {
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
         }
@@ -311,17 +311,17 @@
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
     {% block sidebar %}
-        {% include 'partials/layout/sidebar.twig' %}
+        {% include 'layouts/parts/sidebar.twig' %}
     {% endblock %}
 
     {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
         {% block header %}
-            {% include 'partials/layout/header.twig' %}
+            {% include 'layouts/parts/topbar.twig' %}
         {% endblock %}
 
         {% block toasts %}
-            {% include 'partials/layout/toasts.twig' %}
+            {% include 'layouts/parts/toasts.twig' %}
         {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
@@ -331,7 +331,7 @@
         </main>
 
         {% block footer %}
-            {% include 'partials/layout/footer.twig' %}
+            {% include 'layouts/parts/footer.twig' %}
         {% endblock %}
     </div>
 </div>

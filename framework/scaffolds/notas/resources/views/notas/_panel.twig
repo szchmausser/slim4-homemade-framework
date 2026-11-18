@@ -46,7 +46,7 @@
                         <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
                         <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
                               onsubmit="this.querySelector('[type=submit]').disabled = true">
-                            {% include 'partials/_csrf.twig' %}
+                            {% include 'components/form/csrf.twig' %}
                             <div class="modal-action">
                                 {% include 'components/ui/button.twig' with {
                                     label: 'Cancelar',

@@ -855,8 +855,8 @@ return function (App $app) {
                 $body = null;
                 try {
                     $template = $request->hasHeader('HX-Request')
-                        ? 'errors/_htmx.twig'
-                        : 'errors/error.twig';
+                        ? 'pages/errors/_htmx.twig'
+                        : 'pages/errors/error.twig';
 
                     $rendered = $container->get(Twig::class)->render(
                         $app->getResponseFactory()->createResponse($status),
@@ -1592,7 +1592,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
 
 /**
- * Las 4 vars que espera partials/_csrf.twig. Una sola fuente para
+ * Las 4 vars que espera components/form/csrf.twig. Una sola fuente para
  * controladores (vía Controller::csrf) y closures de ruta (p. ej. la home,
  * que renderiza directo y también necesita el form de logout del layout).
  */
@@ -1649,7 +1649,7 @@ use Slim\Views\Twig;
 
 return function (App $app) {
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
-    // GET / devuelve 404 y el boton "Volver al inicio" de errors/error.twig
+    // GET / devuelve 404 y el boton "Volver al inicio" de pages/errors/error.twig
     // vuelve a ser un link muerto. Pública a propósito (la pide la app, no ella).
     // El layout necesita csrf (form de logout) y usuario: como aquí se renderiza
     // directo sin Controller, van explícitos con la misma fuente (CsrfTokens).
@@ -1658,7 +1658,7 @@ return function (App $app) {
 
         // Guard se resuelve aquí (en request), no al registrar: al construirse
         // exige sesión iniciada y en registro todavía no hay ninguna.
-        return $container->get(Twig::class)->render($response, 'home.twig', [
+        return $container->get(Twig::class)->render($response, 'pages/home.twig', [
             'active'      => 'home',
             'user_id'     => Auth::id(),
             'user_email'  => Auth::user()?->getAttribute('email'),
@@ -2020,7 +2020,7 @@ class TaskController extends Controller
             if (!$request->hasHeader('HX-Request')) {
                 // Sin htmx es un navegador pidiendo el documento de un recurso
                 // que no existe: 404 de verdad, con el mensaje de
-                // errors/error.twig. Un 200 con un cartel mentiría al
+                // pages/errors/error.twig. Un 200 con un cartel mentiría al
                 // protocolo (y un curl --fail no se enteraría).
                 throw new HttpNotFoundException($request);
             }
@@ -2166,7 +2166,7 @@ class AuthController extends Controller
             return $response->withStatus(303)->withHeader('Location', Url::path('/'));
         }
 
-        return $this->render($request, $response, 'auth/login.twig', [
+        return $this->render($request, $response, 'pages/auth/login.twig', [
             'active' => 'login',
         ]);
     }
@@ -2191,7 +2191,7 @@ class AuthController extends Controller
             // forma de mostrar el mensaje sin JS), pero un login con campos
             // inválidos no se completó. El 200 le decía al cliente —y al log
             // del servidor— que la petición había salido bien.
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
                 'errors' => $validator->errors(),
@@ -2206,7 +2206,7 @@ class AuthController extends Controller
         if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
             Flash::set('error', self::INVALID_CREDENTIALS);
 
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
             ]);
@@ -2225,7 +2225,7 @@ class AuthController extends Controller
             // Genérico a propósito: nunca decir si falló el email o la clave.
             Flash::set('error', self::INVALID_CREDENTIALS);
 
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
             ]);
@@ -3034,7 +3034,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
     <title>{% block title %}Mi App{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
-    {% include 'partials/layout/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
+    {% include 'layouts/parts/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
 
     <style>
         [x-cloak] { display: none !important; }
@@ -3063,7 +3063,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
             html[data-sidebar-mini] #collapse-btn svg { transform: rotate(180deg); }
         }
 
-        {% include 'partials/layout/ink-tokens.twig' %}
+        {% include 'layouts/parts/ink-tokens.twig' %}
         :root {
             --ink-pending: oklch(48% .006 285.885); /* 6.55:1 */
         }
@@ -3339,17 +3339,17 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
          class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
     {% block sidebar %}
-        {% include 'partials/layout/sidebar.twig' %}
+        {% include 'layouts/parts/sidebar.twig' %}
     {% endblock %}
 
     {# Columna de contenido. #}
     <div class="flex min-w-0 flex-1 flex-col">
         {% block header %}
-            {% include 'partials/layout/header.twig' %}
+            {% include 'layouts/parts/topbar.twig' %}
         {% endblock %}
 
         {% block toasts %}
-            {% include 'partials/layout/toasts.twig' %}
+            {% include 'layouts/parts/toasts.twig' %}
         {% endblock %}
 
         <main id="contenido" class="w-full flex-1 p-4 lg:p-6">
@@ -3359,7 +3359,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
         </main>
 
         {% block footer %}
-            {% include 'partials/layout/footer.twig' %}
+            {% include 'layouts/parts/footer.twig' %}
         {% endblock %}
     </div>
 </div>
@@ -4084,7 +4084,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
             <div>
                 <h1 class="flex items-center gap-2 text-2xl font-bold">
                     <span class="opacity-60" aria-hidden="true">
-                        {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
                     </span>
                     Mis tareas
                 </h1>
@@ -4128,7 +4128,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
           hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
-        {% include 'partials/_csrf.twig' %}
+        {% include 'components/form/csrf.twig' %}
         {% include 'components/form/field.twig' with {
             id: 'task-title-new',
             name: 'title',
@@ -4269,7 +4269,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
-                    {% include 'partials/_csrf.twig' %}
+                    {% include 'components/form/csrf.twig' %}
                     {# En fallo de validación se repinta lo TIPEADO (editing_title),
                        no el valor guardado: si no, el usuario pierde lo que
                        escribió junto con el error. Twig autoescapea, así que
@@ -5656,7 +5656,7 @@ final class ErrorHandlingTest extends HttpTestCase
     /**
      * Un 404 no es un defecto: no hay stack trace que mirar. Si Whoops lo
      * renderiza igual, cada URL mal tipeada cuesta ~154 KB de HTML de debugger
-     * (medido) en vez del ~1 KB de errors/error.twig. En 32 bits ese
+     * (medido) en vez del ~1 KB de pages/errors/error.twig. En 32 bits ese
      * pico de memoria se paga caro (cap. 17), y de paso dejas de mirar la
      * página de error real porque todo 404 se ve igual de apocalyptic.
      *
@@ -5746,7 +5746,7 @@ use Tests\Support\HttpTestCase;
 /**
  * El router, y sobre todo la ruta raiz.
  *
- * El segundo test existe por un bug concreto: `errors/error.twig` cierra con
+ * El segundo test existe por un bug concreto: `pages/errors/error.twig` cierra con
  * `<a href="/">Volver al inicio</a>`, y no había ninguna ruta en `/`. El botón
  * de la página de error era, él mismo, un link muerto. Ningún test lo detectó
  * porque todos asserteaban el status de `/no-existe` y nadie seguía el link.

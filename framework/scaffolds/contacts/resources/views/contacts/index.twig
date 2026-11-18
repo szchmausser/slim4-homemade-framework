@@ -75,7 +75,7 @@
                 ¿Eliminar a <strong data-contact-delete-name></strong>?
             </p>
             <form method="post" action="" data-contact-delete-form>
-                {% include 'partials/_csrf.twig' %}
+                {% include 'components/form/csrf.twig' %}
                 <div class="modal-action">
                     {% include 'components/ui/button.twig' with {
                         label: 'Cancelar',

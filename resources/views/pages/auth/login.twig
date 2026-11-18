@@ -24,7 +24,7 @@
                        y el icono da el estado sin teñir todo el fondo de rojo. #}
                     <div class="flex items-start gap-3 rounded-box border border-error/30 bg-error/10 p-3 text-sm" role="alert">
                         <span class="icon-error mt-0.5 shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
                         </span>
                         <p class="leading-snug">{{ flash_error }}</p>
                     </div>
@@ -35,7 +35,7 @@
                        aviso no interrumpe nada. #}
                     <div class="flex items-start gap-3 rounded-box border border-info/30 bg-info/10 p-3 text-sm" role="status">
                         <span class="icon-info mt-0.5 shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
                         </span>
                         <p class="leading-snug">{{ flash_info }}</p>
                     </div>
@@ -43,7 +43,7 @@
 
                 {# Form normal, sin HTMX: el login navega de verdad (303 a /). #}
                 <form method="post" action="{{ url('/login') }}" class="space-y-4">
-                    {% include 'partials/_csrf.twig' %}
+                    {% include 'components/form/csrf.twig' %}
                     {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
                        los wrappers de la v4 (`form-control` y `label-text`), que la
                        5 eliminó. El fieldset ya trae el grid vertical con su gap
@@ -58,7 +58,7 @@
                         <label class="fieldset-legend" for="login-email">Email</label>
                         <div class="login-field">
                             <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-email" type="email" name="email" required autocomplete="username"
                                    value="{{ email|default('') }}"
@@ -78,7 +78,7 @@
                         <label class="fieldset-legend" for="login-password">Clave</label>
                         <div class="login-field">
                             <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-password" type="password" name="password" required autocomplete="current-password"
                                    {% if password_error %}aria-invalid="true" aria-describedby="login-password-error"{% endif %}
@@ -98,7 +98,7 @@
                     <button type="submit" class="btn btn-primary w-full gap-2">
                         <span>Entrar</span>
                         <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                         </span>
                     </button>
                 </form>

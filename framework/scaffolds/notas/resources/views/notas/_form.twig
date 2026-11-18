@@ -7,7 +7,7 @@
    si el servidor rechaza, la página vuelve a renderizar el botón habilitado. #}
 <form method="post" action="{{ action }}" class="space-y-4"
       onsubmit="this.querySelector('[type=submit]').disabled = true">
-    {% include 'partials/_csrf.twig' %}
+    {% include 'components/form/csrf.twig' %}
 
     {% include 'components/form/field.twig' with {
         name: 'titulo',

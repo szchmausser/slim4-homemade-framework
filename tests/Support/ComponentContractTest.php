@@ -198,12 +198,12 @@ final class ComponentContractTest extends TestCase
         ];
 
         foreach ($names as $name) {
-            $html = (string) $this->twig->render('partials/_icon.twig', ['name' => $name]);
+            $html = (string) $this->twig->render('components/ui/icon.twig', ['name' => $name]);
             self::assertSame(1, substr_count($html, '<svg'), 'Icono duplicado o ausente: ' . $name);
             self::assertStringContainsString('class="h-5 w-5 shrink-0"', $html, $name);
         }
 
-        self::assertSame('', trim((string) $this->twig->render('partials/_icon.twig', ['name' => 'hourse'])));
+        self::assertSame('', trim((string) $this->twig->render('components/ui/icon.twig', ['name' => 'hourse'])));
     }
 
     public function test_icon_del_lapiz_es_el_mismo_path_que_el_js_de_contactos(): void
@@ -222,7 +222,7 @@ final class ComponentContractTest extends TestCase
         $pencil = '~(<path d="M12 20h9"/><path d="[^"]+"/>)~';
         $jsPencil = preg_match($pencil, $js, $jsMatches) === 1 ? $jsMatches[1] : '';
 
-        $icon = (string) $this->twig->render('partials/_icon.twig', ['name' => 'pencil']);
+        $icon = (string) $this->twig->render('components/ui/icon.twig', ['name' => 'pencil']);
         $iconPencil = preg_match($pencil, $icon, $iconMatches) === 1 ? $iconMatches[1] : '';
 
         self::assertNotSame('', $jsPencil, 'El formatter de contactos ya no trae el lápiz esperado.');

@@ -130,7 +130,7 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_inert_del_sidebar_depende_del_estado_sincronizado(): void
     {
-        $sidebar = self::view('resources/views/partials/layout/sidebar.twig');
+        $sidebar = self::view('resources/views/layouts/parts/sidebar.twig');
 
         self::assertPattern(
             '/x-bind:inert="!sidebarOpen"/',
@@ -229,7 +229,7 @@ final class LayoutContractTest extends TestCase
      */
     public function test_el_header_expone_nombres_accesibles_estaticos(): void
     {
-        $header = self::view('resources/views/partials/layout/header.twig');
+        $header = self::view('resources/views/layouts/parts/topbar.twig');
 
         $hamburger = self::openingTag(
             $header,
@@ -266,7 +266,7 @@ final class LayoutContractTest extends TestCase
      */
     public function test_los_controles_que_dependen_de_alpine_se_ocultan_antes_de_arrancar(): void
     {
-        $header = self::view('resources/views/partials/layout/header.twig');
+        $header = self::view('resources/views/layouts/parts/topbar.twig');
 
         $controls = [
             'el hamburguesa' => '/<button\b[^>]*@click="sidebarOpen = !sidebarOpen"[^>]*>/',
@@ -298,7 +298,7 @@ final class LayoutContractTest extends TestCase
      */
     public function test_los_controles_del_header_conservan_sus_bindings_de_alpine(): void
     {
-        $header = self::view('resources/views/partials/layout/header.twig');
+        $header = self::view('resources/views/layouts/parts/topbar.twig');
 
         $hamburger = self::openingTag(
             $header,

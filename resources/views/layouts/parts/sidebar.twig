@@ -8,7 +8,7 @@
        :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-64': !sidebarMini, 'lg:w-16': sidebarMini }"
        x-bind:inert="!sidebarOpen">
     <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
-        {% include 'partials/_logo.twig' %}
+        {% include 'components/ui/logo.twig' %}
         <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
         <button type="button"
                 class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
@@ -29,7 +29,7 @@
                        title="{{ item.label }}"
                        aria-label="{{ item.label }}"
                        {% if is_active %}aria-current="page"{% endif %}>
-                        {% include 'partials/_icon.twig' with { name: item.icon } %}
+                        {% include 'components/ui/icon.twig' with { name: item.icon } %}
                         <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">{{ item.label }}</span>
                     </a>
                 </li>
@@ -47,7 +47,7 @@
             </span>
             <form method="post" action="{{ url('/logout') }}" class="shrink-0"
                   :class="sidebarMini && 'lg:mx-auto'">
-                {% include 'partials/_csrf.twig' %}
+                {% include 'components/form/csrf.twig' %}
                 <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
                 </button>

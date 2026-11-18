@@ -98,7 +98,7 @@ abstract class HttpTestCase extends TestCase
     }
 
     /**
-     * Extrae los dos hidden que emite partials/_csrf.twig.
+     * Extrae los dos hidden que emite components/form/csrf.twig.
      *
      * Ojo con la trampa: `csrf_name_key` es una variable de Twig y NO aparece
      * en el HTML renderizado. El template es

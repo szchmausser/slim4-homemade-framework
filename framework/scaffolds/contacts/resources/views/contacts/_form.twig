@@ -6,7 +6,7 @@
 <form method="post" action="{{ action }}" class="space-y-4"
       {% if is_modal %}hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"
       hx-disabled-elt="find button[type='submit']"{% endif %}>
-    {% include 'partials/_csrf.twig' %}
+    {% include 'components/form/csrf.twig' %}
     {# `error` se pasa EXPLÍCITO en cada include: los tres usan `only`, así que
        `errors` del contexto no llega solo y el mensaje nunca aparecería (S4). #}
     {% include 'components/form/field.twig' with {
