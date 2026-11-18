@@ -11,6 +11,11 @@ declare(strict_types=1);
 // Cada demo vive en framework/scaffolds/<nombre>/ con la MISMA estructura
 // relativa que tendrá en el repo: instalar es copiar cada archivo a su destino;
 // eliminar es borrar esos destinos. La fuente nunca se toca.
+//
+// Lo instalado se registra en storage/demo-state/<demo>.json con el sha256 de
+// cada archivo. Comparar contra ese manifiesto (y no solo contra el scaffold)
+// es lo que distingue un archivo que el usuario editó de uno que quedó viejo
+// porque el scaffold avanzó después de instalarlo.
 
 // DEMO_ROOT permite correr el instalador contra una copia temporal (tests).
 // En uso normal queda vacio y el root es el del proyecto.
@@ -110,12 +115,42 @@ if ($command === 'install') {
         assertNoMigrationCollisions($root, $scaffold, $meta['migrations'], $name);
     }
 
+    // Sin manifiesto (demo instalado antes de que existiera) no hay forma de
+    // saber si el archivo instalado quedó viejo o lo editó el usuario: se cae
+    // al comportamiento anterior.
+    $previousManifest = readDemoManifest($root, $name);
+
     $conflicts = [];
+    $identical = [];
+    $stale = [];
     foreach ($files as $relative => $source) {
         $destination = $root . '/' . $relative;
-        if (is_file($destination)) {
+        if (!is_file($destination)) {
+            continue;
+        }
+
+        $installedHash = (string) hash_file('sha256', $destination);
+        $sourceHash = (string) hash_file('sha256', $source);
+
+        if ($installedHash === $sourceHash) {
+            $identical[] = $relative;
+        } elseif ($previousManifest !== null
+            && ($previousManifest['files'][$relative] ?? null) === $installedHash
+        ) {
+            // Coincide con lo que se instaló y no con el scaffold: nadie
+            // editó nada, el scaffold avanzó. Pisarlo es seguro.
+            $stale[] = $relative;
+        } else {
             $conflicts[] = $relative;
         }
+    }
+
+    // Un archivo idéntico al scaffold también bloquea: reinstalar sobre algo
+    // ya instalado (un install a medias) se resuelve con --force. La excepción
+    // es que haya algo desactualizado: ahí el install sí avanza, y los
+    // idénticos se vuelven a copiar igual que hoy.
+    if ($stale === []) {
+        $conflicts = array_merge($conflicts, $identical);
     }
 
     if ($conflicts !== [] && !$force) {
@@ -129,6 +164,7 @@ if ($command === 'install') {
 
     $created = [];
     $backups = [];
+    $installed = [];
     $backupDir = null;
 
     try {
@@ -160,9 +196,21 @@ if ($command === 'install') {
             if (!copy($source, $destination)) {
                 throw new RuntimeException("No se pudo copiar '{$relative}'.");
             }
+
+            $installed[$relative] = (string) hash_file('sha256', $destination);
+        }
+
+        // El manifiesto se escribe recién cuando los archivos están en su
+        // lugar; si falla, el catch revierte todo como con cualquier copia.
+        if (!writeDemoManifest($root, $name, [
+            'installed_at' => date('c'),
+            'files' => $installed,
+        ])) {
+            throw new RuntimeException('No se pudo escribir el manifiesto del demo.');
         }
     } catch (Throwable $e) {
         $rolledBack = rollbackInstall($root, $created, $backups);
+        restoreDemoManifest($root, $name, $previousManifest);
         clearTwigCache($root);
         fwrite(STDERR, "Install revertido: {$rolledBack} archivos restaurados/borrados ({$e->getMessage()})." . PHP_EOL);
         exit(1);
@@ -193,6 +241,7 @@ if ($command === 'install') {
             }
 
             $rolledBack = rollbackInstall($root, $created, $backups);
+            restoreDemoManifest($root, $name, $previousManifest);
             clearTwigCache($root);
             fwrite(STDERR, "Install revertido: {$rolledBack} archivos restaurados/borrados." . PHP_EOL);
             fwrite(STDERR, "Corrige el error y vuelve a ejecutar composer {$commandPrefix}:install." . PHP_EOL);
@@ -200,17 +249,41 @@ if ($command === 'install') {
         }
     }
 
+    if ($stale !== []) {
+        echo 'Actualizados desde el scaffold: ' . count($stale) . ' archivo(s).' . PHP_EOL;
+    }
+
     echo "Para quitarlo: composer {$commandPrefix}:remove" . PHP_EOL;
     exit(0);
 }
 
+// Archivos instalados que quedaron viejos porque el scaffold avanzó: el
+// manifiesto confirma que nadie los tocó, así que se pueden borrar.
+$stale = [];
+
 if (!$noFiles) {
+    // Sin manifiesto se compara contra el scaffold actual, como antes: un demo
+    // instalado antes de este cambio no se vuelve más permisivo.
+    $manifest = readDemoManifest($root, $name);
     $edited = [];
+
     foreach ($files as $relative => $source) {
         $destination = $root . '/' . $relative;
-        if (is_file($destination) && hash_file('sha256', $destination) !== hash_file('sha256', $source)) {
-            $edited[] = $relative;
+        if (!is_file($destination)) {
+            continue;
         }
+
+        $installedHash = (string) hash_file('sha256', $destination);
+        if ($installedHash === hash_file('sha256', $source)) {
+            continue;
+        }
+
+        if ($manifest !== null && ($manifest['files'][$relative] ?? null) === $installedHash) {
+            $stale[] = $relative;
+            continue;
+        }
+
+        $edited[] = $relative;
     }
 
     if ($edited !== [] && !$force) {
@@ -234,9 +307,15 @@ if (!$noDb) {
 
 $removed = 0;
 if (!$noFiles) {
-    $removed = removeDemoFiles($root, $files, $force, $name);
+    if ($stale !== []) {
+        echo 'El scaffold avanzó desde la instalación: ' . count($stale) . ' archivo(s) desactualizado(s).' . PHP_EOL;
+    }
+
+    $removed = removeDemoFiles($root, $files, $force, $name, $stale);
     // Sin esto quedan plantillas compiladas de vistas que ya no existen.
     clearTwigCache($root);
+    // Ya no quedan archivos del demo que el manifiesto tenga que describir.
+    restoreDemoManifest($root, $name, null);
     if ($removed === 0) {
         echo "No había archivos del scaffold {$name} instalados.\n";
     } else {
@@ -259,8 +338,10 @@ echo "framework/scaffolds/{$name}/ sigue disponible para reinstalar.\n";
  * vacíos. Devuelve cuántos archivos existían y se borraron.
  *
  * @param array<string, string> $files relativo => origen en el scaffold
+ * @param list<string>          $stale archivos desactualizados: nadie los
+ *                                     editó, así que no necesitan backup
  */
-function removeDemoFiles(string $root, array $files, bool $force = false, string $name = 'demo'): int
+function removeDemoFiles(string $root, array $files, bool $force = false, string $name = 'demo', array $stale = []): int
 {
     $removed = 0;
     $backupDir = null;
@@ -271,7 +352,8 @@ function removeDemoFiles(string $root, array $files, bool $force = false, string
             continue;
         }
 
-        $edited = hash_file('sha256', $destination) !== hash_file('sha256', $source);
+        $edited = !in_array($relative, $stale, true)
+            && hash_file('sha256', $destination) !== hash_file('sha256', $source);
         if ($edited) {
             if (!$force) {
                 fwrite(STDERR, "Archivo editado, no se borra: '{$relative}'." . PHP_EOL);
@@ -331,6 +413,101 @@ function rollbackInstall(string $root, array $created, array $backups): int
     }
 
     return $restored;
+}
+
+/**
+ * Ruta del manifiesto de un demo instalado.
+ */
+function demoStatePath(string $root, string $name): string
+{
+    return $root . '/storage/demo-state/' . $name . '.json';
+}
+
+/**
+ * Lee el manifiesto de un demo. Devuelve null si no existe o si no se puede
+ * interpretar: sin manifiesto se cae al comportamiento anterior, comparar
+ * contra el scaffold actual.
+ *
+ * @return array{installed_at: string, files: array<string, string>}|null
+ */
+function readDemoManifest(string $root, string $name): ?array
+{
+    $path = demoStatePath($root, $name);
+    if (!is_file($path)) {
+        return null;
+    }
+
+    $raw = file_get_contents($path);
+    if ($raw === false) {
+        return null;
+    }
+
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded)) {
+        return null;
+    }
+
+    $files = $decoded['files'] ?? null;
+    if (!is_array($files)) {
+        return null;
+    }
+
+    $hashes = [];
+    foreach ($files as $relative => $hash) {
+        if (is_string($relative) && is_string($hash)) {
+            $hashes[$relative] = $hash;
+        }
+    }
+
+    $installedAt = $decoded['installed_at'] ?? null;
+
+    return [
+        'installed_at' => is_string($installedAt) ? $installedAt : '',
+        'files' => $hashes,
+    ];
+}
+
+/**
+ * Escribe el manifiesto en storage/demo-state/<demo>.json, creando el
+ * directorio si hace falta. Devuelve false si no se pudo escribir.
+ *
+ * @param array{installed_at: string, files: array<string, string>} $manifest
+ */
+function writeDemoManifest(string $root, string $name, array $manifest): bool
+{
+    $directory = dirname(demoStatePath($root, $name));
+    if (!is_dir($directory) && !mkdir($directory, 0755, true) && !is_dir($directory)) {
+        return false;
+    }
+
+    $json = json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        return false;
+    }
+
+    return file_put_contents(demoStatePath($root, $name), $json . PHP_EOL) !== false;
+}
+
+/**
+ * Vuelve el manifiesto al estado previo a una instalación. Con null lo borra,
+ * que es lo que corresponde cuando no había manifiesto o cuando el remove ya
+ * no deja archivos que describir.
+ *
+ * @param array{installed_at: string, files: array<string, string>}|null $manifest
+ */
+function restoreDemoManifest(string $root, string $name, ?array $manifest): void
+{
+    if ($manifest !== null) {
+        if (!writeDemoManifest($root, $name, $manifest)) {
+            fwrite(STDERR, "No se pudo restaurar el manifiesto de '{$name}'." . PHP_EOL);
+        }
+        return;
+    }
+
+    $path = demoStatePath($root, $name);
+    if (is_file($path) && !unlink($path)) {
+        fwrite(STDERR, "No se pudo borrar el manifiesto de '{$name}'." . PHP_EOL);
+    }
 }
 
 function migrateAndSeed(string $root, string $seeder): void
