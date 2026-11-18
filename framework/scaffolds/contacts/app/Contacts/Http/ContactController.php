@@ -50,7 +50,7 @@ final class ContactController extends Controller
 
     public function index(Request $request, Response $response): Response
     {
-        return $this->renderIndex($request, $response);
+        return $this->renderList($request, $response);
     }
 
     public function store(Request $request, Response $response): Response
@@ -72,7 +72,7 @@ final class ContactController extends Controller
 
             // S7: nada de redirect. El modal de alta vuelve ABIERTO, con los
             // valores tipeados y el mensaje de cada campo.
-            return $this->renderIndex($request, $response, [
+            return $this->renderList($request, $response, [
                 'errors' => $errors,
                 'form_values' => $this->attributes($data),
                 'open_create_modal' => true,
@@ -268,7 +268,7 @@ final class ContactController extends Controller
      *
      * @param array<string, mixed> $extra
      */
-    private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
+    private function renderList(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
         $response = $this->render($request, $response, 'pages/contacts/index.twig', [
             'active' => 'contacts',

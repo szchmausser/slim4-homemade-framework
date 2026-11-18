@@ -2927,11 +2927,11 @@ Los controles ya existen, pero cada clic es una navegación completa: el servido
 entera, el navegador la repinta y volvés al tope. HTMX evita eso reemplazando sólo el panel, y para que
 funcione la respuesta tiene que ser **la región**, no la página.
 
-**Archivo**: el mismo controlador. Crea `renderIndex()`, que arma la página y decide qué devolver según
+**Archivo**: el mismo controlador. Crea `renderList()`, que arma la página y decide qué devolver según
 el pedido:
 
 ```php
-    private function renderIndex(Request $request, Response $response, array $extra = [], int $status = 200): Response
+    private function renderList(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
         $data = $this->pageData($request);
 
@@ -2946,12 +2946,16 @@ el pedido:
     }
 ```
 
+`renderList()` **no es la acción de ruta**: es la utilidad que comparten `index()`, `edit()` y los dos
+rechazos del formulario. Por eso es `private` y no se llama como un endpoint: si fuera pública, la ruta y
+el render interno quedarían atados a la misma firma.
+
 **Archivo**: el mismo controlador, método `index()`. Queda en una línea:
 
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->renderIndex($request, $response);
+        return $this->renderList($request, $response);
     }
 ```
 
@@ -2972,7 +2976,7 @@ La URL todavía **no** cambia: la barra sigue en `/notas`. Eso es el paso siguie
 
 - Paginas y ves dos sidebars o dos headers: el servidor devolvió la página completa a un request de
   HTMX.
-- El rango no cambia: `index()` no está usando `renderIndex()`, o los controles quedaron fuera del
+- El rango no cambia: `index()` no está usando `renderList()`, o los controles quedaron fuera del
   parcial.
 
 **Qué no prueba**: que la URL del historial diga la página que estás viendo, ni que un 422 no la
@@ -2986,7 +2990,7 @@ El swap funciona, pero la barra de direcciones quedó atrás: estás viendo la p
 `/notas`. Si recargás o compartís el enlace, volvés a la primera. HTMX puede empujar la URL que el
 servidor sirvió, y sólo cuando la respuesta es una navegación real.
 
-**Archivo**: el mismo `renderIndex()`.
+**Archivo**: el mismo `renderList()`.
 
 **Acción**: después de renderizar, emite `HX-Push-Url` con la página que el **servidor** recortó; y no la
 emitas en un error.
@@ -3014,7 +3018,7 @@ que pediste.
 
 **Falla si**:
 
-- Paginas y la URL no cambia: falta el `withHeader`, o el estado no se pasa a `renderIndex()`.
+- Paginas y la URL no cambia: falta el `withHeader`, o el estado no se pasa a `renderList()`.
 - Un 422 empuja la URL: falta el guard, o el estado no viaja.
 - La URL dice la página pedida y no la servida: estás usando la query del request en vez de
   `pagination.current_page`.
@@ -3035,25 +3039,25 @@ un solo camino, esa decisión vive en un lugar y el 422 no puede olvidarse de na
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, métodos `edit()`, `store()` y `update()`.
 
-**Acción**: reemplaza los renders sueltos de `edit()` y de los rechazos por `renderIndex()`, pasando lo
+**Acción**: reemplaza los renders sueltos de `edit()` y de los rechazos por `renderList()`, pasando lo
 propio en `$extra`:
 
 ```php
         // edit()
-        return $this->renderIndex($request, $response, [
+        return $this->renderList($request, $response, [
             'nota'            => $nota,
             'open_edit_modal' => true,
         ]);
 
         // rechazo del alta
-        return $this->renderIndex($request, $response, [
+        return $this->renderList($request, $response, [
             'errors'            => $validator->errors(),
             'form_values'       => $data,
             'open_create_modal' => true,
         ], 422);
 
         // rechazo de la edición
-        return $this->renderIndex($request, $response, [
+        return $this->renderList($request, $response, [
             'errors'          => $validator->errors(),
             'form_values'     => $data,
             'nota'            => $nota,
@@ -3065,7 +3069,7 @@ En el rechazo de la edición, `'nota' => $nota` no es decorativo: `index.twig` e
 edición en `{% if nota is defined %}`. Sin esa clave el modal no se renderiza y lo tipeado aparece en
 el modal de alta, que es el que queda abierto.
 
-El `422` pasa por el mismo `renderIndex()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
+El `422` pasa por el mismo `renderList()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
 contrato, agrega a `tests/Http/NotaTest.php`:
 
 ```php
@@ -3093,7 +3097,7 @@ navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>`
 
 **Falla si**:
 
-- Un 422 deja `HX-Push-Url`: el guard `status >= 400` no está o el estado no se pasa a `renderIndex()`.
+- Un 422 deja `HX-Push-Url`: el guard `status >= 400` no está o el estado no se pasa a `renderList()`.
 - El modal de edición desaparece en un 422: falta `nota` en `$extra`.
 - El alta inválida se abre en el modal de edición: sobra `nota` o `open_edit_modal` en el rechazo del
   alta.
