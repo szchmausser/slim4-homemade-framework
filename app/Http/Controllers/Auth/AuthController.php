@@ -33,7 +33,7 @@ class AuthController extends Controller
     public function show(Request $request, Response $response): Response
     {
         if (Auth::check()) {
-            return $response->withStatus(303)->withHeader('Location', Url::path('/'));
+            return $this->redirect($response, '/');
         }
 
         return $this->render($request, $response, 'pages/auth/login.twig', [
@@ -113,7 +113,7 @@ class AuthController extends Controller
         Auth::login((int) $user->getKey());
         CsrfTokens::rotate($this->guard);
 
-        $response = $response->withStatus(303)->withHeader('Location', Url::path('/'));
+        $response = $this->redirect($response, '/');
 
         if (!empty($data['remember'])) {
             $response = $response->withAddedHeader(
@@ -135,7 +135,7 @@ class AuthController extends Controller
         Auth::logout();
         Flash::set('info', 'Sesión cerrada.');
 
-        $response = $response->withStatus(303)->withHeader('Location', Url::path('/login'));
+        $response = $this->redirect($response, '/login');
 
         return $response->withAddedHeader('Set-Cookie', RememberMe::cookieHeader(clear: true));
     }

@@ -1368,7 +1368,7 @@ use Framework\Validation\Validator;
 
         Flash::set('success', 'Nota creada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 ```
 
@@ -1401,6 +1401,11 @@ Y para que el aviso llegue en una pantalla con redirect, el controlador opta por
         return true;
     }
 ```
+
+**Por qué redirige en vez de devolver la página**: el `POST` mutó, y si respondiera la página el navegador
+quedaría con la URL del formulario: refrescar reenviaría el alta y crearías dos. El 303 le dice «andá a esa
+otra URL con un `GET`», y el historial queda limpio. Es POST/Redirect/GET, y `redirect()` lo resuelve en un
+solo lugar —303 fijo, `Location` con `Url::path()`— para que ninguna mutación lo improvise.
 
 **Comprobación**: guarda con un título. Vuelves a `/notas`, la nota aparece en la lista y el aviso
 «Nota creada.» sale abajo a la derecha. El `cuerpo` es opcional: si lo dejas vacío, se guarda como
@@ -2060,7 +2065,7 @@ la lista con el aviso, o rechazar sin perder lo escrito.
 
         Flash::set('success', 'Nota actualizada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 ```
 
@@ -2146,7 +2151,7 @@ papelera del paso 8.
 
         Flash::set('success', 'Nota borrada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 ```
 

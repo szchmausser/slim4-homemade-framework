@@ -127,7 +127,7 @@ final class NotaController extends Controller
 
         Flash::set('success', 'Nota creada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 
     /**
@@ -187,7 +187,7 @@ final class NotaController extends Controller
 
         Flash::set('success', 'Nota actualizada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 
     /** `POST /notas/{id}/delete`. Borra y redirige con aviso. */
@@ -203,7 +203,7 @@ final class NotaController extends Controller
 
         Flash::set('success', 'Nota borrada.');
 
-        return $response->withStatus(303)->withHeader('Location', Url::path('/notas'));
+        return $this->redirect($response, '/notas');
     }
 
     /** El aviso de esta pantalla viaja como toast del shell, no inline. */

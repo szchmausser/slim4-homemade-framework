@@ -94,6 +94,22 @@ abstract class Controller
      *
      * @param array<string, string|null> $flash
      */
+    /**
+     * Redirección de después de una mutación: 303 + `Location`.
+     *
+     * 303 (See Other) y no 302: fuerza a que el siguiente pedido sea un `GET`,
+     * así refrescar la pantalla de destino no reenvía el formulario. Es el
+     * patrón POST/Redirect/GET, y por eso todas las mutaciones del proyecto
+     * vuelven por acá en vez de responder la página directamente.
+     *
+     * @param string $to ruta destino, sin base path: se resuelve con Url::path()
+     * @param int    $status 303 por defecto; 301/302 sólo si sabés por qué
+     */
+    protected function redirect(Response $response, string $to, int $status = 303): Response
+    {
+        return $response->withStatus($status)->withHeader('Location', Url::path($to));
+    }
+
     private function withToasts(Response $response, array $flash): Response
     {
         $items = [];

@@ -258,7 +258,7 @@ final class ContactController extends Controller
 
     private function back(Response $response): Response
     {
-        return $response->withStatus(303)->withHeader('Location', Url::path('/contactos'));
+        return $this->redirect($response, '/contactos');
     }
 
     /**
