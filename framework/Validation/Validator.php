@@ -63,14 +63,7 @@ class Validator
     }
 
     /**
-     * UNA sola fuente por regla: el validador y su mensaje salen del mismo
-     * brazo del match.
-     *
-     * Antes había tres lugares que decían lo mismo —la lista `RULES`, el match
-     * de `passes()` y el de `message()`—, así que agregar una regla eran tres
-     * ediciones que podían divergir sin que nada fallara, y el `default` de
-     * cada match era código inalcanzable porque `parse()` ya había filtrado el
-     * nombre. Aquí el único `default` es el que rechaza.
+     * Una sola fuente por regla: validador y mensaje salen del mismo `match`.
      *
      * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
      * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde

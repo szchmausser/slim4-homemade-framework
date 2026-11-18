@@ -17,8 +17,7 @@ class SessionMiddleware implements MiddlewareInterface
     public const DEFAULT_ABSOLUTE_TIMEOUT = 43200; // 12 horas
 
     /**
-     * Parámetros de la cookie de sesión. Públicos para que el test verifique
-     * Secure sin depender de abrir/cerrar la sesión nativa del proceso.
+     * Parámetros de la cookie de sesión.
      *
      * @return array{lifetime: int, path: string, httponly: bool, samesite: string, secure: bool}
      */

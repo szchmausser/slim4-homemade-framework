@@ -177,8 +177,7 @@ final class ContactController extends Controller
      *
      * La página y el tamaño se leen con los nombres que ya usa el resto de la
      * app (`page`, `per_page`) y se delegan a Pagination::paginate, que cuenta,
-     * clampea y recorta. No hay una segunda paginación aquí: duplicarla era
-     * parte del defecto que este endpoint cierra.
+     * clampea y recorta.
      */
     public function data(Request $request, Response $response): Response
     {

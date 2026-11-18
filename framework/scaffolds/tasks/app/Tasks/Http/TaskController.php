@@ -136,8 +136,6 @@ class TaskController extends Controller
             // flash SÍ se conserva (en update() no, porque el mensaje se lee al
             // lado del input). El 422 es la otra mitad: sin él el formulario se
             // limpiaría y el usuario perdería lo tipeado.
-            // `errors` viaja para que el panel tenga la misma forma que en
-            // update(); como la lista no está en modo edición, hoy no lo lee.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->respond($request, $response, [

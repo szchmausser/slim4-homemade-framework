@@ -7,9 +7,7 @@ namespace Framework\Http;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Paginación estilo Laravel sin illuminate/pagination (ese paquete exige
- * php ^8.3 y subiría el piso del proyecto; aquí son las mismas 2 queries que
- * hace paginate() por dentro: count + slice). Todo testeable sin HTTP.
+ * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
  */
 final class Pagination
 {

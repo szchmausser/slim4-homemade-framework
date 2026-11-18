@@ -1200,8 +1200,7 @@ class SessionMiddleware implements MiddlewareInterface
     public const DEFAULT_ABSOLUTE_TIMEOUT = 43200; // 12 horas
 
     /**
-     * Parámetros de la cookie de sesión. Públicos para que el test verifique
-     * Secure sin depender de abrir/cerrar la sesión nativa del proceso.
+     * Parámetros de la cookie de sesión.
      *
      * @return array{lifetime: int, path: string, httponly: bool, samesite: string, secure: bool}
      */
@@ -1539,13 +1538,6 @@ final class RememberMe
         // revierte, no queda una sesión abierta sin cookie que la respalde.
         // El par que sale de aquí es el mismo `selector:validator` de siempre y
         // el header lo arma `cookieHeader()`, que no cambió.
-        //
-        // Lo que este cambio NO trae es un test de la atomicidad, y no es un
-        // olvido: la atomicidad no se puede verificar de forma directa sin
-        // inyectar una falla justo entre las dos sentencias, y no hay hook
-        // público para abortar ahí sin tocar el código de producción. AuthTest
-        // fija el contrato observable —rotación, header idéntico, conexión sin
-        // transacción abierta al salir— y no simula el corte.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
                 // Tombstone en vez de delete: si el token viejo reaparece,
@@ -1734,10 +1726,7 @@ abstract class Controller
         // usuario/salir del layout.
         $user = Auth::user();
 
-        // ÚNICO consumidor del flash. Antes cada controlador hacía además su
-        // propio Flash::get('info') para pasarlo a la plantilla: el que llegaba
-        // primero se llevaba el mensaje y el otro recibía null, así que el
-        // aviso se perdía sin error. Si se suma un tipo nuevo, va aquí.
+        // ÚNICO consumidor del flash: si se suma un tipo nuevo, va aquí.
         $flash = [];
         foreach (self::FLASH_ORDER as $type) {
             $flash[$type] = Flash::get($type);
@@ -1996,8 +1985,6 @@ class TaskController extends Controller
             // flash SÍ se conserva (en update() no, porque el mensaje se lee al
             // lado del input). El 422 es la otra mitad: sin él el formulario se
             // limpiaría y el usuario perdería lo tipeado.
-            // `errors` viaja para que el panel tenga la misma forma que en
-            // update(); como la lista no está en modo edición, hoy no lo lee.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->respond($request, $response, [
@@ -2874,14 +2861,7 @@ class Validator
     }
 
     /**
-     * UNA sola fuente por regla: el validador y su mensaje salen del mismo
-     * brazo del match.
-     *
-     * Antes había tres lugares que decían lo mismo —la lista `RULES`, el match
-     * de `passes()` y el de `message()`—, así que agregar una regla eran tres
-     * ediciones que podían divergir sin que nada fallara, y el `default` de
-     * cada match era código inalcanzable porque `parse()` ya había filtrado el
-     * nombre. Aquí el único `default` es el que rechaza.
+     * Una sola fuente por regla: validador y mensaje salen del mismo `match`.
      *
      * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
      * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde
@@ -4595,9 +4575,7 @@ namespace Framework\Http;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Paginación estilo Laravel sin illuminate/pagination (ese paquete exige
- * php ^8.3 y subiría el piso del proyecto; aquí son las mismas 2 queries que
- * hace paginate() por dentro: count + slice). Todo testeable sin HTTP.
+ * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
  */
 final class Pagination
 {

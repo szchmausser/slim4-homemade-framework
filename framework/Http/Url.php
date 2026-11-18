@@ -8,11 +8,6 @@ namespace Framework\Http;
  * Prefijo de ruta, para servir la app desde una carpeta y no desde la raíz del
  * dominio (S13).
  *
- * El caso real: el despliegue vive en `https://dominio.com/app/`. Todas las
- * URLs eran raíz-absolutas (`/tareas`, `/assets/...`), así que el navegador las
- * resolvía contra el dominio y cada una daba 404: la app se veía sin estilos y
- * sin poder navegar.
- *
  * Un solo lugar decide el prefijo. `base()` lo normaliza y `path()` arma cada
  * URL; las plantillas lo consumen por la función Twig `url()` y el resto del
  * PHP por `Url::path()`. Con `APP_BASE_PATH` vacío no agrega nada, así que un

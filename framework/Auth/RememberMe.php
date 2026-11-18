@@ -128,13 +128,6 @@ final class RememberMe
         // revierte, no queda una sesión abierta sin cookie que la respalde.
         // El par que sale de aquí es el mismo `selector:validator` de siempre y
         // el header lo arma `cookieHeader()`, que no cambió.
-        //
-        // Lo que este cambio NO trae es un test de la atomicidad, y no es un
-        // olvido: la atomicidad no se puede verificar de forma directa sin
-        // inyectar una falla justo entre las dos sentencias, y no hay hook
-        // público para abortar ahí sin tocar el código de producción. AuthTest
-        // fija el contrato observable —rotación, header idéntico, conexión sin
-        // transacción abierta al salir— y no simula el corte.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
                 // Tombstone en vez de delete: si el token viejo reaparece,

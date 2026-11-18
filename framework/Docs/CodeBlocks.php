@@ -10,10 +10,8 @@ namespace Framework\Docs;
  * backticks: "`resources/views/tasks/_list.twig`:").
  *
  * Existe por una razón concreta: `docs/guia-stack-php-termux.md` copia
- * archivos enteros, y esas copias se pudren solas (la mitad estaban viejas la
- * primera vez que se midió). Con este parser, `composer docs:check` compara
- * cada copia contra el archivo real y `composer docs:sync` la reescribe: la
- * fuente de verdad es el repo, no la guía.
+ * archivos enteros, y `docs:check` compara cada copia contra el archivo real;
+ * `docs:sync` la reescribe.
  *
  * Un fence que es un FRAGMENTO (un método, tres líneas de un array) se marca
  * con `excerpt` en el info string y queda afuera del control: no es una copia,

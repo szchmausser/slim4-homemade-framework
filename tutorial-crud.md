@@ -215,8 +215,7 @@ sale del prefijo del archivo y el nombre de la clase no cambia.
 > colisión que no esperabas.
 
 Por eso el recorrido crea el archivo a mano: son veinte líneas, y el nombre —que es lo que Phinx toma
-como versión— queda bien desde el principio. Si algún día armas un demo instalable, el generador acepta
-`--path` para escribir dentro de `database/migrations/<demo>/`.
+como versión— queda bien desde el principio.
 
 **Comprobación**: ejecuta `vendor/bin/phinx status` (o vuelve a `composer migrate`). Tienes que ver tu
 migración listada como aplicada, sin pendientes.
@@ -231,10 +230,7 @@ migración listada como aplicada, sin pendientes.
 **Qué no prueba**: que el modelo use esta tabla ni que los campos alcancen. La migración sólo prueba
 que el esquema se puede crear y revertir.
 
-> **Por qué `titulo` no es `NOT NULL`**: si miras la tabla vas a ver `VARCHAR(120)` que acepta nulos.
-> La obligatoriedad la impone el validador (paso 7), no la base. Es la convención del proyecto: el
-> mensaje de error lo da la capa de validación, que es la que puede explicarle al usuario qué
-> corregir.
+> **`titulo` acepta nulos en la tabla**: la obligatoriedad la impone el validador (paso 7).
 
 **Qué ganaste**: la tabla `notas` existe, con sus columnas y su marcha atrás —`phinx rollback` la baja
 sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
@@ -345,9 +341,10 @@ use Framework\Http\Middleware\RequireAuthMiddleware;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
+use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function ($group) {
+    $app->group('/notas', function (RouteCollectorProxy $group) {
         $group->get('', function (Request $request, Response $response): Response {
             $response->getBody()->write('notas: ruta registrada');
 
@@ -379,10 +376,6 @@ framework no puede cumplir.
 El 303 prueba que la ruta existe y que la protección está puesta: una ruta inexistente devuelve 404, no
 redirige. El 200 con el texto prueba que la petición llegó hasta tu closure.
 
-**Por qué no esperar un error**: un 500 también aparece cuando el problema está en otro lado —el `.env`,
-la base, una migración sin correr—, así que no distingue «la ruta quedó registrada» de «el proyecto está
-roto». Un 200 con un texto que solo puede salir de esta ruta no se confunde con nada.
-
 **Falla si**:
 
 - Ves la **página 404 del framework**: el archivo no está directamente en `routes/`, no termina en
@@ -395,9 +388,7 @@ en el paso 5.
 
 **Convenciones que este paso deja claras**:
 
-- **El nombre del archivo no importa.** El arranque hace `glob('routes/*.php')` y los carga todos. Se
-  llama `notas.php` por legibilidad —un archivo por entidad—, no porque el framework lo busque por
-  nombre: un `routes/mi-entidad.php` responde igual.
+- **El nombre del archivo no importa**: un `routes/mi-entidad.php` responde igual.
 - **La ubicación sí importa.** Sólo el primer nivel de `routes/`: un archivo en `routes/sub/` nunca se
   carga, y su ruta da 404 sin ningún aviso.
 - **El orden de carga es alfabético**, con `web.php` forzado primero. Importa sólo si dos archivos
@@ -435,9 +426,7 @@ ahorra ese paso, y se arma por convención, igual que las rutas: cada módulo de
 mkdir -p config/navigation
 ```
 
-La carpeta no tiene archivos versionados en el repo: la crea la instalación de un demo, y al quitarlo
-se borra si queda vacía. No está en `.gitignore`, así que la entrada que agregues se versiona junto
-con tu entidad.
+La carpeta no existe en el clon: creala. La entrada se versiona.
 
 Ahora el archivo, `config/navigation/notas.php`:
 
@@ -476,9 +465,7 @@ hasta ella (4.2); lo que se ve al llegar es el paso 6.
 
 **Convenciones que este paso deja claras**:
 
-- **El nombre del archivo no importa.** El contenedor hace `glob('config/navigation/*.php')` y lee cada
-  uno; la entrada se identifica por su clave `key`, no por el nombre del archivo. Se llama `notas.php`
-  porque un archivo por módulo se lee mejor.
+- **El nombre del archivo no importa**: la entrada se identifica por su `key`.
 - **La `key` sí importa**: es el valor que la página declara como `active` para que el sidebar la marque.
 - **`position` ordena**, no el orden alfabético ni el nombre del archivo.
 
@@ -487,13 +474,8 @@ editar `sidebar.twig`. Lo que sigue sin existir es la pantalla misma: el capítu
 y el 6 la vista.
 
 **Pieza — convención de navegación**: cada módulo declara su entrada en `config/navigation/<módulo>.php`
-y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad —que
-además están copiados en la documentación del framework y obligarían a `docs:sync`—. Agregar una
+y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad. Agregar una
 entidad es dejar su archivo; quitarla es borrarlo.
-
-> Si tu entidad es además un **demo instalable**, el mismo archivo lleva `summary` (el texto de la
-> tarjeta en la portada) y el nombre del demo, y la portada la lista con su estado *Instalado* u
-> *Opcional*. Para una entidad de tu app alcanza con `label`, `href`, `icon`, `key` y `position`.
 
 Las dos capturas, antes y después de crear el archivo:
 
@@ -554,9 +536,10 @@ declare(strict_types=1);
 use App\Http\Controllers\NotaController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
+use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function ($group) {
+    $app->group('/notas', function (RouteCollectorProxy $group) {
         $group->get('', [NotaController::class, 'index']);
     })->add(RequireAuthMiddleware::class);
 };
@@ -1093,8 +1076,7 @@ subtítulo desaparecen de tu vista; queda el hueco.
 
 - `title` y `subtitle`: los mismos textos de antes. Se escapan solos. `subtitle` es opcional: si no lo
   pasas, no queda un `<p>` vacío.
-- `icon`: opcional. Notas pasa `list` —el mismo icono del menú—; contactos usa `contacts`. El svg sale
-  del registro compartido, y si el nombre no existe no se pinta nada.
+- `icon`: opcional; el svg sale del registro compartido y un nombre inexistente no pinta nada.
 - `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
   formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
   vez** y no recibe variables: lo que uses, se lo pasas tú.
@@ -1108,10 +1090,6 @@ derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
 - Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
 - El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
 - El icono desaparece: el nombre no está en `components/ui/icon.twig`.
-
-**Qué no prueba**: que el demo de tareas use el mismo componente. Tasks tiene otra forma —el alta es un
-formulario inline, no un botón en la esquina— y se queda como está a propósito; el formulario entraría
-en `block actions` sin tocar el contrato.
 
 **Qué ganaste**: el armazón del encabezado ya no vive en tu vista. Si mañana cambia el espaciado, el
 tamaño del título o la posición del icono, cambia una vez y todas las pantallas que lo usan se enteran.
@@ -1247,10 +1225,8 @@ deja el hueco para la botonera.
 </div>
 ```
 
-**Por qué la botonera se anida del lado de la vista**: en Twig, un bloque se rellena en el sitio de
-llamada, no donde se declara. `actions` se define en tu `index.twig`, así que `page-header` no puede
-envolverlo con `action-bar`. Si lo hiciera, tendría que repetir la lista de clases de la botonera y
-quedarían dos formas de hacer lo mismo.
+**Por qué la botonera se anida en tu vista**: `action-bar` no puede envolver `actions`, porque el bloque
+se rellena en tu `index.twig`.
 
 **Qué te deja**: tres contratos en vez de un bloque de markup. El título se puede usar solo —el
 encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una tabla o un listado. Cuando
@@ -1591,8 +1567,7 @@ no vuelve a abrir nada; eso llega en 7.5.
 - El formulario se envía a la URL equivocada: `action` no se está pasando o quedó el `action` viejo.
 
 **Qué ganaste**: el formulario es un archivo con contrato —`action`, etiqueta del botón, valores— y el
-diálogo sólo lo incluye. Lo que todavía no es del proyecto es el diálogo y el botón que lo abre: uno es
-un `<dialog>` armado a mano y el otro llama a `showModal()` por su cuenta. Eso es 7.4.
+diálogo sólo lo incluye. El `<dialog>` y el botón que lo abre siguen a mano: 7.5 los reemplaza.
 
 **Pieza — un formulario, dos operaciones**: resuelve el formulario una sola vez y evita que el alta y
 la edición tengan campos o validaciones distintas. Úsalo cuando los campos son los mismos. Sin esto,
@@ -1822,7 +1797,7 @@ que alguien que no ve la pantalla pueda usar la fila.
 
 > El `data-modal-open` apunta a un diálogo que todavía no existe —llega en el capítulo 10—, y eso es a
 > propósito: así el botón parece conectado y el único defecto que queda a la vista es que **no tiene
-> nombre**. Si el atajo fallara además por otro lado, el paso dejaría de hablar de accesibilidad.
+> nombre**.
 
 ![Los iconos con emoji: se ven, pero no se anuncian](tutorial-crud-images/08-1-emojis.png)
 
@@ -2236,10 +2211,8 @@ acción explícita en vez de cerrar un cartel del sistema.
 proyecto. Úsala en toda acción destructiva. Evita el borrado por accidente y el cartel del sistema que
 no dice qué se borra. Sin esto, la papelera borra al primer toque y no hay vuelta atrás.
 
-> **Por qué un diálogo por fila y no uno solo**: el demo de contactos usa un único modal y le cambia
-> el `action` por JavaScript. Aquí el diálogo vive en cada fila para no agregar JS: es más markup, pero
-> es server-rendered y no depende de estado del cliente. Con decenas de filas, el modal único con JS
-> vuelve a tener sentido.
+> Un diálogo por fila es más markup. Con decenas de filas, un modal único reusado por JS vuelve a
+tener sentido.
 
 ![El diálogo que dice qué nota se borra](tutorial-crud-images/10-2-borrar.png)
 
@@ -2506,8 +2479,7 @@ proyecto.
 - `{{ empty|default('No hay registros todavía.') }}` dentro de un `<li>`: el estado vacío ocupa una
   fila más de la lista; `empty_class` es su clase opcional.
 
-El componente no sabe nada de `notas` ni de `titulo`: sólo sabe recorrer y dejar un hueco. Eso es lo
-que lo hace reusable, y también lo que lo vuelve difícil de leer la primera vez.
+El componente no sabe nada de `notas` ni de `titulo`: sólo sabe recorrer y dejar un hueco.
 
 **Cómo se rellena el hueco**: ya lo hiciste con el modal. En 7.5 reemplazaste el `<dialog>` por
 `components/ui/modal.twig` y escribiste un `{% block body %}`; el modal puso el resto. Aquí es el mismo
@@ -2556,10 +2528,6 @@ El equivalente con el componente es:
 - `{% block row %}`: rellena el bloque vacío. Se renderiza **donde el componente lo invoca**, o sea
   dentro de `{% for item in items %}`; por eso `item` es la nota de esa vuelta.
 - `{% endembed %}`: cierra el `embed`, no un `include`.
-
-**El orden de render**: `embed` carga el componente; el componente abre el `<ul>`; recorre `items` y,
-en cada vuelta, llega al `{% block row %}`, donde pinta tu fila con el `item` de esa vuelta. Si
-`items` está vacío, el `else` pinta el vacío y tu bloque no se ejecuta.
 
 **La inversión**: compara los dos bloques. Producen el mismo HTML, pero en el segundo tu archivo no
 tiene el `<ul>`, ni el `for`, ni el `else`, y aun así el `<li>` se repite una vez por nota. El
@@ -2947,9 +2915,8 @@ completa** y el shell queda anidado: dos sidebars, dos headers y el contenido du
 **Comprobación**: en `/notas`, toca «Siguiente». El rango pasa a «Mostrando 11 al 20 de N» y la página 2
 queda marcada, **sin recarga**: el scroll se queda donde estaba. Cuenta en la **página entera** —un solo
 `<header>` y dos `<aside>`, el sidebar y la nota del pie—: si ves dos headers y cuatro asides, el
-servidor mandó la página completa y el shell quedó **al lado** del panel. Los avisos son un
-`<div class="toast-host">`, no un `<aside>`; hay además un `<aside>` escrito dentro de un comentario de
-JS que no es parte del DOM.
+servidor mandó la página completa y el shell quedó **al lado** del panel. Cuenta **elementos**, no
+texto: hay un `<aside>` escrito dentro de un comentario de JS que no es parte del DOM.
 
 La URL todavía **no** cambia: la barra sigue en `/notas`. Eso es el paso siguiente.
 
@@ -3073,8 +3040,7 @@ contrato, agrega a `tests/Http/NotaTest.php`:
 **Comprobación**: el test de 422 pasa; el alta inválida reabre su modal con errores; la edición inválida
 reabre el modal de edición con la nota y lo tipeado; la paginación 2xx sigue empujando la URL.
 
-**Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`. Tampoco prueba la
-navegación sin JavaScript: los enlaces llevan `href` real, pero el `<noscript>` del selector es otra cosa.
+**Qué no prueba**: que el orden sea el correcto entre páginas; lo define tu `orderBy`.
 
 **Falla si**:
 
