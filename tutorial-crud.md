@@ -344,8 +344,8 @@ use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function (RouteCollectorProxy $group) {
-        $group->get('', function (Request $request, Response $response): Response {
+    $app->group('/notas', function (RouteCollectorProxy $route) {
+        $route->get('', function (Request $request, Response $response): Response {
             $response->getBody()->write('notas: ruta registrada');
 
             return $response->withHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -539,8 +539,8 @@ use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function (RouteCollectorProxy $group) {
-        $group->get('', [NotaController::class, 'index']);
+    $app->group('/notas', function (RouteCollectorProxy $route) {
+        $route->get('', [NotaController::class, 'index']);
     })->add(RequireAuthMiddleware::class);
 };
 ```
@@ -1342,15 +1342,15 @@ use Framework\Validation\Validator;
 **Antes**:
 
 ```php
-        $group->get('', [NotaController::class, 'index']);
+        $route->get('', [NotaController::class, 'index']);
 ```
 
 **Después**: agrega el `post` debajo del `get`; las dos rutas comparten el grupo y el middleware de
 sesión.
 
 ```php
-        $group->get('', [NotaController::class, 'index']);
-        $group->post('', [NotaController::class, 'store']);
+        $route->get('', [NotaController::class, 'index']);
+        $route->post('', [NotaController::class, 'store']);
 ```
 
 Se registra aquí, con su acción, y no en el paso 4: una ruta sin acción es una promesa que el framework
@@ -1843,18 +1843,18 @@ tratamiento visual del proyecto.
 **Antes**: el archivo sólo tiene el listado y el alta.
 
 ```php
-        $group->get('', [NotaController::class, 'index']);
-        $group->post('', [NotaController::class, 'store']);
+        $route->get('', [NotaController::class, 'index']);
+        $route->post('', [NotaController::class, 'store']);
 ```
 
 **Después**: agrega las tres rutas de edición y borrado; el archivo queda con cinco.
 
 ```php
-        $group->get('', [NotaController::class, 'index']);
-        $group->post('', [NotaController::class, 'store']);
-        $group->get('/{id}/edit', [NotaController::class, 'edit']);
-        $group->post('/{id}', [NotaController::class, 'update']);
-        $group->post('/{id}/delete', [NotaController::class, 'destroy']);
+        $route->get('', [NotaController::class, 'index']);
+        $route->post('', [NotaController::class, 'store']);
+        $route->get('/{id}/edit', [NotaController::class, 'edit']);
+        $route->post('/{id}', [NotaController::class, 'update']);
+        $route->post('/{id}/delete', [NotaController::class, 'destroy']);
 ```
 
 `edit()` y `update()` se implementan en el paso 9; `destroy()` en el paso 10. Hasta entonces, tocar el

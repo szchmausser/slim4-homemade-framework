@@ -8,12 +8,12 @@ use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/contactos', function (RouteCollectorProxy $group) {
-        $group->get('', [ContactController::class, 'index']);
-        $group->get('/datos', [ContactController::class, 'data']);
-        $group->post('', [ContactController::class, 'store']);
-        $group->get('/{id}/edit', [ContactController::class, 'edit']);
-        $group->post('/{id}', [ContactController::class, 'update']);
-        $group->post('/{id}/delete', [ContactController::class, 'destroy']);
+    $app->group('/contactos', function (RouteCollectorProxy $route) {
+        $route->get('', [ContactController::class, 'index']);
+        $route->get('/datos', [ContactController::class, 'data']);
+        $route->post('', [ContactController::class, 'store']);
+        $route->get('/{id}/edit', [ContactController::class, 'edit']);
+        $route->post('/{id}', [ContactController::class, 'update']);
+        $route->post('/{id}/delete', [ContactController::class, 'destroy']);
     })->add(RequireAuthMiddleware::class);
 };
