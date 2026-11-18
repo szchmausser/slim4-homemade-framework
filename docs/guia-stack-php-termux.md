@@ -93,7 +93,7 @@ mkdir mi-app && cd mi-app
 
 mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs app/Support
 mkdir -p bootstrap config database/migrations database/seeds
-mkdir -p public/assets resources/views/layouts resources/views/auth resources/views/partials resources/views/errors
+mkdir -p public/assets resources/views/layouts resources/views/layouts/parts resources/views/components resources/views/pages
 mkdir -p routes storage/logs storage/cache/twig storage/sessions
 mkdir -p tests/Http tests/Support
 ```
@@ -1577,7 +1577,7 @@ final class RememberMe
 }
 ```
 
-`framework/Http/CsrfTokens.php` (las 4 vars de `_csrf.twig`, una sola fuente para controladores y closures de ruta):
+`framework/Http/CsrfTokens.php`, la fuente única de las cuatro variables que espera el partial de CSRF (controladores y closures de ruta):
 
 ```php
 <?php
@@ -2950,7 +2950,7 @@ Suma reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.)
 <input type="hidden" name="{{ csrf_value_key }}" value="{{ csrf_value }}">
 ```
 
-Se incluye en cualquier formulario con `{% include 'components/form/csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `Controller::csrf()` arriba). Dos parciales hermanos viven al lado, documentados en el cap. 15: `_logo.twig` (marca) y `_icon.twig` (iconos compartidos sidebar/header).
+Se incluye en cualquier formulario con `{% include 'components/form/csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `Controller::csrf()` arriba). Dos piezas primitivas viven en `components/ui/`, documentadas en el cap. 15: `logo.twig` (marca) e `icon.twig` (iconos compartidos sidebar/header).
 
 `public/index.php`:
 
@@ -3021,7 +3021,9 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/layouts/parts/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; aquí se muestra el layout que los integra:
+Ahora es una composición: el sidebar, la barra superior, los avisos y el footer viven en `resources/views/layouts/parts/`, con sus nombres `head`, `sidebar`, `topbar`, `toasts`, `footer` e `ink-tokens`. Copia también esos seis fragmentos.
+
+El layout que los integra, completo, es `resources/views/layouts/app.twig`:
 
 ```twig
 <!DOCTYPE html>

@@ -83,7 +83,7 @@ instalalo y corré `composer test` antes de cerrar.
 2. Si el cambio es de dominio, hacelo en `app/`; si es infra reusable, en `framework/`.
 3. Si agregás una entidad, creá su archivo en `routes/`, su migración y sus vistas;
    no edites `bootstrap/app.php` para registrarla.
-4. Si agregás una ruta mutante, incluí el token CSRF (`partials/_csrf.twig`) y
+4. Si agregás una ruta mutante, incluí el token CSRF (`components/form/csrf.twig`) y
    verificá el comportamiento HTMX (región, `HX-Trigger`, `HX-Push-Url`).
 5. Corré `composer verify` y, si corresponde, el demo instalado + `composer test`.
 6. Si tocaste docs copiadas, `composer docs:sync` y `composer docs:check`.

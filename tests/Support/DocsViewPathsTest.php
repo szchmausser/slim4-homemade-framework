@@ -38,9 +38,11 @@ final class DocsViewPathsTest extends TestCase
                     continue;
                 }
 
-                // Las frases de historia («ya no existe», «era …») documentan el
-                // cambio y no son una ruta viva.
-                if (preg_match('/(ya no|era |desaparece|antes )/u', $linea) === 1) {
+                // Una frase de historia sólo vale si el contexto está pegado a
+                // la ruta: «`partials/` ya no existe» o «`header.twig` era …».
+                // Mirar la línea entera dejaba pasar instrucciones reales que
+                // mencionaban «antes» en otra parte de la frase.
+                if (self::esHistoria($linea)) {
                     continue;
                 }
 
@@ -51,6 +53,46 @@ final class DocsViewPathsTest extends TestCase
         }
 
         self::assertGreaterThan(0, $revisadas, 'No se revisó ningún documento: el test estaría pasando en vacío.');
+    }
+
+    /**
+     * ¿La línea habla de una ruta retirada como historia y no como instrucción?
+     * Se mira el contexto pegado al token, no la línea entera.
+     */
+    public static function esHistoria(string $linea): bool
+    {
+        $n = preg_match_all(self::RETIRADAS, $linea, $m, PREG_OFFSET_CAPTURE);
+        if ($n === false || $n === 0) {
+            return false;
+        }
+
+        foreach ($m[0] as [$token, $offset]) {
+            $antes = substr($linea, max(0, $offset - 24), min(24, $offset));
+            $despues = substr($linea, $offset, 40);
+
+            if (preg_match('/(ya no|era|desaparece|antes)\s*$/u', $antes) === 1) {
+                continue;
+            }
+            if (preg_match('/(ya no|desaparece)/u', $despues) === 1) {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    public function test_la_frase_de_historia_no_tapa_una_ruta_viva(): void
+    {
+        self::assertFalse(
+            self::esHistoria('- Cada formulario incluye `partials/_csrf.twig` antes de los campos ocultos.'),
+            '«antes» en otra parte de la frase no convierte una instrucción en historia.'
+        );
+        self::assertTrue(
+            self::esHistoria('`partials/` ya no existe: usá layouts/parts o components/.'),
+            'Una ruta seguida de «ya no» sí es historia.'
+        );
     }
 
     public function test_cada_copia_de_la_guia_apunta_a_un_archivo_existente(): void

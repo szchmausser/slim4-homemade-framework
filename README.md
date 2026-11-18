@@ -124,7 +124,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 
 La reutilización está separada en capas para no forzar una arquitectura:
 
-- **Base independiente:** `components/ui/button.twig`, `modal.twig`, `components/form/field.twig`, `components/feedback/alert.twig`, `components/ui/icon.twig`, `_csrf.twig`, `_logo.twig` y `layouts/parts/toasts.twig`.
+- **Base independiente:** `components/ui/button.twig`, `modal.twig`, `components/form/field.twig`, `components/feedback/alert.twig`, `components/ui/icon.twig`, `components/form/csrf.twig`, `components/ui/logo.twig` y `layouts/parts/toasts.twig`.
 - **Compuestos opcionales:** `components/list/simple.twig` para listas server-rendered, `components/pagination/simple.twig` para paginación HTMX y `components/table/tabulator.twig` para tablas avanzadas con datos remotos.
 - **Dominio del demo:** las filas, estados y acciones de tareas; las columnas y formatters de contactos. Son ejemplos de implementación, no componentes universales.
 

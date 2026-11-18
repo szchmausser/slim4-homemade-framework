@@ -81,7 +81,7 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty`, `list_class`, `empty_class`, un bloque `row` por elemento y un bloque `after` que se emite después del `</ul>` —ahí van los diálogos por fila, porque un `<dialog>` no es hijo válido de una lista—.
 - `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-url`) para una tabla Tabulator en modo remoto; el initializer de columnas vive con la tabla y las filas las sirve el endpoint de `url`.
 - `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
-- `components/form/csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
+- `components/form/csrf.twig`, `components/ui/icon.twig`, `components/ui/logo.twig`: piezas primitivas compartidas.
 - `layouts/parts/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
 
 ## Organización de `resources/views`

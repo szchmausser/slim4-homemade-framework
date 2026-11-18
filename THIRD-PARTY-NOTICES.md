@@ -12,7 +12,7 @@ componentes se aplican a sus archivos, no al código propio del proyecto.
 | Tailwind CSS (browser build) | 4.3.3 | MIT | Tailwind Labs, Inc. — https://github.com/tailwindlabs/tailwindcss |
 | daisyUI | 5.7.46 | MIT | Pouya Saadeghi — https://github.com/saadeghi/daisyui |
 | Tabulator | 6.7.1 | MIT | Oli Folkerd — https://github.com/tabulator-tables/Tabulator |
-| Iconos SVG (`partials/_icon.twig`) | — | ISC / MIT | Basados en Lucide (ISC) y Feather (MIT) — https://github.com/lucide-icons/lucide |
+| Iconos SVG (`components/ui/icon.twig`) | — | ISC / MIT | Basados en Lucide (ISC) y Feather (MIT) — https://github.com/lucide-icons/lucide |
 
 Los assets viven en `public/assets/` y, para el demo de contactos, en
 `framework/scaffolds/contacts/public/assets/vendor/tabulator/6.7.1/`. Ese
