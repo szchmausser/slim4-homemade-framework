@@ -6,7 +6,7 @@
     <title>{% block title %}Mi App{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados compartidos. #}
-    {% include 'partials/layout/head.twig' %}
+    {% include 'layouts/parts/head.twig' %}
 
     {# Sin htmx ni Alpine a proposito: el login es un POST normal y no hay
        estado de cliente que gobernar. Son ~106 KB que esta pantalla no usa. #}
@@ -14,7 +14,7 @@
     <style>
         /* Mismas tintas de icono que layouts/app.twig: vienen del partial
            compartido para que no se desincronicen entre pantallas. */
-        {% include 'partials/layout/ink-tokens.twig' %}
+        {% include 'layouts/parts/ink-tokens.twig' %}
 
         /* Placeholder al 70 % de base-content, igual que en layouts/app.twig:
            daisyUI y el preflight de Tailwind lo pintan al 50 %, que sobre
@@ -82,7 +82,7 @@
        mismo formulario: era una puerta que no lleva a ningun lado. #}
     <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
         <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">
-            {% include 'partials/_logo.twig' %}
+            {% include 'components/ui/logo.twig' %}
             <span class="text-lg font-bold">Mi App</span>
         </a>
 

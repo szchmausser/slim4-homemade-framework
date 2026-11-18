@@ -8,7 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
 
 /**
- * Las 4 vars que espera partials/_csrf.twig. Una sola fuente para
+ * Las 4 vars que espera components/form/csrf.twig. Una sola fuente para
  * controladores (vía Controller::csrf) y closures de ruta (p. ej. la home,
  * que renderiza directo y también necesita el form de logout del layout).
  */

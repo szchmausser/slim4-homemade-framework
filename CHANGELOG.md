@@ -5,6 +5,14 @@ Versionado semántico mientras el proyecto esté en `0.x`.
 
 ## [Unreleased]
 
+### Cambiado
+
+- `resources/views` reorganizado por rol: `layouts/` con sus fragmentos en `parts/`, `components/<familia>/`
+  y `pages/`. `partials/` desaparece: `_icon` y `_logo` pasan a `components/ui/`, `_csrf` a
+  `components/form/` y `partials/layout/header.twig` a `layouts/parts/topbar.twig`, para no confundirlo
+  con `components/ui/page-header.twig`. Los demos instalan sus vistas en `pages/<entidad>/` y el tutorial
+  sigue la misma convención. `tests/Support/ViewStructureTest` convierte la convención en un contrato.
+
 ### Corregido
 
 - `components/list/simple.twig` expone un bloque `after`, que se emite después del `</ul>`. Los demos

@@ -8,7 +8,7 @@
         <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
-                    {% include 'partials/_logo.twig' with {size: 'h-12 w-12'} %}
+                    {% include 'components/ui/logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
                         <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
                         <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
@@ -19,7 +19,7 @@
                         <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
                             <span>Ingresar</span>
                             <span aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                             </span>
                         </a>
                     </div>
@@ -31,7 +31,7 @@
                                 <a href="{{ url(module.href) }}" class="btn btn-primary gap-2">
                                     <span>Abrir {{ module.label|lower }}</span>
                                     <span aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                                     </span>
                                 </a>
                             {% endfor %}
@@ -54,7 +54,7 @@
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
@@ -62,7 +62,7 @@
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
@@ -70,7 +70,7 @@
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
@@ -78,7 +78,7 @@
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
@@ -86,7 +86,7 @@
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
@@ -94,7 +94,7 @@
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
@@ -109,7 +109,7 @@
                 <div class="mb-6">
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
                         </span>
                         Arquitectura y stack
                     </h2>
@@ -121,7 +121,7 @@
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-backend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Núcleo & Backend
                         </h3>
@@ -161,7 +161,7 @@
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-frontend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Frontend & Reactividad
                         </h3>
@@ -193,7 +193,7 @@
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-datos" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Datos & Persistencia
                         </h3>
@@ -217,7 +217,7 @@
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-desarrollo" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Calidad & Herramientas
                         </h3>
@@ -248,7 +248,7 @@
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
                         </span>
                         Módulos y demos
                     </h2>
@@ -261,7 +261,7 @@
                             <div>
                                 <h3 class="flex items-center gap-2 text-base font-semibold">
                                     <span class="opacity-70" aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
                                     Demo de {{ module.label|lower }}
                                 </h3>
@@ -282,7 +282,7 @@
                                 <a href="{{ url(module.href) }}" class="btn btn-primary btn-sm w-full gap-2">
                                     <span>Abrir {{ module.label|lower }}</span>
                                     <span aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                                     </span>
                                 </a>
                             </div>
@@ -303,7 +303,7 @@
                 <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">
                     <h3 id="requirements-title" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                         <span class="inline-flex shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
                         </span>
                         Requisitos y compatibilidad
                     </h3>

@@ -4,7 +4,7 @@
 
 {# El CSS del demo viaja con el demo: si se desinstala, el archivo se borra
    con el resto del scaffold y el shell no queda con reglas huérfanas. #}
-{% block styles %}{% include 'tasks/_styles.twig' %}{% endblock %}
+{% block styles %}{% include 'pages/tasks/_styles.twig' %}{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
@@ -12,7 +12,7 @@
             <div>
                 <h1 class="flex items-center gap-2 text-2xl font-bold">
                     <span class="opacity-60" aria-hidden="true">
-                        {% include 'partials/_icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
                     </span>
                     Mis tareas
                 </h1>
@@ -56,7 +56,7 @@
           hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"
           class="join mb-6 w-full">
-        {% include 'partials/_csrf.twig' %}
+        {% include 'components/form/csrf.twig' %}
         {% include 'components/form/field.twig' with {
             id: 'task-title-new',
             name: 'title',
@@ -76,7 +76,7 @@
         } only %}
     </form>
 
-    {% include 'tasks/_panel.twig' %}
+    {% include 'pages/tasks/_panel.twig' %}
         </div>
     </section>
 {% endblock %}

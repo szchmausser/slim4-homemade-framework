@@ -46,7 +46,7 @@
            no hay JIT que compile la utilidad. */
         .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
 
-        /* Misma marca que layouts/auth.twig (partials/_logo.twig + "Mi App")
+        /* Misma marca que layouts/auth.twig (components/ui/logo.twig + "Mi App")
            y linkeada a `/`, para que el error también sea el producto y no un
            cartel suelto. Las utilidades del partial (h-8, rounded-lg,
            bg-primary) no existen sin JIT, así que la caja se dibuja aquí con
@@ -71,7 +71,7 @@
     <main class="hero error-main">
         <div class="hero-content">
             <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
-                {% include 'partials/_logo.twig' with { size: 'error-logo' } %}
+                {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
                 <span>Mi App</span>
             </a>
             <div class="card card-border bg-base-100">

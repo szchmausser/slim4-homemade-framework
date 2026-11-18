@@ -35,7 +35,7 @@
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
-                    {% include 'partials/_csrf.twig' %}
+                    {% include 'components/form/csrf.twig' %}
                     {# En fallo de validación se repinta lo TIPEADO (editing_title),
                        no el valor guardado: si no, el usuario pierde lo que
                        escribió junto con el error. Twig autoescapea, así que

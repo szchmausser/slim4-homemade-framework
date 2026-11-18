@@ -77,7 +77,7 @@ final class BasePathTest extends HttpTestCase
 
         $html = (string) $response->getBody();
 
-        // El 404 sale por errors/error.twig, que no extiende el layout: también
+        // El 404 sale por pages/errors/error.twig, que no extiende el layout: también
         // tiene que perder la raíz del dominio, o la página de error de un
         // despliegue en /app es la única que se ve sin estilos. Y "volver al
         // inicio" apunta a la raíz DEL PREFIJO (`/app/`), que es donde vive

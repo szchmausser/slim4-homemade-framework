@@ -37,11 +37,11 @@ abstract class TasksTestCase extends HttpTestCase
         $root = dirname(__DIR__, 3);
         $files = [
             $root . '/resources/views/layouts/app.twig',
-            $root . '/resources/views/partials/layout/head.twig',
-            $root . '/resources/views/partials/layout/sidebar.twig',
-            $root . '/resources/views/partials/layout/header.twig',
-            $root . '/resources/views/partials/layout/toasts.twig',
-            $root . '/resources/views/partials/layout/footer.twig',
+            $root . '/resources/views/layouts/parts/head.twig',
+            $root . '/resources/views/layouts/parts/sidebar.twig',
+            $root . '/resources/views/layouts/parts/topbar.twig',
+            $root . '/resources/views/layouts/parts/toasts.twig',
+            $root . '/resources/views/layouts/parts/footer.twig',
         ];
 
         $source = '';

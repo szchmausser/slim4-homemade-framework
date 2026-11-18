@@ -103,7 +103,7 @@ final class ShellBreadcrumbContractTest extends HttpTestCase
         $html = (string) self::app()->getContainer()
             ->get(\Slim\Views\Twig::class)
             ->getEnvironment()
-            ->render('partials/layout/header.twig', [
+            ->render('layouts/parts/topbar.twig', [
                 'user_id' => 1,
                 'user_email' => 'yo@ejemplo.com',
                 'breadcrumbs' => [['label' => 'Inicio', 'icon' => 'home', 'current' => true]],

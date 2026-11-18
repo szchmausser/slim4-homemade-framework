@@ -95,8 +95,8 @@ return function (App $app) {
                 $body = null;
                 try {
                     $template = $request->hasHeader('HX-Request')
-                        ? 'errors/_htmx.twig'
-                        : 'errors/error.twig';
+                        ? 'pages/errors/_htmx.twig'
+                        : 'pages/errors/error.twig';
 
                     $rendered = $container->get(Twig::class)->render(
                         $app->getResponseFactory()->createResponse($status),

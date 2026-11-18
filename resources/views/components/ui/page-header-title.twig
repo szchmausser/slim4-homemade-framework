@@ -12,7 +12,7 @@
     <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
         {% if icon|default(false) %}
             <span class="opacity-60" aria-hidden="true">
-                {% include 'partials/_icon.twig' with {name: icon, class: 'h-5 w-5'} %}
+                {% include 'components/ui/icon.twig' with {name: icon, class: 'h-5 w-5'} %}
             </span>
         {% endif %}
         {{ title }}

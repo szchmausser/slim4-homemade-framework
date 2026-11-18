@@ -11,7 +11,7 @@ use Slim\Views\Twig;
 
 return function (App $app) {
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
-    // GET / devuelve 404 y el boton "Volver al inicio" de errors/error.twig
+    // GET / devuelve 404 y el boton "Volver al inicio" de pages/errors/error.twig
     // vuelve a ser un link muerto. Pública a propósito (la pide la app, no ella).
     // El layout necesita csrf (form de logout) y usuario: como aquí se renderiza
     // directo sin Controller, van explícitos con la misma fuente (CsrfTokens).
@@ -20,7 +20,7 @@ return function (App $app) {
 
         // Guard se resuelve aquí (en request), no al registrar: al construirse
         // exige sesión iniciada y en registro todavía no hay ninguna.
-        return $container->get(Twig::class)->render($response, 'home.twig', [
+        return $container->get(Twig::class)->render($response, 'pages/home.twig', [
             'active'      => 'home',
             'user_id'     => Auth::id(),
             'user_email'  => Auth::user()?->getAttribute('email'),

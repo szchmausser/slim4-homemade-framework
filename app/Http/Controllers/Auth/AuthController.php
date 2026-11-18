@@ -36,7 +36,7 @@ class AuthController extends Controller
             return $response->withStatus(303)->withHeader('Location', Url::path('/'));
         }
 
-        return $this->render($request, $response, 'auth/login.twig', [
+        return $this->render($request, $response, 'pages/auth/login.twig', [
             'active' => 'login',
         ]);
     }
@@ -61,7 +61,7 @@ class AuthController extends Controller
             // forma de mostrar el mensaje sin JS), pero un login con campos
             // inválidos no se completó. El 200 le decía al cliente —y al log
             // del servidor— que la petición había salido bien.
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
                 'errors' => $validator->errors(),
@@ -76,7 +76,7 @@ class AuthController extends Controller
         if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
             Flash::set('error', self::INVALID_CREDENTIALS);
 
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
             ]);
@@ -95,7 +95,7 @@ class AuthController extends Controller
             // Genérico a propósito: nunca decir si falló el email o la clave.
             Flash::set('error', self::INVALID_CREDENTIALS);
 
-            return $this->render($request, $response, 'auth/login.twig', [
+            return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
                 'email'  => $email,
             ]);

@@ -84,7 +84,7 @@ class TaskController extends Controller
         $response = $this->render(
             $request,
             $response,
-            $request->hasHeader('HX-Request') ? 'tasks/_panel.twig' : 'tasks/index.twig',
+            $request->hasHeader('HX-Request') ? 'pages/tasks/_panel.twig' : 'pages/tasks/index.twig',
             $data
         );
 
@@ -188,7 +188,7 @@ class TaskController extends Controller
             if (!$request->hasHeader('HX-Request')) {
                 // Sin htmx es un navegador pidiendo el documento de un recurso
                 // que no existe: 404 de verdad, con el mensaje de
-                // errors/error.twig. Un 200 con un cartel mentiría al
+                // pages/errors/error.twig. Un 200 con un cartel mentiría al
                 // protocolo (y un curl --fail no se enteraría).
                 throw new HttpNotFoundException($request);
             }

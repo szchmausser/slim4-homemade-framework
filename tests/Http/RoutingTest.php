@@ -9,7 +9,7 @@ use Tests\Support\HttpTestCase;
 /**
  * El router, y sobre todo la ruta raiz.
  *
- * El segundo test existe por un bug concreto: `errors/error.twig` cierra con
+ * El segundo test existe por un bug concreto: `pages/errors/error.twig` cierra con
  * `<a href="/">Volver al inicio</a>`, y no había ninguna ruta en `/`. El botón
  * de la página de error era, él mismo, un link muerto. Ningún test lo detectó
  * porque todos asserteaban el status de `/no-existe` y nadie seguía el link.
