@@ -87,14 +87,20 @@ final class CodeBlocks
             if (!in_array(strtolower($match[2]), self::VERIFIED_EXTENSIONS, true)) {
                 continue;
             }
+            // Un nombre suelto (`001_create_x.php`) no es una ruta del repo: sin
+            // barra no hay intención de ruta y no se valida.
+            if (!str_contains($path, '/')) {
+                continue;
+            }
             // Nada de rutas absolutas ni escapes hacia afuera del repo.
             if (str_contains($path, '..') || str_starts_with($path, '/')) {
                 continue;
             }
-            if (!is_file($root . '/' . $path)) {
-                continue;
-            }
-
+            // Las rutas inexistentes NO se descartan: si un documento declara una
+            // copia de un archivo que se movió o se borró, docs:check tiene que
+            // fallar en vez de saltear el bloque en silencio. Antes este `continue`
+            // dejaba el control muerto y una reorganización de vistas pasaba sin
+            // que nadie se enterara.
             $found[$path] = true;
         }
 

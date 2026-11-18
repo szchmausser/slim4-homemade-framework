@@ -6,7 +6,7 @@ Stack confirmado: Slim 4, php-di, phpdotenv, Eloquent (Capsule standalone), Phin
 >
 > Nota sobre daisyUI: se usa **as-is**, temas claro/oscuro por defecto, sin personalizar. Nada de `dark:` utilities (el tema lo gobierna `data-theme`), nada de JS de terceros, nada de variantes `is-drawer-*` (no existen en el CSS linkeado — verificado, capítulo 14).
 
-> **Las copias de archivos que hay en esta guía están verificadas, no mantenidas a mano.** Cada bloque que declara un archivo del repo (`framework/scaffolds/tasks/resources/views/tasks/_list.twig`, por ejemplo) es una copia literal de ese archivo: `composer docs:check` falla si difieren y `composer docs:sync` las reescribe desde el repo. Un fragmento (un método suelto, tres líneas de un array) se marca `excerpt` en el info string y queda fuera del control. El motivo es medido: la primera vez que se comparó, **27 de 56 copias estaban viejas** (una vista tenía tres features de atraso).
+> **Las copias de archivos que hay en esta guía están verificadas, no mantenidas a mano.** Cada bloque que declara un archivo del repo (`framework/scaffolds/tasks/resources/views/pages/tasks/_list.twig`, por ejemplo) es una copia literal de ese archivo: `composer docs:check` falla si difieren y `composer docs:sync` las reescribe desde el repo. Un fragmento (un método suelto, tres líneas de un array) se marca `excerpt` en el info string y queda fuera del control. El motivo es medido: la primera vez que se comparó, **27 de 56 copias estaban viejas** (una vista tenía tres features de atraso).
 
 ## Índice
 1. Preparar Termux
@@ -128,14 +128,14 @@ mi-app/
 │       ├── tasks/                  # demo opcional: composer demo:tasks:install
 │       │   ├── app/Tasks/{Http,Models}/
 │       │   ├── database/{migrations,seeds}/tasks/
-│       │   ├── resources/views/tasks/
+│       │   ├── resources/views/pages/tasks/
 │       │   ├── routes/tasks.php
 │       │   └── tests/Tasks/
 │       └── contacts/               # demo Tabulator: composer demo:contacts:install
 │           ├── app/Contacts/{Http,Models}/
 │           ├── database/{migrations,seeds}/contacts/
 │           ├── public/assets/{vendor/tabulator,css,js}/
-│           ├── resources/views/contacts/
+│           ├── resources/views/pages/contacts/
 │           ├── routes/contacts.php
 │           └── tests/Contacts/
 ├── app/
@@ -173,15 +173,13 @@ mi-app/
 │   └── index.php
 ├── resources/
 │   └── views/
-│       ├── layouts/app.twig        # shell: sidebar+header+footer
+│       ├── layouts/app.twig        # shell: sidebar+topbar+footer
 │       ├── layouts/auth.twig       # acceso, sin shell
-│       ├── auth/login.twig
-│       ├── errors/error.twig       # standalone a propósito (cap. 7.1)
-│       ├── home.twig
-│       ├── components/{ui,feedback,form,list,table,pagination}/ # componentes
-│       └── partials/
-│           ├── {_csrf.twig,_logo.twig,_icon.twig}
-│           └── layout/{head.twig,sidebar.twig,header.twig,toasts.twig,footer.twig}
+│       ├── layouts/parts/          # head, topbar, sidebar, toasts, footer, ink-tokens
+│       ├── components/{ui,form,feedback,list,table,pagination}/ # reutilizable
+│       ├── pages/home.twig
+│       ├── pages/auth/login.twig
+│       └── pages/errors/error.twig # standalone a propósito (cap. 7.1)
 ├── routes/
 │   └── web.php                     # raíz + login/logout (rutas base)
 ├── storage/                        # se autocrea; NO va a git
@@ -202,7 +200,7 @@ mi-app/
 └── phpunit.xml
 ```
 
-El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
 
 Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
@@ -896,9 +894,9 @@ return function (App $app) {
 
 ### 7.1 La vista de error (404, 500 y compañía)
 
-El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `message`:
+El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code` y `message`:
 
-`resources/views/errors/error.twig`:
+`resources/views/pages/errors/error.twig`:
 
 ```twig
 <!DOCTYPE html>
@@ -949,7 +947,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
            no hay JIT que compile la utilidad. */
         .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
 
-        /* Misma marca que layouts/auth.twig (partials/_logo.twig + "Mi App")
+        /* Misma marca que layouts/auth.twig (components/ui/logo.twig + "Mi App")
            y linkeada a `/`, para que el error también sea el producto y no un
            cartel suelto. Las utilidades del partial (h-8, rounded-lg,
            bg-primary) no existen sin JIT, así que la caja se dibuja aquí con
@@ -974,7 +972,7 @@ El error handler de arriba renderiza `errors/error.twig`, que recibe `code` y `m
     <main class="hero error-main">
         <div class="hero-content">
             <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
-                {% include 'partials/_logo.twig' with { size: 'error-logo' } %}
+                {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
                 <span>Mi App</span>
             </a>
             <div class="card card-border bg-base-100">
@@ -1677,7 +1675,7 @@ return function (App $app) {
 
 El `->add()` al grupo protege las 5 rutas de un saque; `/`, `/login` y `/logout` quedan públicas. El logout es POST a propósito (con CSRF del Guard global): un logout por GET se dispara con un link externo sin que quieras.
 
-**Por qué la raíz renderiza una página y no una redirección.** `errors/error.twig` (cap. 7.1) cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto: se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. La ruta responde `200` con `home.twig` y no redirige. De paso es el health check más barato que existe y el test de humo más económico del proyecto (cap. 20.6).
+**Por qué la raíz renderiza una página y no una redirección.** `pages/errors/error.twig` (cap. 7.1) cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto: se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. La ruta responde `200` con `home.twig` y no redirige. De paso es el health check más barato que existe y el test de humo más económico del proyecto (cap. 20.6).
 
 **`active` le dice al layout qué item del menú resaltar.** El shell (`layouts/app.twig`, cap. 15) pinta `menu-active` según esa variable. Solo la página completa la necesita — los parciales HTMX no llevan nav, así que las demás acciones ni la pasan.
 
@@ -2945,14 +2943,14 @@ Suma reglas al `match` a medida que las necesites (`alpha`, `date`, `in:`, etc.)
 
 ## 13. CSRF en formularios Twig
 
-`resources/views/partials/_csrf.twig` (parcial reusable):
+`resources/views/components/form/csrf.twig` (parcial reusable):
 
 ```twig
 <input type="hidden" name="{{ csrf_name_key }}" value="{{ csrf_name }}">
 <input type="hidden" name="{{ csrf_value_key }}" value="{{ csrf_value }}">
 ```
 
-Se incluye en cualquier formulario con `{% include 'partials/_csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `Controller::csrf()` arriba). Dos parciales hermanos viven al lado, documentados en el cap. 15: `_logo.twig` (marca) y `_icon.twig` (iconos compartidos sidebar/header).
+Se incluye en cualquier formulario con `{% include 'components/form/csrf.twig' %}`, siempre que el controlador le haya pasado esas cuatro variables a la vista (como hace `Controller::csrf()` arriba). Dos parciales hermanos viven al lado, documentados en el cap. 15: `_logo.twig` (marca) y `_icon.twig` (iconos compartidos sidebar/header).
 
 `public/index.php`:
 
@@ -3023,7 +3021,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/partials/layout/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; aquí se muestra el layout que los integra:
+`resources/views/layouts/app.twig` completo. Ahora es una composición: el sidebar, el header, los avisos y el footer viven en `resources/views/layouts/parts/` (`head.twig`, `sidebar.twig`, `header.twig`, `toasts.twig`, `footer.twig`). Copia también esos cinco partials; aquí se muestra el layout que los integra:
 
 ```twig
 <!DOCTYPE html>
@@ -3464,7 +3462,7 @@ function toastStack() {
 >
 > **Por qué `After-Swap` y no `HX-Trigger` a secas.** En un ARM de 32 bits el swap del panel puede tardar; con el evento temprano el toast de "Tarea creada" aparece mientras la lista vieja sigue en pantalla. `HX-Trigger-After-Swap` lo dispara cuando el DOM ya quedó actualizado.
 >
-> **Un aviso, un canal.** `Controller::render()` decide: si el request trae `HX-Request`, el flash viaja en el header y el HTML sale sin banner; si no, queda inline en `tasks/_panel.twig` (o en `auth/login.twig`), que es el caso de una navegación o de un formulario sin htmx. Si viajara por los dos lados, el mensaje se vería dos veces.
+> **Un aviso, un canal.** `Controller::render()` decide: si el request trae `HX-Request`, el flash viaja en el header y el HTML sale sin banner; si no, queda inline en `pages/tasks/_panel.twig` (o en `pages/auth/login.twig`), que es el caso de una navegación o de un formulario sin htmx. Si viajara por los dos lados, el mensaje se vería dos veces.
 >
 > **Alineación: el toast se cuelga de la columna de contenido, no del viewport.** Un `toast toast-end toast-top` de daisyUI es `position: fixed` contra la ventana, y en desktop lo que se ve es la columna que arranca **después** del sidebar: el toast quedaba pegado al borde de la pantalla, no al del `<h1>`. El host de arriba se corre `16rem` (o `4rem` si el sidebar está plegado — de ahí el selector `html[data-sidebar-mini]`, la misma marca que usa el pre-pintado) y el stack repite `max-w-6xl` + `p-4 lg:p-6` de `<main>`. Resultado: el borde derecho del toast cae exacto sobre el del título, y usa el hueco que la fila de título deja libre a la derecha. En móvil no hay hueco: el host va abajo, como cualquier toast de teléfono, para no tapar el `<h1>`.
 >
@@ -3474,7 +3472,7 @@ function toastStack() {
 
 Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mismo archivo, no dos copias que divergen):
 
-`resources/views/partials/_logo.twig` (marca genérica sobre `primary`: se adapta a claro/oscuro por tokens, no por colores fijos):
+`resources/views/components/ui/logo.twig` (marca genérica sobre `primary`: se adapta a claro/oscuro por tokens, no por colores fijos):
 
 ```twig
 {# Logo genérico de la app: marca abstracta (capas) sobre fondo primary.
@@ -3485,7 +3483,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 </span>
 ```
 
-`resources/views/partials/_icon.twig` (una sola fuente para sidebar y header):
+`resources/views/components/ui/icon.twig` (una sola fuente para sidebar y header):
 
 ```twig
 {# Iconos compartidos del sistema: navegación, formularios y avisos. Una sola
@@ -3538,7 +3536,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 
 ### 15.2 Página de login y bloque usuario/salir
 
-`resources/views/auth/login.twig` (form normal, sin HTMX: el login navega de verdad con 303):
+`resources/views/pages/auth/login.twig` (form normal, sin HTMX: el login navega de verdad con 303):
 
 ```twig
 {% extends 'layouts/auth.twig' %}
@@ -3567,7 +3565,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                        y el icono da el estado sin teñir todo el fondo de rojo. #}
                     <div class="flex items-start gap-3 rounded-box border border-error/30 bg-error/10 p-3 text-sm" role="alert">
                         <span class="icon-error mt-0.5 shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'alert-circle', class: 'h-5 w-5'} %}
                         </span>
                         <p class="leading-snug">{{ flash_error }}</p>
                     </div>
@@ -3578,7 +3576,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                        aviso no interrumpe nada. #}
                     <div class="flex items-start gap-3 rounded-box border border-info/30 bg-info/10 p-3 text-sm" role="status">
                         <span class="icon-info mt-0.5 shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'info', class: 'h-5 w-5'} %}
                         </span>
                         <p class="leading-snug">{{ flash_info }}</p>
                     </div>
@@ -3586,7 +3584,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 
                 {# Form normal, sin HTMX: el login navega de verdad (303 a /). #}
                 <form method="post" action="{{ url('/login') }}" class="space-y-4">
-                    {% include 'partials/_csrf.twig' %}
+                    {% include 'components/form/csrf.twig' %}
                     {# Receta de daisyUI 5: `fieldset` + `fieldset-legend` en vez de
                        los wrappers de la v4 (`form-control` y `label-text`), que la
                        5 eliminó. El fieldset ya trae el grid vertical con su gap
@@ -3601,7 +3599,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                         <label class="fieldset-legend" for="login-email">Email</label>
                         <div class="login-field">
                             <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'mail', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-email" type="email" name="email" required autocomplete="username"
                                    value="{{ email|default('') }}"
@@ -3621,7 +3619,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                         <label class="fieldset-legend" for="login-password">Clave</label>
                         <div class="login-field">
                             <span class="login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'lock', class: 'h-4 w-4'} %}
                             </span>
                             <input id="login-password" type="password" name="password" required autocomplete="current-password"
                                    {% if password_error %}aria-invalid="true" aria-describedby="login-password-error"{% endif %}
@@ -3641,7 +3639,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                     <button type="submit" class="btn btn-primary w-full gap-2">
                         <span>Entrar</span>
                         <span aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                         </span>
                     </button>
                 </form>
@@ -3658,7 +3656,7 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 <div class="border-t border-base-300 p-2">
     <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
     <form method="post" action="/logout">
-        {% include 'partials/_csrf.twig' %}
+        {% include 'components/form/csrf.twig' %}
         <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">Salir</span>
@@ -3672,11 +3670,11 @@ Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto 
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
+> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
 
-La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/tasks/index.twig`.
+La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`.
 
-`resources/views/home.twig`:
+`resources/views/pages/home.twig`:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -3689,7 +3687,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
-                    {% include 'partials/_logo.twig' with {size: 'h-12 w-12'} %}
+                    {% include 'components/ui/logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
                         <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
                         <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
@@ -3700,7 +3698,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                         <a href="{{ url('/login') }}" class="btn btn-primary gap-2">
                             <span>Ingresar</span>
                             <span aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                             </span>
                         </a>
                     </div>
@@ -3712,7 +3710,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                                 <a href="{{ url(module.href) }}" class="btn btn-primary gap-2">
                                     <span>Abrir {{ module.label|lower }}</span>
                                     <span aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                                     </span>
                                 </a>
                             {% endfor %}
@@ -3735,7 +3733,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
@@ -3743,7 +3741,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
@@ -3751,7 +3749,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
@@ -3759,7 +3757,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
@@ -3767,7 +3765,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
@@ -3775,7 +3773,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
-                        {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
+                        {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
                         <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
                     </div>
                     <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
@@ -3790,7 +3788,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                 <div class="mb-6">
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
                         </span>
                         Arquitectura y stack
                     </h2>
@@ -3802,7 +3800,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-backend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Núcleo & Backend
                         </h3>
@@ -3842,7 +3840,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-frontend" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Frontend & Reactividad
                         </h3>
@@ -3874,7 +3872,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-datos" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Datos & Persistencia
                         </h3>
@@ -3898,7 +3896,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                     <div class="rounded-box border border-base-300/80 bg-base-200/30 p-4 space-y-4">
                         <h3 id="stack-desarrollo" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                             <span class="inline-flex shrink-0" aria-hidden="true">
-                                {% include 'partials/_icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
+                                {% include 'components/ui/icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
                             </span>
                             Calidad & Herramientas
                         </h3>
@@ -3929,7 +3927,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
                         </span>
                         Módulos y demos
                     </h2>
@@ -3942,7 +3940,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                             <div>
                                 <h3 class="flex items-center gap-2 text-base font-semibold">
                                     <span class="opacity-70" aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
                                     Demo de {{ module.label|lower }}
                                 </h3>
@@ -3963,7 +3961,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                                 <a href="{{ url(module.href) }}" class="btn btn-primary btn-sm w-full gap-2">
                                     <span>Abrir {{ module.label|lower }}</span>
                                     <span aria-hidden="true">
-                                        {% include 'partials/_icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
+                                        {% include 'components/ui/icon.twig' with {name: 'arrow-right', class: 'h-4 w-4'} %}
                                     </span>
                                 </a>
                             </div>
@@ -3984,7 +3982,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
                 <div class="rounded-box border border-base-300 bg-base-100 p-5 space-y-3 mt-auto">
                     <h3 id="requirements-title" class="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider opacity-60">
                         <span class="inline-flex shrink-0" aria-hidden="true">
-                            {% include 'partials/_icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
+                            {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
                         </span>
                         Requisitos y compatibilidad
                     </h3>
@@ -4020,7 +4018,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 {% endblock %}
 ```
 
-`framework/scaffolds/tasks/resources/views/tasks/_styles.twig`:
+`framework/scaffolds/tasks/resources/views/pages/tasks/_styles.twig`:
 
 ```twig
 {# CSS propio del demo de tareas.
@@ -4067,7 +4065,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 </style>
 ```
 
-`framework/scaffolds/tasks/resources/views/tasks/index.twig`:
+`framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`:
 
 ```twig
 {% extends 'layouts/app.twig' %}
@@ -4076,7 +4074,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 {# El CSS del demo viaja con el demo: si se desinstala, el archivo se borra
    con el resto del scaffold y el shell no queda con reglas huérfanas. #}
-{% block styles %}{% include 'tasks/_styles.twig' %}{% endblock %}
+{% block styles %}{% include 'pages/tasks/_styles.twig' %}{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
@@ -4148,13 +4146,13 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
         } only %}
     </form>
 
-    {% include 'tasks/_panel.twig' %}
+    {% include 'pages/tasks/_panel.twig' %}
         </div>
     </section>
 {% endblock %}
 ```
 
-`framework/scaffolds/tasks/resources/views/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
+`framework/scaffolds/tasks/resources/views/pages/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
 
 ```twig
 {# `tabindex="-1"`: marca el panel como destino de foco programático (no
@@ -4213,7 +4211,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
     {% endif %}
 
     <div id="lista-tareas">
-        {% include 'tasks/_list.twig' %}
+        {% include 'pages/tasks/_list.twig' %}
     </div>
 
     {# Paginación dentro del swap: viaja actualizada con cada acción. #}
@@ -4229,7 +4227,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 >
 > **Un solo mecanismo de notificación por ámbito.** Las validaciones de negocio viajan por el servidor en el mismo swap. El fallo CSRF **no puede** usar ese camino (el POST se corta antes del controlador y HTMX no hace swap con un 400): usa el header `HX-Trigger` que escucha el layout. Si borras el listener quedas con el fallo silencioso original.
 
-`framework/scaffolds/tasks/resources/views/tasks/_list.twig`:
+`framework/scaffolds/tasks/resources/views/pages/tasks/_list.twig`:
 
 ```twig
 {# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
@@ -4506,7 +4504,7 @@ La raíz (`GET /`) renderiza `resources/views/home.twig`, la página de presenta
 
 > **`editing_id` gobierna la fila, `editing_title` conserva lo tipeado.** Sin `editing_id` la lista no sabe cuál fila va en formulario; sin `editing_title`, en fallo de validación el input se repintaría con el valor guardado y el usuario perdería lo escrito junto con el error.
 >
-> **El form de edición lleva sus propios tokens.** Aparece y desaparece con cada swap dentro del panel: no puede depender de los hidden de `#alta-tarea`, que queda fuera. Por eso incluye `partials/_csrf.twig` con los tokens de cada render.
+> **El form de edición lleva sus propios tokens.** Aparece y desaparece con cada swap dentro del panel: no puede depender de los hidden de `#alta-tarea`, que queda fuera. Por eso incluye `components/form/csrf.twig` con los tokens de cada render.
 >
 > **`hx-put` manda el body como `application/x-www-form-urlencoded`** (default de htmx para no-GET) y `addBodyParsingMiddleware()` lo parsea igual que un POST. No hace falta `_METHOD` oculto: la ruta ya es `PUT`.
 >
@@ -7116,10 +7114,96 @@ Causa: `composer require respect/validation` sin el `^2.0`. Corrige el `require`
 
 ### 21.6 Página de error vacía (0 bytes)
 
-**[v]** `Twig::render()` escribe en el stream **sin rebobinar**: con el cursor al final, `getContents()` devuelve `''`. El fix (`$stream->rewind()`) ya está en el cap. 7, pero lo vas a ver si tocaste esa parte. Otro camino al mismo síntoma: `errors/error.twig` con error de sintaxis (degrada a texto plano a propósito). Para descartar la cache:
+**[v]** `Twig::render()` escribe en el stream **sin rebobinar**: con el cursor al final, `getContents()` devuelve `''`. El fix (`$stream->rewind()`) ya está en el cap. 7, pero lo vas a ver si tocaste esa parte. Otro camino al mismo síntoma: `resources/views/pages/errors/error.twig` con error de sintaxis (degrada a texto plano a propósito). Para descartar la cache:
 
 ```bash
-rm -rf storage/cache/twig/*
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ code }} · Mi App</title>
+
+    {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
+       costaría un 404 extra. Son ~55 bytes. #}
+    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
+
+    {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
+       de JS de esta página. Antes no estaba: un error salía siempre en claro
+       aunque la persona tuviera oscuro guardado, así que esta pantalla era la
+       excepción del sistema. Sin el script, corregir `data-theme` después del
+       paint mostraría el flash que los otros layouts evitan. #}
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
+
+    {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
+       necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
+       paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
+       vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
+       abajo quedan inertes, que es exactamente el defecto que esto arregla.
+       Sin el build de Tailwind no hay JIT: aquí NO se usan utilidades
+       (`flex`, `p-6`, `text-6xl`), sólo nombres que el bundle define, y el
+       resto va como reglas en el <style> de abajo. #}
+    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
+
+    <style>
+        /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
+           no carga: el preflight que saca el margen del body, el alto de
+           viewport y el centrado del texto. El fondo y la tinta del body ya
+           vienen de tokens en el `class` (bg-base-200/text-base-content, que
+           el bundle sí define) y siguen a `data-theme`: aquí no hay un color
+           fijo que se quede en claro cuando el tema es oscuro. */
+        body { margin: 0; }
+        .error-main { min-height: 100dvh; }
+        /* El `hero-content` de daisyUI es una fila: aquí la marca va ARRIBA de
+           la tarjeta, así que se apila. */
+        .error-main .hero-content { flex-direction: column; }
+        .error-body { align-items: center; text-align: center; }
+
+        /* El título es el único `h1` de la página y usaba `card-title` (18 px,
+           600): se leía como encabezado de tarjeta, no como el título de la
+           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque aquí
+           no hay JIT que compile la utilidad. */
+        .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+
+        /* Misma marca que layouts/auth.twig (components/ui/logo.twig + "Mi App")
+           y linkeada a `/`, para que el error también sea el producto y no un
+           cartel suelto. Las utilidades del partial (h-8, rounded-lg,
+           bg-primary) no existen sin JIT, así que la caja se dibuja aquí con
+           los mismos tokens; el `size` del include deja sólo esta clase. */
+        .error-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 1.125rem; font-weight: 700; }
+        .error-logo { display: inline-flex; align-items: center; justify-content: center; height: 2rem; width: 2rem; border-radius: .5rem;
+                      background-color: var(--color-primary); color: var(--color-primary-content); }
+        .error-logo svg { height: 1.25rem; width: 1.25rem; }
+    </style>
+</head>
+<body class="bg-base-200 text-base-content">
+    {# El mensaje se deduce del código y NO se imprime el `message` que manda
+       config/middleware.php: viene del vendor, en inglés ("Not found."), y
+       puede arrastrar detalles internos de la excepción. El código queda a la
+       vista para que soporte lo pueda pedir; un código desconocido cae al
+       texto genérico, no a "sin mensaje". #}
+    {% set mensaje = code == 404 ? 'No encontramos esa página.'
+        : (code == 403 ? 'No tienes permiso para ver esto.'
+        : (code == 405 ? 'Ese método no está permitido.'
+        : (code == 419 or code == 400 ? 'La petición no es válida.'
+        : 'Algo salió mal de nuestro lado.'))) %}
+    <main class="hero error-main">
+        <div class="hero-content">
+            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
+                {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
+                <span>Mi App</span>
+            </a>
+            <div class="card card-border bg-base-100">
+                <div class="card-body error-body">
+                    <span class="badge badge-neutral">Error {{ code }}</span>
+                    <h1 class="error-title">{{ mensaje }}</h1>
+                    <a href="{{ url('/') }}" class="btn btn-primary btn-block">Volver al inicio</a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
 ```
 
 ### 21.7 Un 404 que devuelve 500, o un 404 que pesa 154 KB
@@ -7386,7 +7470,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
 | `framework/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
-> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
+> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/pages/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 

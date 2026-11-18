@@ -11,20 +11,20 @@ Sistema visual vigente. Describe lo que el código hace hoy; si hay divergencia,
 | archivo | para qué | qué incluye |
 |---|---|---|
 | `layouts/app.twig` | composición del shell autenticado | sidebar, header, toasts, `main` y footer desde partials; bloques `head`, `styles`, `header`, `sidebar`, `toasts`, `footer` y `scripts` |
-| `layouts/auth.twig` | acceso | `partials/layout/head.twig`, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
-| `errors/error.twig` | página de error | autónoma, sin `extends`, sólo el pre-pintado de tema, < 4 KB, mensaje mapeado por código |
+| `layouts/auth.twig` | acceso | `layouts/parts/head.twig`, marca que vuelve al inicio, `main` centrado. **Sin htmx ni Alpine** |
+| `pages/errors/error.twig` | página de error | autónoma, sin `extends`, sólo el pre-pintado de tema, < 4 KB, mensaje mapeado por código |
 
 ### Componentes del shell
 
 | partial | responsabilidad |
 |---|---|
-| `partials/layout/head.twig` | favicon, pre-pintado de tema y assets; flags `with_sidebar`, `with_htmx`, `with_alpine` |
-| `partials/layout/sidebar.twig` | `<aside>` con navegación data-driven, usuario y logout; recibe `active` |
-| `partials/layout/header.twig` | controles del sidebar, breadcrumb data-driven y toggle de tema; recibe `breadcrumbs` |
-| `partials/layout/toasts.twig` | host y markup de avisos flotantes |
-| `partials/layout/footer.twig` | datos de ejecución del shell |
+| `layouts/parts/head.twig` | favicon, pre-pintado de tema y assets; flags `with_sidebar`, `with_htmx`, `with_alpine` |
+| `layouts/parts/sidebar.twig` | `<aside>` con navegación data-driven, usuario y logout; recibe `active` |
+| `layouts/parts/topbar.twig` | controles del sidebar, breadcrumb data-driven y toggle de tema; recibe `breadcrumbs` |
+| `layouts/parts/toasts.twig` | host y markup de avisos flotantes |
+| `layouts/parts/footer.twig` | datos de ejecución del shell |
 
-Los dos layouts comparten `partials/layout/head.twig` para favicon, tema y assets; sólo el `<title>`/metadatos y el `<style>` propio quedan en cada layout. La página de error sigue siendo una excepción deliberada: su `<head>` mínimo no carga el shell.
+Los dos layouts comparten `layouts/parts/head.twig` para favicon, tema y assets; sólo el `<title>`/metadatos y el `<style>` propio quedan en cada layout. La página de error sigue siendo una excepción deliberada: su `<head>` mínimo no carga el shell.
 
 El `<style>` del layout no contiene reglas de ningún demo. Un módulo opcional inyecta las suyas por el bloque `styles`, que sólo se renderiza en sus páginas y viaja con el scaffold: al correr `demo:tasks:remove` se borran el archivo y sus reglas, sin dejar CSS huérfano en el shell. `tasks/_styles.twig` es el caso vivo.
 
@@ -81,8 +81,8 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - `components/list/simple.twig`: contenedor de lista server-rendered; recibe `items`, `empty`, `list_class`, `empty_class`, un bloque `row` por elemento y un bloque `after` que se emite después del `</ul>` —ahí van los diálogos por fila, porque un `<dialog>` no es hijo válido de una lista—.
 - `components/table/tabulator.twig`: shell y contrato de datos (`data-tabulator-table`, `data-url`) para una tabla Tabulator en modo remoto; el initializer de columnas vive con la tabla y las filas las sirve el endpoint de `url`.
 - `components/pagination/simple.twig`: paginación server-rendered + HTMX; recibe `pagination`, `target`, `swap` y `show_size`.
-- `partials/_csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
-- `partials/layout/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
+- `components/form/csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
+- `layouts/parts/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
 
 ## Organización de `resources/views`
 
@@ -137,7 +137,7 @@ El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendo
 - **URL**: el servidor emite `HX-Push-Url` con la página que efectivamente renderizó (no se pone `hx-push-url` en las plantillas, porque `Pagination` recorta la página y el atributo mentiría).
 - **En vuelo**: `hx-disabled-elt` en el formulario de alta y en el panel, para que un doble clic no duplique la mutación.
 - **Foco**: los controles llevan `data-focus-key`; un listener lo guarda en `htmx:beforeRequest` y lo restaura en `htmx:afterSettle`. Si la fila desapareció, el foco cae en `#tareas-panel` (`tabindex="-1"`).
-- **CSRF**: dos transportes, según el disparador. Dentro de un formulario, los campos ocultos de `partials/_csrf.twig`; un botón suelto que emite una mutación, `hx-headers` con el par serializado. Sin htmx el fallo deja flash de error y 303 al login; con htmx, 400 + `HX-Trigger`.
+- **CSRF**: dos transportes, según el disparador. Dentro de un formulario, los campos ocultos de `components/form/csrf.twig`; un botón suelto que emite una mutación, `hx-headers` con el par serializado. Sin htmx el fallo deja flash de error y 303 al login; con htmx, 400 + `HX-Trigger`.
 
 ## Nombres
 
@@ -171,4 +171,4 @@ Vendorizados con SRI, servidos desde `public/assets/`; la lógica no crítica de
 - Utilidades `dark:`.
 - Colores fuera de los tokens.
 - Clases de daisyUI que no existan en el bundle vendorizado.
-- JS nuevo fuera de: los bloques inline de pre-pintado/shell/toastStack de `layouts/app.twig`, el pre-pintado de `layouts/auth.twig` y `errors/error.twig`, el `x-data` de Alpine y `public/assets/app.js` (con SRI, solo lógica no crítica del shell). **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.
+- JS nuevo fuera de: los bloques inline de pre-pintado/shell/toastStack de `layouts/app.twig`, el pre-pintado de `layouts/auth.twig` y `pages/errors/error.twig`, el `x-data` de Alpine y `public/assets/app.js` (con SRI, solo lógica no crítica del shell). **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.

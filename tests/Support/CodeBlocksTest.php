@@ -112,12 +112,13 @@ final class CodeBlocksTest extends TestCase
         self::assertNull(CodeBlocks::resolvePath('`app/A.php`, `app/B.php`:', $this->dir));
     }
 
-    public function test_resolve_path_ignora_extensiones_no_copiadas_y_rutas_inexistentes(): void
+    public function test_resolve_path_ignora_extensiones_no_copiadas_y_devuelve_rutas_muertas(): void
     {
         file_put_contents($this->dir . '/app/Notas.md', "# x\n");
 
         self::assertNull(CodeBlocks::resolvePath('`app/Notas.md`:', $this->dir), 'Un .md no se verifica como copia.');
-        self::assertNull(CodeBlocks::resolvePath('`app/Fantasma.php`:', $this->dir));
+        // Una ruta declarada que no existe ya no se descarta: docs:check falla.
+        self::assertSame('app/Fantasma.php', CodeBlocks::resolvePath('`app/Fantasma.php`:', $this->dir));
         self::assertNull(CodeBlocks::resolvePath('sin rutas aquí', $this->dir));
     }
 
