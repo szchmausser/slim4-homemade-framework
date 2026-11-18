@@ -84,6 +84,25 @@ Clases de proyecto (definidas en el `<style>` de `app.twig`): `toast-host`, `toa
 - `partials/_csrf.twig`, `_icon.twig`, `_logo.twig`: piezas primitivas compartidas.
 - `partials/layout/toasts.twig`: host único de avisos flotantes; acepta `toast_items` iniciales para flashes de pantallas con redirect.
 
+## Organización de `resources/views`
+
+Una carpeta por pregunta, y una sola respuesta:
+
+| Pregunta | Dónde |
+|---|---|
+| ¿Es el esqueleto del documento? | `layouts/` y sus fragmentos en `layouts/parts/` |
+| ¿Es reutilizable, con contrato y consumidores? | `components/<familia>/` |
+| ¿Es una pantalla? | `pages/<feature>/` |
+| ¿Es un fragmento interno de una pantalla o feature? | `_nombre.twig` en la carpeta de esa feature |
+
+Familias de componentes: `ui` (presentación genérica: botón, icono, logo, botonera, modal, encabezado),
+`form`, `feedback`, `list`, `table`, `pagination`. Una familia nueva se declara en
+`tests/Support/ViewStructureTest`.
+
+Los componentes no llevan guion bajo y no incluyen desde `pages/` ni desde `layouts/`: el guion bajo es
+para fragmentos internos (`pages/notas/_panel.twig`, `pages/errors/_htmx.twig`). `partials/` ya no
+existe; si una pieza es reutilizable va en `components/`, y si es del shell va en `layouts/parts/`.
+
 **Capas:** `ui/`, `form/` y `feedback/` son base independiente; `list/`, `table/` y `pagination/` son compuestos opcionales. Las filas de tareas y las columnas/acciones de contactos son código de dominio del demo, no componentes universales. Un usuario puede usar sólo los botones y toasts, o sumar una lista simple, sin adoptar Tabulator ni la paginación server-side.
 
 **Composición:** una vista no arma la estructura de una lista, una tabla o una paginación a mano. Incluye el componente y aporta sólo el contrato de datos y el contenido de la fila. La lista de tareas usa `components/list/simple.twig`; la tabla de contactos usa `components/table/tabulator.twig`; la paginación de tareas usa `components/pagination/simple.twig`. Tareas también usa los componentes base para su alta, sus acciones y su modal de borrado; contactos para botones, campos, modales y toasts. Notas y contactos comparten el encabezado en `components/ui/page-header.twig`; tareas conserva el suyo porque su alta es un formulario inline, y puede adoptarlo metiendo ese formulario en `block actions`.
