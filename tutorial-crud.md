@@ -205,8 +205,7 @@ vendor/bin/phinx migrate
 
 **Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
 `20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. Sirve, pero su versión
-es un **timestamp**, y este proyecto usa numeración secuencial porque los timestamps saturan el entero
-de 32 bits en bases grandes. Así que, si lo usas, renombralo a `011_create_notas_table.php`: la versión
+es un **timestamp**, y este proyecto usa numeración secuencial. Así que, si lo usas, renombralo a `011_create_notas_table.php`: la versión
 sale del prefijo del archivo y el nombre de la clase no cambia.
 
 > **`007` y `008` están tomados** por las migraciones de los demos de notas y contactos. No son
@@ -242,8 +241,7 @@ sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP;
 controlador es justo lo que el proyecto evita.
 
 **Pieza — migraciones Phinx con numeración secuencial**: resuelven el versionado del esquema sin
-depender de un ORM que lo adivine. Usalas siempre que cambie el esquema. Evitan el problema de los
-timestamps, que saturan enteros de 32 bits en bases grandes. Sin esta pieza tendrías que aplicar SQL
+depender de un ORM que lo adivine. Usalas siempre que cambie el esquema. Sin esta pieza tendrías que aplicar SQL
 a mano y acordarte del orden; el proyecto ya tiene el mecanismo, sólo hay que escribir el archivo.
 
 ---
@@ -820,8 +818,7 @@ siguiente.
 el bloque `content`. Y mira el costo: título y lista quedaron en el mismo bloque, sin nada que puedas
 reemplazar por separado.
 
-**Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema,
-assets con SRI) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
+**Pieza — `layouts/app.twig`**: resuelve el armado del shell completo (sidebar, header, avisos, tema) una sola vez. Úsalo en toda página tuya y escribe sólo el bloque `content`. Evita
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
@@ -1009,10 +1006,6 @@ queda al final, dentro del mismo `card-body`.
   portada aunque estés en `/notas`. Con dos migas pinta la ruta y marca la última con
   `aria-current="page"`.
 
-El repositorio tiene un test de contrato que recorre las páginas que pintan el shell y falla si alguna
-no declara `breadcrumbs` (`tests/Support/ShellBreadcrumbContractTest.php`): el olvido no llega a
-producción.
-
 Agrega también `use Framework\Http\Url;`, que necesitas para el `href`.
 
 ```php
@@ -1029,12 +1022,8 @@ Agrega también `use Framework\Http\Url;`, que necesitas para el `href`.
     }
 ```
 
-Ese `data-modal-open` no necesita un manejador en la vista: en este proyecto **ninguna vista escribe
-JavaScript para abrir un diálogo**. El shell tiene un único listener delegado en `public/assets/app.js`
-que busca el atributo, resuelve el id y llama `showModal()`. Alpine no participa: se ocupa del sidebar,
-el tema y los avisos, y abrir un diálogo es una acción sobre un elemento del servidor, no un estado
-reactivo. En 7.5 el botón pasa a `components/ui/button.twig`, que trae la misma delegación más
-variante, icono y nombre accesible; el mecanismo no cambia.
+Ese `data-modal-open` lo resuelve el shell: **ninguna vista escribe JavaScript para abrir un diálogo**. En
+7.5 el botón pasa a `components/ui/button.twig`, con la misma delegación.
 
 **Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha y la lista vacía. El botón
 todavía no abre nada: el modal es el paso 7.
@@ -1393,14 +1382,8 @@ no puede cumplir —y el error aparece recién cuando alguien la visita—.
 
 **Archivo**: el mismo controlador, dentro de la clase.
 
-Y el aviso no necesita ninguna declaración: el `Controller` base manda el flash como toast del shell
-(`protected bool $toastFlash = true`), que es lo que el layout pinta. Si tu pantalla renderiza el banner
-inline (`flash_*`), ahí sí la excepción se declara con `$toastFlash = false` —nunca al revés—.
-
-**Por qué redirige en vez de devolver la página**: el `POST` mutó, y si respondiera la página el navegador
-quedaría con la URL del formulario: refrescar reenviaría el alta y crearías dos. El 303 le dice «andá a esa
-otra URL con un `GET`», y el historial queda limpio. Es POST/Redirect/GET, y `redirect()` lo resuelve en un
-solo lugar —303 fijo, `Location` con `Url::path()`— para que ninguna mutación lo improvise.
+**Por qué redirige en vez de devolver la página**: el `POST` mutó; si respondiera la página, refrescar
+reenviaría el alta y crearías dos. El 303 manda al navegador a `/notas` con un `GET`.
 
 **Comprobación**: guarda con un título. Vuelves a `/notas`, la nota aparece en la lista y el aviso
 «Nota creada.» sale abajo a la derecha. El `cuerpo` es opcional: si lo dejas vacío, se guarda como
@@ -1666,9 +1649,8 @@ modal tendría que repetir sus clases.
                 } only %}
 ```
 
-El componente usa la misma delegación que el botón crudo de 6.7 —`data_modal_open` la resuelve el
-shell— y suma lo que al `<button>` suelto le falta: variante, icono y `aria_label` cuando el texto no
-alcanza. El foco, el estilo y Escape siguen iguales para todos los botones.
+El componente suma al `<button>` suelto lo que le falta: variante, icono y nombre accesible. El foco,
+Escape y el estilo quedan iguales para todos los botones.
 
 **Comprobación**: el botón sigue abriendo el modal, ahora con el telón y el tema del proyecto. Escape,
 el botón de cerrar y «Cancelar» lo cierran; crear una nota sigue igual.
@@ -2947,8 +2929,7 @@ el pedido:
 ```
 
 `renderList()` **no es la acción de ruta**: es la utilidad que comparten `index()`, `edit()` y los dos
-rechazos del formulario. Por eso es `private` y no se llama como un endpoint: si fuera pública, la ruta y
-el render interno quedarían atados a la misma firma.
+rechazos del formulario.
 
 **Archivo**: el mismo controlador, método `index()`. Queda en una línea:
 
@@ -3182,7 +3163,7 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El POST te devuelve al login con «Tu sesión expiró» | Falta el token de CSRF en el formulario | `{% include 'components/form/csrf.twig' %}` dentro del `<form>` |
 | El login vuelve al formulario con «Credenciales inválidas.» | Email o contraseña no coinciden con el admin sembrado | Vuelve a sembrar con las mismas variables; el mensaje es genérico a propósito |
 | `no such table` | Migración no aplicada en la base que usa la app | `vendor/bin/phinx status` y revisa `DB_DATABASE` |
-| El aviso de éxito no aparece | Tu layout no pinta toasts, o el controlador puso `$toastFlash = false` | Dejá el default (`true`) si usás el shell; sólo es `false` para layouts con banner |
+| El aviso de éxito no aparece | Tu layout no pinta toasts (no estás usando el shell) | Usá `layouts/app.twig`, que es el que los pinta |
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.6 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
