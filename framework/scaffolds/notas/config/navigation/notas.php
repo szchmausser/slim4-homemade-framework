@@ -10,6 +10,11 @@ declare(strict_types=1);
  * que muestra u oculta la entrada. No hay un registro central que editar; si el
  * archivo está, la entrada existe.
  *
+ * La ficha tiene dos lectores: la copia instalada en `config/navigation/` alimenta
+ * el menú lateral (`navigation_items`), y esta copia, leída desde el scaffold,
+ * alimenta el catálogo de la portada (`demo_modules`), que lista el módulo aunque
+ * no esté instalado. De ahí salen `summary` y `why`: el menú no los usa.
+ *
  * Esa es la lección para tu entidad: el menú se arma leyendo el directorio, no
  * agregando una línea a una lista.
  */
