@@ -5,25 +5,32 @@ declare(strict_types=1);
 use Phinx\Migration\AbstractMigration;
 
 /**
- * `done` (001) y `status` (004) duplicaban el mismo estado y solo `status`
- * se usa desde entonces: la columna quedo muerta y el modelo la seguia
- * arrastrando en $fillable/$casts. Antes de tirarla se migran los datos de
- * quien venga de la v1, para no perder tareas completadas.
+ * Retira `tasks.done`, sin uso desde que `status` describe el estado.
+ *
+ * Capa migración. Una columna no se elimina sin mover antes sus datos, y una
+ * migración ya aplicada no se edita: este archivo corrige a la 001. Se escribe a
+ * mano (`up`/`down`) porque el borrado de columnas no es reversible solo.
+ *
+ * Para tu entidad, el patrón es este: corregir con una migración nueva.
  */
 final class DropDoneFromTasks extends AbstractMigration
 {
     public function up(): void
     {
+        // Backfill antes del DROP: una fila de la versión anterior que estaba
+        // completada conserva su estado, y `completed_at` hereda `updated_at`
+        // cuando era nula.
         $this->execute(
             "UPDATE tasks SET status = 'completado', completed_at = COALESCE(completed_at, updated_at) "
             . "WHERE done = 1 AND status <> 'completado'"
         );
 
-        // SQLite >= 3.35 soporta DROP COLUMN desde 2021; Phinx 0.13 no lo
-        // implementa para su adapter SQLite, asi que va en SQL directo.
+        // Phinx no implementa `DROP COLUMN` en su adapter de SQLite, así que va en
+        // SQL directo.
         $this->execute('ALTER TABLE tasks DROP COLUMN done');
     }
 
+    // Reconstruye `done` desde `status` para que la migración sea reversible.
     public function down(): void
     {
         $this->execute('ALTER TABLE tasks ADD COLUMN done INTEGER NOT NULL DEFAULT 0');

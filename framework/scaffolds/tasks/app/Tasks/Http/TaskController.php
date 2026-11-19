@@ -15,22 +15,34 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpNotFoundException;
 
+/**
+ * Controlador de `tasks`: las seis acciones y el único render de su pantalla.
+ *
+ * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
+ * para el recorte, `Validator` para el título, `Flash` para los avisos y
+ * `Controller::render()` para la plantilla.
+ *
+ * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
+ * único lugar que elige plantilla y estado.
+ */
 class TaskController extends Controller
 {
     /**
-     * Slice paginado + metadata para TODA respuesta de esta ruta (página
-     * completa o swap parcial: ambas regiones llevan su paginación al día).
-     * La página y el tamaño salen del query string (?page=, ?per_page=), que
-     * mandan tanto el navegador como los links HTMX del partial.
+     * Slice paginado más la metadata, para toda respuesta de esta ruta: la página
+     * completa y el swap parcial necesitan la paginación al día. La página y el
+     * tamaño salen del query string (`page`, `per_page`), que mandan el navegador
+     * y los enlaces de HTMX por igual.
+     *
+     * @return array<string, mixed>
      */
     private function pageData(Request $request): array
     {
         $listing = Pagination::fromRequest(
             Task::orderByDesc('id'),
             $request,
-            // Con el prefijo ya aplicado: base_url es la fuente de la
-            // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
-            // de más abajo, así que las tres heredan el prefijo sin saberlo.
+            // Con el prefijo ya aplicado: el `base_url` de este resultado es la
+            // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
+            // los dos heredan el prefijo sin saberlo.
             Url::path('/tareas')
         );
 
@@ -40,41 +52,34 @@ class TaskController extends Controller
         ];
     }
 
+    /** `GET /tareas`. Sólo delega en `respond()`: el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->respond($request, $response);
     }
 
     /**
-     * Toda acción de esta ruta responde por aquí, y el template lo elige el
-     * request, no la acción.
+     * Render de la pantalla: elige plantilla y estado, y suma los datos comunes.
      *
-     * Con `HX-Request` va sólo la región: "Cancelar" apunta a /tareas con
-     * hx-target="#tareas-panel", y si htmx recibiera index.twig (que extiende
-     * el layout) se quedaría con el <body> y lo insertaría dentro del panel:
-     * dos <h1>, dos #alta-tarea y el padding del layout dos veces.
+     * La llaman las seis acciones, así que el `active`, la miga y la paginación
+     * viven aquí y no se repiten en cada una. Con `HX-Request` devuelve sólo el
+     * panel; sin él, la página completa.
      *
-     * Sin `HX-Request` va la página entera: un form con JS apagado, una URL
-     * abierta a mano o un curl son un navegador pidiendo un documento. La
-     * mutación ocurre igual, pero el fragmento llega sin <head>, sin hoja de
-     * estilos y sin shell, así que una acción exitosa se ve rota (S9).
-     *
-     * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
-     * así que pueden viajar en las dos formas.
-     *
-     * `$status` es el status de la respuesta. 422 en un fallo de validación no
-     * es cosmético: es lo que le dice a htmx (con el handler de app.twig) que
-     * swapee igual, y lo que le dice al formulario de alta que NO se limpie.
+     * @param array<string, mixed> $extra  datos del llamador: errores, lo tipeado, `editing_id`
+     * @param int                  $status estado HTTP; 422 cuando un dato no valida
      */
     private function respond(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
-        // El orden del merge importa: `pageData()` primero, así un $extra no
-        // puede pisar `tasks`/`pagination` (ni el header de abajo).
+        // El orden del merge importa: `pageData()` primero, así un `$extra` no
+        // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
             'active' => 'tareas',
             'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
+        // La plantilla la elige el request y no la acción: `_panel.twig` es la
+        // región que se intercambia e `index.twig` la página que extiende el
+        // shell. Devolver el documento entero dentro del panel lo duplicaría.
         $response = $this->render(
             $request,
             $response,
@@ -83,30 +88,24 @@ class TaskController extends Controller
         );
 
         // Un 422 no es una posición nueva de la lista: es el mismo panel con el
-        // mensaje de validación al lado del campo. Empujar la URL canónica ahí
-        // le escribiría al usuario una entrada de historial por un intento que
-        // no cambió nada, así que el `HX-Push-Url` queda reservado al 200.
+        // mensaje al lado del campo. Empujar la URL canónica ahí sería una
+        // entrada de historial por un intento que no cambió nada.
         if ($status !== 200) {
             return $response->withStatus($status);
         }
 
+        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
         if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
             return $response;
         }
 
-        // La posición de la lista viaja en la URL (S11) desde el HEADER, no
-        // desde un `hx-push-url="/tareas?page=2"` en la plantilla:
-        // Pagination::paginate() clampea la página pedida al rango válido, así
-        // que borrar la última fila de la página 2 hace que el server
-        // renderice la 1. Una URL fija en el markup empujaría una posición que
-        // contradice el contenido que acaba de llegar; sólo el server que
-        // renderizó sabe qué página mostró. htmx 2.0.11 lee el header antes que
-        // el atributo (verificado en el vendor: `HX-Push-Url` gana sobre
-        // `hx-push-url`). Se empuja la URL canónica de la vista y no la de la
-        // acción: /tareas/5/toggle sólo acepta POST y recargarla sería un 404.
-        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
+        // La posición se publica desde acá y no con un `hx-push-url` fijo en la
+        // plantilla: `Pagination` recorta la página pedida al rango real, así que
+        // sólo el servidor que renderizó sabe qué página mostró.
         $pagination = $data['pagination'];
 
+        // La URL empujada es la canónica de la vista y no la de la acción:
+        // `/tareas/5/toggle` sólo acepta POST, y recargarla sería un 404.
         return $response->withHeader('HX-Push-Url', sprintf(
             '%s?page=%d&per_page=%d',
             $pagination['base_url'],
@@ -115,6 +114,10 @@ class TaskController extends Controller
         ));
     }
 
+    /**
+     * `POST /tareas`. Valida el título, guarda y vuelve al panel con el aviso; si
+     * no valida, responde 422.
+     */
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
@@ -124,12 +127,9 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
-            // que el swap no lo toca y ningún mensaje por campo puede quedar
-            // pegado a él: el toast es su ÚNICO canal in-band, y por eso aquí el
-            // flash SÍ se conserva (en update() no, porque el mensaje se lee al
-            // lado del input). El 422 es la otra mitad: sin él el formulario se
-            // limpiaría y el usuario perdería lo tipeado.
+            // El campo de alta vive fuera de `#tareas-panel`, así que el swap no
+            // lo toca: el toast es el único canal del mensaje. El 422 evita que
+            // el formulario se limpie y el usuario pierda lo tipeado.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->respond($request, $response, [
@@ -140,19 +140,21 @@ class TaskController extends Controller
         Task::create(['title' => $data['title']]);
         Flash::set('success', 'Tarea creada.');
 
-        // Devolvemos el panel completo, no solo la lista: el flash vive en el
-        // mismo swap, así se ve sin recargar.
+        // El panel vuelve completo, no sólo la lista: el aviso se emite en este
+        // mismo swap.
         return $this->respond($request, $response);
     }
 
+    /**
+     * `DELETE /tareas/{id}`. Borra y vuelve al panel con el aviso.
+     */
     public function destroy(Request $request, Response $response, array $args): Response
     {
         $deleted = Task::destroy((int) $args['id']);
 
-        // destroy() de un id inexistente no falla: devuelve 0. Con htmx el
-        // panel vuelve con un aviso (sin este branch el toast diría "eliminada"
-        // sobre una fila que nunca existió). Sin htmx no hay panel adonde
-        // avisar: es un DELETE sobre un recurso que no existe, o sea un 404.
+        // `destroy()` de un id inexistente no falla: devuelve 0. Con htmx el panel
+        // vuelve con un aviso; sin htmx no hay panel adonde avisar, así que el
+        // recurso que no existe responde 404.
         if ($deleted === 0 && !$request->hasHeader('HX-Request')) {
             throw new HttpNotFoundException($request);
         }
@@ -165,23 +167,23 @@ class TaskController extends Controller
         return $this->respond($request, $response);
     }
 
+    /**
+     * `GET /tareas/{id}/edit`. Vuelve el panel entero con esa fila en modo
+     * formulario.
+     */
     public function edit(Request $request, Response $response, array $args): Response
     {
-        // La edición es inline: el panel vuelve entero con una sola fila en
-        // modo formulario. Sin `editing_id` la lista no sabe cuál editar.
+        // La edición es inline: sin `editing_id` la lista no sabe qué fila abrir.
         $task = Task::find((int) $args['id']);
 
-        // Un id que no existe, CON htmx, no responde 404: htmx metería la
-        // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
-        // flash, que es donde la app ya comunica todo lo que el usuario tiene
-        // que ver sin recargar. El flash NO se consume aquí: lo levanta
-        // render(), que decide si va inline o en el header de htmx.
+        // Con htmx un 404 metería la página de error dentro del panel, así que un
+        // id inexistente vuelve como panel con aviso. El flash no se consume acá:
+        // lo levanta `render()`, que decide si va inline o en el header.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
-                // Sin htmx es un navegador pidiendo el documento de un recurso
-                // que no existe: 404 de verdad, con el mensaje de
-                // pages/errors/error.twig. Un 200 con un cartel mentiría al
-                // protocolo (y un curl --fail no se enteraría).
+                // Sin htmx es un navegador pidiendo un recurso que no existe:
+                // 404 real, con la página de error. Un 200 con un cartel le
+                // mentiría al protocolo.
                 throw new HttpNotFoundException($request);
             }
 
@@ -193,13 +195,16 @@ class TaskController extends Controller
         ]);
     }
 
+    /**
+     * `PUT /tareas/{id}`. Guarda el título; un fallo de validación devuelve 422 con
+     * la fila en modo formulario.
+     */
     public function update(Request $request, Response $response, array $args): Response
     {
         $task = Task::find((int) $args['id']);
 
-        // Mismo criterio que en edit(): con htmx un 404 llegaría al panel como
-        // HTML ajeno, así que la fila inexistente vuelve como panel + flash.
-        // Sin htmx es un PUT sobre un recurso que no existe: 404.
+        // Mismo criterio que en `edit()`: con htmx un 404 llegaría al panel como
+        // HTML ajeno. Sin htmx es un recurso que no existe: 404.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
                 throw new HttpNotFoundException($request);
@@ -219,13 +224,11 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`)
-            // y la fila sigue en modo formulario conservando lo tipeado. Un
-            // banner con el mismo texto lo diría dos veces, y el canal de
-            // avisos queda para lo que no es un campo.
+            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`) y
+            // un banner con el mismo texto lo diría dos veces.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
-                // Sin esto el input se repinta con task.title (guardado) y el
+                // Sin esto el input se repinta con el título guardado y el
                 // usuario pierde lo que escribió justo cuando aparece el error.
                 'editing_title' => $data['title'] ?? '',
                 'errors'        => $validator->errors(),
@@ -242,14 +245,17 @@ class TaskController extends Controller
     }
 
     /**
-     * Cambia el estado entre pendiente y completado, guardando la fecha
-     * de finalización cuando se marca como completada y limpiándola cuando
-     * se desactiva. El mismo panel vuelve entero con la lista actualizada.
+     * `POST /tareas/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
+     * `completed_at` al completar y limpiándola al volver atrás.
+     *
+     * Vuelve el panel entero con la lista actualizada.
      */
     public function toggle(Request $request, Response $response, array $args): Response
     {
         $task = Task::find((int) $args['id']);
 
+        // Mismo criterio que en `edit()`: panel con aviso si el request es de
+        // htmx, y 404 si es un navegador pidiendo un recurso inexistente.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
                 throw new HttpNotFoundException($request);
