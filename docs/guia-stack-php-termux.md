@@ -1022,40 +1022,49 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 use Framework\Support\Env;
 
 /**
- * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser runtime) una CSP estricta no es alcanzable
- * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
- * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
+ * Cabeceras de seguridad que este stack puede sostener.
+ *
+ * Es el middleware más externo del pipeline: envuelve al error middleware para que
+ * las páginas 404 y 500 también salgan con las cabeceras. Se registra al final en
+ * `config/middleware.php` porque `add()` es LIFO y lo último agregado es lo primero
+ * en ejecutarse.
+ *
+ * No incluye Content-Security-Policy: el shell usa JS inline y Alpine/Tailwind en el
+ * navegador, y una CSP estricta los rompería.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
+    /**
+     * Agrega las cabeceras a la respuesta que devuelve el resto del pipeline y, con
+     * SESSION_SECURE, HSTS.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         $response = $handler->handle($request);
 
         $response = $response
-            // El navegador deja de adivinar el tipo de contenido. Sin esto, un
-            // archivo served como octet-stream que en realidad es HTML se
-            // ejecuta. Es el mejor valor por byte de todo el set.
+            // El navegador deja de adivinar el tipo: sin esto, un archivo servido
+            // como octet-stream que en realidad es HTML se ejecuta. Es la cabecera
+            // más barata de todo el set.
             ->withHeader('X-Content-Type-Options', 'nosniff')
 
-            // Nadie puede embeber la app en un iframe y hacerte click sin
-            // querer (clickjacking). Alternativa moderna: `frame-ancestors 'none'`
-            // dentro de una CSP, pero eso implicaría adoptar CSP entera.
+            // Nadie puede embeber la app en un iframe y hacerte hacer clic sin
+            // querer (clickjacking). La alternativa moderna sería
+            // `frame-ancestors 'none'`, pero eso exige adoptar una CSP entera.
             ->withHeader('X-Frame-Options', 'DENY')
 
-            // Los assets son locales con SRI, pero la app puede enlazar a
-            // sitios externos. Sin esto, cada salida manda tu URL completa
-            // (con paths y query string) en el header Referer.
+            // Los assets son locales con SRI, pero la app puede enlazar a sitios
+            // externos. Sin esto, cada salida manda la URL completa —con paths y
+            // query string— en el header Referer.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
 
-            // La app no usa cámara, micrófono ni geolocalización. Negarlos por
-            // defecto evita que una dependencia o un iframe los pida.
+            // La app no usa cámara, micrófono ni geolocalización: negarlos por
+            // defecto evita que una dependencia o un iframe los pidan.
             ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
-        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
-        // flag que las cookies Secure: activarlo en dev local deja al navegador
-        // recordando un HTTPS que el server no habla.
+        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo flag
+        // que las cookies `Secure`: activarlo en desarrollo local deja al navegador
+        // recordando un HTTPS que el servidor no habla.
         if (Env::bool('SESSION_SECURE')) {
             $response = $response->withHeader(
                 'Strict-Transport-Security',
@@ -1097,13 +1106,22 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 /**
- * Resume la sesión desde la cookie remember-me, si hay una y no hay sesión.
- * Corre globalmente justo después de SessionMiddleware (ver config/middleware.php).
- * La rotación/limpieza viaja en ESTA misma respuesta: aplicada en otro lado,
- * el token nuevo nunca llegaría al navegador.
+ * Resuelve la sesión desde la cookie remember-me cuando la petición no trae
+ * usuario.
+ *
+ * Corre justo después de SessionMiddleware —la sesión tiene que estar abierta para
+ * que `Auth::login()` escriba en ella— y antes de las rutas protegidas. La rotación
+ * produce un `Set-Cookie` nuevo, y solo sirve si viaja en esta misma respuesta:
+ * aplicado en otro lado, el token nuevo nunca llegaría al navegador.
  */
 final class RememberMeMiddleware implements MiddlewareInterface
 {
+    /**
+     * Intenta el resume antes de delegar y adjunta el `Set-Cookie` al final.
+     *
+     * El header se calcula antes de que exista la respuesta, así que se suma a la
+     * que devuelve el handler.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         $outgoing = empty($_SESSION['user_id'])
@@ -1152,15 +1170,31 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
 
 /**
- * Puerta de las rutas protegidas (se agrega por grupo, no global).
- * HTMX no sigue un 303 con swap (no es 2xx): se le ordena navegación completa
- * con HX-Redirect en un 200 — el mismo patrón que el failureHandler de CSRF
- * usa con HX-Trigger. Formularios/navegación normal: 303 clásico.
+ * Puerta de las rutas protegidas: sin usuario en la sesión no se llega al
+ * controlador.
+ *
+ * Se agrega por grupo de rutas (`->add(RequireAuthMiddleware::class)`) y no al
+ * pipeline global, porque el login y la portada tienen que ser públicos. En htmx
+ * una redirección no produce una navegación: el XHR la sigue y el HTML del login
+ * terminaría cambiado dentro de la región, así que ahí responde 200 con
+ * `HX-Redirect` para que el navegador abra la página completa.
  */
 final class RequireAuthMiddleware implements MiddlewareInterface
 {
+    /**
+     * Recibe la fábrica de respuestas porque al cortar el pipeline no hay respuesta
+     * previa que modificar.
+     */
     public function __construct(private ResponseFactoryInterface $responseFactory) {}
 
+    /**
+     * Deja pasar si hay sesión; si no, manda al login con el aviso que explica por
+     * qué.
+     *
+     * El flash se escribe antes del 303 y lo consume la pantalla de acceso en el GET
+     * siguiente. La rama htmx usa `HX-Redirect` y no `Location` porque el XHR sigue
+     * el redirect y el login se cambiaría dentro de la región.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         if (Auth::check()) {
@@ -1201,6 +1235,15 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
 
+/**
+ * Abre la sesión nativa de PHP y aplica sus políticas de vencimiento.
+ *
+ * Corre antes que cualquier middleware que lea `$_SESSION` —la sesión de auth, el
+ * remember-me y el almacén del Guard del CSRF— y una sola vez por petición: si la
+ * sesión ya está activa no hace nada. Configura nombre, cookie y ruta de
+ * almacenamiento desde el entorno, y vence las sesiones autenticadas por
+ * inactividad o por antigüedad absoluta.
+ */
 class SessionMiddleware implements MiddlewareInterface
 {
     public const DEFAULT_IDLE_TIMEOUT = 7200;      // 2 horas
@@ -1224,9 +1267,11 @@ class SessionMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Nombre de sesión saneado: PHP solo acepta letras, números, guion y
-     * guion bajo. Un valor con espacios o `;` puede romper la cookie o
-     * inyectar atributos.
+     * Nombre de sesión saneado: PHP solo acepta letras, números, guion y guion
+     * bajo.
+     *
+     * Un valor con espacios o `;` puede romper la cookie o inyectar atributos, y
+     * uno vacío deja la sesión sin nombre; por eso hay un fallback fijo.
      */
     public static function sessionName(): string
     {
@@ -1235,6 +1280,12 @@ class SessionMiddleware implements MiddlewareInterface
         return is_string($name) && $name !== '' ? $name : 'mi_app_session';
     }
 
+    /**
+     * Directorio de los archivos de sesión.
+     *
+     * `SESSION_SAVE_PATH` gana si está definido; si no, `storage/sessions` en la
+     * raíz del proyecto, que el bootstrap crea en cada clon.
+     */
     public static function savePath(): string
     {
         $configured = (string) Env::get('SESSION_SAVE_PATH', '');
@@ -1244,21 +1295,42 @@ class SessionMiddleware implements MiddlewareInterface
             : dirname(__DIR__, 3) . '/storage/sessions';
     }
 
+    /**
+     * Segundos de inactividad tolerados; `0` desactiva el vencimiento por
+     * inactividad.
+     */
     public static function idleTimeout(): int
     {
         return max(0, Env::int('SESSION_IDLE_TIMEOUT', self::DEFAULT_IDLE_TIMEOUT));
     }
 
+    /**
+     * Tope absoluto de vida de la sesión, en segundos; `0` lo desactiva.
+     *
+     * También se usa como `gc_maxlifetime` para que el recolector de PHP no borre
+     * una sesión que la aplicación todavía considera válida.
+     */
     public static function absoluteTimeout(): int
     {
         return max(0, Env::int('SESSION_ABSOLUTE_TIMEOUT', self::DEFAULT_ABSOLUTE_TIMEOUT));
     }
 
+    /**
+     * Arranca la sesión si nadie la abrió todavía y vence la que corresponda;
+     * después delega en el resto del pipeline.
+     *
+     * La configuración se aplica antes de `session_start()` porque PHP no acepta
+     * cambiar nombre ni cookie después, y el vencimiento se evalúa al final porque
+     * los datos de la sesión recién están disponibles con `session_start()`.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         if (session_status() === PHP_SESSION_NONE) {
             $savePath = self::savePath();
             if (!is_dir($savePath)) {
+                // El bootstrap crea `storage/sessions`, pero un path configurado
+                // puede no existir todavía: se crea con 0700 y el `@` silencia el
+                // fallo de creación.
                 @mkdir($savePath, 0700, true);
             }
 
@@ -1266,14 +1338,15 @@ class SessionMiddleware implements MiddlewareInterface
             session_save_path($savePath);
             session_set_cookie_params(self::cookieParams());
 
-            // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
+            // Modo estricto: rechaza ids que PHP nunca emitió (fijación de sesión).
+            // `use_only_cookies` mantiene el id fuera de la URL.
             ini_set('session.use_strict_mode', '1');
             ini_set('session.use_only_cookies', '1');
 
             $absolute = self::absoluteTimeout();
             if ($absolute > 0) {
-                // El GC no debe borrar una sesión que la app todavía considera
-                // válida; el vencimiento real lo aplica este middleware.
+                // El recolector no debe borrar una sesión que la app todavía
+                // considera válida; el vencimiento real lo aplica este middleware.
                 ini_set('session.gc_maxlifetime', (string) $absolute);
             }
 
@@ -1285,9 +1358,12 @@ class SessionMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Vencimiento por inactividad y tope absoluto. Solo se aplica a sesiones
-     * autenticadas: un formulario público abierto toda la tarde no debería
-     * perder el CSRF por la mitad.
+     * Vence la sesión por inactividad o por tope absoluto, y refresca la marca de
+     * actividad.
+     *
+     * Solo se aplica a sesiones autenticadas: un formulario público abierto toda la
+     * tarde no debería perder el CSRF por la mitad. Al vencer vacía los datos y
+     * regenera el id, así el usuario vuelve a entrar.
      */
     private function expireIfStale(): void
     {
@@ -1329,20 +1405,41 @@ declare(strict_types=1);
 
 namespace Framework\Http;
 
+/**
+ * Mensajes de un solo uso hasta la petición siguiente.
+ *
+ * Es el puente entre una mutación y el GET al que redirige: el controlador hace
+ * `set()` antes del 303 y `Controller::render()` consume con `get()`, que borra la
+ * clave para que el aviso no reaparezca al refrescar. También lo escriben
+ * RequireAuthMiddleware y el failure handler del CSRF, que no tienen una vista
+ * propia donde mostrar el aviso.
+ */
 class Flash
 {
+    /**
+     * Deja un mensaje para la próxima lectura en el canal indicado (`error`,
+     * `success`, `info`).
+     *
+     * Si ya había uno en ese canal, se pierde: el contrato es un aviso por canal.
+     *
+     * @param string $key canal del aviso, no su texto
+     */
     public static function set(string $key, string $message): void
     {
         $_SESSION['flash'][$key] = $message;
     }
 
+    /**
+     * Devuelve el mensaje del canal y lo borra en el mismo paso, o null si no hay.
+     *
+     * El `is_string` protege el render: una sesión manipulada o un valor corrupto
+     * devuelve null en vez de lanzar un TypeError por el tipo de retorno.
+     */
     public static function get(string $key): ?string
     {
         $message = $_SESSION['flash'][$key] ?? null;
         unset($_SESSION['flash'][$key]);
 
-        // El tipo de retorno es ?string: una sesión manipulada o un valor
-        // corrupto no debe tumbar el render con un TypeError.
         return is_string($message) ? $message : null;
     }
 }
@@ -1364,30 +1461,59 @@ namespace Framework\Auth;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Sesión de autenticación sobre la sesión nativa de PHP (que abre
- * SessionMiddleware). Solo guarda el id: el usuario se lee de la base en
- * cada request (una query indexada; si el usuario se borra, la sesión muere).
+ * Estado de autenticación de la petición, guardado en la sesión nativa que abre
+ * SessionMiddleware.
+ *
+ * Guarda solo el id del usuario: el modelo se relee en cada request con
+ * UserProvider, así que un usuario borrado deja la sesión sin efecto y ningún
+ * dato suyo queda congelado en la sesión. Lo consultan RequireAuthMiddleware, el
+ * render de los controladores y el handler de la portada; lo escribe el login.
  */
 final class Auth
 {
+    /**
+     * Id del usuario autenticado, o null si la petición es anónima.
+     *
+     * Lee `$_SESSION['user_id']` y lo castea a entero: la sesión es un array sin
+     * tipo declarado, así que el valor no viene garantizado.
+     */
     public static function id(): ?int
     {
         $id = $_SESSION['user_id'] ?? null;
         return $id === null ? null : (int) $id;
     }
 
+    /**
+     * ¿Hay usuario en la sesión? Es el atajo booleano que consulta
+     * RequireAuthMiddleware para decidir si deja pasar la petición.
+     */
     public static function check(): bool
     {
         return self::id() !== null;
     }
 
+    /**
+     * Modelo del usuario de la petición, o null si no hay sesión.
+     *
+     * Delega en UserProvider, que es quien sabe qué clase de usuario usa la app;
+     * cuesta una query por clave primaria indexada.
+     */
     public static function user(): ?Model
     {
         $id = self::id();
         return $id === null ? null : UserProvider::find($id);
     }
 
-    /** Establece la sesión. Regenera el ID (fijación de sesión). */
+    /**
+     * Marca la sesión como autenticada.
+     *
+     * Regenera el id de sesión antes de escribir el usuario: un id conocido de
+     * antemano deja de servir (fijación de sesión). Anota `created_at` y
+     * `last_activity`, que SessionMiddleware mide para el vencimiento absoluto y
+     * por inactividad.
+     *
+     * @param int $id clave primaria del usuario que acaba de autenticarse
+     */
     public static function login(int $id): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -1400,8 +1526,12 @@ final class Auth
     }
 
     /**
-     * Vacía la sesión y regenera el ID. No la destruye: el CSRF vive ahí y
-     * el redirect siguiente lo necesita.
+     * Borra los datos de la sesión y regenera el id, sin destruirla.
+     *
+     * La sesión sigue activa a propósito: el aviso que el controlador escribe
+     * después de llamar aquí se guarda al cerrar el request, y el próximo GET
+     * emite su par CSRF en esta misma sesión. `session_destroy()` cortaría las
+     * dos cosas.
      */
     public static function logout(): void
     {
@@ -1427,31 +1557,33 @@ use Illuminate\Database\Connection;
 use Framework\Support\Env;
 
 /**
- * Remember-me con split-token. ESTE es el archivo security-critical del login:
- * cualquier cambio aquí merece relectura y sus tests (AuthTest) en verde.
+ * Mantiene la sesión entre visitas con un par selector/validator en cookie.
  *
- * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
- *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
- * - Rotación en cada uso: el token presentado muere y nace otro, las dos
- *   sentencias en UNA transacción (ver `resumeFromCookie`). Achica la ventana
- *   de replay de un token copiado.
- * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
- * - Selector conocido + validator que NO matchea: posible robo → se queman
- *   TODOS los tokens del usuario y se borra la cookie.
- * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `Secure`
- *   se activa con SESSION_SECURE=true (HTTPS real): ver cap. 19.
+ * La cookie lleva `selector:validator`. El selector es la clave de la fila y
+ * viaja en claro porque es el índice de búsqueda; el validator se guarda solo
+ * como hash bcrypt, así que una copia de la tabla no alcanza para armar una
+ * cookie válida. Cada uso rota el par: el anterior queda como tombstone y, si
+ * reaparece, se interpreta como robo y se queman todos los tokens del usuario.
  */
 final class RememberMe
 {
     public const COOKIE = 'remember';
 
-    public const TTL = 2592000; // 30 días, en segundos
+    /** Vida del token y `Max-Age` de la cookie: 30 días, en segundos. */
+    public const TTL = 2592000;
 
-    public const ROTATION_GRACE = 3600; // 1 hora de tombstone
+    /** Cuánto sobrevive un tombstone antes de la poda: 1 hora, en segundos. */
+    public const ROTATION_GRACE = 3600;
 
     /**
-     * Crea un token para el usuario y devuelve el par crudo "selector:validator"
-     * para la cookie. El validator sale de aquí una sola vez: no se loguea.
+     * Emite un par nuevo para el usuario y lo devuelve en claro, listo para la
+     * cookie.
+     *
+     * Los dos secretos salen de `random_bytes`; de la base solo se guarda el hash
+     * bcrypt del validator. El par en claro vive únicamente en el valor de
+     * retorno: quien llama lo entrega como cookie y no lo registra.
+     *
+     * @param int $userId dueño del token, por clave primaria
      */
     public static function create(int $userId): string
     {
@@ -1468,7 +1600,17 @@ final class RememberMe
         return $selector . ':' . $validator;
     }
 
-    /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
+    /**
+     * Header `Set-Cookie` completo para el par, o el que borra la cookie.
+     *
+     * `HttpOnly` y `SameSite=Lax` son fijos; `Secure` se agrega con
+     * SESSION_SECURE porque sobre HTTP local el navegador descartaría la cookie.
+     * El `Path` es `/`: la cookie cubre todo el dominio, no solo el prefijo de
+     * despliegue.
+     *
+     * @param string $pair  valor crudo que devolvió create()
+     * @param bool   $clear true emite la cookie ya vencida
+     */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
         $secure = Env::bool('SESSION_SECURE')
@@ -1484,9 +1626,18 @@ final class RememberMe
     }
 
     /**
-     * Intenta sesión desde la cookie. Devuelve el header Set-Cookie a aplicar
-     * en la respuesta de salida (rotación o limpieza), o null si no hay nada
-     * que hacer. Nunca lanza: un token roto simplemente no loguea.
+     * Intenta abrir la sesión desde la cookie y devuelve el `Set-Cookie` que
+     * corresponde a esta respuesta, o null si no hay nada que hacer.
+     *
+     * El orden de los cortes importa: primero los tombstones vencidos, después el
+     * selector, después el tombstone (replay), el usuario, el vencimiento y por
+     * último el validator. Una cookie mal formada o un selector desconocido se
+     * ignoran; un vencimiento, un usuario borrado o un replay devuelven el header
+     * que limpia la cookie. Un fallo de base de datos sube al error handler.
+     *
+     * La rotación va en una transacción sobre la conexión de Eloquent y la
+     * sesión se abre después del commit, para que un rollback no deje una sesión
+     * autenticada sin cookie detrás.
      */
     public static function resumeFromCookie(): ?string
     {
@@ -1501,55 +1652,53 @@ final class RememberMe
 
         $row = RememberToken::query()->where('selector', $selector)->first();
         if ($row === null) {
-            return null; // selector desconocido: nada que quemar, solo ignorar
+            return null; // selector desconocido: no hay fila que quemar, se ignora
         }
 
         if ($row->rotated_at !== null) {
-            // Replay de un token que ya se rotó: el ladrón tiene una copia
-            // vieja. Se quema la familia completa, incluido el token nuevo.
+            // Replay: el par presentado ya se rotó, así que existen dos copias
+            // vivas. Se quema la familia entera, incluido el token nuevo que
+            // emitió la rotación; la cookie que trajo el replay también se borra.
             RememberToken::query()->where('user_id', (int) $row->user_id)->delete();
             return self::cookieHeader(clear: true);
         }
 
         $user = UserProvider::find((int) $row->user_id);
         if ($user === null) {
+            // Usuario borrado: la fila quedó huérfana, se limpia y no se loguea.
             $row->delete();
             return self::cookieHeader(clear: true);
         }
 
         if ((int) $row->expires_at <= time()) {
-            $row->delete(); // vencimiento normal: sin alarma, solo limpieza
+            $row->delete(); // vencimiento normal: solo esa fila, sin alarma
             return self::cookieHeader(clear: true);
         }
 
         if (!password_verify($validator, $row->hashed_validator)) {
-            // Posible robo: el selector existe pero el secreto no matchea.
+            // El selector existe pero el secreto no coincide: ese par no lo emitió
+            // la app. Se queman todos los tokens del usuario y se limpia la cookie.
             RememberToken::query()->where('user_id', (int) $user->getKey())->delete();
             return self::cookieHeader(clear: true);
         }
 
         $userId = (int) $user->getKey();
 
-        // Rotación atómica (S8). El delete de la fila presentada y el insert
-        // del reemplazo tienen que entrar JUNTOS: si el proceso cae entre las
-        // dos sentencias, la fila vieja ya no está y la nueva no existe, la
-        // cookie del browser deja de resolver y el usuario queda deslogueado en
-        // silencio (no hay error que ver: un selector desconocido simplemente
-        // se ignora). `transaction()` va por la MISMA conexión que usan los
-        // modelos —Eloquent ya está booteado sobre este Capsule, ver
-        // config/container.php—, así que el delete del modelo y el create del
-        // reemplazo caen los dos adentro. La closure recibe esa conexión y no
-        // la usa —los modelos ya están en ella—: el tipo está para dejar
-        // explícito cuál es la conexión y que aquí no se abre una aparte.
+        // Rotación atómica: el tombstone de la fila presentada y el alta del
+        // reemplazo entran juntos. Si el proceso cae entre las dos sentencias, la
+        // cookie del navegador deja de resolver y el usuario queda deslogueado en
+        // silencio, porque un selector inexistente se ignora sin error.
+        // `transaction()` usa la misma conexión que los modelos —Eloquent ya está
+        // booteado sobre este Capsule, ver config/container.php—, así que las dos
+        // operaciones caen adentro. La closure recibe la conexión y no la usa: el
+        // tipo está para dejar explícito que aquí no se abre una aparte.
         //
-        // La sesión se abre DESPUÉS del commit a propósito: si la transacción
-        // revierte, no queda una sesión abierta sin cookie que la respalde.
-        // El par que sale de aquí es el mismo `selector:validator` de siempre y
-        // el header lo arma `cookieHeader()`, que no cambió.
+        // La sesión se abre después del commit a propósito: si la transacción
+        // revierte, no queda una sesión autenticada sin cookie que la respalde.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
                 // Tombstone en vez de delete: si el token viejo reaparece,
-                // `resumeFromCookie()` detecta el replay y quema la familia.
+                // `resumeFromCookie()` lo reconoce como replay y quema la familia.
                 $row->rotated_at = time();
                 $row->save();
 
@@ -1563,8 +1712,11 @@ final class RememberMe
     }
 
     /**
-     * Los tombstones no son eternos: pasada la ventana de gracia se borran.
-     * Sin esto la tabla crecería con cada rotación.
+     * Borra los tombstones más viejos que la ventana de gracia.
+     *
+     * Se llama al comienzo de cada resume: sin esto la tabla crecería con cada
+     * rotación. La ventana también acota la detección de replay, porque pasado
+     * ese plazo el selector viejo ya no está y un replay se ve como desconocido.
      */
     public static function pruneRotated(): void
     {
@@ -1574,6 +1726,12 @@ final class RememberMe
             ->delete();
     }
 
+    /**
+     * Elimina todos los tokens de un usuario: cualquier cookie emitida antes deja
+     * de resolver, en este navegador y en cualquier otro.
+     *
+     * Lo llama el logout, que además limpia la cookie de la respuesta.
+     */
     public static function clearUser(int $userId): void
     {
         RememberToken::query()->where('user_id', $userId)->delete();
@@ -1594,12 +1752,25 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
 
 /**
- * Las 4 vars que espera components/form/csrf.twig. Una sola fuente para
- * controladores (vía Controller::csrf) y closures de ruta (p. ej. la home,
- * que renderiza directo y también necesita el form de logout del layout).
+ * Los cuatro valores que espera `components/form/csrf.twig`, en un solo lugar.
+ *
+ * Los controladores llegan por `Controller::csrf()` y las closures de ruta lo
+ * llaman directo cuando renderizan sin controlador (la portada, que igual necesita
+ * el formulario de logout del layout). Sin este punto único, cada pantalla tendría
+ * que conocer las claves del Guard y el nombre del atributo que deja el middleware.
  */
 final class CsrfTokens
 {
+    /**
+     * Lee del request el par que emitió el Guard y lo devuelve con los nombres que
+     * usa la plantilla.
+     *
+     * No genera tokens: el middleware `Guard` ya los dejó como atributos de la
+     * petición; aquí solo se renombran a `csrf_name_key`, `csrf_name`,
+     * `csrf_value_key` y `csrf_value`.
+     *
+     * @return array<string, mixed>
+     */
     public static function fields(Request $request, Guard $guard): array
     {
         $nameKey  = $guard->getTokenNameKey();
@@ -1614,10 +1785,11 @@ final class CsrfTokens
     }
 
     /**
-     * Invalida el token emitido antes del login. El ID de sesión ya se
-     * regenera en Auth::login(); esto cierra la ventana de un token CSRF
-     * capturado antes de autenticarse (equipo compartido, panel público).
-     * El próximo GET genera un par nuevo.
+     * Invalida el par emitido antes del login.
+     *
+     * El id de sesión ya se regenera en `Auth::login()`; vaciar el almacén del
+     * Guard cierra la ventana de un token capturado en un formulario público (la
+     * pantalla de acceso en un equipo compartido). El próximo GET emite uno nuevo.
      */
     public static function rotate(Guard $guard): void
     {
@@ -1703,48 +1875,70 @@ use Slim\Csrf\Guard;
 use Slim\Views\Twig;
 
 /**
- * Controlador base: toda respuesta HTML sale con los datos comunes (flash
- * consumido + tokens CSRF). Cada controlador suma lo suyo por dos vías:
- * viewDefaults() para lo que repite en todas sus acciones, $extra para lo
- * puntual de una acción. Nada de payloads copiados entre controladores.
+ * Base de los controladores: toda respuesta HTML sale con los datos comunes de la
+ * aplicación.
+ *
+ * `render()` compone el payload que esperan las vistas —usuario, flash ya
+ * consumido, tokens CSRF y lo que agregue `viewDefaults()`— y suma el `$extra` de
+ * la acción. `redirect()` es el cierre estándar de una mutación y los dos
+ * `breadcrumbs*()` arman la forma que lee el header del shell. Ningún controlador
+ * arma esas piezas por su cuenta.
  */
 abstract class Controller
 {
     /**
-     * Orden en que se muestran los avisos cuando una acción deja más de uno
-     * (ej.: falla la validación y además había un info pendiente).
+     * Orden en que se muestran los avisos cuando una acción deja más de uno (por
+     * ejemplo, falla la validación y además había un info pendiente).
      */
     private const FLASH_ORDER = ['error', 'success', 'info'];
 
     /**
-     * Canal del aviso en una página completa (sin htmx). `true` por defecto
-     * porque el shell pinta `toast_items` y NO pinta banner: con `false`, un
-     * controlador nuevo perdería el aviso de `Flash::set()` sin ningún error.
-     * Poné `false` sólo si tu layout renderiza el banner inline (`flash_*`);
-     * es el caso de la pantalla de acceso.
+     * Si el flash de una página completa (sin htmx) se pinta como toast y no como
+     * banner.
+     *
+     * `true` por defecto porque el layout del shell pinta `toast_items` y no pinta
+     * banner: con `false`, un controlador nuevo perdería el aviso sin ningún error.
+     * Pon `false` solo si tu layout renderiza el banner inline desde `flash_*`.
      */
     protected bool $toastFlash = true;
 
+    /**
+     * Recibe Twig y el Guard por inyección de dependencias; el controlador nunca
+     * los resuelve del container. El Guard entra porque `render()` emite el par
+     * CSRF de cada formulario.
+     */
     public function __construct(protected Twig $view, protected Guard $guard) {}
 
+    /**
+     * Renderiza la plantilla con los datos comunes de la aplicación.
+     *
+     * Consume el flash —`Flash::get()` lo borra: un aviso se ve una sola vez—,
+     * emite el par CSRF y arma la precedencia de variables: el `$extra` de la
+     * acción gana sobre `viewDefaults()`, y este sobre los datos comunes. Con
+     * `HX-Request` el aviso viaja como evento y el HTML sale sin `toast_items`,
+     * para que no se vea dos veces.
+     *
+     * @param array<string, mixed> $extra variables de esta acción
+     */
     protected function render(Request $request, Response $response, string $template, array $extra = []): Response
     {
-        // user_* en cada render (los parciales lo ignoran): una PK indexada
-        // cuando hay sesión, nada cuando no la hay. Lo usa el bloque de
+        // `user_*` viaja en cada render y los parciales lo ignoran: una PK
+        // indexada cuando hay sesión, null cuando no. Lo usa el bloque de
         // usuario/salir del layout.
         $user = Auth::user();
 
-        // ÚNICO consumidor del flash: si se suma un tipo nuevo, va aquí.
+        // Único consumidor del flash: si se agrega un tipo de aviso, entra en
+        // FLASH_ORDER y se lee aquí.
         $flash = [];
         foreach (self::FLASH_ORDER as $type) {
             $flash[$type] = Flash::get($type);
         }
 
         // Un aviso, un canal, elegido por el request:
-        // - htmx: el aviso viaja en `HX-Trigger-After-Swap` y el HTML sale sin
-        //   el banner. Si viajara por los dos lados, se vería dos veces.
-        // - página completa: banner inline (login, redirect de RequireAuth)
-        //   porque ahí no hay evento de htmx que escuchar.
+        // - htmx: viaja en `HX-Trigger-After-Swap` y el HTML sale sin banner. Si
+        //   viajara por los dos lados, se vería dos veces.
+        // - página completa: banner inline, porque ahí no hay evento de htmx que
+        //   escuchar.
         if ($request->hasHeader('HX-Request')) {
             $response = $this->withToasts($response, $flash);
             $flash = ['error' => null, 'success' => null, 'info' => null];
@@ -1775,13 +1969,13 @@ abstract class Controller
     /**
      * Redirección de después de una mutación: 303 + `Location`.
      *
-     * 303 (See Other) y no 302: fuerza a que el siguiente pedido sea un `GET`,
-     * así refrescar la pantalla de destino no reenvía el formulario. Es el
-     * patrón POST/Redirect/GET, y por eso todas las mutaciones del proyecto
-     * vuelven por acá en vez de responder la página directamente.
+     * 303 (See Other) y no 302: le indica al cliente que el siguiente pedido sea
+     * un `GET`, así refrescar la pantalla de destino no reenvía el formulario. Es
+     * el patrón POST/Redirect/GET, y por eso las mutaciones cierran con un
+     * redirect y no con la página ya renderizada.
      *
-     * @param string $to ruta destino, sin base path: se resuelve con Url::path()
-     * @param int    $status 303 por defecto; 301/302 sólo si sabés por qué
+     * @param string $to     ruta destino, sin base path: se resuelve con Url::path()
+     * @param int    $status 303 por defecto; 301/302 solo si tienes una razón
      */
     protected function redirect(Response $response, string $to, int $status = 303): Response
     {
@@ -1792,7 +1986,7 @@ abstract class Controller
      * Dos migas: Inicio y la pantalla actual.
      *
      * La forma la lee el header del shell (`{label, href?, icon?, current?}`):
-     * `icon` viaja sólo cuando hay icono —una miga con `icon => null` pinta un
+     * `icon` viaja solo cuando hay icono —una miga con `icon => null` pinta un
      * hueco— y `current` marca la última para que se pinte como texto y no como
      * enlace.
      *
@@ -1820,10 +2014,10 @@ abstract class Controller
     /**
      * Tres migas: Inicio, el listado padre y la acción actual.
      *
-     * El `href` entra tal cual: el llamador decide si es un `Url::path()` o una
-     * URL propia, igual que hacía a mano. Se separó de breadcrumbs() en vez de
-     * agregarle parámetros opcionales porque las dos formas se leen distintas y
-     * con tres argumentos posicionales una llamada no dice cuál se está armando.
+     * El `href` entra tal cual: quien llama decide si es un `Url::path()` o una URL
+     * propia. Es un método aparte y no un parámetro opcional de `breadcrumbs()`
+     * porque las dos formas se leen distinto y con tres argumentos posicionales una
+     * llamada no dice cuál se está armando.
      *
      * @param string $href destino del listado padre, ya resuelto con Url::path()
      *
@@ -1841,17 +2035,15 @@ abstract class Controller
     /**
      * Emite los avisos de una acción htmx como evento `toasts`.
      *
-     * - `After-Swap` y no `HX-Trigger` a secas: en un ARM de 32 bits el swap
-     *   puede tardar y con el evento temprano el toast aparecería antes que la
-     *   lista nueva.
-     * - El payload es un OBJETO: htmx entrega `detail` tal cual solo cuando el
-     *   valor del header es un objeto; un array lo envuelve en `{value: [...]}`
-     *   (verificado en public/assets/htmx-2.0.11.min.js, handleTriggerHeader).
-     *   Por eso el layout lee `$event.detail.items` y no `.value`.
-     * - JSON_UNESCAPED_UNICODE: los mensajes van en castellano; escapados a
-     *   `\u00xx` el header crece al doble sin ganar nada. El SUBSTITUTE es la
-     *   red: un mensaje con bytes inválidos no puede tumbar la respuesta con un
-     *   TypeError de withHeader(false).
+     * `After-Swap` y no `HX-Trigger` a secas: htmx lo dispara con el DOM nuevo ya
+     * en su lugar, así el toast no puede aparecer antes que la lista. El payload
+     * es un objeto porque htmx entrega `detail` tal cual solo en ese caso; un
+     * array quedaría envuelto en `{value: [...]}`. El layout escucha
+     * `$event.detail.items`.
+     *
+     * `JSON_UNESCAPED_UNICODE` acorta el header de los mensajes en castellano y
+     * `JSON_INVALID_UTF8_SUBSTITUTE` es la red: un byte inválido no puede tumbar la
+     * respuesta con un TypeError de `withHeader()`.
      *
      * @param array<string, string|null> $flash
      */
@@ -1875,13 +2067,13 @@ abstract class Controller
     }
 
     /**
-     * Variables que este controlador agrega a TODAS sus vistas sin repetir
-     * `$extra` en cada acción (marca, menú, flags). Vacío por defecto: es un
-     * punto de extensión, no una utilidad.
+     * Variables que este controlador agrega a todas sus vistas sin repetir `$extra`
+     * en cada acción (marca, menú, flags). Vacío por defecto: es un punto de
+     * extensión, no una utilidad.
      *
-     * Precedencia en `render()`: el `$extra` de la acción gana sobre esto, y
-     * esto gana sobre los datos comunes y el CSRF. El contrato lo fija
-     * `tests/Support/ControllerViewDefaultsTest.php`.
+     * Precedencia en `render()`: el `$extra` de la acción gana sobre esto, y esto
+     * gana sobre los datos comunes y el CSRF. La resuelve el orden de los spreads
+     * del array de la vista.
      *
      * @return array<string, mixed>
      */
@@ -1890,6 +2082,12 @@ abstract class Controller
         return [];
     }
 
+    /**
+     * Los cuatro campos CSRF que espera `components/form/csrf.twig`, resueltos por
+     * `CsrfTokens::fields()`.
+     *
+     * @return array<string, mixed>
+     */
     protected function csrf(Request $request): array
     {
         return CsrfTokens::fields($request, $this->guard);
@@ -1919,22 +2117,34 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpNotFoundException;
 
+/**
+ * Controlador de `tasks`: las seis acciones y el único render de su pantalla.
+ *
+ * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
+ * para el recorte, `Validator` para el título, `Flash` para los avisos y
+ * `Controller::render()` para la plantilla.
+ *
+ * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
+ * único lugar que elige plantilla y estado.
+ */
 class TaskController extends Controller
 {
     /**
-     * Slice paginado + metadata para TODA respuesta de esta ruta (página
-     * completa o swap parcial: ambas regiones llevan su paginación al día).
-     * La página y el tamaño salen del query string (?page=, ?per_page=), que
-     * mandan tanto el navegador como los links HTMX del partial.
+     * Slice paginado más la metadata, para toda respuesta de esta ruta: la página
+     * completa y el swap parcial necesitan la paginación al día. La página y el
+     * tamaño salen del query string (`page`, `per_page`), que mandan el navegador
+     * y los enlaces de HTMX por igual.
+     *
+     * @return array<string, mixed>
      */
     private function pageData(Request $request): array
     {
         $listing = Pagination::fromRequest(
             Task::orderByDesc('id'),
             $request,
-            // Con el prefijo ya aplicado: base_url es la fuente de la
-            // paginación, del `hx-get` del select de tamaño y del HX-Push-Url
-            // de más abajo, así que las tres heredan el prefijo sin saberlo.
+            // Con el prefijo ya aplicado: el `base_url` de este resultado es la
+            // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
+            // los dos heredan el prefijo sin saberlo.
             Url::path('/tareas')
         );
 
@@ -1944,41 +2154,34 @@ class TaskController extends Controller
         ];
     }
 
+    /** `GET /tareas`. Sólo delega en `respond()`: el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->respond($request, $response);
     }
 
     /**
-     * Toda acción de esta ruta responde por aquí, y el template lo elige el
-     * request, no la acción.
+     * Render de la pantalla: elige plantilla y estado, y suma los datos comunes.
      *
-     * Con `HX-Request` va sólo la región: "Cancelar" apunta a /tareas con
-     * hx-target="#tareas-panel", y si htmx recibiera index.twig (que extiende
-     * el layout) se quedaría con el <body> y lo insertaría dentro del panel:
-     * dos <h1>, dos #alta-tarea y el padding del layout dos veces.
+     * La llaman las seis acciones, así que el `active`, la miga y la paginación
+     * viven aquí y no se repiten en cada una. Con `HX-Request` devuelve sólo el
+     * panel; sin él, la página completa.
      *
-     * Sin `HX-Request` va la página entera: un form con JS apagado, una URL
-     * abierta a mano o un curl son un navegador pidiendo un documento. La
-     * mutación ocurre igual, pero el fragmento llega sin <head>, sin hoja de
-     * estilos y sin shell, así que una acción exitosa se ve rota (S9).
-     *
-     * `active` y `breadcrumbs` los lee el shell y los ignoran los parciales,
-     * así que pueden viajar en las dos formas.
-     *
-     * `$status` es el status de la respuesta. 422 en un fallo de validación no
-     * es cosmético: es lo que le dice a htmx (con el handler de app.twig) que
-     * swapee igual, y lo que le dice al formulario de alta que NO se limpie.
+     * @param array<string, mixed> $extra  datos del llamador: errores, lo tipeado, `editing_id`
+     * @param int                  $status estado HTTP; 422 cuando un dato no valida
      */
     private function respond(Request $request, Response $response, array $extra = [], int $status = 200): Response
     {
-        // El orden del merge importa: `pageData()` primero, así un $extra no
-        // puede pisar `tasks`/`pagination` (ni el header de abajo).
+        // El orden del merge importa: `pageData()` primero, así un `$extra` no
+        // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
             'active' => 'tareas',
             'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
+        // La plantilla la elige el request y no la acción: `_panel.twig` es la
+        // región que se intercambia e `index.twig` la página que extiende el
+        // shell. Devolver el documento entero dentro del panel lo duplicaría.
         $response = $this->render(
             $request,
             $response,
@@ -1987,30 +2190,24 @@ class TaskController extends Controller
         );
 
         // Un 422 no es una posición nueva de la lista: es el mismo panel con el
-        // mensaje de validación al lado del campo. Empujar la URL canónica ahí
-        // le escribiría al usuario una entrada de historial por un intento que
-        // no cambió nada, así que el `HX-Push-Url` queda reservado al 200.
+        // mensaje al lado del campo. Empujar la URL canónica ahí sería una
+        // entrada de historial por un intento que no cambió nada.
         if ($status !== 200) {
             return $response->withStatus($status);
         }
 
+        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
         if (!$request->hasHeader('HX-Request') || !isset($data['pagination'])) {
             return $response;
         }
 
-        // La posición de la lista viaja en la URL (S11) desde el HEADER, no
-        // desde un `hx-push-url="/tareas?page=2"` en la plantilla:
-        // Pagination::paginate() clampea la página pedida al rango válido, así
-        // que borrar la última fila de la página 2 hace que el server
-        // renderice la 1. Una URL fija en el markup empujaría una posición que
-        // contradice el contenido que acaba de llegar; sólo el server que
-        // renderizó sabe qué página mostró. htmx 2.0.11 lee el header antes que
-        // el atributo (verificado en el vendor: `HX-Push-Url` gana sobre
-        // `hx-push-url`). Se empuja la URL canónica de la vista y no la de la
-        // acción: /tareas/5/toggle sólo acepta POST y recargarla sería un 404.
-        // Sin `HX-Request` no se emite: la página entera ya trae su propia URL.
+        // La posición se publica desde acá y no con un `hx-push-url` fijo en la
+        // plantilla: `Pagination` recorta la página pedida al rango real, así que
+        // sólo el servidor que renderizó sabe qué página mostró.
         $pagination = $data['pagination'];
 
+        // La URL empujada es la canónica de la vista y no la de la acción:
+        // `/tareas/5/toggle` sólo acepta POST, y recargarla sería un 404.
         return $response->withHeader('HX-Push-Url', sprintf(
             '%s?page=%d&per_page=%d',
             $pagination['base_url'],
@@ -2019,6 +2216,10 @@ class TaskController extends Controller
         ));
     }
 
+    /**
+     * `POST /tareas`. Valida el título, guarda y vuelve al panel con el aviso; si
+     * no valida, responde 422.
+     */
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
@@ -2028,12 +2229,9 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // El campo de alta vive FUERA de #tareas-panel (ver index.twig), así
-            // que el swap no lo toca y ningún mensaje por campo puede quedar
-            // pegado a él: el toast es su ÚNICO canal in-band, y por eso aquí el
-            // flash SÍ se conserva (en update() no, porque el mensaje se lee al
-            // lado del input). El 422 es la otra mitad: sin él el formulario se
-            // limpiaría y el usuario perdería lo tipeado.
+            // El campo de alta vive fuera de `#tareas-panel`, así que el swap no
+            // lo toca: el toast es el único canal del mensaje. El 422 evita que
+            // el formulario se limpie y el usuario pierda lo tipeado.
             Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
 
             return $this->respond($request, $response, [
@@ -2044,19 +2242,21 @@ class TaskController extends Controller
         Task::create(['title' => $data['title']]);
         Flash::set('success', 'Tarea creada.');
 
-        // Devolvemos el panel completo, no solo la lista: el flash vive en el
-        // mismo swap, así se ve sin recargar.
+        // El panel vuelve completo, no sólo la lista: el aviso se emite en este
+        // mismo swap.
         return $this->respond($request, $response);
     }
 
+    /**
+     * `DELETE /tareas/{id}`. Borra y vuelve al panel con el aviso.
+     */
     public function destroy(Request $request, Response $response, array $args): Response
     {
         $deleted = Task::destroy((int) $args['id']);
 
-        // destroy() de un id inexistente no falla: devuelve 0. Con htmx el
-        // panel vuelve con un aviso (sin este branch el toast diría "eliminada"
-        // sobre una fila que nunca existió). Sin htmx no hay panel adonde
-        // avisar: es un DELETE sobre un recurso que no existe, o sea un 404.
+        // `destroy()` de un id inexistente no falla: devuelve 0. Con htmx el panel
+        // vuelve con un aviso; sin htmx no hay panel adonde avisar, así que el
+        // recurso que no existe responde 404.
         if ($deleted === 0 && !$request->hasHeader('HX-Request')) {
             throw new HttpNotFoundException($request);
         }
@@ -2069,23 +2269,23 @@ class TaskController extends Controller
         return $this->respond($request, $response);
     }
 
+    /**
+     * `GET /tareas/{id}/edit`. Vuelve el panel entero con esa fila en modo
+     * formulario.
+     */
     public function edit(Request $request, Response $response, array $args): Response
     {
-        // La edición es inline: el panel vuelve entero con una sola fila en
-        // modo formulario. Sin `editing_id` la lista no sabe cuál editar.
+        // La edición es inline: sin `editing_id` la lista no sabe qué fila abrir.
         $task = Task::find((int) $args['id']);
 
-        // Un id que no existe, CON htmx, no responde 404: htmx metería la
-        // página de error dentro de #tareas-panel. Ahí vuelve el panel con un
-        // flash, que es donde la app ya comunica todo lo que el usuario tiene
-        // que ver sin recargar. El flash NO se consume aquí: lo levanta
-        // render(), que decide si va inline o en el header de htmx.
+        // Con htmx un 404 metería la página de error dentro del panel, así que un
+        // id inexistente vuelve como panel con aviso. El flash no se consume acá:
+        // lo levanta `render()`, que decide si va inline o en el header.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
-                // Sin htmx es un navegador pidiendo el documento de un recurso
-                // que no existe: 404 de verdad, con el mensaje de
-                // pages/errors/error.twig. Un 200 con un cartel mentiría al
-                // protocolo (y un curl --fail no se enteraría).
+                // Sin htmx es un navegador pidiendo un recurso que no existe:
+                // 404 real, con la página de error. Un 200 con un cartel le
+                // mentiría al protocolo.
                 throw new HttpNotFoundException($request);
             }
 
@@ -2097,13 +2297,16 @@ class TaskController extends Controller
         ]);
     }
 
+    /**
+     * `PUT /tareas/{id}`. Guarda el título; un fallo de validación devuelve 422 con
+     * la fila en modo formulario.
+     */
     public function update(Request $request, Response $response, array $args): Response
     {
         $task = Task::find((int) $args['id']);
 
-        // Mismo criterio que en edit(): con htmx un 404 llegaría al panel como
-        // HTML ajeno, así que la fila inexistente vuelve como panel + flash.
-        // Sin htmx es un PUT sobre un recurso que no existe: 404.
+        // Mismo criterio que en `edit()`: con htmx un 404 llegaría al panel como
+        // HTML ajeno. Sin htmx es un recurso que no existe: 404.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
                 throw new HttpNotFoundException($request);
@@ -2123,13 +2326,11 @@ class TaskController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`)
-            // y la fila sigue en modo formulario conservando lo tipeado. Un
-            // banner con el mismo texto lo diría dos veces, y el canal de
-            // avisos queda para lo que no es un campo.
+            // Sin flash: el mensaje ya se lee pegado al campo (`errors.title`) y
+            // un banner con el mismo texto lo diría dos veces.
             return $this->respond($request, $response, [
                 'editing_id'    => $task->id,
-                // Sin esto el input se repinta con task.title (guardado) y el
+                // Sin esto el input se repinta con el título guardado y el
                 // usuario pierde lo que escribió justo cuando aparece el error.
                 'editing_title' => $data['title'] ?? '',
                 'errors'        => $validator->errors(),
@@ -2146,14 +2347,17 @@ class TaskController extends Controller
     }
 
     /**
-     * Cambia el estado entre pendiente y completado, guardando la fecha
-     * de finalización cuando se marca como completada y limpiándola cuando
-     * se desactiva. El mismo panel vuelve entero con la lista actualizada.
+     * `POST /tareas/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
+     * `completed_at` al completar y limpiándola al volver atrás.
+     *
+     * Vuelve el panel entero con la lista actualizada.
      */
     public function toggle(Request $request, Response $response, array $args): Response
     {
         $task = Task::find((int) $args['id']);
 
+        // Mismo criterio que en `edit()`: panel con aviso si el request es de
+        // htmx, y 404 si es un navegador pidiendo un recurso inexistente.
         if ($task === null) {
             if (!$request->hasHeader('HX-Request')) {
                 throw new HttpNotFoundException($request);
@@ -2357,6 +2561,15 @@ namespace App\Tasks\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
+ * Modelo de la entidad `tasks`: qué columnas se escriben y con qué tipo se leen.
+ *
+ * Capa modelo. Describe la fila y nada más: la tabla la crea la migración
+ * `001_create_tasks_table.php`, el controlador escribe a través de este modelo y
+ * las vistas reciben sus instancias.
+ *
+ * Para tu entidad, copia el archivo y ajusta `$fillable`, `$casts` y las
+ * anotaciones: PHPStan las lee para tipar cada fila.
+ *
  * @property int $id
  * @property string $title
  * @property string $status
@@ -2369,9 +2582,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Task extends Model
 {
+    // Asignación en masa: `create()` y `update()` sólo aceptan estas columnas.
     protected $fillable = ['title', 'status', 'completed_at'];
 
     protected $casts = [
+        // Carbon y no string: la vista formatea la fecha con `|date()` y el toggle
+        // le asigna `Carbon::now()`.
         'completed_at' => 'datetime',
     ];
 }
@@ -2416,6 +2632,14 @@ namespace Framework\Auth;
 use Illuminate\Database\Eloquent\Model;
 
 /**
+ * Fila de `remember_tokens`: un par selector/validator vigente, o el tombstone de
+ * uno ya rotado.
+ *
+ * Es la única tabla que el framework posee y no el dominio. El selector es la
+ * clave primaria (string, sin autoincremento) porque es el índice con el que se
+ * busca la fila; `rotated_at` marca la que se usó y espera poda. La escribe y la
+ * lee solo RememberMe.
+ *
  * @property string $selector
  * @property int $user_id
  * @property string $hashed_validator
@@ -2427,6 +2651,10 @@ class RememberToken extends Model
 {
     protected $table = 'remember_tokens';
 
+    /**
+     * Sin `created_at`/`updated_at` de Eloquent: el vencimiento lo llevan
+     * `expires_at` y `rotated_at`.
+     */
     public $timestamps = false;
 
     protected $primaryKey = 'selector';
@@ -2435,6 +2663,10 @@ class RememberToken extends Model
 
     protected $keyType = 'string';
 
+    /**
+     * `create()` de RememberMe asigna en bloque: `fillable` es lo que autoriza esos
+     * cinco campos.
+     */
     protected $fillable = ['selector', 'user_id', 'hashed_validator', 'expires_at', 'rotated_at'];
 }
 ```
@@ -2766,13 +2998,20 @@ use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
- * Datos demo para desarrollo. Idempotente: si ya hay tareas no toca nada,
- * así re-correr el DatabaseSeeder (o seed:run pelado) nunca duplica.
+ * Siembra 100 tareas demo para desarrollo.
+ *
+ * Capa seeder (Phinx): datos, no esquema. La tabla la crea la migración y el demo
+ * lo ejecuta al instalarse. Es idempotente: si ya hay filas no toca nada, así que
+ * re-ejecutarlo no duplica.
+ *
+ * Para tu entidad, copia el archivo, cambia el modelo y el texto de las filas.
  */
 final class TaskSeeder extends AbstractSeed
 {
     public function run(): void
     {
+        // Phinx ejecuta el seeder fuera de la app: sin este require no hay
+        // Eloquent ni configuración cargada.
         require_once __DIR__ . '/../../../bootstrap/app.php';
 
         if (Task::query()->exists()) {
@@ -2780,6 +3019,7 @@ final class TaskSeeder extends AbstractSeed
             return;
         }
 
+        // 100 filas: con 10 por página el listado ya muestra paginación.
         for ($index = 1; $index <= 100; $index++) {
             Task::create(['title' => "Tarea demo {$index}"]);
         }
@@ -2809,9 +3049,13 @@ use App\Tasks\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
- * Compatibilidad y ejecución puntual de 100 tareas demo. `TaskSeeder` ya las
- * crea al instalar el demo; este seeder queda para bases existentes o para
- * correrlo a mano. Idempotente por título.
+ * Siembra las mismas 100 tareas demo, para bases que ya existen.
+ *
+ * Capa seeder. `TaskSeeder` corre al instalar el demo; este archivo sirve para
+ * ejecutarlo a mano sobre una base que ya tenía las tareas. No corta cuando hay
+ * filas: `firstOrCreate` hace que cada corrida agregue sólo lo que falta.
+ *
+ * Para tu entidad, la lección es la clave de idempotencia: re-ejecutar no duplica.
  */
 final class DemoTasksSeeder extends AbstractSeed
 {
@@ -2821,6 +3065,8 @@ final class DemoTasksSeeder extends AbstractSeed
 
         $created = 0;
         for ($i = 1; $i <= 100; $i++) {
+            // `wasRecentlyCreated` sólo es true en la fila que se acaba de crear:
+            // así el total impreso ignora las que ya estaban.
             if (Task::firstOrCreate(['title' => "Tarea demo {$i}"])->wasRecentlyCreated) {
                 $created++;
             }
@@ -2854,12 +3100,26 @@ use Respect\Validation\ChainedValidator;
 use Respect\Validation\Exceptions\ValidationException;
 use Respect\Validation\Validator as V;
 
+/**
+ * Valida un array de datos contra reglas escritas como texto
+ * (`'campo' => 'required|max:120'`).
+ *
+ * Traduce cada regla a un validador de respect/validation y a su mensaje en
+ * castellano, y corta en el primer fallo de cada campo: un campo inválido produce
+ * un solo mensaje, el de la primera regla que falló. Los controladores la usan
+ * antes de tocar la base y las vistas reciben el mapa `campo => mensaje`.
+ */
 class Validator
 {
     /** @var array<string, string> campo => mensaje, uno solo por campo. */
     private array $errors = [];
 
     /**
+     * Construye el validador y corre todas las reglas de una vez.
+     *
+     * Es el único camino de construcción y no hay setters: un validador ya
+     * ejecutado solo se consulta.
+     *
      * @param array<string, mixed>  $data
      * @param array<string, string> $rules
      */
@@ -2871,6 +3131,9 @@ class Validator
     }
 
     /**
+     * Recorre los campos en el orden declarado y deja un mensaje por cada uno que
+     * falle; el orden del mapa resultante es el del template.
+     *
      * @param array<string, mixed>  $data
      * @param array<string, string> $rules
      */
@@ -2880,9 +3143,9 @@ class Validator
             $field = (string) $key;
             $value = $data[$field] ?? null;
 
-            // TODAS las reglas se resuelven antes de evaluar la primera: una
-            // regla mal escrita tiene que explotar siempre, aunque una regla
-            // anterior ya hubiera fallado y no se llegue a evaluar (S2).
+            // Todas las reglas del campo se resuelven antes de evaluar la
+            // primera: una regla mal escrita tiene que explotar siempre, aunque
+            // otra del mismo campo ya haya fallado y nunca se llegue a ella.
             $resolved = [];
             foreach (explode('|', (string) $ruleString) as $rule) {
                 [$name, $param] = array_pad(explode(':', $rule, 2), 2, null);
@@ -2895,11 +3158,10 @@ class Validator
                     $chain->assert($value);
                     continue;
                 } catch (ValidationException) {
-                    // Primera regla que falla, único mensaje del campo: seguir
-                    // evaluando el resto sólo cambiaría el texto del aviso (el
-                    // campo ya es inválido) y hacía que el orden interno de
-                    // Respect eligiera el mensaje en vez del orden de las
-                    // reglas.
+                    // Primera regla que falla, y único mensaje del campo. Seguir
+                    // evaluando solo cambiaría el texto del aviso y dejaría que el
+                    // orden interno de Respect elija el mensaje en vez del orden de
+                    // las reglas escritas en el template.
                     $this->errors[$field] = $message;
                     break;
                 }
@@ -2908,12 +3170,12 @@ class Validator
     }
 
     /**
-     * Una sola fuente por regla: validador y mensaje salen del mismo `match`.
+     * Traduce una regla del texto a su validador y su mensaje.
      *
-     * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
-     * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde
-     * antes. `numeric` va por `numericVal()`: `numeric()` no existe como nombre
-     * de regla y lanzaba una ComponentException en vez de validar.
+     * Validador y mensaje salen del mismo `match` para que no puedan describir
+     * cosas distintas. `required` es `notEmpty()` (los espacios cuentan como
+     * vacío), `max` y `min` son `length()` (caracteres, no bytes) y `numeric` va
+     * por `numericVal()`, que es el nombre que existe en Respect.
      *
      * @return array{0: ChainedValidator, 1: string}
      */
@@ -2944,9 +3206,12 @@ class Validator
     }
 
     /**
-     * `(int) null` convertía un `max` sin número en `length(0)`: el campo no
-     * podía pasar nunca y nadie sabía por qué. Un parámetro que no es un entero
-     * positivo es un template roto, no un dato del usuario.
+     * Lee el número de `max`/`min` una sola vez, para que el validador y el
+     * mensaje no puedan discrepar, y rechaza el template roto con una excepción.
+     *
+     * Un parámetro que no es un entero positivo no es un dato del usuario: sin
+     * este chequeo, `(int) null` daría `length(0)` y el campo no pasaría nunca sin
+     * decir por qué.
      */
     private function lengthParam(string $name, ?string $param, string $field, string $ruleString): int
     {
@@ -2962,17 +3227,30 @@ class Validator
         return (int) $param;
     }
 
+    /**
+     * ¿Quedó algún campo inválido? Es lo que consulta el controlador antes de tocar
+     * la base.
+     */
     public function fails(): bool
     {
         return count($this->errors) > 0;
     }
 
-    /** @return array<string, string> campo => mensaje. */
+    /**
+     * Mapa `campo => mensaje` con un solo mensaje por campo; vacío si todo pasó.
+     *
+     * @return array<string, string> campo => mensaje.
+     */
     public function errors(): array
     {
         return $this->errors;
     }
 
+    /**
+     * Primer mensaje del mapa, en el orden en que se declararon los campos.
+     *
+     * Lo usa el flash de un formulario que no tiene lugar para errores por campo.
+     */
     public function firstError(): ?string
     {
         foreach ($this->errors as $message) {
@@ -4072,18 +4350,17 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 `framework/scaffolds/tasks/resources/views/pages/tasks/_styles.twig`:
 
 ```twig
-{# CSS propio del demo de tareas.
+{# CSS propio del demo Tareas.
 
-   Vive aquí y no en `layouts/app.twig` a propósito: `composer demo:tasks:remove`
-   borra este archivo junto con el resto del scaffold, así que el shell no queda
-   con CSS huérfano de un módulo que ya no existe. El layout sólo aporta el
-   bloque `styles`, y estas reglas se cargan únicamente en las páginas del demo.
+   Vive en el scaffold a propósito: `composer demo:tasks:remove` borra este archivo
+   con el resto del demo, así que el shell no queda con CSS huérfano. El panel se
+   intercambia por HTMX y no trae estilos: estas reglas ya están cargadas desde el
+   <head> de la página.
 
-   El panel (`_panel.twig`) se swapea por HTMX y no trae estilos: cuando llega
-   el fragmento, la página ya cargó estas reglas desde el <head>. #}
+   Para tu entidad, copia el bloque y cambia las clases propias. #}
 <style>
-    /* Mismo criterio de filas alternadas que la tabla de contactos, con la
-       primera fila en el tono oscuro. */
+    /* Filas alternadas para separar una tarea de la siguiente; el tono sale de los
+       tokens del tema, así que sirve en claro y en oscuro. */
     .task-list > li:nth-child(odd) {
         background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
     }
@@ -4091,9 +4368,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
         background: var(--color-base-300);
     }
 
-    /* El input de alta usaba el borde/outline de base-content; en oscuro se
-       veía como un contorno blanco. El foco sigue visible, pero con el color
-       primary del sistema. */
+    /* En reposo el borde usa `base-300` y el foco el color primario del sistema.
+       El `!important` gana sobre las reglas de daisyUI para el mismo input. */
     #alta-tarea input {
         border-color: var(--color-base-300);
     }
@@ -4105,9 +4381,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
         box-shadow: none !important;
     }
 
-    /* Con "reducir movimiento" el tooltip de estado también pierde la
-       transición. `!important` por el mismo motivo que la regla del layout:
-       Alpine aplica las x-transition como inline sobre el nodo. */
+    /* Con "reducir movimiento" el tooltip pierde la transición. `!important`
+       porque Alpine aplica las x-transition como estilo inline del nodo. */
     @media (prefers-reduced-motion: reduce) {
         .tooltip-estado {
             transition: none !important;
@@ -4119,12 +4394,19 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 `framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`:
 
 ```twig
+{# Página del demo Tareas: el formulario de alta y el panel que se intercambia.
+
+   Capa vista. La renderiza `TaskController::respond()` como página completa; el
+   swap de HTMX recibe `_panel.twig`, que esta página incluye. `_styles.twig` viaja
+   con la página y se borra al desinstalar el demo.
+
+   Para tu entidad, copia este archivo y cambia el formulario y el panel. #}
 {% extends 'layouts/app.twig' %}
 
 {% block title %}Tareas{% endblock %}
 
-{# El CSS del demo viaja con el demo: si se desinstala, el archivo se borra
-   con el resto del scaffold y el shell no queda con reglas huérfanas. #}
+{# `_styles.twig` viaja con el demo: si se desinstala, el archivo se borra con el
+   resto del scaffold y el shell no queda con reglas huérfanas. #}
 {% block styles %}{% include 'pages/tasks/_styles.twig' %}{% endblock %}
 
 {% block content %}
@@ -4142,34 +4424,20 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                 </p>
             </div>
 
-    {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
-       vive fuera de #tareas-panel, así que el swap no lo toca y el texto
-       quedaría pegado tras crear la tarea. La condición es el STATUS y no
-       `event.detail.successful`: un fallo de validación responde 422 y ese 422
-       sí swapea (ver `beforeSwap` en public/assets/app.js), así
-       que esa bandera sería true justamente cuando el texto tipeado es lo
-       único que el usuario tiene para corregir. El server ya conserva el título
-       en el camino de edición (`editing_title`); esto es la otra mitad de la
-       misma regla.
-       maxlength=120 alinea el browser con el max:120 del server.
-       hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
-       emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
-       la única señal de que el request salió. El selector viaja con el id
-       porque htmx resuelve un selector CSS pelado contra el documento entero
-       (querySelectorAll sobre el root), no contra el form: `button` a secas
-       apagaría también las filas, el header y el sidebar. `find button` queda
-       atado a qué elemento toma htmx como disparador y `this` apagaría el form,
-       no su submit. Aquí el único <button> es el submit: el input no se
-       deshabilita, así que el foco no se pierde mientras espera.
-       La posición viaja en la URL del form: el alta no manda page/per_page en
-       el cuerpo, así que sin esto crear desde "25 por página" devuelve la
-       lista en 10 y el usuario pierde su elección sin haberla tocado. La
-       página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
-       siempre en el contexto de index.twig (sólo lo renderiza
-       TaskController::respond, que siempre pasa pageData). #}
-    {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
-       submit y usa su atributo, pero sin JS el formulario tiene que poder
-       enviarse solo. #}
+    {# El alta vive fuera de `#tareas-panel`, así que el swap no la toca: el input
+       se limpia desde acá, y sólo cuando el alta salió bien. #}
+    {# La condición es el status y no `event.detail.successful`: un fallo de
+       validación responde 422 y ese 422 sí swapea, así que la bandera sería
+       verdadera justo cuando lo tipeado es lo único que el usuario tiene. #}
+    {# `maxlength` alinea el navegador con el `max:120` del controlador. #}
+    {# `hx-disabled-elt` apaga sólo el submit mientras hay un request en vuelo: sin
+       eso un doble click crea dos tareas, y el input conserva el foco. El selector
+       lleva el id porque htmx resuelve un selector pelado contra el documento. #}
+    {# La posición viaja en la URL del form: el alta no manda `per_page` en el
+       cuerpo, así que sin esto crear desde "25 por página" devuelve la lista en 10.
+       La página es 1 a propósito: la tarea nueva queda arriba. #}
+    {# `method` y `action` no son redundantes con `hx-post`: htmx intercepta el
+       submit, pero sin JS el formulario tiene que poder enviarse solo. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
@@ -4205,46 +4473,31 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 `framework/scaffolds/tasks/resources/views/pages/tasks/_panel.twig` — **la unidad de intercambio de HTMX**:
 
 ```twig
-{# `tabindex="-1"`: marca el panel como destino de foco programático (no
-   entra en el orden de tabulación). Es el fallback de `restoreFocusAfterSwap()`
-   en public/assets/app.js cuando la acción hizo desaparecer el control que la disparó:
-   borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
-   los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
-   no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
-   `class="focus:outline-none"`: el panel no es un control, así que el anillo
-   de foco alrededor de toda la región no informa nada y sí ensucia la
-   pantalla. Va SOLO aquí; los controles conservan su anillo. #}
+{# Región de la pantalla del demo: todo lo que se intercambia en cada acción.
+
+   Capa vista. `TaskController::respond()` la devuelve como respuesta de HTMX e
+   `index.twig` la incluye en la carga completa. Es el destino de todos los
+   `hx-target` de la demo, así que su contenido tiene que poder vivir solo.
+
+   Para tu entidad, copia este archivo y cambia la lista y la paginación. #}
+{# `tabindex="-1"` hace del panel un destino de foco programático sin entrar en el
+   orden de tabulación: es donde `restoreFocusAfterSwap()` deja el foco cuando el
+   control que disparó la acción ya no existe. #}
+{# La utilidad de foco apagado va sólo acá: el panel no es un control y el anillo
+   alrededor de la región no informa nada. Los controles conservan el suyo. #}
 <div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
-    {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
-       deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
-       subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin
-       repetirlo en cada fila. Sin esto, un doble click en cualquiera de ellos
-       dispara dos veces la misma mutación (dos DELETE, dos toggles que se
-       anulan) y en hardware lento no hay ninguna señal de que algo esté pasando.
-       Por qué selector pelado y con el id adentro:
-       - `find button` se resuelve contra el elemento que DISPARA (el botón de la
-         fila), que no tiene botones adentro: htmx avisaría "returned no matches"
-         por consola y no apagaría nada.
-       - `this` apagaría el <div> (ahí `disabled` no hace nada) y dejaría vivos
-         justo los botones.
-       - Un selector pelado lo resuelve htmx con document.querySelectorAll, no
-         contra el div: el prefijo #tareas-panel es lo que lo acota al panel.
-       Alcance: sólo <button>, ningún otro descendiente. Los <a> de la paginación
-       quedan vivos a propósito: `disabled` no existe para un enlace y daisyUI
-       (.btn[disabled]) igual lo pintaría apagado, dejando algo que parece muerto
-       y sigue clickeable. El <select> de per_page tampoco entra: cambiar de
-       página o de tamaño es navegación, no una mutación que se pueda duplicar.
-       A los que ya venían deshabilitados (paginación en el borde) no los toca:
-       htmx sólo agrega el atributo si no estaba y sólo lo quita si lo puso él.
-       Efecto lateral asumido: durante el DELETE también queda apagado el
-       Cancelar/Cerrar del modal de confirmación. htmx los reactiva al terminar
-       (incluso si el request falla) y Esc cierra el <dialog> nativo igual, así
-       que no hay encierro. La señal visual la da daisyUI: no hace falta CSS. #}
-    {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
-       htmx): ahí no hay evento que escuchar, así que el aviso va inline.
-       En las respuestas htmx estos dos banners llegan en null y el mensaje
-       viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
-       un aviso, un canal (ver Controller::render). #}
+    {# `hx-disabled-elt` se declara una vez en la región y las filas lo heredan: htmx
+       resuelve el atributo subiendo por los ancestros. Sin esto, un doble click en
+       cualquier botón de fila dispara dos veces la misma mutación. #}
+    {# Por qué el selector lleva el id: `find` se resuelve contra el botón que
+       dispara, que no tiene botones adentro, y un selector pelado se resuelve
+       contra el documento entero. Con el prefijo, el alcance es este panel. #}
+    {# Sólo se apagan los botones: un enlace no entiende `disabled` y quedaría
+       pintado como muerto pero clickeable, y cambiar de página o de tamaño es
+       navegación, no una mutación que se pueda duplicar. #}
+    {# Fallback de página completa: sin `HX-Request` no hay evento de htmx que
+       escuchar, así que el aviso va inline. Con htmx los dos banners llegan en
+       null y el mensaje viaja en `HX-Trigger-After-Swap`: un aviso, un canal. #}
     {% if flash_error %}
         {% include 'components/feedback/alert.twig' with {
             variant: 'error',
@@ -4280,27 +4533,23 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 `framework/scaffolds/tasks/resources/views/pages/tasks/_list.twig`:
 
 ```twig
-{# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
-   de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
-   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez aquí y las
-   cuatro URLs la usan tal cual, así no pueden divergir entre sí.
-   Se imprime con `|raw` para que el `&` salga literal, igual que en
-   components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
-   puerta de escape: la cadena sale de dos enteros de Framework\Http\Pagination,
-   nunca de texto del usuario. Dentro del atributo es válido, porque
-   `&per_page` no forma una referencia de carácter (no termina en `;`).
-   La RUTA (lo que va antes del `?`) sí pasa por `url()`: es lo que la saca del
-   dominio cuando la app vive bajo un prefijo (S13). El helper recibe sólo el
-   path y el query queda afuera justamente para que el `&` siga siendo `&`. #}
+{# Filas del listado del demo: el embed que pinta cada tarea y su modo edición.
+
+   Capa vista. `_panel.twig` lo incluye dentro de `#tareas-panel`, así que viaja en
+   cada swap. Cada fila decide su forma con `editing_id`: lista normal o formulario
+   en línea.
+
+   Para tu entidad, copia el archivo y cambia los campos de la fila. #}
+{# Posición de la lista (página y tamaño) que arrastra toda acción de fila: sin esto,
+   tocar una fila desde la página 2 re-renderiza la 1 y el usuario pierde la fila que
+   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
-{# `data-focus-key` en cada control de acción: el swap de #tareas-panel
-   (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
-   no tiene cómo saber a dónde devolverlo. El control que dispara publica su
-   clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
-   esa MISMA clave en el markup recién intercambiado. La clave sale del id de
-   la tarea, lo único estable entre un render y el siguiente: el índice de la
-   fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
-   de public/assets/app.js. #}
+{# El query va con `|raw` para que el `&` salga literal; la cadena sale de dos enteros
+   de `Pagination`, nunca de texto del usuario. La ruta pasa por `url()`, que le
+   aplica el prefijo de despliegue. #}
+{# `data-focus-key` en cada control de acción: el swap de la región se lleva el nodo
+   que tenía el foco, y el script del shell busca esta clave en el markup nuevo para
+   devolverlo. Sale del id de la tarea, lo único estable entre un render y otro. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
     empty: 'No hay tareas todavía.',
@@ -4310,28 +4559,22 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
         {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                {# `flex-wrap`: el mensaje de error del título viaja en su
-                   propia línea (`w-full`) en vez de robarle ancho al input y a
-                   los botones en móvil. #}
+                {# `flex-wrap`: el mensaje de error viaja en su propia línea en vez
+                   de robarle ancho al input y a los botones en móvil. #}
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
                     {% include 'components/form/csrf.twig' %}
-                    {# En fallo de validación se repinta lo TIPEADO (editing_title),
-                       no el valor guardado: si no, el usuario pierde lo que
-                       escribió junto con el error. Twig autoescapea, así que
-                       comillas o <script> tipeados salen neutrales. #}
-                    {# El label va oculto pero existe: no se usa el título de la
-                       tarea como nombre porque ya está en `value` y el lector
-                       lo anunciaría dos veces. La misma clave que el botón de
-                       editar hace que el foco del swap aterrice en el campo. #}
-                    {# El error se pasa EXPLÍCITO: el include usa `only`, así que
-                       `errors` del contexto no llega solo. `error_class` con
-                       `w-full` lo manda a su propia línea del form.
-                       `errors.title` sólo existe tras un fallo de validación;
-                       en el resto de los renders queda en null y el campo sale
-                       como siempre. #}
+                    {# En un fallo de validación se repinta lo tipeado
+                       (`editing_title`), no el valor guardado; Twig autoescapea, así
+                       que comillas o etiquetas tipeadas salen neutrales. #}
+                    {# El label va oculto pero existe: el título ya está en `value` y
+                       usarlo como nombre lo anunciaría dos veces. La clave
+                       `edit-<id>` repite la del botón: el foco aterriza en el campo. #}
+                    {# `error` se pasa explícito porque el include usa `only`, y
+                       `error_class` manda el mensaje a su propia línea. `errors.title`
+                       sólo existe tras un fallo de validación; si no, queda en null. #}
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
@@ -4372,63 +4615,36 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                {# `items-start` y no `items-center`: el disparador de estado se
-                   alinea con la PRIMERA línea del título. Centrado contra el
-                   bloque, en un título de cinco renglones caía sobre el
-                   tercero y dejaba de leerse como parte del título. El
-                   desplazamiento óptico (`-mt-0.5` en el disparador) conserva
-                   el aspecto centrado cuando el título ocupa un solo renglón. #}
+                {# `items-start` alinea el disparador de estado con la primera línea
+                   del título; centrado contra el bloque caería sobre el renglón del
+                   medio en un título largo. `-mt-0.5` compensa el renglón corto. #}
                 <span class="flex min-w-0 items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
-                    {# Icono de estado: verde para completado, gris para pendiente.
-                       Ambos salen de `--ink-*` (ver el <style> del layout), no de
-                       `text-success` ni `text-base-content/40`: los semanticos de
-                       daisyUI son FONDOS y como tinta daban 1.96:1 y 2.53:1,
-                       bajo el 3:1 que pide un objeto grafico.
-                       El estado NO se escribe al lado del título ("Pendiente" /
-                       "Completada el ..."): en móvil ese texto le robaba ancho al
-                       título y el dato sólo interesa cuando lo buscas. Ahora el
-                       icono es el disparador de un tooltip por click.
-                       Por qué no `title=` nativo: en táctil no existe el hover y
-                       en desktop aparecería solo al pasar el mouse encima del
-                       icono, no al pedirlo. `aria-label` lleva el texto completo
-                       (lector de pantalla) y el tooltip es puramente visual:
-                       `aria-hidden` + `pointer-events-none` (nunca se queda con
-                       el click que debería cerrarlo). #}
+                    {# Icono de estado: `icon-success` e `icon-pending` salen de los
+                       tokens `--ink-*` del layout, que contrastan en los dos temas.
+                       El estado no se escribe al lado del título. #}
+                    {# Es un tooltip por click y no `title=` nativo: en táctil no hay
+                       hover. `aria-label` lleva el texto completo para el lector y el
+                       recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
                         ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
                         : 'Pendiente' %}
-                    {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
-                       renglón (24px de alto). Sin esto, con `items-start` el
-                       icono quedaría 2px por debajo del centro óptico. #}
-                    {# Cierre al perder el foco: el teclado se va al control
-                       siguiente y el cartel se quedaba abierto en la fila que
-                       ya no tenía el foco. Peor: `@keydown.escape` de este
-                       wrapper sólo escucha mientras el foco está adentro, así
-                       que una vez que se iba ni Escape lo cerraba — sólo un
-                       click afuera. `focusout` burbujea, así que un handler aquí
-                       cubre al botón; el guard `$el.contains(...)` evita cerrar
-                       cuando el foco se mueve entre dos nodos de adentro
-                       (`relatedTarget` es null si el foco se fue a la nada, y
-                       `contains(null)` da false: ahí cerrar es lo correcto). #}
+                    {# `-mt-0.5` centra el icono de 20px sobre el primer renglón
+                       (24px). Sin esto quedaría 2px por debajo del centro óptico. #}
+                    {# Cierre al perder el foco: `focusout` burbujea, así que un handler
+                       aquí cubre al botón, y el guard `$el.contains(...)` evita cerrar
+                       cuando el foco se mueve entre dos nodos de adentro. #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ open: false }"
                           @click.outside="open = false"
                           @keydown.escape="open = false"
                           @focusout="if (!$el.contains($event.relatedTarget)) open = false">
-                        {# Es un <button> de verdad: focus + Enter/Space lo abren
-                           igual que un click, sin listeners de teclado a mano.
-                           El anillo de foco va SIN color a propósito: daisyUI
-                           5.7.46 no trae `outline-<color>` y `primary` no está
-                           en la paleta de Tailwind, así que `outline-primary` no
-                           lo compilaba nadie y el anillo salía por defecto. Con
-                           `outline-2` + `outline-offset-2` (utilidades planas de
-                           Tailwind, que el browser build sí resuelve) el color
-                           cae en `currentColor`, que contrasta en los dos temas.
-                           Área de toque: el único recuadro era el svg de 20px,
-                           bajo el mínimo de 24×24 (WCAG 2.5.8). El `p-1` lleva
-                           el control a 28×28 sin agrandar el icono, y el
-                           `flex/items-center/justify-center` lo mantiene
-                           centrado en el recuadro que agrega el padding. #}
+                        {# Es un `<button>` de verdad: focus y Enter/Space lo abren
+                           igual que un click, sin listeners de teclado a mano. #}
+                        {# El anillo de foco va sin color: daisyUI no trae
+                           `outline-<color>`, así que el color cae en `currentColor`,
+                           que contrasta en los dos temas. #}
+                        {# Área de toque: el svg solo daba 20px, bajo el mínimo de
+                           24×24 (WCAG 2.5.8). El `p-1` lleva el control a 28×28. #}
                         <button type="button"
                                 class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="open = !open"
@@ -4440,16 +4656,9 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                                 {% include 'components/ui/icon.twig' with {name: 'clock', class: 'h-5 w-5 icon-pending'} %}
                             {% endif %}
                         </button>
-                        {# `tooltip-estado`: gancho para apagar el x-transition en
-                           "reducir movimiento". El override vive en
-                           pages/tasks/_styles.twig porque Alpine aplica la
-                           transición sobre el nodo, y una clase de proyecto
-                           es la única forma de apuntarle sin depender de sus
-                           atributos internos.
-                           `role="tooltip"` documenta qué es el recuadro; el
-                           `aria-hidden` se queda porque el texto ya viaja en
-                           el `aria-label` del botón y el lector lo anunciaría
-                           dos veces. #}
+                        {# `tooltip-estado` es el gancho para apagar la transición con
+                           "reducir movimiento"; su override vive en `_styles.twig`.
+                           `aria-hidden` se queda porque el texto ya va en `aria-label`. #}
                         <span x-cloak
                               x-show="open"
                               x-transition.opacity.duration.150ms
@@ -4459,18 +4668,17 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             {{ estado_texto }}
                         </span>
                     </span>
-                    {# min-w-0 + break-words: un titulo de 120 caracteres sin
-                       espacios es un solo token; sin esto el flex no puede
-                       achicar la fila y a 320px produce scroll horizontal. #}
+                    {# `min-w-0` y `break-words`: un título de 120 caracteres sin
+                       espacios es un solo token; sin esto el flex no puede achicar
+                       la fila y a 320px aparece scroll horizontal. #}
                     <span class="min-w-0 break-words">{{ task.title }}</span>
                 </span>
-                {# Acciones como ICONOS mediante components/ui/button.twig:
-                   ancho fijo (btn-square), sin texto visible pero con
-                   aria-label/title; `shrink-0` conserva el ancho en móvil.
-                   Los iconos salen del registro compartido. #}
+                {# Acciones como iconos con `components/ui/button.twig`: ancho fijo,
+                   sin texto visible pero con `aria-label` y `title`, y `shrink-0`
+                   para conservar el ancho en móvil. #}
                 <div class="flex shrink-0 gap-1">
-                    {# Botón para cambiar el estado: HTMX intercambia el panel completo.
-                       `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
+                    {# Toggle: HTMX intercambia el panel completo, y `?posicion` hace
+                       que la respuesta se repinte en la misma página. #}
                     {% include 'components/ui/button.twig' with {
                         label: '',
                         variant: 'ghost',
@@ -4511,12 +4719,9 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                     } only %}
                 </div>
 
-            {# Confirmación con el modal compartido:
-               - Se abre por DOM (el botón y el dialog viven en la misma fila).
-               - Cancelar cierra por DOM; el backdrop usa form method=dialog.
-               - En éxito, el swap reemplaza #tareas-panel y el dialog sale
-                 del DOM: no hay nada que cerrar a mano.
-               - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
+            {# Confirmación con el modal compartido: se abre por DOM porque el botón y
+               el dialog viven en la misma fila. En éxito el swap reemplaza la región y
+               el dialog sale del DOM; en un 400 (CSRF) no hay swap y avisa el toast. #}
             {% embed 'components/ui/modal.twig' with {
                 id: 'task-delete-' ~ task.id,
                 title: '¿Borrar esta tarea?'
@@ -4613,7 +4818,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
+ * Paginación server-side sobre un query Eloquent, sin `illuminate/pagination`.
+ *
+ * Hace solo lo que la interfaz necesita: cuenta el total, recorta la página pedida
+ * y arma la metadata que consume `components/pagination/simple.twig`. No conoce el
+ * request; `fromRequest()` es la única puerta que lee el query string, y existe
+ * para que los controladores de listado no repitan el cálculo de defaults.
  */
 final class Pagination
 {
@@ -4625,9 +4835,15 @@ final class Pagination
     public const WINDOW_SIZE = 5;
 
     /**
-     * Pagina un query Eloquent. Devuelve items + metadata lista para
-     * components/pagination/simple.twig. $page fuera de rango se clampena (nunca vacío
-     * por pedir de más).
+     * Pagina un query ya construido y devuelve `items` más la metadata del paginador.
+     *
+     * Clona el query dos veces para que `count()` y `get()` no compartan estado: el
+     * `LIMIT` que agrega `forPage()` no debe contaminar el conteo. La página pedida
+     * se recorta al rango real, de modo que una URL con `page=999` muestra la última
+     * página en lugar de una lista vacía. `$baseUrl` viaja en el resultado porque el
+     * paginador lo necesita para armar sus enlaces.
+     *
+     * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
@@ -4651,8 +4867,8 @@ final class Pagination
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
             'pages'        => self::window($page, $lastPage),
-            // Los tamanos viajan con la paginacion para que el template no
-            // mantenga su propia copia de la lista.
+            // Los tamaños viajan con la paginación para que la plantilla no
+            // mantenga su propia copia de la lista blanca.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
     }
@@ -4660,12 +4876,12 @@ final class Pagination
     /**
      * Pagina leyendo `page` y `per_page` del query string.
      *
-     * Es exactamente la lectura que repetían los controladores de listado:
-     * `page` ausente vale 1, `per_page` ausente vale DEFAULT_PER_PAGE y todo lo
-     * demás lo decide paginate(). Delegar acá y no copiar el cálculo evita que
-     * el recorte y los defaults se desincronicen entre pantallas.
+     * Es el atajo de los controladores de listado: `page` ausente vale 1, `per_page`
+     * ausente vale `DEFAULT_PER_PAGE` y el recorte final lo decide `paginate()`. Al
+     * centralizar esa lectura, los defaults y los límites no pueden desincronizarse
+     * entre pantallas.
      *
-     * @param string $baseUrl destino de la paginación, ya resuelto con Url::path()
+     * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
@@ -4681,6 +4897,13 @@ final class Pagination
         );
     }
 
+    /**
+     * Reduce un tamaño de página pedido por el usuario a uno de la lista blanca.
+     *
+     * `per_page` llega del query string y puede ser cualquier valor; uno no previsto
+     * cae en `DEFAULT_PER_PAGE` en vez de producir un listado enorme o una división
+     * por cero en el cálculo de páginas.
+     */
     public static function clampPerPage(mixed $value): int
     {
         $value = (int) $value;
@@ -4691,10 +4914,12 @@ final class Pagination
     }
 
     /**
-     * Ventana fija de cinco páginas consecutivas, centrada en la actual y
-     * recortada en los extremos. Es el mismo patrón de Tabulator: los saltos
-     * largos quedan cubiertos por Primera/Anterior/Siguiente/Última, así que
-     * no hacen falta puntos suspensivos.
+     * Ventana de `WINDOW_SIZE` páginas consecutivas, centrada en la actual.
+     *
+     * La ventana se corre para no salirse de los extremos: cerca de la primera o de
+     * la última página se muestran igual cinco números. Los saltos largos quedan
+     * cubiertos por los enlaces de primera/última del paginador, así que la vista no
+     * necesita puntos suspensivos.
      *
      * @return list<int>
      */
@@ -5529,12 +5754,21 @@ namespace Tests\Tasks\Http;
 
 use Tests\Tasks\Http\TasksTestCase;
 
+/**
+ * CSRF de punta a punta en una ruta del demo: el token viaja en el formulario, el
+ * POST sin token no crea nada y el 400 de htmx llega con un evento que alguien
+ * escucha.
+ *
+ * Capa tests. La autenticación en sí no se prueba acá: `/tareas` exige login y estos
+ * casos entran logueados.
+ *
+ * Para tu entidad, copia el archivo y cambia la ruta.
+ */
 final class CsrfFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
-        // La capa de auth en sí se testea en AuthTest, no aquí.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -5579,9 +5813,8 @@ final class CsrfFlowTest extends TasksTestCase
             ])
         );
 
-        // Sin el failureHandler del capítulo 6 esto devolvería 400
-        // "Failed CSRF check!" en text/plain. El 303 comprueba que nuestro
-        // handler está conectado en la posición correcta del constructor.
+        // Sin el failureHandler del guard esto devolvería 400 "Failed CSRF
+        // check!" en texto plano; el 303 comprueba que está conectado.
         self::assertSame(303, $response->getStatusCode());
         self::assertStringNotContainsString('No deberia guardarse', (string) $response->getBody());
     }
@@ -5593,14 +5826,11 @@ final class CsrfFlowTest extends TasksTestCase
         );
 
         self::assertSame(400, $response->getStatusCode());
-        // El valor es {"csrf":"..."} — asserteamos contra el valor, no contra
-        // el nombre del header (getHeader() devuelve los valores).
+        // El header es JSON con la clave `csrf`: es lo que lee `@csrf.window` del
+        // layout. Un texto plano no tiene claves y el listener queda en undefined.
         $hxTrigger = $response->getHeaderLine('HX-Trigger');
         self::assertStringContainsString('csrf', $hxTrigger);
 
-        // El header tiene que ser JSON con la clave `csrf`: es lo que lee
-        // `@csrf.window` del layout. Un texto plano no tiene claves y el
-        // listener se queda con undefined.
         $payload = json_decode($hxTrigger, true);
         self::assertIsArray($payload, 'HX-Trigger tiene que ser JSON.');
         self::assertArrayHasKey('csrf', $payload);
@@ -5608,16 +5838,9 @@ final class CsrfFlowTest extends TasksTestCase
 
     public function test_el_hx_trigger_del_csrf_tiene_alguien_que_lo_escuche(): void
     {
-        // Existe por un bug real que ningún otro test veía: el failureHandler
-        // emite HX-Trigger:{csrf:...} y no había NINGÚN listener en las
-        // plantillas. El test de arriba assertea que el header salga — y sale,
-        // perfecto. Pero llegaba al vacío: HTMX recibe el 400, no hace swap
-        // (no es 2xx), no dispara nada visible y la tarea desaparece sin
-        // error. Test verde, producción rota.
-        //
-        // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocas el shell y te llevas el @csrf.window, este test falla antes
-        // que alguien pierda una tarea en silencio.
+        // Que el header salga no alcanza: htmx no swapea un 400, así que sin un
+        // listener el fallo queda mudo y la tarea desaparece sin error. Este caso
+        // mira la RECEPCIÓN, que es el lado que se rompe al tocar el shell.
         self::assertStringContainsString(
             '@csrf.',
             $this->shellSource(),
@@ -5627,9 +5850,9 @@ final class CsrfFlowTest extends TasksTestCase
 
     public function test_el_listener_de_csrf_lee_el_valor_del_evento(): void
     {
-        // Regresión del bug 12: con `String($event.detail)` el toast mostraba
-        // "[object Object]". El texto vive en `.value`, no en el objeto
-        // entero, y buscar solo `@csrf.` pasaba con las dos variantes.
+        // El texto vive en `.value`, no en el objeto entero: con `$event.detail`
+        // el aviso mostraría `[object Object]`, y buscar sólo `@csrf.` pasaría
+        // con las dos variantes.
         $layout = $this->shellSource();
 
         self::assertStringContainsString(
@@ -5853,19 +6076,19 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * La D del CRUD, que es la única que depende de dónde viajan los tokens.
+ * El borrado, que es la acción del CRUD que depende de dónde viajan los tokens.
  *
- * htmx 2.0.11 trae `methodsThatUseUrlParams: ['get', 'delete']`, así que los
- * params que aporta `hx-include` en un DELETE van al query string. `Guard`
- * solo mira `getParsedBody()` y, si está vacío, los headers: el query string
- * nunca. Por eso el botón de eliminar manda los tokens con `hx-headers` y no
- * con `hx-include`.
+ * Capa tests. htmx manda los params de un DELETE en el query string, y el `Guard`
+ * sólo mira el cuerpo y los headers, nunca el query string; por eso el botón manda
+ * los tokens con `hx-headers`. Los casos de acá miden las dos formas.
+ *
+ * Para tu entidad, copia el archivo y cambia el recurso.
  */
 final class DeleteTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -5896,18 +6119,16 @@ final class DeleteTaskTest extends TasksTestCase
                 ->withHeader('HX-Request', 'true')
         );
 
-        // No es el comportamiento deseado: es la medición que explica por qué
-        // el botón usa hx-headers. Guard no lee el query string, así que este
-        // 400 es el bug del usuario reproducido tal cual.
+        // Es la medición que explica por qué el botón usa `hx-headers`: el guard
+        // rechaza porque no lee el query string. El 400 es el fallo reproducido.
         self::assertSame(400, $response->getStatusCode());
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
     /**
-     * S5: sin htmx el request es un navegador pidiendo un recurso que no
-     * existe, y ahí corresponde el 404. La rama de htmx (200 + aviso) la fija
-     * ToastFlowTest y no se toca: un 404 dentro de #tareas-panel metería la
-     * página de error en la lista.
+     * Sin htmx el request es un navegador pidiendo un recurso que no existe, así que
+     * corresponde el 404. La rama de htmx (200 con aviso en el panel) tiene su caso en
+     * `ToastFlowTest`: un 404 dentro del panel metería la página de error en la lista.
      */
     public function test_borrar_un_id_inexistente_sin_htmx_responde_404(): void
     {
@@ -5930,8 +6151,8 @@ final class DeleteTaskTest extends TasksTestCase
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
-        // El query string de posicion lo fija tests/Http/ListStateContractTest;
-        // aca solo importa que el borrado apunte al recurso correcto.
+        // Sólo importa que el borrado apunte al recurso correcto: la posición del
+        // query string tiene su propio caso en `ListStateContractTest`.
         self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
     }
 }
@@ -5954,22 +6175,17 @@ use Tests\Tasks\Http\TasksTestCase;
 /**
  * Qué recibe htmx y qué recibe el navegador en la misma ruta.
  *
- * Con `HX-Request` la respuesta tiene que ser el panel y nada más: el botón
- * "Cancelar" apunta a `/tareas` con `hx-target="#tareas-panel"` y
- * `hx-swap="outerHTML"`, así que si el servidor devuelve `index.twig` (que
- * extiende el layout) htmx recibe un documento completo, se queda con el
- * `<body>` y lo inserta dentro del panel: quedan dos `<h1>`, dos
- * `id="alta-tarea"` y el padding del layout dos veces.
+ * Capa tests. Con `HX-Request` la respuesta es el panel y nada más: si llegara
+ * `index.twig` (que extiende el layout), el swap anidaría el documento entero. Sin
+ * `HX-Request` el fragmento es el problema opuesto: markup sin `<head>` ni estilos.
  *
- * Sin `HX-Request` es un navegador pidiendo una página (form con JS apagado,
- * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
- * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
+ * Para tu entidad, copia el archivo y cambia la ruta.
  */
 final class PartialRenderTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -6002,12 +6218,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * S9: una mutación invocada SIN htmx (form normal con JS apagado, URL
-     * directa, un curl) no puede devolver `tasks/_panel.twig`. Ese fragmento
-     * viaja sin `<head>`, sin hoja de estilos y sin shell: el navegador lo
-     * pinta como texto plano y la acción, aunque haya funcionado, parece
-     * rota. El contrato es el mismo que ya cumple `index()`: la región para
-     * htmx, la página entera para todo lo demás.
+     * Una mutación sin htmx (un form con JS apagado, una URL directa, un curl) no puede
+     * devolver `_panel.twig`: ese fragmento viaja sin `<head>`, sin hoja de estilos y sin
+     * shell, así que la acción funciona pero parece rota.
      */
     public function test_post_sin_hx_request_devuelve_la_pagina_completa(): void
     {
@@ -6028,10 +6241,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * El par del test de arriba: la rama de htmx no cambió. Sin esto, un
-     * `respond()` que devolviera siempre la página entera rompería cada swap
-     * (el `<body>` entero dentro del panel) y la suite de toasts no lo vería:
-     * ella mira los avisos, no la forma del documento.
+     * El par del caso anterior: si `respond()` devolviera siempre la página entera,
+     * cada swap anidaría el `<body>`. La suite de avisos no lo vería, porque mira los
+     * avisos y no la forma del documento.
      */
     public function test_post_con_hx_request_devuelve_solo_el_panel(): void
     {
@@ -6072,11 +6284,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * Lo que hace que el navegador pueda pintar la respuesta por su cuenta.
-     * El link de la hoja de estilos es el assert que de verdad separa una
-     * página de un fragmento: `<!DOCTYPE html>` podría venir de un `_panel`
-     * mal armado, pero sin `<link rel="stylesheet">` la página sigue sin
-     * estilos y el bug de S9 continúa.
+     * Lo que hace que el navegador pueda pintar la respuesta: el `<link>` de la hoja de
+     * estilos separa una página de un fragmento, porque el doctype también podría venir
+     * de un panel mal armado.
      */
     private function assertDocumentoCompleto(string $html): void
     {
@@ -6103,20 +6313,20 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * La U de CRUD: la edición es inline en la fila.
+ * La edición inline: el panel vuelve con una fila en modo formulario.
  *
- * El form de edición vive dentro de `_list.twig`, o sea dentro del panel que
- * el swap reemplaza. Ahí no alcanzan los hidden de `#alta-tarea`, que queda
- * fuera de ese panel, así que el form lleva sus propios tokens CSRF.
+ * Capa tests. El form de edición vive dentro de `_list.twig`, o sea dentro de la
+ * región que el swap reemplaza, así que lleva sus propios tokens CSRF: los hidden del
+ * alta quedan fuera y no llegan. El PUT viaja como `application/x-www-form-urlencoded`
+ * y lo parsea `addBodyParsingMiddleware()`.
  *
- * El PUT llega como `application/x-www-form-urlencoded` (el default de htmx
- * para verbos no-GET) y lo parsea `addBodyParsingMiddleware()`.
+ * Para tu entidad, copia el archivo y cambia la ruta y los campos.
  */
 final class EditTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -6135,8 +6345,8 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringContainsString('aria-label="Miga de pan"', $html);
         self::assertStringContainsString('aria-current="page">Tareas', $html);
 
-        // El query string de posicion lo fija tests/Http/ListStateContractTest;
-        // aca solo importa que el guardado apunte al recurso correcto.
+        // Sólo el recurso destino: la posición del query string tiene su caso en
+        // `ListStateContractTest`.
         self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
@@ -6144,11 +6354,9 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: sin htmx la petición es un navegador pidiendo un documento, y el
-     * recurso que pidió no existe. Devolver 200 con un cartel es mentirle al
-     * protocolo (un buscador indexa la URL, un proxy la cachea, un curl con
-     * `--fail` no falla). El aviso vive dentro del panel porque ahí no hay
-     * otro canal: en una página de error el mensaje lo pone el propio 404.
+     * Sin htmx la petición es un navegador pidiendo un documento, y el recurso no
+     * existe. Devolver 200 con un cartel le miente al protocolo: un buscador indexa la
+     * URL, un proxy la cachea y un `curl --fail` no falla.
      */
     public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
@@ -6165,9 +6373,8 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * La otra mitad de S5: un request de htmx sigue recibiendo el panel
-     * re-renderizado con el aviso, porque un 404 le metería la página de error
-     * dentro de #tareas-panel.
+     * La otra mitad: un request de htmx recibe el panel re-renderizado con el aviso,
+     * porque un 404 le metería la página de error dentro del panel.
      */
     public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
     {
@@ -6216,10 +6423,9 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: un fallo de validación no es un 2xx. Además, el mensaje ya no va
-     * por el flash genérico: vive pegado al campo (`errors.title`), con
-     * `aria-invalid` para que el lector lo anuncie. Dos avisos del mismo
-     * fallo (banner + campo) es ruido, no redundancia.
+     * Un fallo de validación no es un 2xx, y el mensaje no va por el flash genérico:
+     * vive pegado al campo (`errors.title`), con `aria-invalid` para el lector. Dos
+     * avisos del mismo fallo serían ruido.
      */
     public function test_put_sin_titulo_devuelve_422_con_el_error_del_campo(): void
     {
@@ -6276,8 +6482,8 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: el mismo criterio que en el GET de edición. Sin htmx el recurso
-     * pedido no existe y el 200 con un cartel le miente al protocolo.
+     * Mismo criterio que el GET de edición: sin htmx el recurso pedido no existe, así
+     * que un 200 con un cartel le mentiría al protocolo.
      */
     public function test_put_a_un_id_inexistente_sin_htmx_responde_404(): void
     {
@@ -6999,15 +7205,17 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
- * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
- * paginar nada: por eso se siembran 12.
+ * Paginación de punta a punta: slices, tamaño de página y contadores.
+ *
+ * Capa tests. Con pocas filas todo cae en la página 1 y estos casos serían verdes sin
+ * paginar nada, por eso se siembran 12. Para tu entidad, copia el archivo y ajusta la
+ * ruta y el texto de las filas.
  */
 final class PaginationFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth).
+        // `/tareas` exige login (RequireAuth).
         self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
