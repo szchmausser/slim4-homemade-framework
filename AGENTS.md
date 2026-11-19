@@ -36,7 +36,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 
 | Ruta | Qué es |
 |---|---|
-| `app/` | Código de la app (controladores, modelos, middleware propio). |
+| `app/` | Código de la app: las entidades nuevas van planas en `app/Models` y `app/Http/Controllers`, que es lo que enseña el tutorial. Los demos agrupan por entidad en `app/<Demo>/`. |
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |

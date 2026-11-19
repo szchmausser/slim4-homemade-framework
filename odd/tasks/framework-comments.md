@@ -128,3 +128,8 @@ sin CDNs, SRI sin cambios.
   `HttpTestCase`) no se mueve: construye la app del usuario y conoce `App\Models\User`.
   Sube el costo de la alternativa: la guía copia 7 archivos de `tests/` en fences y
   enumera cada test en `guia:7583-7606`; eso no lo arregla `docs:sync`.
+- L12 (decisión del usuario, T10): la convención sugerida para entidades nuevas es la plana
+  —`app/Models` y `app/Http/Controllers`, que es lo que enseña el tutorial—. Los demos son
+  la excepción: agrupan por entidad en `app/<Demo>/`, igual que sus tests. Se documenta el
+  corte en el mapa de `AGENTS.md` y en el párrafo de comparación del tutorial, y el `why`
+  del demo deja de prometer equivalencia de ubicaciones.

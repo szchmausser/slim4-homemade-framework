@@ -25,7 +25,7 @@ return [
     'key'      => 'notas',
     // Ficha que el menú muestra para orientar a quien recién llega.
     'summary'  => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
-    'why'      => 'Es la entidad del tutorial: la referencia para comparar cuando seguiste el recorrido paso a paso.',
+    'why'      => 'Es la misma entidad que construye el tutorial, con el código agrupado en app/Notas: compara comportamiento, no ubicación.',
     // Orden dentro del menú; los demos instalados se intercalan por este número.
     'position' => 30,
 ];

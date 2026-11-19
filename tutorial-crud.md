@@ -3142,8 +3142,10 @@ con el mismo nombre de tabla y la misma clase de migración que acabas de escrib
 con tu versión**: el instalador aborta porque `routes/notas.php`, `config/navigation/notas.php`,
 `tests/Notas/Http/NotaTest.php` y las vistas ya existen, y con `composer demo:notas:install -- --force`
 copia los archivos y la migración aborta igual, porque Phinx no puede declarar dos veces la clase
-`CreateNotasTable` —la tuya y la del demo—. Para comparar, usa un clon limpio sin la entidad —o el demo antes de empezar—. Es la misma
-entidad, no dos que puedan estar juntas.
+`CreateNotasTable` —la tuya y la del demo—. Para comparar, usa un clon limpio sin la entidad —o el demo
+antes de empezar—: compara comportamiento, no ubicaciones, porque el demo agrupa el código en
+`app/Notas/` y el tuyo queda en `app/Models` y `app/Http/Controllers`. Es la misma entidad, no dos que
+puedan estar juntas.
 
 **Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
