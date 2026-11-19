@@ -51,14 +51,14 @@ Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que es
 9. [Editar en el mismo modal](#9-editar-en-el-mismo-modal)
 10. [Borrar: del confirm del navegador al diálogo del proyecto](#10-borrar-del-confirm-del-navegador-al-diálogo-del-proyecto)
 11. [Tests que reemplazan lo que hacías a mano](#11-tests-que-reemplazan-lo-que-hacías-a-mano)
-12. [Extraer la lista y el encabezado a componentes](#12-extraer-la-lista-y-el-encabezado-a-componentes)
+12. [Extraer la lista a un componente](#12-extraer-la-lista-a-un-componente)
 13. [Paginación del servidor](#13-paginación-del-servidor)
 14. [Repetir el patrón con otra entidad](#14-repetir-el-patrón-con-otra-entidad)
 
 Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo, `<dialog>` nativo,
 `confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del proyecto, con
 lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa y probada; el 12 extrae
-la lista y el encabezado a componentes reusables, el 13 hace que la lista siga siendo usable cuando
+la lista a un componente reusable, el 13 hace que la lista siga siendo usable cuando
 crece, y el 14 te deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
@@ -67,6 +67,11 @@ aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La di
 nombres —el demo vive en `App\Notas\…` porque tiene que ser removible; el recorrido usa
 `App\Models\Nota` y `App\Http\Controllers\NotaController`, que es donde va una entidad tuya—. El
 comportamiento y las vistas son los mismos.
+
+`remove` tiene una salvedad: si editaste alguno de los archivos del demo, aborta y pide
+`composer demo:notas:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.
+El manifiesto en `storage/demo-state/` distingue lo que editaste de lo que sólo quedó viejo porque el
+scaffold avanzó.
 
 Míralo **antes** de empezar, en un clon limpio: el demo y tu `notas` son la misma entidad —misma tabla,
 misma clase de migración— y no pueden estar instalados a la vez. Si ya seguiste el recorrido, cópialo
@@ -287,8 +292,9 @@ class Nota extends Model
 composer lint
 ```
 
-Esperado: un archivo **más** que antes de crear el modelo. Corre `composer lint` **antes** de crearlo y
-anota el total: en un clon limpio dice `Lint OK (79 archivos)`, y después de este archivo, `80`.
+Esperado: un archivo **más** que antes de crear el modelo. Corre `composer lint` **antes** de crearlo,
+anota el total que imprime y compara: después de este archivo, `composer lint` tiene que reportar uno
+más.
 
 **Falla si**:
 
@@ -378,8 +384,11 @@ redirige. El 200 con el texto prueba que la petición llegó hasta tu closure.
 
 **Falla si**:
 
-- Ves la **página 404 del framework**: el archivo no está directamente en `routes/`, no termina en
-  `.php`, o su `return function (App $app) { … };` no está devolviendo el closure.
+- Ves la **página 404 del framework**: el archivo no está directamente en `routes/` o no termina en
+  `.php`.
+- Ves un **500**: el archivo no devuelve el closure. El arranque hace `(require $archivo)($app)`, así
+  que sin `return function (App $app) { … };` PHP intenta llamar al valor que devuelve el `require` y
+  muere con `Value of type int is not callable`.
 - Ves el login en vez del texto aunque hayas iniciado sesión: la sesión se perdió. Vuelve al paso 1.
 - Llegas al texto por otra URL: el patrón del `group('/notas')` no coincide con la que estás abriendo.
 
@@ -393,8 +402,9 @@ en el paso 5.
   carga, y su ruta da 404 sin ningún aviso.
 - **El orden de carga es alfabético**, con `web.php` forzado primero. Importa sólo si dos archivos
   declaran la misma ruta y método.
-- **Cada archivo devuelve un closure** que recibe la app: `return function (App $app) { … };`. Si no
-  devuelve uno, el archivo se carga y no registra nada, sin error.
+- **Cada archivo devuelve un closure** que recibe la app: `return function (App $app) { … };`. Sin ese
+  `return` no hay registro silencioso: el arranque hace `(require $archivo)($app)` y la app responde
+  500, no vacío.
 
 **Qué ganaste**: `/notas` existe, responde un texto que sólo puede salir de esta ruta y exige sesión, así
 que el registro quedó comprobado sin haber escrito el controlador. Falta lo demás: no hay pantalla, ni
@@ -474,7 +484,8 @@ editar `sidebar.twig`. Lo que sigue sin existir es la pantalla misma: el capítu
 y el 6 la vista.
 
 **Pieza — convención de navegación**: cada módulo declara su entrada en `config/navigation/<módulo>.php`
-y el contenedor las descubre. Evita editar `sidebar.twig` y `container.php` para cada entidad. Agregar una
+y el contenedor las descubre. Evita editar `resources/views/layouts/parts/sidebar.twig` y
+`config/container.php` para cada entidad. Agregar una
 entidad es dejar su archivo; quitarla es borrarlo.
 
 Las dos capturas, antes y después de crear el archivo:
@@ -863,7 +874,7 @@ es separar el panel del resto de la página para poder refrescarlo solo.
 El panel es la región que más adelante se va a refrescar sola. Sepáralo del resto de la página ahora,
 todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para tenerla ordenada.
 
-**Acción**: mueve el `<ul>` completo de 6.4 a un parcial nuevo,
+**Acción**: mueve el `<ul>` completo de 6.5 a un parcial nuevo,
 `resources/views/pages/notas/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
 
 ```twig
@@ -900,7 +911,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
         </div>
 ```
 
-**Comprobación**: la lista se ve **idéntica** a la de 6.4, con y sin notas.
+**Comprobación**: la lista se ve **idéntica** a la de 6.5, con y sin notas.
 
 **Por qué el `div` va adentro**: cuando más adelante el panel se intercambie con HTMX y `outerHTML`,
 la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en `index.twig`, el primer swap
@@ -920,11 +931,11 @@ página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
 ![La pantalla no cambia: la lista vive ahora en su propio parcial](tutorial-crud-images/06-5-estilos.png)
 
-### 6.7 El encabezado con la acción y el contador
+### 6.7 El encabezado con la acción
 
-La pantalla ya lista, pero no ofrece nada: para crear una nota hay que conocer la URL del paso 5, y no
-hay forma de saber cuántas hay. Necesita un encabezado que diga qué es, ofrezca la acción principal y
-muestre el conteo. Escribámoslo a mano primero, para ver exactamente qué contiene.
+La pantalla ya lista, pero no ofrece nada: para crear una nota todavía no hay ninguna acción, porque el
+alta llega en 7.2. Necesita un encabezado que diga qué es y ofrezca la acción principal. Escribámoslo a
+mano primero, para ver exactamente qué contiene.
 
 **Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`.
 
@@ -938,11 +949,10 @@ muestre el conteo. Escribámoslo a mano primero, para ver exactamente qué conti
 ```
 
 El botón va en la esquina: es la acción principal y el ojo la busca ahí. Por eso el título y el botón
-comparten una fila —título a la izquierda, acción a la derecha— y debajo queda la fila del listado con
-el contador.
+comparten una fila —título a la izquierda, acción a la derecha— y debajo queda la fila del listado.
 
-**Después**: reemplaza ese `<h1>` por el encabezado con la acción y el contador; el include del panel
-queda al final, dentro del mismo `card-body`.
+**Después**: reemplaza ese `<h1>` por el encabezado con la acción; el include del panel queda al final,
+dentro del mismo `card-body`.
 
 ```twig
         <div class="card-body gap-4">
@@ -1014,7 +1024,7 @@ todavía no abre nada: el modal es el paso 7.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
-**Qué ganaste**: la pantalla ya dice qué es, ofrece la acción y cuenta las filas. Y mira el costo: el
+**Qué ganaste**: la pantalla ya dice qué es y ofrece la acción. Y mira el costo: el
 encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
 vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
 
@@ -1244,7 +1254,7 @@ contenido.
 
 ### 7.1 Un diálogo nativo con campos a mano
 
-La pantalla lista y cuenta las filas, pero no hay forma de crear una: el botón «Agregar nota» no abre
+La pantalla lista, pero no hay forma de crear una: el botón «Agregar nota» no abre
 nada, porque no existe la acción que reciba el formulario. Este paso agrega el alta completa —diálogo,
 campos y `store()`— en su versión mínima, para que funcione antes de embellecerla.
 
@@ -1300,7 +1310,7 @@ aviso— y es el primero en el que crear una nota funciona de punta a punta.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
 
-Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están (`Url` ya lo tienes de 6.7):
+Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están:
 
 ```php
 use Framework\Http\Flash;
@@ -1556,7 +1566,7 @@ edición, no queremos que el alta se abra con los datos de la nota que se está 
 nota sigue funcionando. Lo único que cambió es que el formulario ahora vive en un archivo reutilizable.
 
 **Qué no prueba**: el modal del proyecto ni la reapertura con errores. El rechazo del servidor todavía
-no vuelve a abrir nada; eso llega en 7.5.
+no vuelve a abrir nada; eso llega en 7.6.
 
 **Falla si**:
 
@@ -1788,11 +1798,12 @@ derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
 los dos controles **no tienen nombre**: el enlace se anuncia como «✏️» y el botón como «🗑️». Para
 alguien que no ve la pantalla, son dos botones indistinguibles.
 
-**Qué ganaste**: un defecto visible. Los dos controles funcionan, pero ninguno se puede anunciar; ahora
+**Qué ganaste**: un defecto visible. Los dos controles se ven, pero ninguno se puede anunciar; ahora
 sabes señalarlo, y el paso siguiente arregla algo que ya no es una opinión.
 
-**Qué no prueba**: nada del comportamiento. Borra y edita con un emoji igual de bien; lo que falta es
-que alguien que no ve la pantalla pueda usar la fila.
+**Qué no prueba**: nada del comportamiento: el lápiz y la papelera todavía no llevan a ninguna parte —
+las rutas llegan en 8.2 y el borrado en el capítulo 10—; lo que falta acá es que alguien que no ve la
+pantalla pueda usar la fila.
 
 > El `data-modal-open` apunta a un diálogo que todavía no existe —llega en el capítulo 10—, y eso es a
 > propósito: así el botón parece conectado y el único defecto que queda a la vista es que **no tiene
@@ -2758,7 +2769,8 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
 
 **Archivo**: `app/Http/Controllers/NotaController.php`.
 
-**Acción**: suma `use Framework\Http\Pagination;` y centraliza la lectura en un método privado:
+**Acción**: suma dos `use` —`Framework\Http\Pagination` y `Framework\Http\Url`, que es de donde sale
+`Url::path()`— y centraliza la lectura en un método privado:
 
 ```php
     private function pageData(Request $request): array
@@ -2799,8 +2811,8 @@ Ahora `index()` usa ese helper:
 Todavía no toques la vista ni el helper de respuesta: primero comprobamos que el servidor recorta bien.
 
 **Comprobación**: con más de diez notas, abre directamente `/notas?page=2&per_page=10`. Esperado: ves
-las notas 11 a 20, y la paginación dice «Mostrando 11 al 20 de N registros». `?page=1&per_page=25` muestra hasta 25; una página fuera de rango
-se ajusta a la última. Los controles visuales todavía no están; eso es 13.2.
+las notas 11 a 20. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango se ajusta a la
+última. Los controles visuales todavía no están; eso es 13.2.
 
 **Qué no prueba**: que los controles naveguen sin recargar. Prueba que la consulta y el recorte del
 servidor son correctos.
@@ -2851,7 +2863,8 @@ reemplazar. Evita rearmar los mismos botones en cada lista y desincronizar la p�
 
 **Comprobación**: con más de diez notas, abre `/notas`. Esperado: diez filas y, debajo, «Mostrando 1 al
 10 de N registros», el selector de tamaño y los botones Primera/Anterior/1/2/3/Siguiente/Última. En la
-primera página, «Primera» y «Anterior» salen deshabilitados.
+primera página, «Primera» y «Anterior» salen deshabilitados; con `?page=2&per_page=10` el mismo texto
+pasa a «Mostrando 11 al 20 de N registros».
 
 **Falla si**:
 
@@ -2954,8 +2967,9 @@ El guard `status >= 400` deja esa decisión en un solo lugar: la URL del histori
 una página que el usuario realmente navegó, no un 422 con errores.
 
 **Comprobación**: toca «Siguiente» y mira la barra: pasa a `/notas?page=2&per_page=10`. Recarga: seguís en
-la página 2. Prueba «Última» y `?page=99` escrito a mano: la URL que queda es la última página real, no la
-que pediste.
+la página 2. Prueba «Última»: la URL que queda es la última página real, no la que pediste. `?page=99`
+escrito a mano no actualiza la barra —esa navegación es completa, y `HX-Push-Url` sólo viaja en las
+respuestas de htmx—: ves la última página, pero la URL sigue diciendo `?page=99`.
 
 **Falla si**:
 
@@ -3092,9 +3106,11 @@ un glifo nuevo, agrégalo ahí primero.
 
 **Sobre el demo como punto de comparación**: `composer demo:notas:install` instala una entidad `notas`
 con el mismo nombre de tabla y la misma clase de migración que acabas de escribir, así que **no convive
-con tu versión**: el instalador aborta, o con `--force` copia los archivos y después revierte todo
-porque la tabla ya existe. Para comparar, usa un clon limpio sin la entidad —o el demo antes de
-empezar—. Es la misma entidad, no dos que puedan estar juntas.
+con tu versión**: el instalador aborta porque `routes/notas.php`, `config/navigation/notas.php` y las
+vistas ya existen, y con `composer demo:notas:install -- --force` copia los archivos y la migración
+aborta igual, porque Phinx no puede declarar dos veces la clase `CreateNotasTable` —la tuya y la del
+demo—. Para comparar, usa un clon limpio sin la entidad —o el demo antes de empezar—. Es la misma
+entidad, no dos que puedan estar juntas.
 
 **Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
@@ -3129,9 +3145,9 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.6) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
 | La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 12) |
-| La papelera no abre nada | El modal quedó fuera del bloque `row` | Muévelo adentro del bloque, después del `</li>` (capítulo 12) |
-| La lista trae todo | Falta `Pagination::paginate()` | Paso 13.1 |
-| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 13.2 |
+| La papelera no abre nada | El modal quedó fuera del bloque `after` | Muévelo a `{% block after %}`, que el componente emite después del `</ul>` (paso 12.3) |
+| La lista trae todo | La consulta no pasa por `Pagination::fromRequest()` | Paso 13.1 |
+| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 13.4 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9.1 |
 
 ## Qué demuestra este recorrido

@@ -91,7 +91,7 @@ source ~/.bashrc
 mkdir -p ~/proyectos && cd ~/proyectos
 mkdir mi-app && cd mi-app
 
-mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs app/Support
+mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs framework/Support app/Support
 mkdir -p bootstrap config database/migrations database/seeds
 mkdir -p public/assets resources/views/layouts resources/views/layouts/parts resources/views/components resources/views/pages
 mkdir -p routes storage/logs storage/cache/twig storage/sessions
@@ -124,6 +124,8 @@ mi-app/
 │   │   └── Validator.php
 │   ├── Docs/
 │   │   └── CodeBlocks.php          # tooling de docs, no runtime
+│   ├── Support/
+│   │   └── Env.php                 # lectura tipada del entorno (get/bool/int)
 │   └── scaffolds/
 │       ├── tasks/                  # demo opcional: composer demo:tasks:install
 │       │   ├── app/Tasks/{Http,Models}/
@@ -200,9 +202,9 @@ mi-app/
 └── phpunit.xml
 ```
 
-El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`. Sin ese comando, la app base queda limpia.
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php` (la entrada del módulo en el menú). Sin ese comando, la app base queda limpia.
 
-Hay un segundo demo, `contacts`, con un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla usa paginación local (10 filas por página, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
+Hay tres demos (`tasks`, `contacts` y `notas`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
 ## 4. Dependencias del backend
 
@@ -371,7 +373,7 @@ composer install:termux
 #   cp .env.example .env
 # .env nunca se commitea (está en .gitignore).
 APP_ENV=local
-APP_DEBUG=true
+APP_DEBUG=false
 
 # Opcional: si no se setea, la app usa database/database.sqlite relativo
 # al proyecto. En Termux, si clonaste en otro path, descomenta y pon TU absoluto:
@@ -406,10 +408,18 @@ php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesi
 /storage/cache/
 /storage/sessions/
 /storage/backups/
+/storage/demo-state/
 /.phpunit.cache/
 /tests/.phpunit.result.cache
 .env
 .atl/
+/.impeccable/
+
+# Runtime de agentes/GSD: DB, ejecuciones, revisiones y config local no se versionan.
+/.gsd/
+/.mcp.json
+/.bg-shell/
+/.claude/
 ```
 
 Fíjate qué cubre y por qué: la base y sus sidecars de WAL (`-wal`/`-shm`, cap. 18.6 — sin ellos el backup va incompleto pero al repo no van nunca), las sesiones (datos reales de usuarios), el caché de Twig, y `.env` (secretos locales). `composer.lock` **sí** se commitea a propósito: con el lock, `install` no resuelve dependencias — en 32 bits es la diferencia entre 10 segundos y un OOM (cap. 18.1). `public/assets/` SÍ va a git (vendorizado: clonar ya trae el frontend).
@@ -421,6 +431,7 @@ Fíjate qué cubre y por qué: la base y sus sidecars de WAL (`-wal`/`-shm`, cap
 # Si cambia un byte, el SRI del layout falla y la app queda sin JS sin error visible.
 public/assets/* binary
 *.min.js binary
+*.min.css binary
 ```
 
 Sin esto, un checkout en Windows reescribe los `.js` a CRLF, el hash `integrity` deja de matchear y el navegador **rechaza el script en silencio**: página sin HTMX/Alpine y cero errores en el log. Es el tipo de bug que te hace dudar de todo menos del culpable.
@@ -989,7 +1000,7 @@ El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code
 </html>
 ```
 
-**Deliberadamente NO extiende `layouts/app.twig` y NO usa daisyUI.** Si el layout es justamente lo que se rompió, una página de error que depende del mismo layout o del CSS vendorizado vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entras en un loop hasta que se te queda la memoria. Esta plantilla no depende de nada: ni del layout, ni de la sesión, ni de Alpine, ni de los assets. Por eso el handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
+**Deliberadamente NO extiende `layouts/app.twig` — y sí carga el bundle de daisyUI.** La página es autónoma: no usa el layout, ni la sesión, ni Alpine/HTMX, pero linkea `daisyui-5.7.46.css` porque sus clases (`hero`, `card`, `badge`, `btn`) salen de ahí, y sin ese `<link>` el error se vería como texto plano. Si el layout es justamente lo que se rompió, una página que dependa de él vuelve a fallar — y como el error handler se ejecuta dentro del error handler, entras en un loop hasta que se te queda la memoria: por eso el único asset que carga son los ~60 bytes de un `<link>`, no los `.js` del shell. El handler la envuelve en `try/catch` y degrada a texto plano si algo se rompe igual.
 
 Los 404 y 405 salen gratis de este mismo handler: Slim lanza `HttpNotFoundException` y `HttpMethodNotAllowedException`, el `ErrorMiddleware` las captura y nos llegan con su código correcto. No hace falta una ruta catch-all.
 
@@ -1666,7 +1677,7 @@ return function (App $app) {
 };
 ```
 
-El `->add()` al grupo protege las 5 rutas de un saque; `/`, `/login` y `/logout` quedan públicas. El logout es POST a propósito (con CSRF del Guard global): un logout por GET se dispara con un link externo sin que quieras.
+El `->add()` al grupo protege las 6 rutas de un saque; `/`, `/login` y `/logout` quedan públicas. El logout es POST a propósito (con CSRF del Guard global): un logout por GET se dispara con un link externo sin que quieras.
 
 **Por qué la raíz renderiza una página y no una redirección.** `pages/errors/error.twig` (cap. 7.1) cierra con `<a href="/">Volver al inicio</a>`. Sin una ruta en `/`, ese botón es un link muerto: se llega a un 404, se pulsa "volver al inicio" y se recibe **el mismo 404**. La ruta responde `200` con `home.twig` y no redirige. De paso es el health check más barato que existe y el test de humo más económico del proyecto (cap. 20.6).
 
@@ -2169,10 +2180,10 @@ class TaskController extends Controller
 Tres cosas que este controlador deja por escrito y que antes estaban implícitas:
 
 1. **`index()` tiene dos respuestas y la elige el header `HX-Request`.** Sin el branch, el botón "Cancelar" mete un `<html>` completo dentro del panel.
-2. **Un id que no existe responde 200 con un flash, no 404** (la página de error dentro del panel sería peor) **y nunca en silencio** (el `?->update()` mudo se fue).
+2. **Un id que no existe sólo responde 200 + flash cuando la request trae `HX-Request`**: con htmx, la página de error dentro del panel sería peor. **Sin ese header es un 404 de verdad** (`HttpNotFoundException`, que es lo que el protocolo pide) **y nunca en silencio** (el `?->update()` mudo se fue).
 3. **En fallo de validación se conserva lo tipeado** (`editing_title`), no el valor guardado. Twig autoescapea, así que comillas o `<script>` tipeados salen neutrales.
 
-Y una deliberada: cada acción repite `return $this->render($request, $response, 'tasks/_panel.twig', ...)` con el template a la vista. Como en Laravel repites `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que lo esconda (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
+Y una deliberada: cada acción cierra con `return $this->respond($request, $response)`, y `respond()` arma el payload común (paginación + flash + CSRF) y elige el template según el request (`tasks/_panel.twig` con `HX-Request`, la página completa sin él). Como en Laravel repites `return view(...)`: cada acción declara su respuesta, se encuentra con un grep, cero magia. Un helper que fije el template a ciegas (`panel()`) o un default en la firma ahorran 20 caracteres a cambio de esconder información — mal negocio.
 
 ### 9.2 AuthController: login, logout y remember-me
 
@@ -2428,7 +2439,7 @@ class RememberToken extends Model
 }
 ```
 
-`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `framework/Auth/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`Task`, `User`).
+`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `framework/Auth/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`User`, y los de dominio que no vengan de un scaffold: el `Task` del demo vive en `app/Tasks/Models/`).
 
 ## 11. Migraciones con Phinx
 
@@ -2480,9 +2491,7 @@ return [
 ];
 ```
 
-> **Divergencia honesta:** Phinx migra siempre `database/database.sqlite` fijo, pero la app usa `DB_DATABASE` si está seteado. Si tu `.env` apunta a otro lado, el `migrate` escribe en un archivo y la app lee otro. Para el flujo normal (sin `DB_DATABASE`, default relativo) ambos usan el mismo archivo y no hay problema.
-
-Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 3 ya vienen — saltea directo al `migrate`. Crear de más aquí es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
+Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 5 ya vienen (`002`, `003`, `006`, `009` y `010`) — saltea directo al `migrate`. Crear de más aquí es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
 
 ```bash
 vendor/bin/phinx create CreateTasksTable
@@ -2537,7 +2546,7 @@ vendor/bin/phinx create CreateRememberTokensTable
 >    database/migrations/002_create_users_table.php
 > ```
 >
-> La base usa `002_create_users_table.php`, `003_create_remember_tokens_table.php` y `006_login_attempts.php`. El scaffold `tasks` reserva `001`, `004` y `005`; no uses esos números para migraciones propias. El siguiente libre es `007`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
+> La base usa `002_create_users_table.php`, `003_create_remember_tokens_table.php`, `006_login_attempts.php`, `009_add_login_attempts_index.php` y `010_add_rotated_at_to_remember_tokens.php`. Los scaffolds reservan `001`, `004` y `005` (tasks), `007` (notas) y `008` (contacts); no uses esos números para migraciones propias. El siguiente libre es `011`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
 
 `database/migrations/002_create_users_table.php`:
 
@@ -3069,7 +3078,7 @@ Como referencia, la CDN browser de Tailwind sigue siendo "solo desarrollo" segú
 
 ## 15. Shell de la app: sidebar, header, temas y footer
 
-Ahora es una composición: el sidebar, la barra superior, los avisos y el footer viven en `resources/views/layouts/parts/`, con sus nombres `head`, `sidebar`, `topbar`, `toasts`, `footer` e `ink-tokens`. Copia también esos seis fragmentos.
+Ahora es una composición: el sidebar, la barra superior, los avisos y el footer viven en `resources/views/layouts/parts/`, con sus nombres `head`, `sidebar`, `topbar`, `toasts`, `footer` e `ink-tokens`. Están todos en el repo, en esa carpeta: esta guía no los transcribe, los referencia por ruta.
 
 El layout que los integra, completo, es `resources/views/layouts/app.twig`:
 
@@ -3701,7 +3710,7 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 {% if user_id is defined and user_id %}
 <div class="border-t border-base-300 p-2">
     <div class="sidebar-label truncate px-2 pb-1 text-xs opacity-60" :class="sidebarMini && 'lg:hidden'">{{ user_email }}</div>
-    <form method="post" action="/logout">
+    <form method="post" action="{{ url('/logout') }}">
         {% include 'components/form/csrf.twig' %}
         <button type="submit" class="btn btn-ghost btn-sm w-full justify-start" :class="sidebarMini && 'lg:justify-center'" title="Salir">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5 shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -3712,11 +3721,11 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 {% endif %}
 ```
 
-Y el breadcrumb del layout conoce un tercer caso (`active == 'login'` → texto plano "Acceder"): con dos ramas el header mentiría en la página de login. Si agregas páginas, cada una necesita su `active` y su rama — anotado como deuda visible, no como magia.
+Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadcrumbs`, que es opcional. Sin él cae a `[{label: 'Inicio', icon: 'home', current: true}]`; con una sola miga pinta sólo su etiqueta (con `icon` si la trae) y con varias, la `<nav class="breadcrumbs">` completa, donde cada miga sin `current: true` es un `<a href>` y la marcada `current` es un `<span aria-current="page">`. Si agregas páginas, cada una arma sus propias migas (el helper `breadcrumbs()` del controlador base hace las dos típicas); `active`, en cambio, es lo que resalta el item del sidebar (cap. 9).
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/` y `routes/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags: `--force` reinstala sobre archivos existentes y `--no-db` opera solo sobre archivos.
+> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags (por Composer van **después de `--`**): `composer demo:tasks:install -- --force` reinstala sobre archivos existentes —antes los respalda en `storage/backups/`—, `--no-db` opera solo sobre archivos y `--no-files` solo sobre la DB. Lo instalado queda registrado en `storage/demo-state/<demo>.json` con el sha256 de cada archivo: comparar contra ese manifiesto distingue un archivo **desactualizado** (lo movió el scaffold y nadie lo editó: se pisa o se borra sin backup) de uno **editado** (el `remove` aborta y pide `composer demo:tasks:remove -- --force` o `--no-files`).
 
 La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`.
 
@@ -4562,7 +4571,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 >
 > **El toggle es un `POST` que devuelve el panel entero.** `hx-post="/tareas/{id}/toggle"` con `hx-swap="outerHTML"` sobre `#tareas-panel` y tokens por `hx-headers` (el botón no está en un form: mismo motivo que el DELETE). No alcanza con swapear el botón solo: cambiar el estado mueve también la fila entera y los contadores de la paginación.
 >
-> **El estado vive en un tooltip, no escrito al lado del título.** "Pendiente" / "Completada el 14/08/2026 22:31" en la fila le robaba ancho al título en móvil, y es un dato que sólo se busca cuando interesa. Ahora el icono es un `<button>` que abre un globito **por click** (Alpine `abierto`; se cierra con `@click.outside` o `@keydown.escape`): en táctil no existe el hover, así que `title=` nativo no serviría, y el `tooltip` de daisyUI es CSS-hover. El texto completo va en `aria-label` del botón (`:aria-expanded` refleja si está abierto) y el globo es puramente visual: `aria-hidden` + `pointer-events-none`, para que no se quede con el click que debería cerrarlo. El icono es entonces la única señal de estado, así que el pendiente usa `text-base-content/40` (tenue) y el completado `text-success`: `text-base-400` no existe en daisyUI 5 y salía a full contraste, más pesado que el verde.
+> **El estado vive en un tooltip, no escrito al lado del título.** "Pendiente" / "Completada el 14/08/2026 22:31" en la fila le robaba ancho al título en móvil, y es un dato que sólo se busca cuando interesa. Ahora el icono es un `<button>` que abre un globito **por click** (Alpine `x-data="{ open: false }"`; se cierra con `@click.outside` o `@keydown.escape`): en táctil no existe el hover, así que `title=` nativo no serviría, y el `tooltip` de daisyUI es CSS-hover. El texto completo va en `aria-label` del botón (`:aria-expanded` refleja si está abierto) y el globo es puramente visual: `aria-hidden` + `pointer-events-none`, para que no se quede con el click que debería cerrarlo. El icono es entonces la única señal de estado, así que el pendiente usa `icon-pending` (una tinta propia definida en el layout) y el completado `icon-success`: `text-base-content/40` quedaba bajo el piso de 4.5:1 y `text-base-400` no existe en daisyUI 5 (salía a full contraste, más pesado que el verde).
 >
 > **`index()` también responde distinto para htmx** (cap. 9): los botones "Editar" y "Cancelar" piden `GET /tareas/...`/`GET /tareas` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
 
@@ -4707,13 +4716,12 @@ En el controlador, un método privado por ruta listada (la página y el tamaño 
 ```php
     private function pageData(Request $request): array
     {
-        $query = $request->getQueryParams();
-
-        $listing = Pagination::paginate(
+        $listing = Pagination::fromRequest(
             Task::orderByDesc('id'),
-            (int) ($query['page'] ?? 1),
-            (int) ($query['per_page'] ?? Pagination::DEFAULT_PER_PAGE),
-            '/tareas'
+            $request,
+            // Con el prefijo de APP_BASE_PATH ya aplicado: base_url es la
+            // fuente de la paginación y del HX-Push-Url.
+            Url::path('/tareas')
         );
 
         return [
@@ -4723,7 +4731,7 @@ En el controlador, un método privado por ruta listada (la página y el tamaño 
     }
 ```
 
-Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): full y swap llevan su slice al día. Ojo con el casteo `(int)`: bajo `strict_types`, pasar el string del query directo al `int` del helper es `TypeError`.
+Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): full y swap llevan su slice al día. El controlador no lee el query string: `Pagination::fromRequest()` toma `page`/`per_page`, los castea a `(int)` y delega en `paginate()`, que clampea — pasar el string crudo a un `int` bajo `strict_types` es `TypeError`, y ese casteo vive en el helper, no repetido en cada pantalla.
 
 `resources/views/components/pagination/simple.twig` (portable: sin ids ni rutas propias, todo por params — `pagination`, `target` obligatorio, `swap`/`show_size` opcionales; así sirve en cualquier ruta sin cambios):
 
@@ -4867,7 +4875,7 @@ Tres decisiones que importan:
 ## 17. Levantar el servidor y mantenerlo vivo
 
 ```bash
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
 
 **El servidor va directo, nunca por Composer.** `composer serve` existió y se retiró: Composer ejecuta cada script como subproceso con un `process-timeout` de 300 s (default de `composer config process-timeout`) y, al vencer, lo mata con:
@@ -4887,7 +4895,7 @@ composer dump-autoload -o
 composer migrate                   # crea el schema (phinx usa safeLoad: no pide .env)
 nano .env                          # descomentar ADMIN_EMAIL y ADMIN_PASSWORD (cap. 11.1)
 vendor/bin/phinx seed:run -s DatabaseSeeder   # admin + datos demo
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
 
 Abre `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
@@ -4908,7 +4916,7 @@ termux-wake-lock
 ```bash
 pkg install tmux
 tmux new -s app
-php -S 0.0.0.0:8080 -t public   # ctrl+b, d para desprender la terminal
+php -S 127.0.0.1:8080 -t public   # ctrl+b, d para desprender la terminal
 ```
 
 Vuelves cuando quieras con `tmux attach -t app`.
@@ -4928,7 +4936,7 @@ Vuelves cuando quieras con `tmux attach -t app`.
 `php -S` es **single-threaded** por defecto: si tu página dispara dos `hx-get` al mismo tiempo, el segundo espera al primero.
 
 ```bash
-PHP_CLI_SERVER_WORKERS=4 php -S 0.0.0.0:8080 -t public
+PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8080 -t public
 ```
 
 Con workers, dos requests concurrentes sobre la **misma sesión** se contendian por el lock de archivo de PHP. El flag para eso es `session.lazy_write=1` en el `php.ini` (cap. 18.2).
@@ -4951,7 +4959,7 @@ composer check:termux                    # 32 o 64 bits, según PHP_INT_SIZE
 
 ### 17.6 Backup: el teléfono se puede perder
 
-`scripts/db-backup.php` (con `composer db:backup`): copia `database.sqlite` + sidecars WAL (`-wal`/`-shm`/`-journal`) si existen, a `storage/backups/YYYYMMDD-HHMMSS/` (gitignored: son datos reales). La base y el path salen del mismo default relativo del cap. 6:
+`scripts/db-backup.php` (con `composer db:backup`): hace `VACUUM INTO` a un único archivo `storage/backups/YYYYMMDD-HHMMSS.sqlite` (gitignored: son datos reales), así que no copia los sidecars `-wal`/`-shm`/`-journal` — VACUUM INTO lee una transacción consistente y escribe un archivo nuevo. Conserva los últimos `KEEP` (default 10) y agrega `-2`, `-3`… si el timestamp se repite. La base y el path salen del mismo default relativo del cap. 6:
 
 ```php
 <?php
@@ -5047,7 +5055,7 @@ $size = filesize($dest);
 echo "Backup en {$dest} ({$size} bytes)." . PHP_EOL;
 ```
 
-Hazlo con la app quieta (sin requests en vuelo): copiar sqlite+WAL en caliente puede partir el backup por la mitad. Y si quieres sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
+No hace falta parar la app: `VACUUM INTO` hace una lectura transaccional y escribe un archivo nuevo, así que la copia sale consistente aunque haya escrituras en vuelo (lo que sí queda afuera es lo que se escriba después del backup). Y si quieres sacarlo del teléfono, con `termux-setup-storage` (cap. 1) es un `cp -r` a `~/storage/shared/Download/`.
 
 ## 18. El capítulo que de verdad importa: 32 bits
 
@@ -5744,7 +5752,7 @@ final class ErrorHandlingTest extends HttpTestCase
 }
 ```
 
-Ese segundo test existe por una razón concreta: el `SecurityHeadersMiddleware` tiene que ir **por fuera** del `ErrorMiddleware`. Si alguien lo mueve adentro, este test falla. El tercero atrapa la regresión de Whoops (y ojo: en SAPI `cli` el PrettyPageHandler no renderiza, así que el `assertStringContainsString('Not found.')` es el que realmente muerde ahí, no el de Whoops).
+Ese segundo test existe por una razón concreta: el `SecurityHeadersMiddleware` tiene que ir **por fuera** del `ErrorMiddleware`. Si alguien lo mueve adentro, este test falla. El tercero atrapa la regresión de Whoops (y ojo: en SAPI `cli` el PrettyPageHandler no renderiza, así que el que realmente muerde ahí es `assertStringContainsString('No encontramos esa página.')` —el mensaje en español, no el `Not found.` del vendor—).
 
 ### 20.6 Routing: la raíz y el link que nadie testeaba
 
@@ -7099,7 +7107,7 @@ En Termux el paquete `php` normalmente los trae adentro. **[t]** Comprueba con `
 
 Dos casos que el mensaje no cubre, a saber:
 
-1. **Seteaste `DB_DATABASE` a un absoluto y Phinx migra otro archivo** (cap. 11: Phinx usa path fijo, la app usa el env). Si el demo dice `no such table: tasks` justo después de migrar, es esto: o borra la variable (default relativo para ambos) o migra consciente del path.
+1. **`DB_DATABASE` resolvió a un archivo distinto en cada comando** (cap. 11: `phinx.php`, el container y `composer db:backup` leen la misma variable, pero cada uno la resuelve al arrancar, así que un `.env` distinto, un export en la sesión o un `cd` que cambia el default relativo dan paths distintos). Si el demo dice `no such table: tasks` justo después de migrar, es esto: compara el path efectivo en los dos lados, o borra la variable (default relativo para todos).
 2. **`no such table: tasks` en un clon fresco** significa que el demo no está instalado: la base no incluye `tasks` por diseño. Ejecuta `composer demo:tasks:install` (copia, migra y siembra) o, si solo quieres las tablas base, `composer migrate`.
 
 ```bash
@@ -7132,98 +7140,10 @@ Causa: `composer require respect/validation` sin el `^2.0`. Corrige el `require`
 
 ### 21.6 Página de error vacía (0 bytes)
 
-**[v]** `Twig::render()` escribe en el stream **sin rebobinar**: con el cursor al final, `getContents()` devuelve `''`. El fix (`$stream->rewind()`) ya está en el cap. 7, pero lo vas a ver si tocaste esa parte. Otro camino al mismo síntoma: `resources/views/pages/errors/error.twig` con error de sintaxis (degrada a texto plano a propósito). Para descartar la cache:
+**[v]** `Twig::render()` escribe en el stream **sin rebobinar**: con el cursor al final, `getContents()` devuelve `''`. El fix (`$stream->rewind()`) ya está en el cap. 7, pero lo vas a ver si tocaste esa parte. Otro camino al mismo síntoma: un `error.twig` con error de sintaxis en `resources/views/pages/errors/` (degrada a texto plano a propósito). Para descartar la cache:
 
 ```bash
-<!DOCTYPE html>
-<html lang="es" data-theme="light">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ code }} · Mi App</title>
-
-    {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
-       costaría un 404 extra. Son ~55 bytes. #}
-    <link rel="icon" type="image/svg+xml" href="{{ url('/favicon.svg') }}">
-
-    {# Mismo pre-pintado de tema que los otros dos layouts, y la ÚNICA línea
-       de JS de esta página. Sin el script, corregir `data-theme` después del
-       paint mostraría el flash que los otros layouts evitan. #}
-    <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){document.documentElement.dataset.theme='light'}</script>
-
-    {# Página autónoma a propósito: NO extiende layouts/app.twig. Un error no
-       necesita sidebar, toasts ni los scripts de Alpine/htmx, y ese peso se
-       paga caro en 32 bits (cap. 17). Sólo el bundle de daisyUI que la app ya
-       vendoriza: un <link> cuesta ~60 bytes, y sin él todas las clases de
-       abajo quedan inertes, que es exactamente el defecto que esto arregla.
-       Sin el build de Tailwind no hay JIT: aquí NO se usan utilidades
-       (`flex`, `p-6`, `text-6xl`), sólo nombres que el bundle define, y el
-       resto va como reglas en el <style> de abajo. #}
-    <link rel="stylesheet" href="{{ url('/assets/daisyui-5.7.46.css') }}">
-
-    <style>
-        /* Lo que en el resto de la app aporta el JIT de Tailwind y esta página
-           no carga: el preflight que saca el margen del body, el alto de
-           viewport y el centrado del texto. El fondo y la tinta del body ya
-           vienen de tokens en el `class` (bg-base-200/text-base-content, que
-           el bundle sí define) y siguen a `data-theme`: aquí no hay un color
-           fijo que se quede en claro cuando el tema es oscuro. */
-        body { margin: 0; }
-        .error-main { min-height: 100dvh; }
-        /* El `hero-content` de daisyUI es una fila: aquí la marca va ARRIBA de
-           la tarjeta, así que se apila. */
-        .error-main .hero-content { flex-direction: column; }
-        .error-body { align-items: center; text-align: center; }
-
-        /* El título es el único `h1` de la página y usaba `card-title` (18 px,
-           600): se leía como encabezado de tarjeta, no como el título de la
-           pantalla. Esto es `text-2xl font-bold` escrito como CSS, porque aquí
-           no hay JIT que compile la utilidad. */
-        .error-title { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
-
-        /* Misma marca que layouts/auth.twig (components/ui/logo.twig + "Mi App")
-           y linkeada a `/`, para que el error también sea el producto y no un
-           cartel suelto. Las utilidades del partial (h-8, rounded-lg,
-           bg-primary) no existen sin JIT, así que la caja se dibuja aquí con
-           los mismos tokens; el `size` del include deja sólo esta clase. */
-        .error-brand { display: inline-flex; align-items: center; gap: .5rem; font-size: 1.125rem; font-weight: 700; }
-        .error-logo { display: inline-flex; align-items: center; justify-content: center; height: 2rem; width: 2rem; border-radius: .5rem;
-                      background-color: var(--color-primary); color: var(--color-primary-content); }
-        .error-logo svg { height: 1.25rem; width: 1.25rem; }
-    </style>
-</head>
-<body class="bg-base-200 text-base-content">
-    {# El mensaje se deduce del código y NO se imprime el `message` que manda
-       config/middleware.php: viene del vendor, en inglés ("Not found."), y
-       puede arrastrar detalles internos de la excepción. El código queda a la
-       vista para que soporte lo pueda pedir; un código desconocido cae al
-       texto genérico, no a "sin mensaje". #}
-    {% set mensaje = code == 404 ? 'No encontramos esa página.'
-        : (code == 403 ? 'No tienes permiso para ver esto.'
-        : (code == 405 ? 'Ese método no está permitido.'
-        : (code == 419 or code == 400 ? 'La petición no es válida.'
-        : 'Algo salió mal de nuestro lado.'))) %}
-    <main class="hero error-main">
-        <div class="hero-content">
-            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
-                {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
-                <span>Mi App</span>
-            </a>
-            <div class="card card-border bg-base-100">
-                <div class="card-body error-body">
-                    <span class="badge badge-neutral">Error {{ code }}</span>
-                    <h1 class="error-title">{{ mensaje }}</h1>
-                    {% include 'components/ui/button.twig' with {
-                        label: 'Volver al inicio',
-                        href: url('/'),
-                        extra_class: 'btn-block'
-                    } only %}
-                </div>
-            </div>
-        </div>
-    </main>
-</body>
-</html>
+rm -rf storage/cache/twig
 ```
 
 ### 21.7 Un 404 que devuelve 500, o un 404 que pesa 154 KB
@@ -7284,7 +7204,7 @@ mkdir -p storage/logs storage/cache storage/sessions   # si Monolog calla, es es
 
 ### 21.15 "No puede conectarse": `localhost` no es `127.0.0.1`
 
-**[v]** `php -S localhost:8080` puede quedar escuchando solo en IPv6 (`::1`) mientras el navegador pide `127.0.0.1`. **No uses `localhost` como bind**: `127.0.0.1` o `0.0.0.0`, que es lo que ya hace `php -S 0.0.0.0:8080 -t public` (cap. 17).
+**[v]** `php -S localhost:8080` puede quedar escuchando solo en IPv6 (`::1`) mientras el navegador pide `127.0.0.1`. **No uses `localhost` como bind**: `127.0.0.1` (o `0.0.0.0` sólo si de verdad quieres exponerlo en la LAN, cap. 17.3), que es lo que ya hace `php -S 127.0.0.1:8080 -t public` (cap. 17).
 
 ### 21.16 Clases `is-drawer-*` sin efecto
 
@@ -7321,7 +7241,7 @@ cd ~/slim4-homemade-framework
 git pull
 composer install:termux
 composer migrate
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
 
 Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `pull` lo resuelve. Regla de oro que este bug deja escrita: **en 32 bits el teléfono nunca resuelve dependencias** — instala (`install`) lo que se resolvió en 64 bits y vino en el lock. El `update` en Termux no es una herramienta, es el síntoma de que algo hay que traer de otro lado.
@@ -7345,7 +7265,7 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 La fix no es subir el timeout: es no envolver un servidor de larga vida en un runner de scripts. Directo, sin intermediario:
 
 ```bash
-php -S 0.0.0.0:8080 -t public
+php -S 127.0.0.1:8080 -t public
 ```
 
 Por eso el repo ya no tiene `composer serve` funcional: quedó como guarda (`scripts/serve.php`) que aborta con esta explicación. Si por alguna razón necesitas forzar el camino viejo, `COMPOSER_PROCESS_TIMEOUT=0` desactiva el límite — pero entonces el servidor vive dentro de Composer igual, con una capa de subproceso que no aporta nada (y los `Ctrl+C` se comportan peor).
@@ -7380,7 +7300,7 @@ curl -sI http://127.0.0.1:8080/no-existe | head -5
 
 # 4. El 404 tiene que pesar bytes, no cientos de KB (cap. 7)
 curl -s http://127.0.0.1:8080/no-existe | wc -c
-# esperado: 507
+# esperado: cientos de bytes, no cientos de KB (el test exige < 4096)
 
 # 5. La cookie de sesión tiene que viajar (cap. 8). Ojo: /tareas ahora exige
 # login, así que la cookie se verifica contra /login (pública, con sesión).
@@ -7448,7 +7368,54 @@ done
 
 Dos detalles que no son opcionales: el `--` en `grep -qF --` (sin él, toda línea que empiece con `->` la interpreta como opción) y el descarte de comentarios a propósito (**el script no verifica comentarios, solo código**).
 
-Salida esperada: **nada**. Y el alcance honesto: el `find` cubre `app`, `config`, `routes`, `tests`, `resources` y `bootstrap` — `composer.json`, `.env`, `.gitignore` y `.gitattributes` están fuera del escaneo y se verifican a ojo contra los caps. 4 y 5. Los assets vendorizados (`.js`/`.css`) también están fuera: no se copian bytes a una guía, se verifican con el SRI del cap. 14.1.
+Salida real en este repo — **no es «nada»** — con `G` apuntando a la guía (aquí vive en `docs/`) y sin demos instalados:
+
+```text
+config/auth.php: 1 lineas NO documentadas
+tests/Http/BasePathTest.php: 35 lineas NO documentadas
+tests/Http/LoginThrottleTest.php: 71 lineas NO documentadas
+tests/Http/PaginationTest.php: 32 lineas NO documentadas
+tests/Http/SecurityHeadersTest.php: 51 lineas NO documentadas
+tests/Http/SessionSecurityTest.php: 18 lineas NO documentadas
+tests/Support/BackupTest.php: 87 lineas NO documentadas
+tests/Support/CodeBlocksTest.php: 66 lineas NO documentadas
+tests/Support/ComponentContractTest.php: 241 lineas NO documentadas
+tests/Support/ControllerViewDefaultsTest.php: 39 lineas NO documentadas
+tests/Support/DemoInstallerTest.php: 324 lineas NO documentadas
+tests/Support/DocsLiveViewNamesTest.php: 46 lineas NO documentadas
+tests/Support/DocsViewPathsTest.php: 41 lineas NO documentadas
+tests/Support/EnvTest.php: 46 lineas NO documentadas
+tests/Support/HttpTestCase.php: 44 lineas NO documentadas
+tests/Support/LayoutContractTest.php: 144 lineas NO documentadas
+tests/Support/LoggingTest.php: 26 lineas NO documentadas
+tests/Support/RuntimeRequirementsTest.php: 18 lineas NO documentadas
+tests/Support/ScaffoldViewStructureTest.php: 8 lineas NO documentadas
+tests/Support/SchemaIntegrityTest.php: 24 lineas NO documentadas
+tests/Support/ShellBreadcrumbContractTest.php: 31 lineas NO documentadas
+tests/Support/UrlTest.php: 37 lineas NO documentadas
+tests/Support/ViewClassIntegrityTest.php: 249 lineas NO documentadas
+tests/Support/ViewComponentsTest.php: 61 lineas NO documentadas
+tests/Support/ViewStructureTest.php: 48 lineas NO documentadas
+resources/views/components/feedback/alert.twig: 15 lineas NO documentadas
+resources/views/components/form/field.twig: 47 lineas NO documentadas
+resources/views/components/list/simple.twig: 13 lineas NO documentadas
+resources/views/components/table/tabulator.twig: 12 lineas NO documentadas
+resources/views/components/ui/action-bar.twig: 10 lineas NO documentadas
+resources/views/components/ui/button.twig: 53 lineas NO documentadas
+resources/views/components/ui/modal.twig: 32 lineas NO documentadas
+resources/views/components/ui/page-header-title.twig: 13 lineas NO documentadas
+resources/views/components/ui/page-header.twig: 18 lineas NO documentadas
+resources/views/layouts/auth.twig: 44 lineas NO documentadas
+resources/views/layouts/parts/footer.twig: 4 lineas NO documentadas
+resources/views/layouts/parts/head.twig: 14 lineas NO documentadas
+resources/views/layouts/parts/ink-tokens.twig: 15 lineas NO documentadas
+resources/views/layouts/parts/sidebar.twig: 38 lineas NO documentadas
+resources/views/layouts/parts/toasts.twig: 32 lineas NO documentadas
+resources/views/layouts/parts/topbar.twig: 43 lineas NO documentadas
+resources/views/pages/errors/_htmx.twig: 4 lineas NO documentadas
+```
+
+Lo que reporta son, casi todos, archivos que la guía referencia por ruta pero no transcribe línea por línea (`tests/Support/*`, los componentes y los partials del shell) más una línea de `config/auth.php`: es la deuda de documentación, medida — y la lista cambia con la versión del repo y con los demos instalados (`app/Tasks/**` aparece al instalar una demo). Y el alcance honesto: el `find` cubre `app`, `config`, `routes`, `tests`, `resources` y `bootstrap` — `composer.json`, `.env`, `.gitignore` y `.gitattributes` están fuera del escaneo y se verifican a ojo contra los caps. 4 y 5. Los assets vendorizados (`.js`/`.css`) también están fuera: no se copian bytes a una guía, se verifican con el SRI del cap. 14.1.
 
 ### 22.4 El chequeo de cinco segundos que sí depende de tu teléfono
 
@@ -7490,7 +7457,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
 | `framework/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
-> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/pages/auth/login.twig`, `scripts/seed-admin.php`, `tests/Http/AuthTest.php`, las dos migraciones de auth) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
+> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/pages/auth/login.twig`, `tests/Http/AuthTest.php`, las cinco migraciones base —`002`, `003`, `006`, `009` y `010`—) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 
