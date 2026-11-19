@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Psr\Http\Message\ServerRequestInterface;
 
 /**
- * Paginación estilo Laravel sin illuminate/pagination: count + slice, sin HTTP.
+ * Paginación server-side sobre un query Eloquent, sin `illuminate/pagination`.
+ *
+ * Hace solo lo que la interfaz necesita: cuenta el total, recorta la página pedida
+ * y arma la metadata que consume `components/pagination/simple.twig`. No conoce el
+ * request; `fromRequest()` es la única puerta que lee el query string, y existe
+ * para que los controladores de listado no repitan el cálculo de defaults.
  */
 final class Pagination
 {
@@ -20,9 +25,15 @@ final class Pagination
     public const WINDOW_SIZE = 5;
 
     /**
-     * Pagina un query Eloquent. Devuelve items + metadata lista para
-     * components/pagination/simple.twig. $page fuera de rango se clampena (nunca vacío
-     * por pedir de más).
+     * Pagina un query ya construido y devuelve `items` más la metadata del paginador.
+     *
+     * Clona el query dos veces para que `count()` y `get()` no compartan estado: el
+     * `LIMIT` que agrega `forPage()` no debe contaminar el conteo. La página pedida
+     * se recorta al rango real, de modo que una URL con `page=999` muestra la última
+     * página en lugar de una lista vacía. `$baseUrl` viaja en el resultado porque el
+     * paginador lo necesita para armar sus enlaces.
+     *
+     * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
@@ -46,8 +57,8 @@ final class Pagination
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
             'pages'        => self::window($page, $lastPage),
-            // Los tamanos viajan con la paginacion para que el template no
-            // mantenga su propia copia de la lista.
+            // Los tamaños viajan con la paginación para que la plantilla no
+            // mantenga su propia copia de la lista blanca.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
     }
@@ -55,12 +66,12 @@ final class Pagination
     /**
      * Pagina leyendo `page` y `per_page` del query string.
      *
-     * Es exactamente la lectura que repetían los controladores de listado:
-     * `page` ausente vale 1, `per_page` ausente vale DEFAULT_PER_PAGE y todo lo
-     * demás lo decide paginate(). Delegar acá y no copiar el cálculo evita que
-     * el recorte y los defaults se desincronicen entre pantallas.
+     * Es el atajo de los controladores de listado: `page` ausente vale 1, `per_page`
+     * ausente vale `DEFAULT_PER_PAGE` y el recorte final lo decide `paginate()`. Al
+     * centralizar esa lectura, los defaults y los límites no pueden desincronizarse
+     * entre pantallas.
      *
-     * @param string $baseUrl destino de la paginación, ya resuelto con Url::path()
+     * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
      * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
      */
@@ -76,6 +87,13 @@ final class Pagination
         );
     }
 
+    /**
+     * Reduce un tamaño de página pedido por el usuario a uno de la lista blanca.
+     *
+     * `per_page` llega del query string y puede ser cualquier valor; uno no previsto
+     * cae en `DEFAULT_PER_PAGE` en vez de producir un listado enorme o una división
+     * por cero en el cálculo de páginas.
+     */
     public static function clampPerPage(mixed $value): int
     {
         $value = (int) $value;
@@ -86,10 +104,12 @@ final class Pagination
     }
 
     /**
-     * Ventana fija de cinco páginas consecutivas, centrada en la actual y
-     * recortada en los extremos. Es el mismo patrón de Tabulator: los saltos
-     * largos quedan cubiertos por Primera/Anterior/Siguiente/Última, así que
-     * no hacen falta puntos suspensivos.
+     * Ventana de `WINDOW_SIZE` páginas consecutivas, centrada en la actual.
+     *
+     * La ventana se corre para no salirse de los extremos: cerca de la primera o de
+     * la última página se muestran igual cinco números. Los saltos largos quedan
+     * cubiertos por los enlaces de primera/última del paginador, así que la vista no
+     * necesita puntos suspensivos.
      *
      * @return list<int>
      */

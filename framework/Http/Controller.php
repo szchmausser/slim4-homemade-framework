@@ -11,48 +11,70 @@ use Slim\Csrf\Guard;
 use Slim\Views\Twig;
 
 /**
- * Controlador base: toda respuesta HTML sale con los datos comunes (flash
- * consumido + tokens CSRF). Cada controlador suma lo suyo por dos vías:
- * viewDefaults() para lo que repite en todas sus acciones, $extra para lo
- * puntual de una acción. Nada de payloads copiados entre controladores.
+ * Base de los controladores: toda respuesta HTML sale con los datos comunes de la
+ * aplicación.
+ *
+ * `render()` compone el payload que esperan las vistas —usuario, flash ya
+ * consumido, tokens CSRF y lo que agregue `viewDefaults()`— y suma el `$extra` de
+ * la acción. `redirect()` es el cierre estándar de una mutación y los dos
+ * `breadcrumbs*()` arman la forma que lee el header del shell. Ningún controlador
+ * arma esas piezas por su cuenta.
  */
 abstract class Controller
 {
     /**
-     * Orden en que se muestran los avisos cuando una acción deja más de uno
-     * (ej.: falla la validación y además había un info pendiente).
+     * Orden en que se muestran los avisos cuando una acción deja más de uno (por
+     * ejemplo, falla la validación y además había un info pendiente).
      */
     private const FLASH_ORDER = ['error', 'success', 'info'];
 
     /**
-     * Canal del aviso en una página completa (sin htmx). `true` por defecto
-     * porque el shell pinta `toast_items` y NO pinta banner: con `false`, un
-     * controlador nuevo perdería el aviso de `Flash::set()` sin ningún error.
-     * Poné `false` sólo si tu layout renderiza el banner inline (`flash_*`);
-     * es el caso de la pantalla de acceso.
+     * Si el flash de una página completa (sin htmx) se pinta como toast y no como
+     * banner.
+     *
+     * `true` por defecto porque el layout del shell pinta `toast_items` y no pinta
+     * banner: con `false`, un controlador nuevo perdería el aviso sin ningún error.
+     * Pon `false` solo si tu layout renderiza el banner inline desde `flash_*`.
      */
     protected bool $toastFlash = true;
 
+    /**
+     * Recibe Twig y el Guard por inyección de dependencias; el controlador nunca
+     * los resuelve del container. El Guard entra porque `render()` emite el par
+     * CSRF de cada formulario.
+     */
     public function __construct(protected Twig $view, protected Guard $guard) {}
 
+    /**
+     * Renderiza la plantilla con los datos comunes de la aplicación.
+     *
+     * Consume el flash —`Flash::get()` lo borra: un aviso se ve una sola vez—,
+     * emite el par CSRF y arma la precedencia de variables: el `$extra` de la
+     * acción gana sobre `viewDefaults()`, y este sobre los datos comunes. Con
+     * `HX-Request` el aviso viaja como evento y el HTML sale sin `toast_items`,
+     * para que no se vea dos veces.
+     *
+     * @param array<string, mixed> $extra variables de esta acción
+     */
     protected function render(Request $request, Response $response, string $template, array $extra = []): Response
     {
-        // user_* en cada render (los parciales lo ignoran): una PK indexada
-        // cuando hay sesión, nada cuando no la hay. Lo usa el bloque de
+        // `user_*` viaja en cada render y los parciales lo ignoran: una PK
+        // indexada cuando hay sesión, null cuando no. Lo usa el bloque de
         // usuario/salir del layout.
         $user = Auth::user();
 
-        // ÚNICO consumidor del flash: si se suma un tipo nuevo, va aquí.
+        // Único consumidor del flash: si se agrega un tipo de aviso, entra en
+        // FLASH_ORDER y se lee aquí.
         $flash = [];
         foreach (self::FLASH_ORDER as $type) {
             $flash[$type] = Flash::get($type);
         }
 
         // Un aviso, un canal, elegido por el request:
-        // - htmx: el aviso viaja en `HX-Trigger-After-Swap` y el HTML sale sin
-        //   el banner. Si viajara por los dos lados, se vería dos veces.
-        // - página completa: banner inline (login, redirect de RequireAuth)
-        //   porque ahí no hay evento de htmx que escuchar.
+        // - htmx: viaja en `HX-Trigger-After-Swap` y el HTML sale sin banner. Si
+        //   viajara por los dos lados, se vería dos veces.
+        // - página completa: banner inline, porque ahí no hay evento de htmx que
+        //   escuchar.
         if ($request->hasHeader('HX-Request')) {
             $response = $this->withToasts($response, $flash);
             $flash = ['error' => null, 'success' => null, 'info' => null];
@@ -83,13 +105,13 @@ abstract class Controller
     /**
      * Redirección de después de una mutación: 303 + `Location`.
      *
-     * 303 (See Other) y no 302: fuerza a que el siguiente pedido sea un `GET`,
-     * así refrescar la pantalla de destino no reenvía el formulario. Es el
-     * patrón POST/Redirect/GET, y por eso todas las mutaciones del proyecto
-     * vuelven por acá en vez de responder la página directamente.
+     * 303 (See Other) y no 302: le indica al cliente que el siguiente pedido sea
+     * un `GET`, así refrescar la pantalla de destino no reenvía el formulario. Es
+     * el patrón POST/Redirect/GET, y por eso las mutaciones cierran con un
+     * redirect y no con la página ya renderizada.
      *
-     * @param string $to ruta destino, sin base path: se resuelve con Url::path()
-     * @param int    $status 303 por defecto; 301/302 sólo si sabés por qué
+     * @param string $to     ruta destino, sin base path: se resuelve con Url::path()
+     * @param int    $status 303 por defecto; 301/302 solo si tienes una razón
      */
     protected function redirect(Response $response, string $to, int $status = 303): Response
     {
@@ -100,7 +122,7 @@ abstract class Controller
      * Dos migas: Inicio y la pantalla actual.
      *
      * La forma la lee el header del shell (`{label, href?, icon?, current?}`):
-     * `icon` viaja sólo cuando hay icono —una miga con `icon => null` pinta un
+     * `icon` viaja solo cuando hay icono —una miga con `icon => null` pinta un
      * hueco— y `current` marca la última para que se pinte como texto y no como
      * enlace.
      *
@@ -128,10 +150,10 @@ abstract class Controller
     /**
      * Tres migas: Inicio, el listado padre y la acción actual.
      *
-     * El `href` entra tal cual: el llamador decide si es un `Url::path()` o una
-     * URL propia, igual que hacía a mano. Se separó de breadcrumbs() en vez de
-     * agregarle parámetros opcionales porque las dos formas se leen distintas y
-     * con tres argumentos posicionales una llamada no dice cuál se está armando.
+     * El `href` entra tal cual: quien llama decide si es un `Url::path()` o una URL
+     * propia. Es un método aparte y no un parámetro opcional de `breadcrumbs()`
+     * porque las dos formas se leen distinto y con tres argumentos posicionales una
+     * llamada no dice cuál se está armando.
      *
      * @param string $href destino del listado padre, ya resuelto con Url::path()
      *
@@ -149,17 +171,15 @@ abstract class Controller
     /**
      * Emite los avisos de una acción htmx como evento `toasts`.
      *
-     * - `After-Swap` y no `HX-Trigger` a secas: en un ARM de 32 bits el swap
-     *   puede tardar y con el evento temprano el toast aparecería antes que la
-     *   lista nueva.
-     * - El payload es un OBJETO: htmx entrega `detail` tal cual solo cuando el
-     *   valor del header es un objeto; un array lo envuelve en `{value: [...]}`
-     *   (verificado en public/assets/htmx-2.0.11.min.js, handleTriggerHeader).
-     *   Por eso el layout lee `$event.detail.items` y no `.value`.
-     * - JSON_UNESCAPED_UNICODE: los mensajes van en castellano; escapados a
-     *   `\u00xx` el header crece al doble sin ganar nada. El SUBSTITUTE es la
-     *   red: un mensaje con bytes inválidos no puede tumbar la respuesta con un
-     *   TypeError de withHeader(false).
+     * `After-Swap` y no `HX-Trigger` a secas: htmx lo dispara con el DOM nuevo ya
+     * en su lugar, así el toast no puede aparecer antes que la lista. El payload
+     * es un objeto porque htmx entrega `detail` tal cual solo en ese caso; un
+     * array quedaría envuelto en `{value: [...]}`. El layout escucha
+     * `$event.detail.items`.
+     *
+     * `JSON_UNESCAPED_UNICODE` acorta el header de los mensajes en castellano y
+     * `JSON_INVALID_UTF8_SUBSTITUTE` es la red: un byte inválido no puede tumbar la
+     * respuesta con un TypeError de `withHeader()`.
      *
      * @param array<string, string|null> $flash
      */
@@ -183,13 +203,13 @@ abstract class Controller
     }
 
     /**
-     * Variables que este controlador agrega a TODAS sus vistas sin repetir
-     * `$extra` en cada acción (marca, menú, flags). Vacío por defecto: es un
-     * punto de extensión, no una utilidad.
+     * Variables que este controlador agrega a todas sus vistas sin repetir `$extra`
+     * en cada acción (marca, menú, flags). Vacío por defecto: es un punto de
+     * extensión, no una utilidad.
      *
-     * Precedencia en `render()`: el `$extra` de la acción gana sobre esto, y
-     * esto gana sobre los datos comunes y el CSRF. El contrato lo fija
-     * `tests/Support/ControllerViewDefaultsTest.php`.
+     * Precedencia en `render()`: el `$extra` de la acción gana sobre esto, y esto
+     * gana sobre los datos comunes y el CSRF. La resuelve el orden de los spreads
+     * del array de la vista.
      *
      * @return array<string, mixed>
      */
@@ -198,6 +218,12 @@ abstract class Controller
         return [];
     }
 
+    /**
+     * Los cuatro campos CSRF que espera `components/form/csrf.twig`, resueltos por
+     * `CsrfTokens::fields()`.
+     *
+     * @return array<string, mixed>
+     */
     protected function csrf(Request $request): array
     {
         return CsrfTokens::fields($request, $this->guard);

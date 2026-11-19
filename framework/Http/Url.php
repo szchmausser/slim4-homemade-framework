@@ -5,51 +5,50 @@ declare(strict_types=1);
 namespace Framework\Http;
 
 /**
- * Prefijo de ruta, para servir la app desde una carpeta y no desde la raíz del
- * dominio (S13).
+ * Construye las URLs de la aplicación a partir del prefijo de despliegue.
  *
- * Un solo lugar decide el prefijo. `base()` lo normaliza y `path()` arma cada
- * URL; las plantillas lo consumen por la función Twig `url()` y el resto del
- * PHP por `Url::path()`. Con `APP_BASE_PATH` vacío no agrega nada, así que un
- * despliegue en la raíz sale byte a byte igual que antes de existir este
- * helper.
+ * Es el punto único de armado de rutas: las plantillas entran por la función Twig
+ * `url()` y el PHP por `Url::path()`, así que ninguna vista conoce la carpeta en la
+ * que está montada la aplicación. Sin `APP_BASE_PATH` el prefijo es vacío y cada
+ * URL sale idéntica a la de un despliegue en la raíz del dominio.
  */
 final class Url
 {
-    /** Prefijo normalizado: '' o '/app'. Nunca termina en '/'. */
+    /**
+     * Prefijo de despliegue normalizado: `''` en la raíz del dominio, `/app` cuando
+     * la aplicación vive en una subcarpeta.
+     *
+     * Lee `$_ENV` primero porque es la fuente que cargan Dotenv y el bootstrap de
+     * tests, y cae a `getenv()` para el despliegue que define la variable inline,
+     * sin `.env`. No memoriza el valor: son dos lecturas de array por URL y una
+     * caché habría que invalidarla en cada test que cambia el entorno.
+     */
     public static function base(): string
     {
-        // $_ENV primero (es de donde lee todo el proyecto: Dotenv y
-        // tests/bootstrap.php) y getenv como red para el entorno inline de un
-        // despliegue sin .env (`APP_BASE_PATH=/app php -S ...`). Sin caché a
-        // propósito: es una lectura de array por URL, y cachear obligaría a
-        // invalidar el valor en cada test que cambia el entorno.
         $value = $_ENV['APP_BASE_PATH'] ?? getenv('APP_BASE_PATH');
 
         return self::normalize(is_string($value) ? $value : '');
     }
 
     /**
-     * URL de una ruta de la app. Acepta '/tareas' y 'tareas' por igual: el
-     * llamador no tiene que acordarse de dónde va la barra.
+     * URL de una ruta interna, con el prefijo ya aplicado.
      *
-     * La raíz conserva la barra final: con prefijo `/app`, `path('/')` es
-     * `/app/` y no `/app`. Es la URL que el router resuelve a la ruta `/` y la
-     * que el navegador ya tiene en la barra; sin ella, la raíz del despliegue
-     * queda como otra URL distinta.
+     * Acepta `/tareas` y `tareas` por igual: quien llama no necesita acordarse de
+     * la barra inicial y el resultado nunca la duplica. La raíz conserva su barra
+     * final (`/app/`), que es la URL que el router resuelve y la que el navegador
+     * muestra; sin ella, la raíz del despliegue quedaría como una ruta más.
      */
     public static function path(string $path): string
     {
-        // '/' + ltrim(): '' y '/' caen los dos en '/', y 'tareas' también.
-        // El resultado nunca duplica la barra aunque el llamador ya la ponga.
         return self::base() . '/' . ltrim($path, '/');
     }
 
     /**
-     * `app`, `/app`, `/app/`, `  app ` y `app/` son el MISMO prefijo. Con
-     * barras de más la URL sale `//app/tareas`, que es otra ruta y no matchea
-     * ninguna. La barra sola ('/') significa "sin prefijo", igual que vacío:
-     * un despliegue en la raíz puede escribir cualquiera de las dos.
+     * Reduce cualquier forma de escribir el prefijo a `''` o `/algo`.
+     *
+     * `app`, `/app`, `/app/` y `  app  ` son el mismo prefijo. Una barra de más
+     * produce `//app/tareas`, una ruta distinta que no coincide con ninguna
+     * definición. `/` significa lo mismo que vacío: aplicación en la raíz.
      */
     private static function normalize(string $value): string
     {

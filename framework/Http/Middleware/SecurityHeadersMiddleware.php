@@ -11,40 +11,49 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 use Framework\Support\Env;
 
 /**
- * Deliberadamente NO incluye Content-Security-Policy. En este stack
- * (HTMX + Alpine + Tailwind browser runtime) una CSP estricta no es alcanzable
- * sin abandonar varias cosas; el capítulo 18 tiene el costo exacto y el
- * momento en que conviene. Lo que sí va aquí es lo que suma sin romper nada.
+ * Cabeceras de seguridad que este stack puede sostener.
+ *
+ * Es el middleware más externo del pipeline: envuelve al error middleware para que
+ * las páginas 404 y 500 también salgan con las cabeceras. Se registra al final en
+ * `config/middleware.php` porque `add()` es LIFO y lo último agregado es lo primero
+ * en ejecutarse.
+ *
+ * No incluye Content-Security-Policy: el shell usa JS inline y Alpine/Tailwind en el
+ * navegador, y una CSP estricta los rompería.
  */
 class SecurityHeadersMiddleware implements MiddlewareInterface
 {
+    /**
+     * Agrega las cabeceras a la respuesta que devuelve el resto del pipeline y, con
+     * SESSION_SECURE, HSTS.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         $response = $handler->handle($request);
 
         $response = $response
-            // El navegador deja de adivinar el tipo de contenido. Sin esto, un
-            // archivo served como octet-stream que en realidad es HTML se
-            // ejecuta. Es el mejor valor por byte de todo el set.
+            // El navegador deja de adivinar el tipo: sin esto, un archivo servido
+            // como octet-stream que en realidad es HTML se ejecuta. Es la cabecera
+            // más barata de todo el set.
             ->withHeader('X-Content-Type-Options', 'nosniff')
 
-            // Nadie puede embeber la app en un iframe y hacerte click sin
-            // querer (clickjacking). Alternativa moderna: `frame-ancestors 'none'`
-            // dentro de una CSP, pero eso implicaría adoptar CSP entera.
+            // Nadie puede embeber la app en un iframe y hacerte hacer clic sin
+            // querer (clickjacking). La alternativa moderna sería
+            // `frame-ancestors 'none'`, pero eso exige adoptar una CSP entera.
             ->withHeader('X-Frame-Options', 'DENY')
 
-            // Los assets son locales con SRI, pero la app puede enlazar a
-            // sitios externos. Sin esto, cada salida manda tu URL completa
-            // (con paths y query string) en el header Referer.
+            // Los assets son locales con SRI, pero la app puede enlazar a sitios
+            // externos. Sin esto, cada salida manda la URL completa —con paths y
+            // query string— en el header Referer.
             ->withHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
 
-            // La app no usa cámara, micrófono ni geolocalización. Negarlos por
-            // defecto evita que una dependencia o un iframe los pida.
+            // La app no usa cámara, micrófono ni geolocalización: negarlos por
+            // defecto evita que una dependencia o un iframe los pidan.
             ->withHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
-        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo
-        // flag que las cookies Secure: activarlo en dev local deja al navegador
-        // recordando un HTTPS que el server no habla.
+        // HSTS solo cuando la app se sirve por HTTPS. Se gatea con el mismo flag
+        // que las cookies `Secure`: activarlo en desarrollo local deja al navegador
+        // recordando un HTTPS que el servidor no habla.
         if (Env::bool('SESSION_SECURE')) {
             $response = $response->withHeader(
                 'Strict-Transport-Security',

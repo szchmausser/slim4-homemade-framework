@@ -10,6 +10,15 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
 
+/**
+ * Abre la sesión nativa de PHP y aplica sus políticas de vencimiento.
+ *
+ * Corre antes que cualquier middleware que lea `$_SESSION` —la sesión de auth, el
+ * remember-me y el almacén del Guard del CSRF— y una sola vez por petición: si la
+ * sesión ya está activa no hace nada. Configura nombre, cookie y ruta de
+ * almacenamiento desde el entorno, y vence las sesiones autenticadas por
+ * inactividad o por antigüedad absoluta.
+ */
 class SessionMiddleware implements MiddlewareInterface
 {
     public const DEFAULT_IDLE_TIMEOUT = 7200;      // 2 horas
@@ -33,9 +42,11 @@ class SessionMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Nombre de sesión saneado: PHP solo acepta letras, números, guion y
-     * guion bajo. Un valor con espacios o `;` puede romper la cookie o
-     * inyectar atributos.
+     * Nombre de sesión saneado: PHP solo acepta letras, números, guion y guion
+     * bajo.
+     *
+     * Un valor con espacios o `;` puede romper la cookie o inyectar atributos, y
+     * uno vacío deja la sesión sin nombre; por eso hay un fallback fijo.
      */
     public static function sessionName(): string
     {
@@ -44,6 +55,12 @@ class SessionMiddleware implements MiddlewareInterface
         return is_string($name) && $name !== '' ? $name : 'mi_app_session';
     }
 
+    /**
+     * Directorio de los archivos de sesión.
+     *
+     * `SESSION_SAVE_PATH` gana si está definido; si no, `storage/sessions` en la
+     * raíz del proyecto, que el bootstrap crea en cada clon.
+     */
     public static function savePath(): string
     {
         $configured = (string) Env::get('SESSION_SAVE_PATH', '');
@@ -53,21 +70,42 @@ class SessionMiddleware implements MiddlewareInterface
             : dirname(__DIR__, 3) . '/storage/sessions';
     }
 
+    /**
+     * Segundos de inactividad tolerados; `0` desactiva el vencimiento por
+     * inactividad.
+     */
     public static function idleTimeout(): int
     {
         return max(0, Env::int('SESSION_IDLE_TIMEOUT', self::DEFAULT_IDLE_TIMEOUT));
     }
 
+    /**
+     * Tope absoluto de vida de la sesión, en segundos; `0` lo desactiva.
+     *
+     * También se usa como `gc_maxlifetime` para que el recolector de PHP no borre
+     * una sesión que la aplicación todavía considera válida.
+     */
     public static function absoluteTimeout(): int
     {
         return max(0, Env::int('SESSION_ABSOLUTE_TIMEOUT', self::DEFAULT_ABSOLUTE_TIMEOUT));
     }
 
+    /**
+     * Arranca la sesión si nadie la abrió todavía y vence la que corresponda;
+     * después delega en el resto del pipeline.
+     *
+     * La configuración se aplica antes de `session_start()` porque PHP no acepta
+     * cambiar nombre ni cookie después, y el vencimiento se evalúa al final porque
+     * los datos de la sesión recién están disponibles con `session_start()`.
+     */
     public function process(Request $request, Handler $handler): Response
     {
         if (session_status() === PHP_SESSION_NONE) {
             $savePath = self::savePath();
             if (!is_dir($savePath)) {
+                // El bootstrap crea `storage/sessions`, pero un path configurado
+                // puede no existir todavía: se crea con 0700 y el `@` silencia el
+                // fallo de creación.
                 @mkdir($savePath, 0700, true);
             }
 
@@ -75,14 +113,15 @@ class SessionMiddleware implements MiddlewareInterface
             session_save_path($savePath);
             session_set_cookie_params(self::cookieParams());
 
-            // Rechaza IDs de sesión que nunca se inicializaron (session fixation).
+            // Modo estricto: rechaza ids que PHP nunca emitió (fijación de sesión).
+            // `use_only_cookies` mantiene el id fuera de la URL.
             ini_set('session.use_strict_mode', '1');
             ini_set('session.use_only_cookies', '1');
 
             $absolute = self::absoluteTimeout();
             if ($absolute > 0) {
-                // El GC no debe borrar una sesión que la app todavía considera
-                // válida; el vencimiento real lo aplica este middleware.
+                // El recolector no debe borrar una sesión que la app todavía
+                // considera válida; el vencimiento real lo aplica este middleware.
                 ini_set('session.gc_maxlifetime', (string) $absolute);
             }
 
@@ -94,9 +133,12 @@ class SessionMiddleware implements MiddlewareInterface
     }
 
     /**
-     * Vencimiento por inactividad y tope absoluto. Solo se aplica a sesiones
-     * autenticadas: un formulario público abierto toda la tarde no debería
-     * perder el CSRF por la mitad.
+     * Vence la sesión por inactividad o por tope absoluto, y refresca la marca de
+     * actividad.
+     *
+     * Solo se aplica a sesiones autenticadas: un formulario público abierto toda la
+     * tarde no debería perder el CSRF por la mitad. Al vencer vacía los datos y
+     * regenera el id, así el usuario vuelve a entrar.
      */
     private function expireIfStale(): void
     {
