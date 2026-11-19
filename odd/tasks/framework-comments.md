@@ -84,3 +84,11 @@ sin CDNs, SRI sin cambios.
   `framework/{Auth,Http,Validation,Docs}`.
 - L5 (evidencia): demo notas instalado en el working tree (sin trackear). Fuente =
   `framework/scaffolds/notas/**`; se reinstala tras editar el scaffold.
+- L6 (cierre, T7): `composer verify` verde — lint, `docs:check` (25 bloques
+  sincronizados), PHPStan nivel 5 sin errores, PHPUnit 208 tests / 1525 aserciones,
+  `migrate:fresh` sobre SQLite temporal. Guard de solo-comentarios contra el commit
+  base 288cd97: 57/57 archivos PHP con flujo de tokens idéntico; ninguna línea de
+  código cambió en todo el feature. Demo notas reinstalado desde el scaffold.
+- L7 (commits): ec83e0a (T3 auth/validación/soporte), 1260169 (T2+T4 http),
+  7d5b4b0 y 42a897e (T5 tasks: datos/rutas y vistas/tests), 3781f0e (T6 contacts),
+  f2b2a69 (T2 notas), 88d0c06 (T7 guía sincronizada). Rama `docs/framework-comments`.
