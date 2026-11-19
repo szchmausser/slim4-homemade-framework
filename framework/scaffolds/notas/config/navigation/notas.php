@@ -2,15 +2,25 @@
 
 declare(strict_types=1);
 
-// Entrada del demo en el menú. Vive en el scaffold: `demo:notas:install` la
-// copia y `demo:notas:remove` la borra, así que la presencia del archivo es el
-// interruptor.
+/**
+ * Entrada del demo Notas en el menú lateral.
+ *
+ * Vive en el scaffold a propósito: `composer demo:notas:install` copia este archivo
+ * y `composer demo:notas:remove` lo borra, así que su presencia es el interruptor
+ * que muestra u oculta la entrada. No hay un registro central que editar; si el
+ * archivo está, la entrada existe.
+ *
+ * Esa es la lección para tu entidad: el menú se arma leyendo el directorio, no
+ * agregando una línea a una lista.
+ */
 return [
     'label'    => 'Notas',
     'href'     => '/notas',
     'icon'     => 'list',
     'key'      => 'notas',
+    // Ficha que el menú muestra para orientar a quien recién llega.
     'summary'  => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
     'why'      => 'Es la entidad del tutorial: la referencia para comparar cuando seguiste el recorrido paso a paso.',
+    // Orden dentro del menú; los demos instalados se intercalan por este número.
     'position' => 30,
 ];

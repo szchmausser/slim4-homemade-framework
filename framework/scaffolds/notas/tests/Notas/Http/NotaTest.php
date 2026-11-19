@@ -7,10 +7,21 @@ namespace Tests\Notas\Http;
 use App\Notas\Models\Nota;
 use Tests\Support\HttpTestCase;
 
+/**
+ * Tests HTTP del demo Notas: alta, edición, borrado, rechazos y paginación por
+ * región.
+ *
+ * Cada test pasa por la app completa (`HttpTestCase` arma el request) y comprueba
+ * lo que ve el usuario —código, `Location` y HTML— más el efecto en la base.
+ *
+ * Para tu entidad: copia el archivo, cambia rutas, campos y avisos.
+ */
 final class NotaTest extends HttpTestCase
 {
     protected function setUp(): void
     {
+        // Cada test arranca con sesión y con la tabla vacía: los conteos de
+        // abajo valen sin depender del orden de ejecución.
         self::loginAs();
         Nota::query()->delete();
     }
@@ -23,9 +34,9 @@ final class NotaTest extends HttpTestCase
 
     private function crear(array $datos = []): Nota
     {
-        // `$datos` primero: con el default a la izquierda, el `+` de PHP
-        // descarta el título que pasa cada test y todas las filas se llaman
-        // «De prueba».
+        // `$datos` va primero: si el default quedara a la izquierda, el `+` de
+        // PHP descartaría el título que pasa cada test y todas las filas se
+        // llamarían «De prueba».
         return Nota::create($datos + ['titulo' => 'De prueba']);
     }
 
@@ -52,8 +63,9 @@ final class NotaTest extends HttpTestCase
 
     public function test_el_aviso_de_exito_llega_al_host_de_toasts_por_defecto(): void
     {
-        // Sin declarar nada en el controlador: el default del framework manda
-        // el flash como toast del shell, que es lo que el layout pinta.
+        // No hace falta declarar nada: el default de `Controller` manda el flash
+        // como toast del shell, que es lo que el layout pinta en una página
+        // completa.
         $token = self::token('/notas');
 
         self::app()->handle(self::request('POST', '/notas', [
@@ -93,7 +105,7 @@ final class NotaTest extends HttpTestCase
         $nota = $this->crear(['titulo' => 'Antes']);
         $token = self::token('/notas');
 
-        // El alta comparte `_form.twig` con la edición: en la página de
+        // El alta comparte `_form.twig` con la edición, así que en la página de
         // edición no tiene que heredar la nota que se está editando.
         $paginaEdicion = (string) self::app()->handle(
             self::request('GET', '/notas/' . $nota->id . '/edit')
@@ -159,11 +171,15 @@ final class NotaTest extends HttpTestCase
         ]));
 
         self::assertSame(422, $response->getStatusCode());
+        // El rechazo no es una navegación: `renderList()` sólo emite
+        // `HX-Push-Url` en 2xx, así que la URL se queda donde estaba.
         self::assertSame('', $response->getHeaderLine('HX-Push-Url'));
     }
 
     public function test_sin_token_csrf_redirige_al_login_y_no_crea_nada(): void
     {
+        // El CSRF es global: sin token, el Guard corta antes del controlador y
+        // manda al login. Por eso no se crea ninguna fila.
         $response = self::app()->handle(self::request('POST', '/notas', [
             'titulo' => 'Sin token',
         ]));
@@ -189,7 +205,7 @@ final class NotaTest extends HttpTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('/notas?page=2&per_page=5', $response->getHeaderLine('HX-Push-Url'));
-        // Región, no página: sin shell dentro de la respuesta.
+        // Región, no página entera: la respuesta no trae shell.
         self::assertStringNotContainsString('<aside', $html);
         self::assertStringNotContainsString('<header', $html);
         self::assertSame(5, substr_count($html, 'rounded-box border border-base-300'));

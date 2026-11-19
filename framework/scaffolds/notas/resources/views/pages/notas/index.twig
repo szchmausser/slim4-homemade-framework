@@ -1,3 +1,12 @@
+{#
+  Página del listado de Notas: el shell completo, el modal de alta y, cuando hay
+  nota, el de edición.
+
+  La renderiza `NotaController::renderList()`. En una petición htmx ese mismo
+  método devuelve sólo `_panel.twig`, que es lo que se reemplaza.
+
+  Para tu entidad: copia la página y cambia textos, modales e `include` del panel.
+#}
 {% extends 'layouts/app.twig' %}
 
 {% block title %}Notas{% endblock %}
@@ -25,6 +34,8 @@
 
             <h2 class="text-lg font-semibold">Listado</h2>
 
+            {# El `include` y no un `embed`: el panel es la región que el
+               controlador devuelve sola en una petición htmx. #}
             {% include 'pages/notas/_panel.twig' %}
         </div>
     </section>
@@ -36,8 +47,9 @@
         open: open_create_modal|default(false)
     } %}
         {% block body %}
-            {# `nota: null` corta la herencia de `_form.twig`: en /notas/{id}/edit
-               el alta se abriría con los datos de la nota que se está editando. #}
+            {# `nota: null` corta la herencia del `include`: sin él, en
+               /notas/{id}/edit el alta se abriría con los datos de la nota que
+               estás editando. #}
             {% include 'pages/notas/_form.twig' with {
                 action: url('/notas'),
                 submit_label: 'Crear nota',
@@ -47,6 +59,9 @@
         {% endblock %}
     {% endembed %}
 
+    {# El modal de edición sólo existe si el controlador pasó `nota`:
+       `renderList()` la manda en `edit` y en el rechazo de `update`, y el
+       listado suelto no la trae. #}
     {% if nota is defined %}
         {% embed 'components/ui/modal.twig' with {
             id: 'nota-edit-modal',

@@ -14,20 +14,29 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Exception\HttpNotFoundException;
 
+/**
+ * Controlador de Notas: las cinco acciones de la entidad y las dos utilidades
+ * que comparten.
+ *
+ * Lo llama Slim desde `routes/notas.php`, ya con sesión, CSRF y login resueltos.
+ * Usa `Nota`, `Validator` y `Pagination`; responde por el `Controller` base.
+ *
+ * Para tu entidad: copia el archivo, cambia el modelo y cierra cada mutación
+ * con `redirect()`.
+ */
 final class NotaController extends Controller
 {
-    /*
-     * Utilidades del controlador. Van primero a propósito: no son acciones de
-     * ruta, las consumen las acciones de abajo.
-     */
+    // Utilidades primero: no son acciones de ruta y las consumen las de abajo.
+    // Las acciones siguen el recorrido —listado, alta, edición, guardado y
+    // borrado— y cada mutación vuelve con `redirect()`.
 
     /**
-     * Datos de la pantalla de listado: notas de la página pedida, metadata de
-     * paginación y miga de pan.
+     * Datos del listado: las notas de la página pedida, la metadata del
+     * paginador y la miga de pan.
      *
-     * La comparten las cuatro acciones que renderizan esta pantalla (`index`,
-     * `edit` y los rechazos de `store` y `update`). Si viviera dentro de
-     * `index()`, cada una tendría que repetir el recorte, la miga y el `active`.
+     * La comparten las cuatro acciones que renderizan la pantalla (`index`,
+     * `edit` y los rechazos de `store` y `update`), así el recorte de página y la
+     * miga no se repiten en cada una.
      *
      * @return array<string, mixed>
      */
@@ -42,23 +51,20 @@ final class NotaController extends Controller
         return [
             'notas'      => $paginacion['items'],
             'pagination' => $paginacion,
-            // La miga la lee el header del shell: Inicio como enlace y Notas
-            // como página actual. Sin esto el header cae en su fallback y
+            // La miga la pinta el header del shell: Inicio como enlace y Notas
+            // como página actual. Sin ella, el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
             'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ];
     }
 
     /**
-     * Render único de la pantalla de listado.
+     * Render único de la pantalla de listado: lo usan las cuatro acciones que la
+     * muestran.
      *
-     * No es una acción de ruta: la llaman `index()`, `edit()` y los rechazos de
-     * `store()` y `update()`. Existe para que esos cuatro caminos compartan la
-     * plantilla, el `active`, la paginación y la URL, en un solo lugar.
-     *
-     * Con `HX-Request` devuelve sólo el panel: si vuelve la página entera, el
-     * swap anida el shell (dos sidebars, dos headers). Emite `HX-Push-Url` sólo
-     * en 2xx, porque un 422 no es una página que el usuario haya navegado.
+     * Con `HX-Request` devuelve sólo el panel, porque la página entera anidaría
+     * un segundo shell. El `HX-Push-Url` sale sólo en 2xx: un 422 no es una
+     * página que el usuario haya navegado.
      *
      * @param array<string, mixed> $extra  datos del llamador: errores, lo tipeado, el modal a abrir
      * @param int                  $status estado HTTP de la respuesta; 422 en un rechazo
@@ -82,19 +88,19 @@ final class NotaController extends Controller
             . '&per_page=' . $data['pagination']['per_page']);
     }
 
-    /*
-     * Acciones de ruta: las invoca Slim, cada una con su método HTTP.
-     */
+    /* Acciones de ruta: las invoca Slim, una por cada ruta de `routes/notas.php`. */
 
-    /** `GET /notas`. Sólo delega en `renderList()`: el endpoint no arma datos. */
+    /** `GET /notas`: el listado. Delega en `renderList()`; el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->renderList($request, $response);
     }
 
     /**
-     * `POST /notas`. Si valida, guarda y redirige con aviso; si no, devuelve
-     * 422 con el modal de alta abierto y lo tipeado.
+     * `POST /notas`: el alta.
+     *
+     * Valida el título y el cuerpo; si pasa, guarda y redirige al listado con el
+     * aviso, y si falla devuelve 422 con el modal de alta abierto y lo tipeado.
      */
     public function store(Request $request, Response $response): Response
     {
@@ -125,8 +131,10 @@ final class NotaController extends Controller
     }
 
     /**
-     * `GET /notas/{id}/edit`. No es una pantalla aparte: reusa el listado y
-     * abre el modal de edición con la nota cargada.
+     * `GET /notas/{id}/edit`: el formulario de edición.
+     *
+     * No abre una pantalla aparte: reusa el listado y muestra el modal de
+     * edición con la nota cargada. Un id que no existe es un 404.
      */
     public function edit(Request $request, Response $response, array $args): Response
     {
@@ -143,8 +151,10 @@ final class NotaController extends Controller
     }
 
     /**
-     * `POST /notas/{id}`. Si valida, guarda y redirige; si no, devuelve 422 con
-     * el modal de edición abierto.
+     * `POST /notas/{id}`: guarda la edición.
+     *
+     * Valida igual que el alta; si falla devuelve 422 con el modal de edición
+     * abierto, y si pasa guarda y redirige al listado.
      */
     public function update(Request $request, Response $response, array $args): Response
     {
@@ -163,8 +173,8 @@ final class NotaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // `nota` no es decorativo: index.twig envuelve el modal de edición
-            // en {% if nota is defined %}. Sin la clave no se renderiza y lo
+            // `nota` no es opcional: `index.twig` envuelve el modal de edición en
+            // `{% if nota is defined %}`, así que sin la clave no se renderiza y lo
             // tipeado termina en el modal de alta.
             return $this->renderList($request, $response, [
                 'errors'          => $validator->errors(),
@@ -184,7 +194,7 @@ final class NotaController extends Controller
         return $this->redirect($response, '/notas');
     }
 
-    /** `POST /notas/{id}/delete`. Borra y redirige con aviso. */
+    /** `POST /notas/{id}/delete`: borra la nota y vuelve al listado con el aviso. */
     public function destroy(Request $request, Response $response, array $args): Response
     {
         $nota = Nota::find((int) $args['id']);

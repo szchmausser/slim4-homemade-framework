@@ -1,9 +1,21 @@
+{#
+  Panel del listado de Notas: la región que htmx reemplaza.
+
+  Lo incluye `index.twig` en una navegación normal y lo devuelve solo
+  `NotaController::renderList()` cuando la petición trae `HX-Request`. Por eso su
+  raíz tiene id propio y el paginador apunta a ella.
+
+  Para tu entidad: copia el panel, cambia el contenido de la fila y el `target`
+  del paginador.
+#}
 <div id="notas-panel">
     {% embed 'components/list/simple.twig' with {
         items: notas,
         empty: 'No hay notas todavía.'
     } %}
         {% block row %}
+            {# Una fila: el título abre la edición y a la derecha van las dos
+               acciones como iconos con nombre accesible. #}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
                 <div class="min-w-0">
                     <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
@@ -21,6 +33,9 @@
                         href: url('/notas/' ~ item.id ~ '/edit')
                     } only %}
 
+                    {# Borrar no es un POST directo desde la fila: abre el diálogo
+                       `nota-delete-<id>` que se emite en `after`, así la
+                       confirmación es HTML y no un `confirm()` del navegador. #}
                     {% include 'components/ui/button.twig' with {
                         label: '',
                         variant: 'ghost',
@@ -35,7 +50,7 @@
 
         {# Los diálogos van en `after`, fuera de la `<ul>`: un `<dialog>` no es
            hijo válido de una lista. Recorren `notas` otra vez porque este bloque
-           se emite una sola vez, sin `item`. #}
+           se emite una vez, sin `item`. #}
         {% block after %}
             {% for item in notas %}
                 {% embed 'components/ui/modal.twig' with {
