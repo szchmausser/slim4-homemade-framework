@@ -44,7 +44,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |
 | `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. |
-| `tests/` | Suite de la app base. Los tests de cada demo viven en su scaffold. |
+| `tests/` | Tests de la app y de tus entidades: contratos del framework, comportamiento HTTP y scripts. Una carpeta por entidad (`tests/<Entidad>/Http/`, `namespace Tests\<Entidad>\Http`); los tests de cada demo viajan en su scaffold. |
 | `scripts/` | `lint`, `docs-check/sync`, `phpstan`, `migrate-fresh`, `demo`, `serve`, backup. |
 
 ## Comandos

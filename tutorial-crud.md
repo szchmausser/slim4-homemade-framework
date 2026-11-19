@@ -2276,14 +2276,14 @@ contratos, y se escriben en tres tandas para que cada una tenga un objetivo clar
 Los dos primeros tests cubren el camino que más se toca: crear y ser rechazado. El segundo es el que
 importa de verdad, porque una validación que no repinta el modal es una validación que el usuario pierde.
 
-**Acción**: crea `tests/Http/NotaTest.php` con el esqueleto y los dos tests del alta:
+**Acción**: crea `tests/Notas/Http/NotaTest.php`, una carpeta por entidad, con el esqueleto y los dos tests del alta:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Http;
+namespace Tests\Notas\Http;
 
 use App\Models\Nota;
 use Tests\Support\HttpTestCase;
@@ -3058,7 +3058,7 @@ edición en `{% if nota is defined %}`. Sin esa clave el modal no se renderiza y
 el modal de alta, que es el que queda abierto.
 
 El `422` pasa por el mismo `renderList()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
-contrato, agrega a `tests/Http/NotaTest.php`:
+contrato, agrega a `tests/Notas/Http/NotaTest.php`:
 
 ```php
     public function test_un_422_no_empuja_la_url(): void
@@ -3130,7 +3130,7 @@ escrito para que la segunda entidad no te obligue a releer los trece anteriores.
    grupo; sin eso tu CRUD queda público) y `config/navigation/<entidad>.php`
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/pages/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
-6. `tests/Http/<Entidad>Test.php`
+6. `tests/<Entidad>/Http/<Entidad>Test.php`, con `namespace Tests\<Entidad>\Http`
 
 Para el icono del encabezado y del menú usa un nombre del registro compartido —los de
 `resources/views/components/ui/icon.twig`, que ya incluyen `list`, `contacts`, `pencil` y `trash`—: un nombre
@@ -3139,10 +3139,10 @@ un glifo nuevo, agrégalo ahí primero.
 
 **Sobre el demo como punto de comparación**: `composer demo:notas:install` instala una entidad `notas`
 con el mismo nombre de tabla y la misma clase de migración que acabas de escribir, así que **no convive
-con tu versión**: el instalador aborta porque `routes/notas.php`, `config/navigation/notas.php` y las
-vistas ya existen, y con `composer demo:notas:install -- --force` copia los archivos y la migración
-aborta igual, porque Phinx no puede declarar dos veces la clase `CreateNotasTable` —la tuya y la del
-demo—. Para comparar, usa un clon limpio sin la entidad —o el demo antes de empezar—. Es la misma
+con tu versión**: el instalador aborta porque `routes/notas.php`, `config/navigation/notas.php`,
+`tests/Notas/Http/NotaTest.php` y las vistas ya existen, y con `composer demo:notas:install -- --force`
+copia los archivos y la migración aborta igual, porque Phinx no puede declarar dos veces la clase
+`CreateNotasTable` —la tuya y la del demo—. Para comparar, usa un clon limpio sin la entidad —o el demo antes de empezar—. Es la misma
 entidad, no dos que puedan estar juntas.
 
 **Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.

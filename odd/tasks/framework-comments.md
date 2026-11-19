@@ -62,6 +62,8 @@ sin CDNs, SRI sin cambios.
   `pages/notas/_form.twig`). S4, S5.
 - T9 (inline) Retirar el guard de solo-comentarios: era instrumento de verificación de
   esta sesión, no una herramienta del repo.
+- T10 (inline) Tests de usuario por entidad: tutorial a `tests/Notas/Http/NotaTest.php` con
+  `namespace Tests\Notas\Http`, convención en `AGENTS.md`. S5.
 
 ## Log
 
@@ -113,3 +115,16 @@ sin CDNs, SRI sin cambios.
   cumple y requiere una decisión editorial aparte.
 - L10 (T9): el guard de solo-comentarios y sus scratch se eliminaron. La evidencia
   queda en L6; el repo no gana una herramienta nueva.
+- L11 (decisión del usuario, T10): no se mueve la suite a `framework/Tests`. El corte
+  `tests/Http` vs `tests/Support` es por técnica, no por propiedad: `AuthTest` prueba
+  `App\Http\Controllers\Auth\AuthController`, `SchemaIntegrityTest` prueba las
+  migraciones de la app y `UrlTest`/`EnvTest`/`FlashTest`/`ValidatorTest` (que sí son
+  framework) viven en `tests/Support`. Mover la suite crearía la dependencia
+  `Framework -> App` que `AGENTS.md` prohíbe, y el namespace `Framework\Tests` exige
+  `framework/Tests/` con mayúscula para no romper PSR-4 en Termux/Linux. Se resuelve
+  solo lo barato: los tests de usuario van a `tests/<Entidad>/Http/` con
+  `namespace Tests\<Entidad>\Http` (tutorial actualizado) y la convención queda en el
+  mapa de `AGENTS.md`. El harness (`tests/bootstrap.php`, `tests/Support/AppFactory`,
+  `HttpTestCase`) no se mueve: construye la app del usuario y conoce `App\Models\User`.
+  Sube el costo de la alternativa: la guía copia 7 archivos de `tests/` en fences y
+  enumera cada test en `guia:7583-7606`; eso no lo arregla `docs:sync`.
