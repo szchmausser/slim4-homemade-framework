@@ -1,9 +1,16 @@
+{# Página del demo Tareas: el formulario de alta y el panel que se intercambia.
+
+   Capa vista. La renderiza `TaskController::respond()` como página completa; el
+   swap de HTMX recibe `_panel.twig`, que esta página incluye. `_styles.twig` viaja
+   con la página y se borra al desinstalar el demo.
+
+   Para tu entidad, copia este archivo y cambia el formulario y el panel. #}
 {% extends 'layouts/app.twig' %}
 
 {% block title %}Tareas{% endblock %}
 
-{# El CSS del demo viaja con el demo: si se desinstala, el archivo se borra
-   con el resto del scaffold y el shell no queda con reglas huérfanas. #}
+{# `_styles.twig` viaja con el demo: si se desinstala, el archivo se borra con el
+   resto del scaffold y el shell no queda con reglas huérfanas. #}
 {% block styles %}{% include 'pages/tasks/_styles.twig' %}{% endblock %}
 
 {% block content %}
@@ -21,34 +28,20 @@
                 </p>
             </div>
 
-    {# hx-on::after-request limpia el input SOLO si el alta salió bien: el form
-       vive fuera de #tareas-panel, así que el swap no lo toca y el texto
-       quedaría pegado tras crear la tarea. La condición es el STATUS y no
-       `event.detail.successful`: un fallo de validación responde 422 y ese 422
-       sí swapea (ver `beforeSwap` en public/assets/app.js), así
-       que esa bandera sería true justamente cuando el texto tipeado es lo
-       único que el usuario tiene para corregir. El server ya conserva el título
-       en el camino de edición (`editing_title`); esto es la otra mitad de la
-       misma regla.
-       maxlength=120 alinea el browser con el max:120 del server.
-       hx-disabled-elt: sin esto un doble click en "Agregar" (o Enter repetido)
-       emite dos POST y crea dos tareas; y en hardware lento el botón apagado es
-       la única señal de que el request salió. El selector viaja con el id
-       porque htmx resuelve un selector CSS pelado contra el documento entero
-       (querySelectorAll sobre el root), no contra el form: `button` a secas
-       apagaría también las filas, el header y el sidebar. `find button` queda
-       atado a qué elemento toma htmx como disparador y `this` apagaría el form,
-       no su submit. Aquí el único <button> es el submit: el input no se
-       deshabilita, así que el foco no se pierde mientras espera.
-       La posición viaja en la URL del form: el alta no manda page/per_page en
-       el cuerpo, así que sin esto crear desde "25 por página" devuelve la
-       lista en 10 y el usuario pierde su elección sin haberla tocado. La
-       página es 1 a propósito: la tarea nueva queda arriba. `pagination` está
-       siempre en el contexto de index.twig (sólo lo renderiza
-       TaskController::respond, que siempre pasa pageData). #}
-    {# `method`/`action` no son redundantes con hx-post: htmx intercepta el
-       submit y usa su atributo, pero sin JS el formulario tiene que poder
-       enviarse solo. #}
+    {# El alta vive fuera de `#tareas-panel`, así que el swap no la toca: el input
+       se limpia desde acá, y sólo cuando el alta salió bien. #}
+    {# La condición es el status y no `event.detail.successful`: un fallo de
+       validación responde 422 y ese 422 sí swapea, así que la bandera sería
+       verdadera justo cuando lo tipeado es lo único que el usuario tiene. #}
+    {# `maxlength` alinea el navegador con el `max:120` del controlador. #}
+    {# `hx-disabled-elt` apaga sólo el submit mientras hay un request en vuelo: sin
+       eso un doble click crea dos tareas, y el input conserva el foco. El selector
+       lleva el id porque htmx resuelve un selector pelado contra el documento. #}
+    {# La posición viaja en la URL del form: el alta no manda `per_page` en el
+       cuerpo, así que sin esto crear desde "25 por página" devuelve la lista en 10.
+       La página es 1 a propósito: la tarea nueva queda arriba. #}
+    {# `method` y `action` no son redundantes con `hx-post`: htmx intercepta el
+       submit, pero sin JS el formulario tiene que poder enviarse solo. #}
     <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"

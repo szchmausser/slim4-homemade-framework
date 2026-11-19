@@ -11,22 +11,17 @@ use Tests\Tasks\Http\TasksTestCase;
 /**
  * Avisos después de una acción CRUD: qué canal usa cada tipo de request.
  *
- * El canal lo elige el request, y solo uno:
- * - con `HX-Request` el mensaje viaja en `HX-Trigger-After-Swap` y el HTML
- *   sale SIN banner (si viajara por los dos lados se vería dos veces);
- * - sin `HX-Request` queda inline en `#tareas-panel`, que es el fallback para
- *   formularios y navegaciones normales (ahí no hay evento que escuchar).
+ * Capa tests. El canal lo elige el request y es uno solo: con `HX-Request` el mensaje
+ * viaja en `HX-Trigger-After-Swap` y el HTML sale sin banner; sin `HX-Request` queda
+ * inline en el panel, que es el fallback cuando no hay eventos que escuchar.
  *
- * El segundo test de esta clase es el par del de CSRF: aquel cubre la
- * RECEPCIÓN del evento `csrf` y este la del evento `toasts`. Si alguien
- * reemplaza el stack del layout por un alert suelto, esto falla antes de que
- * el usuario guarde una tarea y no vea nada.
+ * Para tu entidad, copia el archivo y cambia la ruta y los mensajes.
  */
 final class ToastFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -79,10 +74,9 @@ final class ToastFlowTest extends TasksTestCase
     }
 
     /**
-     * S5 + S3: el fallo de validación responde 422 y el mensaje que viaja al
-     * toast es el de `Validator`, en castellano. El canal sigue siendo el
-     * header porque el campo de alta vive FUERA de #tareas-panel: el swap no
-     * lo toca y el toast es su único canal in-band.
+     * Un fallo de validación responde 422 y el mensaje es el de `Validator`, en
+     * castellano. El canal sigue siendo el header porque el campo de alta vive fuera
+     * del panel: el swap no lo toca.
      */
     public function test_la_validacion_fallida_llega_como_toast_de_error(): void
     {
@@ -163,9 +157,9 @@ final class ToastFlowTest extends TasksTestCase
     }
 
     /**
-     * Contrato del layout: el stack y los DOS listeners. El de `csrf` se
-     * conserva porque el 400 de slim/csrf no hace swap y no puede usar el
-     * canal After-Swap; el de `toasts` lee `.items` (payload objeto).
+     * Contrato del shell: el stack de toasts y sus dos listeners. El de `csrf` se
+     * conserva porque el 400 del guard no hace swap y no puede usar el canal
+     * After-Swap; el de `toasts` lee `.items` (payload objeto).
      */
     public function test_el_layout_recibe_los_dos_eventos_en_el_stack_de_toasts(): void
     {
@@ -195,6 +189,8 @@ final class ToastFlowTest extends TasksTestCase
     }
 
     /**
+     * Extrae los items del header y falla si el payload no tiene la forma esperada.
+     *
      * @return list<array{message: string, type: string}>
      */
     private function toastItems(ResponseInterface $response): array

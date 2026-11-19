@@ -8,17 +8,17 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * El toggle era la ÚNICA acción HTMX sin cobertura de tests, y ahí se coló
- * el bug: `now()` global no existe (solo `Illuminate\Support\now()`), el
- * controller reventaba con 500 y HTMX, al recibir un status de error, no
- * swapea: sin toast, sin cambio, falla muda. Aquí se cubren las dos ramas
- * del toggle y el id inexistente.
+ * El toggle y sus dos ramas: al completar guarda `completed_at`, al volver a
+ * `pendiente` la limpia.
+ *
+ * Capa tests. También cubre el id inexistente en sus dos formas: panel con aviso para
+ * htmx y 404 para un navegador. Para tu entidad, copia el archivo y cambia la ruta.
  */
 final class ToggleTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -41,9 +41,8 @@ final class ToggleTaskTest extends TasksTestCase
         self::assertNotNull($updated->completed_at, 'Falta completed_at al completar.');
 
         $html = (string) $response->getBody();
-        // El estado ya no se escribe al lado del título: viaja en el tooltip del
-        // icono (aria-label + nodo con role visual). El assert sigue siendo el
-        // mismo dato, ahora en su nuevo lugar.
+        // El estado no se escribe al lado del título: viaja en el tooltip del icono,
+        // así que el assert mira el `aria-label` y el nodo visual.
         self::assertStringContainsString('aria-label="Completada el ', $html, 'El icono no describe el estado nuevo.');
         self::assertStringContainsString('Completada el', $html, 'El panel no pinta el estado nuevo.');
         self::assertStringContainsString('Desmarcar', $html, 'El botón no cambió de etiqueta.');
@@ -89,10 +88,8 @@ final class ToggleTaskTest extends TasksTestCase
 
         self::assertSame(200, $response->getStatusCode());
 
-        // Con HX-Request el aviso va en el header (canal único: si viajara
-        // también en el HTML, se vería dos veces). El layout lo consume con
-        // @toasts.window y el payload es un objeto, así que el array de
-        // mensajes está en .items.
+        // Con `HX-Request` el aviso va en el header: si viajara también en el HTML se
+        // vería dos veces. El payload es un objeto y los mensajes están en `.items`.
         $payload = json_decode($response->getHeaderLine('HX-Trigger-After-Swap'), true);
 
         self::assertSame(
@@ -108,9 +105,9 @@ final class ToggleTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: la otra mitad del test de arriba. Este no es un request de htmx: es
-     * un navegador pidiendo el estado de un recurso que no existe, así que
-     * corresponde el 404 y no un 200 con un toast que nadie escucha.
+     * La otra mitad: este no es un request de htmx, es un navegador pidiendo el estado
+     * de un recurso que no existe, así que corresponde el 404 y no un 200 con un aviso
+     * que nadie escucha.
      */
     public function test_toggle_sin_htmx_de_un_id_inexistente_responde_404(): void
     {

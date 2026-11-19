@@ -1,43 +1,28 @@
-{# `tabindex="-1"`: marca el panel como destino de foco programático (no
-   entra en el orden de tabulación). Es el fallback de `restoreFocusAfterSwap()`
-   en public/assets/app.js cuando la acción hizo desaparecer el control que la disparó:
-   borrar la fila, o guardar/cancelar, que salen del modo edición y con él de
-   los botones Guardar y Cancelar. Sin este atributo el `.focus()` del layout
-   no hace nada y el foco volvería al <body>, que es justo lo que S4 prohíbe.
-   `class="focus:outline-none"`: el panel no es un control, así que el anillo
-   de foco alrededor de toda la región no informa nada y sí ensucia la
-   pantalla. Va SOLO aquí; los controles conservan su anillo. #}
+{# Región de la pantalla del demo: todo lo que se intercambia en cada acción.
+
+   Capa vista. `TaskController::respond()` la devuelve como respuesta de HTMX e
+   `index.twig` la incluye en la carga completa. Es el destino de todos los
+   `hx-target` de la demo, así que su contenido tiene que poder vivir solo.
+
+   Para tu entidad, copia este archivo y cambia la lista y la paginación. #}
+{# `tabindex="-1"` hace del panel un destino de foco programático sin entrar en el
+   orden de tabulación: es donde `restoreFocusAfterSwap()` deja el foco cuando el
+   control que disparó la acción ya no existe. #}
+{# La utilidad de foco apagado va sólo acá: el panel no es un control y el anillo
+   alrededor de la región no informa nada. Los controles conservan el suyo. #}
 <div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
-    {# hx-disabled-elt: la región del swap declara UNA vez que sus <button> se
-       deshabilitan mientras hay un request en vuelo; htmx resuelve el atributo
-       subiendo por los ancestros, así que toggle, editar y borrar lo heredan sin
-       repetirlo en cada fila. Sin esto, un doble click en cualquiera de ellos
-       dispara dos veces la misma mutación (dos DELETE, dos toggles que se
-       anulan) y en hardware lento no hay ninguna señal de que algo esté pasando.
-       Por qué selector pelado y con el id adentro:
-       - `find button` se resuelve contra el elemento que DISPARA (el botón de la
-         fila), que no tiene botones adentro: htmx avisaría "returned no matches"
-         por consola y no apagaría nada.
-       - `this` apagaría el <div> (ahí `disabled` no hace nada) y dejaría vivos
-         justo los botones.
-       - Un selector pelado lo resuelve htmx con document.querySelectorAll, no
-         contra el div: el prefijo #tareas-panel es lo que lo acota al panel.
-       Alcance: sólo <button>, ningún otro descendiente. Los <a> de la paginación
-       quedan vivos a propósito: `disabled` no existe para un enlace y daisyUI
-       (.btn[disabled]) igual lo pintaría apagado, dejando algo que parece muerto
-       y sigue clickeable. El <select> de per_page tampoco entra: cambiar de
-       página o de tamaño es navegación, no una mutación que se pueda duplicar.
-       A los que ya venían deshabilitados (paginación en el borde) no los toca:
-       htmx sólo agrega el atributo si no estaba y sólo lo quita si lo puso él.
-       Efecto lateral asumido: durante el DELETE también queda apagado el
-       Cancelar/Cerrar del modal de confirmación. htmx los reactiva al terminar
-       (incluso si el request falla) y Esc cierra el <dialog> nativo igual, así
-       que no hay encierro. La señal visual la da daisyUI: no hace falta CSS. #}
-    {# Fallback de PÁGINA COMPLETA (un POST sin HX-Request, ej. un form sin
-       htmx): ahí no hay evento que escuchar, así que el aviso va inline.
-       En las respuestas htmx estos dos banners llegan en null y el mensaje
-       viaja en HX-Trigger-After-Swap hacia el stack de toasts del layout:
-       un aviso, un canal (ver Controller::render). #}
+    {# `hx-disabled-elt` se declara una vez en la región y las filas lo heredan: htmx
+       resuelve el atributo subiendo por los ancestros. Sin esto, un doble click en
+       cualquier botón de fila dispara dos veces la misma mutación. #}
+    {# Por qué el selector lleva el id: `find` se resuelve contra el botón que
+       dispara, que no tiene botones adentro, y un selector pelado se resuelve
+       contra el documento entero. Con el prefijo, el alcance es este panel. #}
+    {# Sólo se apagan los botones: un enlace no entiende `disabled` y quedaría
+       pintado como muerto pero clickeable, y cambiar de página o de tamaño es
+       navegación, no una mutación que se pueda duplicar. #}
+    {# Fallback de página completa: sin `HX-Request` no hay evento de htmx que
+       escuchar, así que el aviso va inline. Con htmx los dos banners llegan en
+       null y el mensaje viaja en `HX-Trigger-After-Swap`: un aviso, un canal. #}
     {% if flash_error %}
         {% include 'components/feedback/alert.twig' with {
             variant: 'error',

@@ -8,17 +8,14 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * Contrato de estado de la lista: toda URL que dispara una mutacion lleva la
- * posicion actual (page + per_page) en el query string, la paginacion es un
- * enlace real (href) y las peticiones htmx deshabilitan su disparador mientras
- * estan en vuelo.
+ * Estado de la lista: toda URL que dispara una mutación lleva la posición actual
+ * (`page` y `per_page`), la paginación es un enlace real y cada request deshabilita
+ * su disparador mientras está en vuelo.
  *
- * Son tres reglas distintas y comparten el mismo fixture: 12 filas alcanzan
- * para que exista una pagina 2 (con las 12 en una sola pagina, las reglas de
- * navegacion no se pueden observar).
+ * Capa tests. Son tres reglas con el mismo fixture: 12 filas alcanzan para que exista
+ * una página 2; los ids no se hardcodean, las aserciones van sobre la forma de la URL.
  *
- * Los ids no se hardcodean: la PK sigue incrementando entre tests, asi que se
- * afirma sobre la forma de la URL, no sobre un id concreto.
+ * Para tu entidad, copia el archivo y cambia la ruta.
  */
 final class ListStateContractTest extends TasksTestCase
 {
@@ -32,10 +29,9 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * P1-1: togglear, editar, borrar o cancelar desde la pagina 2 tiene que
-     * volver a la pagina 2. Sin esto la respuesta se renderiza en la pagina 1:
-     * el usuario pierde la fila que toco y la URL deja de describir el
-     * contenido que esta viendo.
+     * Si una acción de fila no arrastra la posición, la respuesta se renderiza en la
+     * página 1: el usuario pierde la fila que tocó y la URL deja de describir el
+     * contenido que está viendo.
      */
     public function test_las_acciones_de_fila_conservan_la_pagina_y_el_tamano(): void
     {
@@ -61,18 +57,16 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * P1-1 (cierre): guardar la edicion y cancelar son las otras dos acciones
-     * de fila, y solo existen con una fila en modo formulario. Se llega por la
-     * ruta de edicion, que repinta el panel con esa fila abierta; ahi las dos
-     * URLs aparecen. Guardar o cancelar desde la pagina 2 sin arrastrar la
-     * posicion devuelve al usuario a la pagina 1 igual que las demas acciones.
+     * Guardar y cancelar la edición son las otras dos acciones de fila, y sólo existen
+     * con una fila en modo formulario: se llega por la ruta de edición, que repinta el
+     * panel con esa fila abierta. Sin la posición, volverían a la página 1.
      */
     public function test_guardar_y_cancelar_la_edicion_conservan_la_pagina_y_el_tamano(): void
     {
         $task = Task::orderBy('id')->first();
         self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
 
-        // La tarea mas vieja cae en la pagina 2 con el orden desc por id.
+        // La tarea más vieja cae en la página 2 con el orden desc por id.
         $html = self::page(sprintf('/tareas/%d/edit?page=2&per_page=10', $task->id));
 
         $posicion = 'page=2&(?:amp;)?per_page=10';
@@ -90,10 +84,9 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * P1-2: la paginacion es navegacion, no solo htmx. Un <a> sin href no
-     * tiene rol de enlace ni entra en el orden de tabulacion: con teclado o
-     * lector de pantalla las paginas 2+ son inalcanzables. El href tiene que
-     * ser la misma URL que ya se le pasa a hx-get.
+     * Un `<a>` sin href no tiene rol de enlace ni entra en el orden de tabulación: con
+     * teclado o lector de pantalla las páginas 2+ serían inalcanzables. El href tiene
+     * que ser la misma URL que ya recibe el `hx-get`.
      */
     public function test_la_paginacion_es_un_enlace_real_con_href(): void
     {
@@ -112,10 +105,9 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * P1-3: htmx deshabilita su disparador mientras la peticion esta en vuelo
-     * cuando existe hx-disabled-elt. Sin eso, dos clicks en "Agregar" emiten
-     * dos POST y crean dos tareas. El atributo se declara en el formulario de
-     * alta y en el panel (hereda a los botones de fila).
+     * htmx deshabilita su disparador mientras hay un request en vuelo cuando existe
+     * `hx-disabled-elt`. Sin eso, dos clicks en «Agregar» emiten dos POST y crean dos
+     * tareas; el atributo se declara en el alta y en el panel, que lo hereda a sus filas.
      */
     public function test_las_peticiones_deshabilitan_su_disparador_mientras_estan_en_vuelo(): void
     {
@@ -134,14 +126,12 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * S11 (T10): una accion de fila deja una entrada de historial cuya URL
-     * describe lo que quedo en pantalla. La posicion no puede vivir en la
-     * plantilla (hx-push-url fijo) porque Pagination clampea la pagina pedida:
-     * el server es el unico que sabe que pagina renderizo, asi que la publica
-     * en el header `HX-Push-Url`.
+     * Una acción de fila deja una entrada de historial cuya URL describe lo que quedó
+     * en pantalla. La posición no puede vivir en la plantilla: `Pagination` recorta la
+     * página pedida, así que el server publica en `HX-Push-Url` la que renderizó.
      *
-     * La URL empujada es la canonica de la vista, no la de la accion:
-     * /tareas/5/toggle solo acepta POST y recargarla seria un 404.
+     * La URL empujada es la canónica de la vista y no la de la acción:
+     * `/tareas/5/toggle` sólo acepta POST y recargarla sería un 404.
      */
     public function test_una_accion_de_fila_empuja_la_url_de_la_pagina_renderizada(): void
     {
@@ -166,15 +156,13 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * S11 (T10) + el clamp de Pagination: la URL empujada no puede describir
-     * una pagina que ya no existe. Con 12 filas y per_page=10 el borrado de la
-     * primera tarea de la pagina 2 deja 11 (la pagina 2 sigue viva), pero el
-     * segundo borrado deja 10 y el server renderiza la pagina 1: la barra de
-     * direcciones tiene que decir pagina 1, no la 2 que se pidio.
+     * La URL empujada no puede describir una página que ya no existe: con 12 filas y
+     * 10 por página, el primer borrado de la página 2 la deja viva (quedan 11) y el
+     * segundo la vacía, así que el server renderiza la 1.
      */
     public function test_borrar_la_ultima_fila_de_la_ultima_pagina_empuja_la_pagina_clampeada(): void
     {
-        // Orden desc por id: las dos mas viejas son las de la pagina 2.
+        // Orden desc por id: las dos más viejas son las de la página 2.
         $viejas = Task::orderBy('id')->limit(2)->get();
         self::assertCount(2, $viejas, 'el fixture tiene que haber creado 12 tareas');
 
@@ -212,10 +200,8 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * S11 (T10): el alta no lleva posicion en el cuerpo, asi que el tamano de
-     * pagina tiene que viajar en la URL del form. Sin eso, crear desde
-     * per_page=25 devuelve la lista en 10 y el usuario pierde la eleccion sin
-     * haberla cambiado. La pagina si es 1: la tarea nueva queda arriba.
+     * El alta no manda la posición en el cuerpo, así que el tamaño de página viaja en
+     * la URL del form. La página sí es 1: la tarea nueva queda arriba.
      */
     public function test_el_alta_conserva_el_tamano_de_pagina_y_empuja_la_pagina_uno(): void
     {
@@ -254,9 +240,8 @@ final class ListStateContractTest extends TasksTestCase
     }
 
     /**
-     * S11 (T10): sin htmx no hay swap que empujar. La respuesta es la pagina
-     * entera y la barra de direcciones la maneja el navegador: un
-     * HX-Push-Url aca seria un header que nadie escucha.
+     * Sin htmx no hay swap que empujar: la respuesta es la página entera y la barra de
+     * direcciones la maneja el navegador.
      */
     public function test_una_mutacion_sin_htmx_no_empuja_ninguna_url(): void
     {

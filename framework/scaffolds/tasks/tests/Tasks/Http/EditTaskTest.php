@@ -8,20 +8,20 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * La U de CRUD: la edición es inline en la fila.
+ * La edición inline: el panel vuelve con una fila en modo formulario.
  *
- * El form de edición vive dentro de `_list.twig`, o sea dentro del panel que
- * el swap reemplaza. Ahí no alcanzan los hidden de `#alta-tarea`, que queda
- * fuera de ese panel, así que el form lleva sus propios tokens CSRF.
+ * Capa tests. El form de edición vive dentro de `_list.twig`, o sea dentro de la
+ * región que el swap reemplaza, así que lleva sus propios tokens CSRF: los hidden del
+ * alta quedan fuera y no llegan. El PUT viaja como `application/x-www-form-urlencoded`
+ * y lo parsea `addBodyParsingMiddleware()`.
  *
- * El PUT llega como `application/x-www-form-urlencoded` (el default de htmx
- * para verbos no-GET) y lo parsea `addBodyParsingMiddleware()`.
+ * Para tu entidad, copia el archivo y cambia la ruta y los campos.
  */
 final class EditTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -40,8 +40,8 @@ final class EditTaskTest extends TasksTestCase
         self::assertStringContainsString('aria-label="Miga de pan"', $html);
         self::assertStringContainsString('aria-current="page">Tareas', $html);
 
-        // El query string de posicion lo fija tests/Http/ListStateContractTest;
-        // aca solo importa que el guardado apunte al recurso correcto.
+        // Sólo el recurso destino: la posición del query string tiene su caso en
+        // `ListStateContractTest`.
         self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
@@ -49,11 +49,9 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: sin htmx la petición es un navegador pidiendo un documento, y el
-     * recurso que pidió no existe. Devolver 200 con un cartel es mentirle al
-     * protocolo (un buscador indexa la URL, un proxy la cachea, un curl con
-     * `--fail` no falla). El aviso vive dentro del panel porque ahí no hay
-     * otro canal: en una página de error el mensaje lo pone el propio 404.
+     * Sin htmx la petición es un navegador pidiendo un documento, y el recurso no
+     * existe. Devolver 200 con un cartel le miente al protocolo: un buscador indexa la
+     * URL, un proxy la cachea y un `curl --fail` no falla.
      */
     public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
@@ -70,9 +68,8 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * La otra mitad de S5: un request de htmx sigue recibiendo el panel
-     * re-renderizado con el aviso, porque un 404 le metería la página de error
-     * dentro de #tareas-panel.
+     * La otra mitad: un request de htmx recibe el panel re-renderizado con el aviso,
+     * porque un 404 le metería la página de error dentro del panel.
      */
     public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
     {
@@ -121,10 +118,9 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: un fallo de validación no es un 2xx. Además, el mensaje ya no va
-     * por el flash genérico: vive pegado al campo (`errors.title`), con
-     * `aria-invalid` para que el lector lo anuncie. Dos avisos del mismo
-     * fallo (banner + campo) es ruido, no redundancia.
+     * Un fallo de validación no es un 2xx, y el mensaje no va por el flash genérico:
+     * vive pegado al campo (`errors.title`), con `aria-invalid` para el lector. Dos
+     * avisos del mismo fallo serían ruido.
      */
     public function test_put_sin_titulo_devuelve_422_con_el_error_del_campo(): void
     {
@@ -181,8 +177,8 @@ final class EditTaskTest extends TasksTestCase
     }
 
     /**
-     * S5: el mismo criterio que en el GET de edición. Sin htmx el recurso
-     * pedido no existe y el 200 con un cartel le miente al protocolo.
+     * Mismo criterio que el GET de edición: sin htmx el recurso pedido no existe, así
+     * que un 200 con un cartel le mentiría al protocolo.
      */
     public function test_put_a_un_id_inexistente_sin_htmx_responde_404(): void
     {

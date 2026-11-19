@@ -1,24 +1,20 @@
-{# Posición de la lista (página + tamaño) que tiene que arrastrar TODA acción
-   de fila: sin esto, tocar una fila desde la página 2 re-renderiza la página
-   1 y el usuario pierde la fila que tocó. Se arma UNA sola vez aquí y las
-   cuatro URLs la usan tal cual, así no pueden divergir entre sí.
-   Se imprime con `|raw` para que el `&` salga literal, igual que en
-   components/pagination/simple.twig (PaginationFlowTest lo fija así). No es una
-   puerta de escape: la cadena sale de dos enteros de Framework\Http\Pagination,
-   nunca de texto del usuario. Dentro del atributo es válido, porque
-   `&per_page` no forma una referencia de carácter (no termina en `;`).
-   La RUTA (lo que va antes del `?`) sí pasa por `url()`: es lo que la saca del
-   dominio cuando la app vive bajo un prefijo (S13). El helper recibe sólo el
-   path y el query queda afuera justamente para que el `&` siga siendo `&`. #}
+{# Filas del listado del demo: el embed que pinta cada tarea y su modo edición.
+
+   Capa vista. `_panel.twig` lo incluye dentro de `#tareas-panel`, así que viaja en
+   cada swap. Cada fila decide su forma con `editing_id`: lista normal o formulario
+   en línea.
+
+   Para tu entidad, copia el archivo y cambia los campos de la fila. #}
+{# Posición de la lista (página y tamaño) que arrastra toda acción de fila: sin esto,
+   tocar una fila desde la página 2 re-renderiza la 1 y el usuario pierde la fila que
+   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
-{# `data-focus-key` en cada control de acción: el swap de #tareas-panel
-   (`outerHTML`) se lleva puesto el nodo que tenía el foco, así que el layout
-   no tiene cómo saber a dónde devolverlo. El control que dispara publica su
-   clave (`toggle-<id>`, `edit-<id>`, ...) antes del request y el layout busca
-   esa MISMA clave en el markup recién intercambiado. La clave sale del id de
-   la tarea, lo único estable entre un render y el siguiente: el índice de la
-   fila cambia en cuanto se borra una. Mecanismo en `restoreFocusAfterSwap()`
-   de public/assets/app.js. #}
+{# El query va con `|raw` para que el `&` salga literal; la cadena sale de dos enteros
+   de `Pagination`, nunca de texto del usuario. La ruta pasa por `url()`, que le
+   aplica el prefijo de despliegue. #}
+{# `data-focus-key` en cada control de acción: el swap de la región se lleva el nodo
+   que tenía el foco, y el script del shell busca esta clave en el markup nuevo para
+   devolverlo. Sale del id de la tarea, lo único estable entre un render y otro. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
     empty: 'No hay tareas todavía.',
@@ -28,28 +24,22 @@
         {% set task = item %}
         {% if editing_id is defined and editing_id == task.id %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                {# `flex-wrap`: el mensaje de error del título viaja en su
-                   propia línea (`w-full`) en vez de robarle ancho al input y a
-                   los botones en móvil. #}
+                {# `flex-wrap`: el mensaje de error viaja en su propia línea en vez
+                   de robarle ancho al input y a los botones en móvil. #}
                 <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
                     {% include 'components/form/csrf.twig' %}
-                    {# En fallo de validación se repinta lo TIPEADO (editing_title),
-                       no el valor guardado: si no, el usuario pierde lo que
-                       escribió junto con el error. Twig autoescapea, así que
-                       comillas o <script> tipeados salen neutrales. #}
-                    {# El label va oculto pero existe: no se usa el título de la
-                       tarea como nombre porque ya está en `value` y el lector
-                       lo anunciaría dos veces. La misma clave que el botón de
-                       editar hace que el foco del swap aterrice en el campo. #}
-                    {# El error se pasa EXPLÍCITO: el include usa `only`, así que
-                       `errors` del contexto no llega solo. `error_class` con
-                       `w-full` lo manda a su propia línea del form.
-                       `errors.title` sólo existe tras un fallo de validación;
-                       en el resto de los renders queda en null y el campo sale
-                       como siempre. #}
+                    {# En un fallo de validación se repinta lo tipeado
+                       (`editing_title`), no el valor guardado; Twig autoescapea, así
+                       que comillas o etiquetas tipeadas salen neutrales. #}
+                    {# El label va oculto pero existe: el título ya está en `value` y
+                       usarlo como nombre lo anunciaría dos veces. La clave
+                       `edit-<id>` repite la del botón: el foco aterriza en el campo. #}
+                    {# `error` se pasa explícito porque el include usa `only`, y
+                       `error_class` manda el mensaje a su propia línea. `errors.title`
+                       sólo existe tras un fallo de validación; si no, queda en null. #}
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
@@ -90,63 +80,36 @@
             </li>
         {% else %}
             <li class="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 p-3">
-                {# `items-start` y no `items-center`: el disparador de estado se
-                   alinea con la PRIMERA línea del título. Centrado contra el
-                   bloque, en un título de cinco renglones caía sobre el
-                   tercero y dejaba de leerse como parte del título. El
-                   desplazamiento óptico (`-mt-0.5` en el disparador) conserva
-                   el aspecto centrado cuando el título ocupa un solo renglón. #}
+                {# `items-start` alinea el disparador de estado con la primera línea
+                   del título; centrado contra el bloque caería sobre el renglón del
+                   medio en un título largo. `-mt-0.5` compensa el renglón corto. #}
                 <span class="flex min-w-0 items-start gap-2 {{ task.status == 'completado' ? 'opacity-80' : '' }}">
-                    {# Icono de estado: verde para completado, gris para pendiente.
-                       Ambos salen de `--ink-*` (ver el <style> del layout), no de
-                       `text-success` ni `text-base-content/40`: los semanticos de
-                       daisyUI son FONDOS y como tinta daban 1.96:1 y 2.53:1,
-                       bajo el 3:1 que pide un objeto grafico.
-                       El estado NO se escribe al lado del título ("Pendiente" /
-                       "Completada el ..."): en móvil ese texto le robaba ancho al
-                       título y el dato sólo interesa cuando lo buscas. Ahora el
-                       icono es el disparador de un tooltip por click.
-                       Por qué no `title=` nativo: en táctil no existe el hover y
-                       en desktop aparecería solo al pasar el mouse encima del
-                       icono, no al pedirlo. `aria-label` lleva el texto completo
-                       (lector de pantalla) y el tooltip es puramente visual:
-                       `aria-hidden` + `pointer-events-none` (nunca se queda con
-                       el click que debería cerrarlo). #}
+                    {# Icono de estado: `icon-success` e `icon-pending` salen de los
+                       tokens `--ink-*` del layout, que contrastan en los dos temas.
+                       El estado no se escribe al lado del título. #}
+                    {# Es un tooltip por click y no `title=` nativo: en táctil no hay
+                       hover. `aria-label` lleva el texto completo para el lector y el
+                       recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
                         ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
                         : 'Pendiente' %}
-                    {# `-mt-0.5` (2px): centra el icono de 20px sobre el primer
-                       renglón (24px de alto). Sin esto, con `items-start` el
-                       icono quedaría 2px por debajo del centro óptico. #}
-                    {# Cierre al perder el foco: el teclado se va al control
-                       siguiente y el cartel se quedaba abierto en la fila que
-                       ya no tenía el foco. Peor: `@keydown.escape` de este
-                       wrapper sólo escucha mientras el foco está adentro, así
-                       que una vez que se iba ni Escape lo cerraba — sólo un
-                       click afuera. `focusout` burbujea, así que un handler aquí
-                       cubre al botón; el guard `$el.contains(...)` evita cerrar
-                       cuando el foco se mueve entre dos nodos de adentro
-                       (`relatedTarget` es null si el foco se fue a la nada, y
-                       `contains(null)` da false: ahí cerrar es lo correcto). #}
+                    {# `-mt-0.5` centra el icono de 20px sobre el primer renglón
+                       (24px). Sin esto quedaría 2px por debajo del centro óptico. #}
+                    {# Cierre al perder el foco: `focusout` burbujea, así que un handler
+                       aquí cubre al botón, y el guard `$el.contains(...)` evita cerrar
+                       cuando el foco se mueve entre dos nodos de adentro. #}
                     <span class="relative -mt-0.5 inline-flex shrink-0"
                           x-data="{ open: false }"
                           @click.outside="open = false"
                           @keydown.escape="open = false"
                           @focusout="if (!$el.contains($event.relatedTarget)) open = false">
-                        {# Es un <button> de verdad: focus + Enter/Space lo abren
-                           igual que un click, sin listeners de teclado a mano.
-                           El anillo de foco va SIN color a propósito: daisyUI
-                           5.7.46 no trae `outline-<color>` y `primary` no está
-                           en la paleta de Tailwind, así que `outline-primary` no
-                           lo compilaba nadie y el anillo salía por defecto. Con
-                           `outline-2` + `outline-offset-2` (utilidades planas de
-                           Tailwind, que el browser build sí resuelve) el color
-                           cae en `currentColor`, que contrasta en los dos temas.
-                           Área de toque: el único recuadro era el svg de 20px,
-                           bajo el mínimo de 24×24 (WCAG 2.5.8). El `p-1` lleva
-                           el control a 28×28 sin agrandar el icono, y el
-                           `flex/items-center/justify-center` lo mantiene
-                           centrado en el recuadro que agrega el padding. #}
+                        {# Es un `<button>` de verdad: focus y Enter/Space lo abren
+                           igual que un click, sin listeners de teclado a mano. #}
+                        {# El anillo de foco va sin color: daisyUI no trae
+                           `outline-<color>`, así que el color cae en `currentColor`,
+                           que contrasta en los dos temas. #}
+                        {# Área de toque: el svg solo daba 20px, bajo el mínimo de
+                           24×24 (WCAG 2.5.8). El `p-1` lleva el control a 28×28. #}
                         <button type="button"
                                 class="flex cursor-help items-center justify-center rounded-full p-1 focus-visible:outline-2 focus-visible:outline-offset-2"
                                 @click="open = !open"
@@ -158,16 +121,9 @@
                                 {% include 'components/ui/icon.twig' with {name: 'clock', class: 'h-5 w-5 icon-pending'} %}
                             {% endif %}
                         </button>
-                        {# `tooltip-estado`: gancho para apagar el x-transition en
-                           "reducir movimiento". El override vive en
-                           pages/tasks/_styles.twig porque Alpine aplica la
-                           transición sobre el nodo, y una clase de proyecto
-                           es la única forma de apuntarle sin depender de sus
-                           atributos internos.
-                           `role="tooltip"` documenta qué es el recuadro; el
-                           `aria-hidden` se queda porque el texto ya viaja en
-                           el `aria-label` del botón y el lector lo anunciaría
-                           dos veces. #}
+                        {# `tooltip-estado` es el gancho para apagar la transición con
+                           "reducir movimiento"; su override vive en `_styles.twig`.
+                           `aria-hidden` se queda porque el texto ya va en `aria-label`. #}
                         <span x-cloak
                               x-show="open"
                               x-transition.opacity.duration.150ms
@@ -177,18 +133,17 @@
                             {{ estado_texto }}
                         </span>
                     </span>
-                    {# min-w-0 + break-words: un titulo de 120 caracteres sin
-                       espacios es un solo token; sin esto el flex no puede
-                       achicar la fila y a 320px produce scroll horizontal. #}
+                    {# `min-w-0` y `break-words`: un título de 120 caracteres sin
+                       espacios es un solo token; sin esto el flex no puede achicar
+                       la fila y a 320px aparece scroll horizontal. #}
                     <span class="min-w-0 break-words">{{ task.title }}</span>
                 </span>
-                {# Acciones como ICONOS mediante components/ui/button.twig:
-                   ancho fijo (btn-square), sin texto visible pero con
-                   aria-label/title; `shrink-0` conserva el ancho en móvil.
-                   Los iconos salen del registro compartido. #}
+                {# Acciones como iconos con `components/ui/button.twig`: ancho fijo,
+                   sin texto visible pero con `aria-label` y `title`, y `shrink-0`
+                   para conservar el ancho en móvil. #}
                 <div class="flex shrink-0 gap-1">
-                    {# Botón para cambiar el estado: HTMX intercambia el panel completo.
-                       `?{{ posicion }}`: la respuesta se repinta en la misma página. #}
+                    {# Toggle: HTMX intercambia el panel completo, y `?posicion` hace
+                       que la respuesta se repinte en la misma página. #}
                     {% include 'components/ui/button.twig' with {
                         label: '',
                         variant: 'ghost',
@@ -229,12 +184,9 @@
                     } only %}
                 </div>
 
-            {# Confirmación con el modal compartido:
-               - Se abre por DOM (el botón y el dialog viven en la misma fila).
-               - Cancelar cierra por DOM; el backdrop usa form method=dialog.
-               - En éxito, el swap reemplaza #tareas-panel y el dialog sale
-                 del DOM: no hay nada que cerrar a mano.
-               - En 400 (CSRF) no hay swap: queda abierto y suena el toast. #}
+            {# Confirmación con el modal compartido: se abre por DOM porque el botón y
+               el dialog viven en la misma fila. En éxito el swap reemplaza la región y
+               el dialog sale del DOM; en un 400 (CSRF) no hay swap y avisa el toast. #}
             {% embed 'components/ui/modal.twig' with {
                 id: 'task-delete-' ~ task.id,
                 title: '¿Borrar esta tarea?'

@@ -8,20 +8,28 @@ use App\Tasks\Models\Task;
 use Tests\Support\HttpTestCase;
 
 /**
- * La suite base limpia users; la del demo suma tasks. Cuando el scaffold no
- * está instalado, esta clase tampoco existe y la suite base no la referencia.
+ * Base de los tests del demo: `app()`, `request()`, `token()` y `loginAs()` vienen
+ * de `Tests\Support\HttpTestCase`, y acá se suma la limpieza de `tasks`.
+ *
+ * Capa tests. Cuando el scaffold no está instalado esta clase tampoco existe, así
+ * que la suite base nunca depende de la tabla `tasks`.
+ *
+ * Para tu entidad, copia el archivo y cambia el modelo que se limpia.
  */
 abstract class TasksTestCase extends HttpTestCase
 {
     /**
-     * En el demo la página protegida es /tareas; los tests que no pasan path
-     * esperan el formulario de esa pantalla, no el login (que ya redirige).
+     * En el demo la página protegida es `/tareas`, así que de ahí sale el token;
+     * el login también renderiza el partial, pero esta ruta es la real.
+     *
+     * @return array{csrf_name: string, csrf_value: string}
      */
     protected static function token(string $path = '/tareas'): array
     {
         return parent::token($path);
     }
 
+    // La tabla del demo se limpia antes de que la base borre los usuarios.
     protected function tearDown(): void
     {
         Task::query()->delete();
@@ -29,11 +37,13 @@ abstract class TasksTestCase extends HttpTestCase
     }
 
     /**
-     * El shell está dividido en partials; los contratos de toast/CSRF se
-     * verifican sobre el conjunto, no sobre un único archivo.
+     * El shell está dividido en partials: los contratos de avisos y de CSRF se
+     * verifican sobre el conjunto, no sobre un archivo.
      */
     protected function shellSource(): string
     {
+        // `dirname(__DIR__, 3)` sube de `tests/Tasks/Http` a la raíz de la app: el
+        // shell se lee del proyecto instalado, no del scaffold.
         $root = dirname(__DIR__, 3);
         $files = [
             $root . '/resources/views/layouts/app.twig',

@@ -1,15 +1,14 @@
-{# CSS propio del demo de tareas.
+{# CSS propio del demo Tareas.
 
-   Vive aquí y no en `layouts/app.twig` a propósito: `composer demo:tasks:remove`
-   borra este archivo junto con el resto del scaffold, así que el shell no queda
-   con CSS huérfano de un módulo que ya no existe. El layout sólo aporta el
-   bloque `styles`, y estas reglas se cargan únicamente en las páginas del demo.
+   Vive en el scaffold a propósito: `composer demo:tasks:remove` borra este archivo
+   con el resto del demo, así que el shell no queda con CSS huérfano. El panel se
+   intercambia por HTMX y no trae estilos: estas reglas ya están cargadas desde el
+   <head> de la página.
 
-   El panel (`_panel.twig`) se swapea por HTMX y no trae estilos: cuando llega
-   el fragmento, la página ya cargó estas reglas desde el <head>. #}
+   Para tu entidad, copia el bloque y cambia las clases propias. #}
 <style>
-    /* Mismo criterio de filas alternadas que la tabla de contactos, con la
-       primera fila en el tono oscuro. */
+    /* Filas alternadas para separar una tarea de la siguiente; el tono sale de los
+       tokens del tema, así que sirve en claro y en oscuro. */
     .task-list > li:nth-child(odd) {
         background: color-mix(in oklab, var(--color-base-200) 45%, var(--color-base-100));
     }
@@ -17,9 +16,8 @@
         background: var(--color-base-300);
     }
 
-    /* El input de alta usaba el borde/outline de base-content; en oscuro se
-       veía como un contorno blanco. El foco sigue visible, pero con el color
-       primary del sistema. */
+    /* En reposo el borde usa `base-300` y el foco el color primario del sistema.
+       El `!important` gana sobre las reglas de daisyUI para el mismo input. */
     #alta-tarea input {
         border-color: var(--color-base-300);
     }
@@ -31,9 +29,8 @@
         box-shadow: none !important;
     }
 
-    /* Con "reducir movimiento" el tooltip de estado también pierde la
-       transición. `!important` por el mismo motivo que la regla del layout:
-       Alpine aplica las x-transition como inline sobre el nodo. */
+    /* Con "reducir movimiento" el tooltip pierde la transición. `!important`
+       porque Alpine aplica las x-transition como estilo inline del nodo. */
     @media (prefers-reduced-motion: reduce) {
         .tooltip-estado {
             transition: none !important;

@@ -10,22 +10,17 @@ use Tests\Tasks\Http\TasksTestCase;
 /**
  * Qué recibe htmx y qué recibe el navegador en la misma ruta.
  *
- * Con `HX-Request` la respuesta tiene que ser el panel y nada más: el botón
- * "Cancelar" apunta a `/tareas` con `hx-target="#tareas-panel"` y
- * `hx-swap="outerHTML"`, así que si el servidor devuelve `index.twig` (que
- * extiende el layout) htmx recibe un documento completo, se queda con el
- * `<body>` y lo inserta dentro del panel: quedan dos `<h1>`, dos
- * `id="alta-tarea"` y el padding del layout dos veces.
+ * Capa tests. Con `HX-Request` la respuesta es el panel y nada más: si llegara
+ * `index.twig` (que extiende el layout), el swap anidaría el documento entero. Sin
+ * `HX-Request` el fragmento es el problema opuesto: markup sin `<head>` ni estilos.
  *
- * Sin `HX-Request` es un navegador pidiendo una página (form con JS apagado,
- * URL directa, curl): ahí el fragmento es el bug opuesto —markup sin `<head>`
- * ni hoja de estilos— y la respuesta tiene que ser el documento entero (S9).
+ * Para tu entidad, copia el archivo y cambia la ruta.
  */
 final class PartialRenderTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -58,12 +53,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * S9: una mutación invocada SIN htmx (form normal con JS apagado, URL
-     * directa, un curl) no puede devolver `tasks/_panel.twig`. Ese fragmento
-     * viaja sin `<head>`, sin hoja de estilos y sin shell: el navegador lo
-     * pinta como texto plano y la acción, aunque haya funcionado, parece
-     * rota. El contrato es el mismo que ya cumple `index()`: la región para
-     * htmx, la página entera para todo lo demás.
+     * Una mutación sin htmx (un form con JS apagado, una URL directa, un curl) no puede
+     * devolver `_panel.twig`: ese fragmento viaja sin `<head>`, sin hoja de estilos y sin
+     * shell, así que la acción funciona pero parece rota.
      */
     public function test_post_sin_hx_request_devuelve_la_pagina_completa(): void
     {
@@ -84,10 +76,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * El par del test de arriba: la rama de htmx no cambió. Sin esto, un
-     * `respond()` que devolviera siempre la página entera rompería cada swap
-     * (el `<body>` entero dentro del panel) y la suite de toasts no lo vería:
-     * ella mira los avisos, no la forma del documento.
+     * El par del caso anterior: si `respond()` devolviera siempre la página entera,
+     * cada swap anidaría el `<body>`. La suite de avisos no lo vería, porque mira los
+     * avisos y no la forma del documento.
      */
     public function test_post_con_hx_request_devuelve_solo_el_panel(): void
     {
@@ -128,11 +119,9 @@ final class PartialRenderTest extends TasksTestCase
     }
 
     /**
-     * Lo que hace que el navegador pueda pintar la respuesta por su cuenta.
-     * El link de la hoja de estilos es el assert que de verdad separa una
-     * página de un fragmento: `<!DOCTYPE html>` podría venir de un `_panel`
-     * mal armado, pero sin `<link rel="stylesheet">` la página sigue sin
-     * estilos y el bug de S9 continúa.
+     * Lo que hace que el navegador pueda pintar la respuesta: el `<link>` de la hoja de
+     * estilos separa una página de un fragmento, porque el doctype también podría venir
+     * de un panel mal armado.
      */
     private function assertDocumentoCompleto(string $html): void
     {

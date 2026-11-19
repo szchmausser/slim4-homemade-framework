@@ -12,11 +12,13 @@ use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\NullOutput;
 
 /**
- * Una migracion destructiva (DROP COLUMN) solo es segura si los datos viejos
- * se migran antes. Este test corre las migraciones hasta la 004, inserta una
- * tarea con done=1 como la dejaria la v1, aplica la 005 y verifica el
- * backfill y la desaparicion de la columna. Sin esto, "los tests corren las
- * migraciones" no dice nada sobre el camino de upgrade.
+ * Una migración destructiva (`DROP COLUMN`) solo es segura si los datos viejos se
+ * migran antes.
+ *
+ * Capa tests. Corre las migraciones hasta la 004, inserta una tarea con `done = 1`
+ * como la dejaría la versión anterior, aplica la 005 y verifica el backfill y la
+ * desaparición de la columna. Para tu entidad, copia el archivo y apunta a tu
+ * migración destructiva.
  */
 final class MigrationUpgradeTest extends TestCase
 {
@@ -24,6 +26,7 @@ final class MigrationUpgradeTest extends TestCase
 
     protected function setUp(): void
     {
+        // Cada caso usa su propia base, con sufijo aleatorio, y la borra al terminar.
         $dir = dirname(__DIR__, 3) . '/storage/cache/tests';
         @mkdir($dir, 0777, true);
         $this->db = $dir . '/upgrade-' . bin2hex(random_bytes(4)) . '.sqlite';
@@ -31,6 +34,7 @@ final class MigrationUpgradeTest extends TestCase
 
     protected function tearDown(): void
     {
+        // SQLite deja los archivos WAL y SHM al lado de la base.
         foreach ([$this->db, $this->db . '-wal', $this->db . '-shm'] as $file) {
             if (is_file($file)) {
                 unlink($file);
@@ -60,6 +64,9 @@ final class MigrationUpgradeTest extends TestCase
         self::assertNotContains('done', $columns);
     }
 
+    /**
+     * Carga `phinx.php` y lo apunta a la base temporal del caso.
+     */
     private function config(): Config
     {
         $root = dirname(__DIR__, 3);

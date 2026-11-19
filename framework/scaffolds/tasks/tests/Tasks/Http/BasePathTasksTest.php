@@ -9,8 +9,14 @@ use Tests\Support\AppFactory;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * El demo bajo APP_BASE_PATH: listado, paginación y HX-Push-Url no pueden
- * perder el prefijo. Se instala junto con el scaffold demo.
+ * El demo bajo un prefijo de despliegue: el listado, la paginación y el
+ * `HX-Push-Url` no pueden perder el prefijo.
+ *
+ * Capa tests. Fija `APP_BASE_PATH`, resetea la app (el prefijo se lee al construirla)
+ * y comprueba que no quede ninguna URL raíz-absoluta en el HTML. Viaja con el
+ * scaffold del demo.
+ *
+ * Para tu entidad, copia el archivo y cambia la ruta.
  */
 final class BasePathTasksTest extends TasksTestCase
 {
@@ -18,6 +24,7 @@ final class BasePathTasksTest extends TasksTestCase
 
     protected function setUp(): void
     {
+        // El prefijo se fija antes de construir la app: se lee al armarla.
         self::prefijo(self::PREFIJO);
         AppFactory::reset();
     }
@@ -52,8 +59,8 @@ final class BasePathTasksTest extends TasksTestCase
     {
         self::loginAs();
 
-        // 11 filas: con 10 por página existe una página 2, y sin eso la
-        // paginación no emite ningún <a href> (son botones apagados).
+        // 11 filas: con 10 por página existe una página 2; sin eso la paginación
+        // no emite ningún `<a href>` porque son controles apagados.
         for ($i = 1; $i <= 11; $i++) {
             Task::create(['title' => sprintf('Tarea %02d', $i)]);
         }

@@ -8,15 +8,17 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * Paginación de punta a punta: 12 filas, slices, tamaño y contadores.
- * Con pocas filas todo cae en la página 1 y estos tests serían verdes sin
- * paginar nada: por eso se siembran 12.
+ * Paginación de punta a punta: slices, tamaño de página y contadores.
+ *
+ * Capa tests. Con pocas filas todo cae en la página 1 y estos casos serían verdes sin
+ * paginar nada, por eso se siembran 12. Para tu entidad, copia el archivo y ajusta la
+ * ruta y el texto de las filas.
  */
 final class PaginationFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth).
+        // `/tareas` exige login (RequireAuth).
         self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {

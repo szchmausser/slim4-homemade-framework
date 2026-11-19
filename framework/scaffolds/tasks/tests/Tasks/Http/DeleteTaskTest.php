@@ -8,19 +8,19 @@ use App\Tasks\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
- * La D del CRUD, que es la única que depende de dónde viajan los tokens.
+ * El borrado, que es la acción del CRUD que depende de dónde viajan los tokens.
  *
- * htmx 2.0.11 trae `methodsThatUseUrlParams: ['get', 'delete']`, así que los
- * params que aporta `hx-include` en un DELETE van al query string. `Guard`
- * solo mira `getParsedBody()` y, si está vacío, los headers: el query string
- * nunca. Por eso el botón de eliminar manda los tokens con `hx-headers` y no
- * con `hx-include`.
+ * Capa tests. htmx manda los params de un DELETE en el query string, y el `Guard`
+ * sólo mira el cuerpo y los headers, nunca el query string; por eso el botón manda
+ * los tokens con `hx-headers`. Los casos de acá miden las dos formas.
+ *
+ * Para tu entidad, copia el archivo y cambia el recurso.
  */
 final class DeleteTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -51,18 +51,16 @@ final class DeleteTaskTest extends TasksTestCase
                 ->withHeader('HX-Request', 'true')
         );
 
-        // No es el comportamiento deseado: es la medición que explica por qué
-        // el botón usa hx-headers. Guard no lee el query string, así que este
-        // 400 es el bug del usuario reproducido tal cual.
+        // Es la medición que explica por qué el botón usa `hx-headers`: el guard
+        // rechaza porque no lee el query string. El 400 es el fallo reproducido.
         self::assertSame(400, $response->getStatusCode());
         self::assertNotNull(Task::find($task->id), 'Guard rechazó: no se borra nada.');
     }
 
     /**
-     * S5: sin htmx el request es un navegador pidiendo un recurso que no
-     * existe, y ahí corresponde el 404. La rama de htmx (200 + aviso) la fija
-     * ToastFlowTest y no se toca: un 404 dentro de #tareas-panel metería la
-     * página de error en la lista.
+     * Sin htmx el request es un navegador pidiendo un recurso que no existe, así que
+     * corresponde el 404. La rama de htmx (200 con aviso en el panel) tiene su caso en
+     * `ToastFlowTest`: un 404 dentro del panel metería la página de error en la lista.
      */
     public function test_borrar_un_id_inexistente_sin_htmx_responde_404(): void
     {
@@ -85,8 +83,8 @@ final class DeleteTaskTest extends TasksTestCase
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
-        // El query string de posicion lo fija tests/Http/ListStateContractTest;
-        // aca solo importa que el borrado apunte al recurso correcto.
+        // Sólo importa que el borrado apunte al recurso correcto: la posición del
+        // query string tiene su propio caso en `ListStateContractTest`.
         self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
     }
 }

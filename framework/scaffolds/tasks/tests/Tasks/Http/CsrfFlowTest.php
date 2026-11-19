@@ -6,12 +6,21 @@ namespace Tests\Tasks\Http;
 
 use Tests\Tasks\Http\TasksTestCase;
 
+/**
+ * CSRF de punta a punta en una ruta del demo: el token viaja en el formulario, el
+ * POST sin token no crea nada y el 400 de htmx llega con un evento que alguien
+ * escucha.
+ *
+ * Capa tests. La autenticación en sí no se prueba acá: `/tareas` exige login y estos
+ * casos entran logueados.
+ *
+ * Para tu entidad, copia el archivo y cambia la ruta.
+ */
 final class CsrfFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // /tareas exige login (RequireAuth): estos tests entran logueados.
-        // La capa de auth en sí se testea en AuthTest, no aquí.
+        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -56,9 +65,8 @@ final class CsrfFlowTest extends TasksTestCase
             ])
         );
 
-        // Sin el failureHandler del capítulo 6 esto devolvería 400
-        // "Failed CSRF check!" en text/plain. El 303 comprueba que nuestro
-        // handler está conectado en la posición correcta del constructor.
+        // Sin el failureHandler del guard esto devolvería 400 "Failed CSRF
+        // check!" en texto plano; el 303 comprueba que está conectado.
         self::assertSame(303, $response->getStatusCode());
         self::assertStringNotContainsString('No deberia guardarse', (string) $response->getBody());
     }
@@ -70,14 +78,11 @@ final class CsrfFlowTest extends TasksTestCase
         );
 
         self::assertSame(400, $response->getStatusCode());
-        // El valor es {"csrf":"..."} — asserteamos contra el valor, no contra
-        // el nombre del header (getHeader() devuelve los valores).
+        // El header es JSON con la clave `csrf`: es lo que lee `@csrf.window` del
+        // layout. Un texto plano no tiene claves y el listener queda en undefined.
         $hxTrigger = $response->getHeaderLine('HX-Trigger');
         self::assertStringContainsString('csrf', $hxTrigger);
 
-        // El header tiene que ser JSON con la clave `csrf`: es lo que lee
-        // `@csrf.window` del layout. Un texto plano no tiene claves y el
-        // listener se queda con undefined.
         $payload = json_decode($hxTrigger, true);
         self::assertIsArray($payload, 'HX-Trigger tiene que ser JSON.');
         self::assertArrayHasKey('csrf', $payload);
@@ -85,16 +90,9 @@ final class CsrfFlowTest extends TasksTestCase
 
     public function test_el_hx_trigger_del_csrf_tiene_alguien_que_lo_escuche(): void
     {
-        // Existe por un bug real que ningún otro test veía: el failureHandler
-        // emite HX-Trigger:{csrf:...} y no había NINGÚN listener en las
-        // plantillas. El test de arriba assertea que el header salga — y sale,
-        // perfecto. Pero llegaba al vacío: HTMX recibe el 400, no hace swap
-        // (no es 2xx), no dispara nada visible y la tarea desaparece sin
-        // error. Test verde, producción rota.
-        //
-        // Asserteamos el lado de la RECEPCIÓN, que es el que se rompe. Si
-        // tocas el shell y te llevas el @csrf.window, este test falla antes
-        // que alguien pierda una tarea en silencio.
+        // Que el header salga no alcanza: htmx no swapea un 400, así que sin un
+        // listener el fallo queda mudo y la tarea desaparece sin error. Este caso
+        // mira la RECEPCIÓN, que es el lado que se rompe al tocar el shell.
         self::assertStringContainsString(
             '@csrf.',
             $this->shellSource(),
@@ -104,9 +102,9 @@ final class CsrfFlowTest extends TasksTestCase
 
     public function test_el_listener_de_csrf_lee_el_valor_del_evento(): void
     {
-        // Regresión del bug 12: con `String($event.detail)` el toast mostraba
-        // "[object Object]". El texto vive en `.value`, no en el objeto
-        // entero, y buscar solo `@csrf.` pasaba con las dos variantes.
+        // El texto vive en `.value`, no en el objeto entero: con `$event.detail`
+        // el aviso mostraría `[object Object]`, y buscar sólo `@csrf.` pasaría
+        // con las dos variantes.
         $layout = $this->shellSource();
 
         self::assertStringContainsString(
