@@ -104,25 +104,11 @@ commitea—: descomenta las dos líneas que el archivo ya trae y complétalas.
 ADMIN_EMAIL=dev@ejemplo.com
 ADMIN_PASSWORD=una-clave-de-8-o-mas
 ```
+Luego ejecuta la migracion en tu terminal, dentro del directorio del proyecto con:
 
 ```bash
 vendor/bin/phinx seed:run -s DatabaseSeeder
 ```
-
-¿Por qué en `.env` y no en el comando? Porque las vas a necesitar otra vez —después de
-`phinx rollback -t 0`, o al reinstalar un demo— y así no quedan en el historial del shell. La
-contraseña tiene que tener 8 caracteres o más.
-
-Si prefieres que no toquen el disco, el seeder también lee el entorno real:
-
-```bash
-ADMIN_EMAIL=dev@ejemplo.com ADMIN_PASSWORD=una-clave-de-8-o-mas \
-  vendor/bin/phinx seed:run -s DatabaseSeeder
-```
-
-> Esa forma multilínea es de bash: en PowerShell no funciona (usa `$env:ADMIN_EMAIL = "..."` antes del
-> comando). Y mientras corre el proceso, las variables inline son visibles en `ps`. Si están en los dos
-> lados, gana el entorno real.
 
 Y levanta el servidor de desarrollo:
 
