@@ -445,6 +445,14 @@ Ahora el archivo, `config/navigation/notas.php`:
 
 declare(strict_types=1);
 
+/**
+ * Entrada de la entidad en el menú lateral.
+ *
+ * El menú se arma leyendo `config/navigation/`: no hay una lista central donde
+ * registrar la entidad, así que este archivo es toda la integración. `key` es lo
+ * que el sidebar compara con el `active` de la página y `position` ordena las
+ * entradas entre sí.
+ */
 return [
     'label'    => 'Notas',
     'href'     => '/notas',
@@ -1205,6 +1213,16 @@ explicación.
 `resources/views/components/ui/page-header-title.twig` es la mitad izquierda:
 
 ```twig
+{# Título de página: icono opcional, `title` y `subtitle` opcional.
+   Props: icon, title, subtitle.
+
+   Es la mitad izquierda de `components/ui/page-header.twig`, que lo incluye.
+   Se puede usar suelto cuando una pantalla necesita el título sin la fila de
+   acciones: el encabezado de una tarjeta, un estado vacío, una portada.
+
+   `icon` y `subtitle` no dejan huecos: sin icono el `h1` pierde el `flex` que
+   lo alinea con el svg, y sin subtítulo no se emite el `p`. `title` y
+   `subtitle` se escapan solos. #}
 <div>
     <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
         {% if icon|default(false) %}
@@ -1481,14 +1499,29 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
 `resources/views/pages/notas/_form.twig`:
 
 ```twig
+{#
+  Formulario de una nota: lo comparten el alta y la edición.
+
+  Lo incluyen los dos modales de `index.twig`, dentro de `components/ui/modal.twig`,
+  y hace `POST` a la `action` que recibe. En un rechazo, el controlador
+  re-renderiza el listado con `errors`, `form_values` y el modal abierto.
+
+  Para tu entidad: copia el parcial y cambia los campos y sus `maxlength`.
+#}
+
 {# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
-   usuario tipeó, no lo que hay en la base. #}
+   usuario escribió, no lo que hay en la base. #}
 {% set values = form_values|default(nota|default(null)) %}
 
+{# El envío deshabilita el botón: un doble clic sobre un formulario POST plano
+   crea dos filas. Si el servidor rechaza, la página vuelve y el botón se
+   renderiza habilitado otra vez. #}
 <form method="post" action="{{ action }}" class="space-y-4"
       onsubmit="this.querySelector('[type=submit]').disabled = true">
     {% include 'components/form/csrf.twig' %}
 
+    {# El mensaje llega desde `Validator` con la clave del campo: aquí sólo se
+       pasa, y el campo es quien lo ata al input. #}
     {% include 'components/form/field.twig' with {
         name: 'titulo',
         label: 'Título',

@@ -57,6 +57,11 @@ sin CDNs, SRI sin cambios.
 - T5 (writer) `framework/scaffolds/tasks/**`. S1, S3-S8.
 - T6 (writer) `framework/scaffolds/contacts/**`. S1, S3-S8.
 - T7 (inline) `composer docs:sync` + `composer docs:check` + `composer verify` + chequeo de token-stream + reinstalar demo notas. S8-S10.
+- T8 (inline) `tutorial-crud.md`: sincronizar solo los bloques que presentan el archivo
+  terminado (`config/navigation/notas.php`, `components/ui/page-header-title.twig`,
+  `pages/notas/_form.twig`). S4, S5.
+- T9 (inline) Retirar el guard de solo-comentarios: era instrumento de verificación de
+  esta sesión, no una herramienta del repo.
 
 ## Log
 
@@ -92,3 +97,19 @@ sin CDNs, SRI sin cambios.
 - L7 (commits): ec83e0a (T3 auth/validación/soporte), 1260169 (T2+T4 http),
   7d5b4b0 y 42a897e (T5 tasks: datos/rutas y vistas/tests), 3781f0e (T6 contacts),
   f2b2a69 (T2 notas), 88d0c06 (T7 guía sincronizada). Rama `docs/framework-comments`.
+- L8 (hallazgo, T8): `tutorial-crud.md` no copia archivos: muestra el estado de cada
+  paso. De 90 bloques, 10 declaran archivo: 3 presentan el archivo terminado
+  (sincronizados), 3 son provisionales por diseño (closure de la ruta, HTML estático,
+  `<ul>` a mano) y 4 declaran archivos que crea el lector
+  (`app/Models/Nota.php`, `app/Http/Controllers/NotaController.php`,
+  `tests/Http/NotaTest.php`) que no existen en el repo. Por eso NO se suma al gate:
+  `CodeBlocks` los trataría como copias y fallaría en rutas que son destino del
+  lector. La entrada de navegación del tutorial se deja en sus claves mínimas: los
+  campos `summary`/`why` son texto propio del demo y copiarlos enseñaría lo contrario.
+- L9 (hallazgo abierto, fuera de alcance): el tutorial construye la entidad en la
+  estructura plana de la app base (`App\Models`, `Tests\Http`) y el demo notas en una
+  carpeta por entidad (`App\Notas\Models`, `Tests\Notas\Http`). El `why` de la
+  navegación lo presenta como "la referencia para comparar": esa equivalencia no se
+  cumple y requiere una decisión editorial aparte.
+- L10 (T9): el guard de solo-comentarios y sus scratch se eliminaron. La evidencia
+  queda en L6; el repo no gana una herramienta nueva.
