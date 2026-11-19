@@ -1,0 +1,86 @@
+# Feature: framework-comments
+
+Reescribir los comentarios de `framework/` (registro arquitectónico) y de
+`framework/scaffolds/*` (registro didáctico), agregando los que faltan y quitando
+los que no deberían estar. Solo comentarios: el comportamiento no cambia.
+Rama `docs/framework-comments`.
+
+## Specs
+
+S1. Dos registros, un mismo repo. Framework: "comentarios desde el punto de vista
+de arquitectura del software, tecnicos, pero no cripticos"; Demos: "con todo
+didactico e instruccional, a medida de enseñar al nuevo usuario como crear sus
+entidades usando como referencia los demos".
+
+S2. Qué debe decir un comentario de framework: "que es o que hace el metodo
+internamente y el motivo de su existencia o donde encaja o colabora respecto a
+otras partes de la aplicacion"; debe "ilustrar como funciona el framework y
+porque esta hecho como esta hecho".
+
+S3. Qué debe decir un comentario de demo: "ponga en contexto al usuario de que
+hace cada cosa", apoyado en el demo como referencia para crear entidades nuevas.
+
+S4. Quitar lo que no corresponde: "hay comentarios muy verbosos y
+descontextualizados o fuera de lugar". Se elimina de los archivos: IDs de spec
+(`(S13)`, `(S7)`), historia de decisiones ("igual que hacía a mano", "antes de
+existir este helper"), notas de revisión ("merece relectura", "verificado en el
+vendor"), referencias a conteos de tests y a nombres de tests como autoridad
+dentro de `framework/`.
+
+S5. "agrega comentarios donde deberia haberlos y no los hay y remuevelos donde
+hay y no deberia haberlos". Agregar: docblock de clase y de método público en
+todo `framework/`; encabezado didáctico en cada archivo de demo. Remover: narración
+interna sin valor para quien usa el framework.
+
+S6. Registro: "Español neutro/profesional", sin voseo (`tienes`, `ajusta`, `mira`;
+nunca `tenés`, `ajustá`, `mirá`). Decisión del usuario en esta sesión.
+
+S7. Criterio uniforme: "Reescribir con el criterio nuevo" — todo comentario de un
+archivo tocado queda con la misma voz y estructura, aunque el anterior ya cumpliera.
+
+S8. Solo comentarios. El flujo de tokens sin `T_COMMENT`/`T_DOC_COMMENT` debe ser
+idéntico al de `HEAD` en cada archivo modificado. Ninguna línea de código cambia.
+
+S9. Copy sincronizada: tras tocar archivos que la guía copia, `composer docs:sync`
+y `composer docs:check` verde.
+
+S10. Invariantes del repo intactos: URLs por helper, migraciones como única fuente
+del esquema, scaffold como fuente del demo (no se edita la copia instalada),
+sin CDNs, SRI sin cambios.
+
+## Tasks
+
+- T1 (inline) Rama, este documento, espejo Engram y contrato de estilo. Commits: `docs:tarea`.
+- T2 (inline) Ejemplos canónicos: `framework/Http/Url.php`, `framework/Http/Pagination.php` (voz de framework) y `framework/scaffolds/notas/**` (voz de demo). S1-S7. Commit: `docs(framework): voz canonica`.
+- T3 (writer) `framework/Auth/**`, `framework/Support/**`, `framework/Validation/**`, `framework/Docs/**`. S1, S2, S4-S8.
+- T4 (writer) `framework/Http/Controller.php`, `CsrfTokens.php`, `Flash.php`, `Middleware/**`. S1, S2, S4-S8. (Excluye `Url.php` y `Pagination.php`: son T2.)
+- T5 (writer) `framework/scaffolds/tasks/**`. S1, S3-S8.
+- T6 (writer) `framework/scaffolds/contacts/**`. S1, S3-S8.
+- T7 (inline) `composer docs:sync` + `composer docs:check` + `composer verify` + chequeo de token-stream + reinstalar demo notas. S8-S10.
+
+## Log
+
+- L1 (usuario): "quiero que analices el codebase del proyecto y agregues comentarios
+  acordes, es decir, este proyecto es un framework que se usara para desarrollar
+  otras aplicaciones, y quiero documentar mejor los metodos o funciones ya que hay
+  comentarios muy verbosos y descontextualizados o fuera de lugar... hay dos puntos
+  de vista, los archivos del framework, deben tener comentarios desde el punto de
+  vista de arquitectura del software, tecnicos, pero no cripticos, tienen que ser
+  comentarios que expliquen que es o que hace el metodo internamente y el motivo de
+  su existencia o donde encaja o colabora respecto a otras partes de la aplicacion...
+  tienen que ser comentarios que ilustren como funciona el framework y porque esta
+  hecho como esta hecho... ahora, en el caso de los demos instalables, deben ser con
+  todo didactico e instruccional, a medida de enseñar al nuevo usuario como crear sus
+  entidades usando como referencia los demos, de manera que al leerlo, el comentario
+  ponga en contexto al usuario de que hace cada cosa... realiza una revision de los
+  comentarios actuales y mejoralos de la forma y con los enfoques que te he pedido."
+- L2 (usuario): "tambien agrega comentarios donde deberia haberlos y no los hay y
+  remuevelos donde hay y no deberia haberlos".
+- L3 (decisiones del usuario): alcance = framework núcleo + los 3 demos completos;
+  registro = español neutro/profesional; criterio = reescritura uniforme.
+- L4 (evidencia): `docs/guia-stack-php-termux.md` copia 25 archivos de `framework/`
+  dentro de fences verificados; `scripts/docs-check.php:112` compara solo `docs/`.
+  `docs-check.php:37` rechaza "64-bit PHP", "jsdelivr", "unpkg" en comentarios de
+  `framework/{Auth,Http,Validation,Docs}`.
+- L5 (evidencia): demo notas instalado en el working tree (sin trackear). Fuente =
+  `framework/scaffolds/notas/**`; se reinstala tras editar el scaffold.

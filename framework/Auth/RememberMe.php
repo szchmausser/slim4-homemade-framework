@@ -9,31 +9,33 @@ use Illuminate\Database\Connection;
 use Framework\Support\Env;
 
 /**
- * Remember-me con split-token. ESTE es el archivo security-critical del login:
- * cualquier cambio aquí merece relectura y sus tests (AuthTest) en verde.
+ * Mantiene la sesión entre visitas con un par selector/validator en cookie.
  *
- * - Cookie `selector:validator`. En base: selector en claro (lookup) y SOLO
- *   EL HASH del validator (bcrypt, como un password). Jamás el token en claro.
- * - Rotación en cada uso: el token presentado muere y nace otro, las dos
- *   sentencias en UNA transacción (ver `resumeFromCookie`). Achica la ventana
- *   de replay de un token copiado.
- * - Vencimiento normal: se borra esa fila y la cookie, sin alarma.
- * - Selector conocido + validator que NO matchea: posible robo → se queman
- *   TODOS los tokens del usuario y se borra la cookie.
- * - La cookie es HttpOnly + SameSite=Lax, igual que la de sesión. `Secure`
- *   se activa con SESSION_SECURE=true (HTTPS real): ver cap. 19.
+ * La cookie lleva `selector:validator`. El selector es la clave de la fila y
+ * viaja en claro porque es el índice de búsqueda; el validator se guarda solo
+ * como hash bcrypt, así que una copia de la tabla no alcanza para armar una
+ * cookie válida. Cada uso rota el par: el anterior queda como tombstone y, si
+ * reaparece, se interpreta como robo y se queman todos los tokens del usuario.
  */
 final class RememberMe
 {
     public const COOKIE = 'remember';
 
-    public const TTL = 2592000; // 30 días, en segundos
+    /** Vida del token y `Max-Age` de la cookie: 30 días, en segundos. */
+    public const TTL = 2592000;
 
-    public const ROTATION_GRACE = 3600; // 1 hora de tombstone
+    /** Cuánto sobrevive un tombstone antes de la poda: 1 hora, en segundos. */
+    public const ROTATION_GRACE = 3600;
 
     /**
-     * Crea un token para el usuario y devuelve el par crudo "selector:validator"
-     * para la cookie. El validator sale de aquí una sola vez: no se loguea.
+     * Emite un par nuevo para el usuario y lo devuelve en claro, listo para la
+     * cookie.
+     *
+     * Los dos secretos salen de `random_bytes`; de la base solo se guarda el hash
+     * bcrypt del validator. El par en claro vive únicamente en el valor de
+     * retorno: quien llama lo entrega como cookie y no lo registra.
+     *
+     * @param int $userId dueño del token, por clave primaria
      */
     public static function create(int $userId): string
     {
@@ -50,7 +52,17 @@ final class RememberMe
         return $selector . ':' . $validator;
     }
 
-    /** Header Set-Cookie completo para el par, o para borrarlo con $clear. */
+    /**
+     * Header `Set-Cookie` completo para el par, o el que borra la cookie.
+     *
+     * `HttpOnly` y `SameSite=Lax` son fijos; `Secure` se agrega con
+     * SESSION_SECURE porque sobre HTTP local el navegador descartaría la cookie.
+     * El `Path` es `/`: la cookie cubre todo el dominio, no solo el prefijo de
+     * despliegue.
+     *
+     * @param string $pair  valor crudo que devolvió create()
+     * @param bool   $clear true emite la cookie ya vencida
+     */
     public static function cookieHeader(string $pair = '', bool $clear = false): string
     {
         $secure = Env::bool('SESSION_SECURE')
@@ -66,9 +78,18 @@ final class RememberMe
     }
 
     /**
-     * Intenta sesión desde la cookie. Devuelve el header Set-Cookie a aplicar
-     * en la respuesta de salida (rotación o limpieza), o null si no hay nada
-     * que hacer. Nunca lanza: un token roto simplemente no loguea.
+     * Intenta abrir la sesión desde la cookie y devuelve el `Set-Cookie` que
+     * corresponde a esta respuesta, o null si no hay nada que hacer.
+     *
+     * El orden de los cortes importa: primero los tombstones vencidos, después el
+     * selector, después el tombstone (replay), el usuario, el vencimiento y por
+     * último el validator. Una cookie mal formada o un selector desconocido se
+     * ignoran; un vencimiento, un usuario borrado o un replay devuelven el header
+     * que limpia la cookie. Un fallo de base de datos sube al error handler.
+     *
+     * La rotación va en una transacción sobre la conexión de Eloquent y la
+     * sesión se abre después del commit, para que un rollback no deje una sesión
+     * autenticada sin cookie detrás.
      */
     public static function resumeFromCookie(): ?string
     {
@@ -83,55 +104,53 @@ final class RememberMe
 
         $row = RememberToken::query()->where('selector', $selector)->first();
         if ($row === null) {
-            return null; // selector desconocido: nada que quemar, solo ignorar
+            return null; // selector desconocido: no hay fila que quemar, se ignora
         }
 
         if ($row->rotated_at !== null) {
-            // Replay de un token que ya se rotó: el ladrón tiene una copia
-            // vieja. Se quema la familia completa, incluido el token nuevo.
+            // Replay: el par presentado ya se rotó, así que existen dos copias
+            // vivas. Se quema la familia entera, incluido el token nuevo que
+            // emitió la rotación; la cookie que trajo el replay también se borra.
             RememberToken::query()->where('user_id', (int) $row->user_id)->delete();
             return self::cookieHeader(clear: true);
         }
 
         $user = UserProvider::find((int) $row->user_id);
         if ($user === null) {
+            // Usuario borrado: la fila quedó huérfana, se limpia y no se loguea.
             $row->delete();
             return self::cookieHeader(clear: true);
         }
 
         if ((int) $row->expires_at <= time()) {
-            $row->delete(); // vencimiento normal: sin alarma, solo limpieza
+            $row->delete(); // vencimiento normal: solo esa fila, sin alarma
             return self::cookieHeader(clear: true);
         }
 
         if (!password_verify($validator, $row->hashed_validator)) {
-            // Posible robo: el selector existe pero el secreto no matchea.
+            // El selector existe pero el secreto no coincide: ese par no lo emitió
+            // la app. Se queman todos los tokens del usuario y se limpia la cookie.
             RememberToken::query()->where('user_id', (int) $user->getKey())->delete();
             return self::cookieHeader(clear: true);
         }
 
         $userId = (int) $user->getKey();
 
-        // Rotación atómica (S8). El delete de la fila presentada y el insert
-        // del reemplazo tienen que entrar JUNTOS: si el proceso cae entre las
-        // dos sentencias, la fila vieja ya no está y la nueva no existe, la
-        // cookie del browser deja de resolver y el usuario queda deslogueado en
-        // silencio (no hay error que ver: un selector desconocido simplemente
-        // se ignora). `transaction()` va por la MISMA conexión que usan los
-        // modelos —Eloquent ya está booteado sobre este Capsule, ver
-        // config/container.php—, así que el delete del modelo y el create del
-        // reemplazo caen los dos adentro. La closure recibe esa conexión y no
-        // la usa —los modelos ya están en ella—: el tipo está para dejar
-        // explícito cuál es la conexión y que aquí no se abre una aparte.
+        // Rotación atómica: el tombstone de la fila presentada y el alta del
+        // reemplazo entran juntos. Si el proceso cae entre las dos sentencias, la
+        // cookie del navegador deja de resolver y el usuario queda deslogueado en
+        // silencio, porque un selector inexistente se ignora sin error.
+        // `transaction()` usa la misma conexión que los modelos —Eloquent ya está
+        // booteado sobre este Capsule, ver config/container.php—, así que las dos
+        // operaciones caen adentro. La closure recibe la conexión y no la usa: el
+        // tipo está para dejar explícito que aquí no se abre una aparte.
         //
-        // La sesión se abre DESPUÉS del commit a propósito: si la transacción
-        // revierte, no queda una sesión abierta sin cookie que la respalde.
-        // El par que sale de aquí es el mismo `selector:validator` de siempre y
-        // el header lo arma `cookieHeader()`, que no cambió.
+        // La sesión se abre después del commit a propósito: si la transacción
+        // revierte, no queda una sesión autenticada sin cookie que la respalde.
         $pair = Capsule::connection()->transaction(
             static function (Connection $connection) use ($row, $userId): string {
                 // Tombstone en vez de delete: si el token viejo reaparece,
-                // `resumeFromCookie()` detecta el replay y quema la familia.
+                // `resumeFromCookie()` lo reconoce como replay y quema la familia.
                 $row->rotated_at = time();
                 $row->save();
 
@@ -145,8 +164,11 @@ final class RememberMe
     }
 
     /**
-     * Los tombstones no son eternos: pasada la ventana de gracia se borran.
-     * Sin esto la tabla crecería con cada rotación.
+     * Borra los tombstones más viejos que la ventana de gracia.
+     *
+     * Se llama al comienzo de cada resume: sin esto la tabla crecería con cada
+     * rotación. La ventana también acota la detección de replay, porque pasado
+     * ese plazo el selector viejo ya no está y un replay se ve como desconocido.
      */
     public static function pruneRotated(): void
     {
@@ -156,6 +178,12 @@ final class RememberMe
             ->delete();
     }
 
+    /**
+     * Elimina todos los tokens de un usuario: cualquier cookie emitida antes deja
+     * de resolver, en este navegador y en cualquier otro.
+     *
+     * Lo llama el logout, que además limpia la cookie de la respuesta.
+     */
     public static function clearUser(int $userId): void
     {
         RememberToken::query()->where('user_id', $userId)->delete();

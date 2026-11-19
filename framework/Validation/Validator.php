@@ -9,12 +9,26 @@ use Respect\Validation\ChainedValidator;
 use Respect\Validation\Exceptions\ValidationException;
 use Respect\Validation\Validator as V;
 
+/**
+ * Valida un array de datos contra reglas escritas como texto
+ * (`'campo' => 'required|max:120'`).
+ *
+ * Traduce cada regla a un validador de respect/validation y a su mensaje en
+ * castellano, y corta en el primer fallo de cada campo: un campo inválido produce
+ * un solo mensaje, el de la primera regla que falló. Los controladores la usan
+ * antes de tocar la base y las vistas reciben el mapa `campo => mensaje`.
+ */
 class Validator
 {
     /** @var array<string, string> campo => mensaje, uno solo por campo. */
     private array $errors = [];
 
     /**
+     * Construye el validador y corre todas las reglas de una vez.
+     *
+     * Es el único camino de construcción y no hay setters: un validador ya
+     * ejecutado solo se consulta.
+     *
      * @param array<string, mixed>  $data
      * @param array<string, string> $rules
      */
@@ -26,6 +40,9 @@ class Validator
     }
 
     /**
+     * Recorre los campos en el orden declarado y deja un mensaje por cada uno que
+     * falle; el orden del mapa resultante es el del template.
+     *
      * @param array<string, mixed>  $data
      * @param array<string, string> $rules
      */
@@ -35,9 +52,9 @@ class Validator
             $field = (string) $key;
             $value = $data[$field] ?? null;
 
-            // TODAS las reglas se resuelven antes de evaluar la primera: una
-            // regla mal escrita tiene que explotar siempre, aunque una regla
-            // anterior ya hubiera fallado y no se llegue a evaluar (S2).
+            // Todas las reglas del campo se resuelven antes de evaluar la
+            // primera: una regla mal escrita tiene que explotar siempre, aunque
+            // otra del mismo campo ya haya fallado y nunca se llegue a ella.
             $resolved = [];
             foreach (explode('|', (string) $ruleString) as $rule) {
                 [$name, $param] = array_pad(explode(':', $rule, 2), 2, null);
@@ -50,11 +67,10 @@ class Validator
                     $chain->assert($value);
                     continue;
                 } catch (ValidationException) {
-                    // Primera regla que falla, único mensaje del campo: seguir
-                    // evaluando el resto sólo cambiaría el texto del aviso (el
-                    // campo ya es inválido) y hacía que el orden interno de
-                    // Respect eligiera el mensaje en vez del orden de las
-                    // reglas.
+                    // Primera regla que falla, y único mensaje del campo. Seguir
+                    // evaluando solo cambiaría el texto del aviso y dejaría que el
+                    // orden interno de Respect elija el mensaje en vez del orden de
+                    // las reglas escritas en el template.
                     $this->errors[$field] = $message;
                     break;
                 }
@@ -63,12 +79,12 @@ class Validator
     }
 
     /**
-     * Una sola fuente por regla: validador y mensaje salen del mismo `match`.
+     * Traduce una regla del texto a su validador y su mensaje.
      *
-     * `required` es `notEmpty()` (los espacios cuentan como vacío) y `max`/`min`
-     * son `length()` (cuenta caracteres, no bytes), como fijaba la suite desde
-     * antes. `numeric` va por `numericVal()`: `numeric()` no existe como nombre
-     * de regla y lanzaba una ComponentException en vez de validar.
+     * Validador y mensaje salen del mismo `match` para que no puedan describir
+     * cosas distintas. `required` es `notEmpty()` (los espacios cuentan como
+     * vacío), `max` y `min` son `length()` (caracteres, no bytes) y `numeric` va
+     * por `numericVal()`, que es el nombre que existe en Respect.
      *
      * @return array{0: ChainedValidator, 1: string}
      */
@@ -99,9 +115,12 @@ class Validator
     }
 
     /**
-     * `(int) null` convertía un `max` sin número en `length(0)`: el campo no
-     * podía pasar nunca y nadie sabía por qué. Un parámetro que no es un entero
-     * positivo es un template roto, no un dato del usuario.
+     * Lee el número de `max`/`min` una sola vez, para que el validador y el
+     * mensaje no puedan discrepar, y rechaza el template roto con una excepción.
+     *
+     * Un parámetro que no es un entero positivo no es un dato del usuario: sin
+     * este chequeo, `(int) null` daría `length(0)` y el campo no pasaría nunca sin
+     * decir por qué.
      */
     private function lengthParam(string $name, ?string $param, string $field, string $ruleString): int
     {
@@ -117,17 +136,30 @@ class Validator
         return (int) $param;
     }
 
+    /**
+     * ¿Quedó algún campo inválido? Es lo que consulta el controlador antes de tocar
+     * la base.
+     */
     public function fails(): bool
     {
         return count($this->errors) > 0;
     }
 
-    /** @return array<string, string> campo => mensaje. */
+    /**
+     * Mapa `campo => mensaje` con un solo mensaje por campo; vacío si todo pasó.
+     *
+     * @return array<string, string> campo => mensaje.
+     */
     public function errors(): array
     {
         return $this->errors;
     }
 
+    /**
+     * Primer mensaje del mapa, en el orden en que se declararon los campos.
+     *
+     * Lo usa el flash de un formulario que no tiene lugar para errores por campo.
+     */
     public function firstError(): ?string
     {
         foreach ($this->errors as $message) {

@@ -7,30 +7,59 @@ namespace Framework\Auth;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Sesión de autenticación sobre la sesión nativa de PHP (que abre
- * SessionMiddleware). Solo guarda el id: el usuario se lee de la base en
- * cada request (una query indexada; si el usuario se borra, la sesión muere).
+ * Estado de autenticación de la petición, guardado en la sesión nativa que abre
+ * SessionMiddleware.
+ *
+ * Guarda solo el id del usuario: el modelo se relee en cada request con
+ * UserProvider, así que un usuario borrado deja la sesión sin efecto y ningún
+ * dato suyo queda congelado en la sesión. Lo consultan RequireAuthMiddleware, el
+ * render de los controladores y el handler de la portada; lo escribe el login.
  */
 final class Auth
 {
+    /**
+     * Id del usuario autenticado, o null si la petición es anónima.
+     *
+     * Lee `$_SESSION['user_id']` y lo castea a entero: la sesión es un array sin
+     * tipo declarado, así que el valor no viene garantizado.
+     */
     public static function id(): ?int
     {
         $id = $_SESSION['user_id'] ?? null;
         return $id === null ? null : (int) $id;
     }
 
+    /**
+     * ¿Hay usuario en la sesión? Es el atajo booleano que consulta
+     * RequireAuthMiddleware para decidir si deja pasar la petición.
+     */
     public static function check(): bool
     {
         return self::id() !== null;
     }
 
+    /**
+     * Modelo del usuario de la petición, o null si no hay sesión.
+     *
+     * Delega en UserProvider, que es quien sabe qué clase de usuario usa la app;
+     * cuesta una query por clave primaria indexada.
+     */
     public static function user(): ?Model
     {
         $id = self::id();
         return $id === null ? null : UserProvider::find($id);
     }
 
-    /** Establece la sesión. Regenera el ID (fijación de sesión). */
+    /**
+     * Marca la sesión como autenticada.
+     *
+     * Regenera el id de sesión antes de escribir el usuario: un id conocido de
+     * antemano deja de servir (fijación de sesión). Anota `created_at` y
+     * `last_activity`, que SessionMiddleware mide para el vencimiento absoluto y
+     * por inactividad.
+     *
+     * @param int $id clave primaria del usuario que acaba de autenticarse
+     */
     public static function login(int $id): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -43,8 +72,12 @@ final class Auth
     }
 
     /**
-     * Vacía la sesión y regenera el ID. No la destruye: el CSRF vive ahí y
-     * el redirect siguiente lo necesita.
+     * Borra los datos de la sesión y regenera el id, sin destruirla.
+     *
+     * La sesión sigue activa a propósito: el aviso que el controlador escribe
+     * después de llamar aquí se guarda al cerrar el request, y el próximo GET
+     * emite su par CSRF en esta misma sesión. `session_destroy()` cortaría las
+     * dos cosas.
      */
     public static function logout(): void
     {

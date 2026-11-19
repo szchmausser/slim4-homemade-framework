@@ -5,25 +5,26 @@ declare(strict_types=1);
 namespace Framework\Docs;
 
 /**
- * Parser mínimo de los bloques de código Markdown que declaran de qué archivo
- * del repo salen (la línea de prosa justo encima del fence, con la ruta entre
+ * Parser mínimo de los bloques de código Markdown que declaran de qué archivo del
+ * repo salen (la línea de prosa justo encima del fence, con la ruta entre
  * backticks: "`resources/views/tasks/_list.twig`:").
  *
- * Existe por una razón concreta: `docs/guia-stack-php-termux.md` copia
- * archivos enteros, y `docs:check` compara cada copia contra el archivo real;
- * `docs:sync` la reescribe.
- *
- * Un fence que es un FRAGMENTO (un método, tres líneas de un array) se marca
- * con `excerpt` en el info string y queda afuera del control: no es una copia,
- * así que no hay nada que comparar.
+ * Es la pieza que hace verificable una guía que copia archivos enteros:
+ * `docs:check` compara cada copia contra el archivo real y `docs:sync` la
+ * reescribe. Un fence marcado con `excerpt` es un fragmento, no una copia, y queda
+ * afuera del control.
  */
 final class CodeBlocks
 {
-    /** Extensiones que la guía copia enteras y por lo tanto se verifican. */
+    /** Extensiones cuya copia se verifica: un fence de otra no declara archivo. */
     public const VERIFIED_EXTENSIONS = ['php', 'twig', 'json', 'neon', 'sql', 'xml'];
 
     /**
      * Parte el Markdown en bloques de código.
+     *
+     * Recorre línea por línea con un estado abierto/cerrado: la apertura captura el
+     * info string entero y solo un fence sin texto la cierra. Un bloque que nunca
+     * se cierra no se devuelve.
      *
      * @return list<array{line: int, end_line: int, info: string, content: string, intro: string}>
      *         line y end_line son 1-based (fence de apertura y de cierre).
@@ -40,8 +41,8 @@ final class CodeBlocks
         foreach ($lines as $i => $line) {
             if (!$opened) {
                 // El info string puede traer espacios (`php excerpt`): se captura
-                // entero. Si no, ese fence no se ve como apertura y el cierre se
-                // lee como apertura nueva: el parseo queda invertido hasta el EOF.
+                // entero. Si no, ese fence no se ve como apertura y su cierre se lee
+                // como apertura nueva: el parseo queda invertido hasta el EOF.
                 if (preg_match('/^```(.*)$/', $line, $match) === 1) {
                     $opened = true;
                     $info = trim($match[1]);
@@ -72,8 +73,12 @@ final class CodeBlocks
     }
 
     /**
-     * La ruta del archivo que declara la prosa, si hay exactamente una y existe.
-     * Dos rutas ("`a.php`, `b.php`:") = fence comparativo, no se verifica.
+     * La ruta de archivo que declara la prosa, o null si no hay exactamente una.
+     *
+     * Descarta extensiones no verificables, nombres sueltos sin `/`, rutas
+     * absolutas y escapes con `..`. Una ruta inexistente NO se descarta: si la
+     * guía declara la copia de un archivo que se movió, `docs:check` tiene que
+     * fallar en vez de saltear el bloque en silencio.
      */
     public static function resolvePath(string $intro, string $root): ?string
     {
@@ -103,7 +108,12 @@ final class CodeBlocks
         return count($found) === 1 ? (string) array_key_first($found) : null;
     }
 
-    /** `excerpt` en el info string: el bloque es un fragmento, no una copia. */
+    /**
+     * ¿El info string marca el fence como fragmento?
+     *
+     * Mira los tokens separados por espacios, así `php excerpt` y `excerpt` valen
+     * igual.
+     */
     public static function isExcerpt(string $info): bool
     {
         $tokens = preg_split('/\s+/', strtolower(trim($info))) ?: [];
@@ -111,13 +121,22 @@ final class CodeBlocks
         return in_array('excerpt', $tokens, true);
     }
 
-    /** Normaliza para comparar: sin CRLF y sin el \n final (no cambia el código). */
+    /**
+     * Forma comparable del código: sin CRLF y sin el salto de línea final.
+     *
+     * Ese salto es del archivo, no del contenido, y no cambia lo que muestra la
+     * guía.
+     */
     public static function normalize(string $code): string
     {
         return rtrim(str_replace(["\r\n", "\r"], "\n", $code), "\n");
     }
 
     /**
+     * Última línea no vacía antes del fence, o `''` si no hay ninguna.
+     *
+     * Es la prosa que declara de qué archivo sale la copia.
+     *
      * @param list<string> $lines
      */
     private static function introBefore(array $lines, int $fenceIndex): string

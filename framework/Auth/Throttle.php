@@ -7,33 +7,44 @@ namespace Framework\Auth;
 use Illuminate\Database\Capsule\Manager as Capsule;
 
 /**
- * Limite de intentos de login por email + IP. No usa un modelo Eloquent:
- * las filas son descartables, se escriben y se cuentan en bloque, y no
- * necesitan eventos ni casts.
+ * Límite de intentos de login por email + IP.
  *
- * - 5 fallos dentro de 15 minutos bloquean los intentos siguientes.
- * - La ventana se evalua contra attempted_at, no contra una fila de estado:
- *   no hay contador que se pueda quedar "pegado" si el proceso muere.
- * - El bloqueo es silencioso: el controlador responde lo mismo que ante
- *   credenciales invalidas, sin revelar que la cuenta esta throttled.
+ * Trabaja con el query builder y no con un modelo: las filas son descartables, se
+ * insertan y se cuentan en bloque, sin eventos ni casts. No hay contador que se
+ * pueda quedar a medio actualizar: cada intento es una fila y la ventana se mide
+ * contra `attempted_at`. El login responde lo mismo que ante credenciales
+ * inválidas, así que el bloqueo no revela que la cuenta está frenada.
  */
 final class Throttle
 {
+    /** Fallos por email + IP dentro de la ventana antes de bloquear. */
     public const MAX_ATTEMPTS = 5;
 
+    /** Fallos por IP dentro de la ventana, sin importar la cuenta. */
     public const MAX_ATTEMPTS_PER_IP = 20;
 
-    public const WINDOW = 900; // 15 minutos, en segundos
+    /** Ventana de conteo: 15 minutos, en segundos. */
+    public const WINDOW = 900;
 
     private static function normalizeEmail(string $email): string
     {
+        // El límite cuenta cuentas, no formas de escribir el email: `A@B` y
+        // `a@b` son la misma.
         return mb_strtolower(trim($email));
     }
 
+    /**
+     * Anota un intento fallido del par email + IP y de paso poda la ventana
+     * vencida.
+     *
+     * La poda viaja en el camino de escritura: si nadie falla la tabla no crece,
+     * así que no hace falta una limpieza programada.
+     *
+     * @param string $email el que escribió el usuario, se normaliza aquí
+     * @param string $ip    origen del intento, tal como lo ve el servidor
+     */
     public static function hit(string $email, string $ip): void
     {
-        // Oportunista: si nadie vuelve a fallar, la tabla no crece igual
-        // porque solo se poda cuando hay actividad.
         self::prune();
 
         Capsule::table('login_attempts')->insert([
@@ -43,6 +54,12 @@ final class Throttle
         ]);
     }
 
+    /**
+     * ¿El par email + IP llegó al máximo de fallos dentro de la ventana?
+     *
+     * El login lo consulta antes de buscar al usuario y de gastar bcrypt: una
+     * cuenta frenada no llega a comparar el hash ni a delatar si el email existe.
+     */
     public static function tooMany(string $email, string $ip): bool
     {
         $count = Capsule::table('login_attempts')
@@ -55,8 +72,10 @@ final class Throttle
     }
 
     /**
-     * Limite por IP, independiente del email. Evita que un atacante pruebe
-     * muchas cuentas desde la misma IP sin activar el limite por cuenta.
+     * Mismo techo, contado solo por IP.
+     *
+     * Corta a quien prueba muchas cuentas desde un mismo origen: así nunca activa
+     * el límite por email, que mira una cuenta a la vez.
      */
     public static function tooManyByIp(string $ip): bool
     {
@@ -68,6 +87,12 @@ final class Throttle
         return $count >= self::MAX_ATTEMPTS_PER_IP;
     }
 
+    /**
+     * Borra los fallos del par email + IP.
+     *
+     * El login lo llama al autenticar, para que el usuario legítimo no arrastre su
+     * propio historial. No toca las filas de otras IP ni de otras cuentas.
+     */
     public static function clear(string $email, string $ip): void
     {
         Capsule::table('login_attempts')
@@ -76,6 +101,7 @@ final class Throttle
             ->delete();
     }
 
+    /** Borra los intentos más viejos que la ventana; es idempotente. */
     public static function prune(): void
     {
         Capsule::table('login_attempts')
