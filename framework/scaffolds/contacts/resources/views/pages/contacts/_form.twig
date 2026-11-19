@@ -1,14 +1,22 @@
-{# `form_values` gana sobre el contacto guardado: en un fallo de validación el
-   formulario se repinta con lo que el usuario tipeó, no con lo que hay en
-   base, y con el mensaje de cada campo (S7). #}
+{# Formulario de contacto: lo comparten el alta, el modal y la página de edición.
+   Lo incluyen `pages/contacts/index.twig` y `pages/contacts/edit.twig`, y
+   `ContactController::renderForm()` lo devuelve solo en un rechazo de htmx.
+
+   Para tu entidad copia el archivo y cambia los tres campos y la acción.
+
+   `form_values` gana sobre el contacto guardado: en un rechazo se repinta lo que
+   el usuario tipeó, no lo que hay en la base. #}
 {% set values = form_values|default(contact|default(null)) %}
+
+{# `is_modal` decide el envío: dentro de un modal el formulario viaja por htmx y
+   se reemplaza a sí mismo; en la página de edición es un `POST` normal. #}
 {% set is_modal = cancel_target is defined and cancel_target %}
 <form method="post" action="{{ action }}" class="space-y-4"
       {% if is_modal %}hx-post="{{ action }}" hx-target="this" hx-swap="outerHTML"
       hx-disabled-elt="find button[type='submit']"{% endif %}>
     {% include 'components/form/csrf.twig' %}
-    {# `error` se pasa EXPLÍCITO en cada include: los tres usan `only`, así que
-       `errors` del contexto no llega solo y el mensaje nunca aparecería (S4). #}
+    {# `error` va explícito en cada include: los tres usan `only`, así que
+       `errors` del contexto no llega solo y el mensaje nunca aparecería. #}
     {% include 'components/form/field.twig' with {
         name: 'name',
         label: 'Nombre',
@@ -39,6 +47,7 @@
         autocomplete: 'tel',
         error: errors.phone|default(null)
     } only %}
+    {# Dentro de un modal, Cancelar cierra el diálogo; en la página, vuelve al listado. #}
     <div class="modal-action">
         {% if cancel_target is defined and cancel_target %}
             {% include 'components/ui/button.twig' with {

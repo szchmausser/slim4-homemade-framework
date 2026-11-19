@@ -7,6 +7,15 @@ namespace Tests\Contacts\Http;
 use App\Contacts\Models\Contact;
 use Psr\Http\Message\ResponseInterface as Response;
 
+/**
+ * Tests de la entidad Contacto: listado, endpoint de datos, las cuatro
+ * mutaciones y los dos modos de respuesta (htmx y formulario plano).
+ *
+ * Cada test arma sus propias filas y `ContactsTestCase` las borra en su
+ * `tearDown()`, así que no dependen del orden ni de la base real. Toma este archivo
+ * como ejemplo de qué probar en tu entidad: un caso feliz por ruta, el rechazo de
+ * validación y el 404.
+ */
 final class ContactsTest extends ContactsTestCase
 {
     protected function setUp(): void
@@ -15,11 +24,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: la página ya NO viaja con las filas. El HTML trae el shell de la
-     * tabla y la URL del endpoint; el listado se pide por AJAX. Antes, cada
-     * render metía todos los contactos en un `data-rows` que crecía con la
-     * tabla, así que este assert de “el nombre sembrado aparece en el HTML”
-     * se movió al endpoint: el HTML es justamente lo que ya no lo lleva.
+     * La página no viaja con las filas: trae el shell de la tabla y la URL del
+     * endpoint, y el listado se pide aparte. El nombre sembrado no aparece en el
+     * HTML y sí en la respuesta de `/contactos/datos`.
      */
     public function test_index_no_embebe_las_filas_y_apunta_al_endpoint(): void
     {
@@ -34,8 +41,8 @@ final class ContactsTest extends ContactsTestCase
         self::assertStringNotContainsString('data-rows', $html, 'Las filas no viajan en el HTML.');
         self::assertStringNotContainsString('Ana Torres', $html, 'Las filas no viajan en el HTML.');
 
-        // El contacto no desapareció: cambió de canal. La misma fila que antes
-        // estaba embebida llega ahora por el endpoint que la tabla consulta.
+        // El contacto no desapareció: la misma fila que no viaja en el HTML
+        // llega por el endpoint que la tabla consulta.
         $rows = self::rows(self::json(self::app()->handle(self::request('GET', self::dataUrl()))));
         self::assertSame('Ana Torres', $rows[0]['name']);
         self::assertStringContainsString('/assets/vendor/tabulator/6.7.1/tabulator.min.js', $html);
@@ -45,9 +52,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: el endpoint vive dentro del grupo `/contactos`, así que hereda
-     * RequireAuthMiddleware. Sin sesión no hay datos, ni siquiera para un GET
-     * que parece sólo lectura.
+     * La página de edición arma su miga de tres niveles y marca la última como
+     * página actual, no como enlace.
      */
     public function test_la_pagina_de_edicion_declara_su_miga_y_marca_la_actual(): void
     {
@@ -61,6 +67,10 @@ final class ContactsTest extends ContactsTestCase
         self::assertStringContainsString('aria-current="page">Editar', $html);
     }
 
+    /**
+     * El endpoint vive dentro del grupo protegido: sin sesión redirige al login y
+     * no devuelve ningún dato, aunque sea un `GET`.
+     */
     public function test_el_endpoint_de_datos_requiere_sesion(): void
     {
         Contact::create(['name' => 'Ana Torres', 'email' => 'ana@ejemplo.com']);
@@ -74,10 +84,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: la respuesta tiene la forma que espera el modo remoto de Tabulator
-     * —`{last_page, data}`— y cada fila conserva la forma de siempre más el
-     * `number` que antes calculaba el cliente. La numeración la resuelve el
-     * servidor: es la posición en la página, no el id.
+     * La respuesta tiene la forma del modo remoto (`last_page`, `last_row`,
+     * `data`) y cada fila conserva sus campos más `number`. La numeración es la
+     * posición en la página, así que la segunda empieza en 11.
      */
     public function test_datos_devuelve_last_page_y_data_con_la_forma_de_siempre(): void
     {
@@ -93,8 +102,8 @@ final class ContactsTest extends ContactsTestCase
 
         $rows = self::rows($payload);
         self::assertCount(10, $rows);
-        // Sin sorter, el default sigue siendo id descendente: lo último
-        // cargado primero, con `#` numerando desde 1 en la página.
+        // Sin sorter, el default es id descendente: lo último cargado primero y
+        // `#` numerando desde 1 en la página.
         self::assertSame(self::namesDescending(25, 10), array_column($rows, 'name'));
         self::assertSame(range(1, 10), array_column($rows, 'number'));
 
@@ -113,9 +122,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: `per_page` es el mismo vocabulario del resto de la app y lo clampea
-     * Pagination::clampPerPage: un tamaño que no está en ALLOWED_PER_PAGE cae
-     * al default en vez de convertirse en un LIMIT arbitrario.
+     * `per_page` es el vocabulario del resto de la app: un tamaño de
+     * `Pagination::ALLOWED_PER_PAGE` se respeta y uno desconocido cae al default
+     * en vez de convertirse en un `LIMIT` arbitrario.
      */
     public function test_datos_respeta_per_page_y_clampea_el_tamano_desconocido(): void
     {
@@ -131,8 +140,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: pedir una página que no existe devuelve la última, no un array
-     * vacío. El clamp es de Pagination::paginate, no de este controlador.
+     * Pedir una página que no existe devuelve la última, no un array vacío: el
+     * clamp lo hace `Pagination::paginate()`, no este controlador.
      */
     public function test_datos_clampea_una_pagina_fuera_de_rango(): void
     {
@@ -151,9 +160,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: el orden llega como `sort[i][field]`/`sort[i][dir]` y se resuelve
-     * contra una whitelist. Con un sorter activo, `#` es la posición en ESE
-     * orden: la primera fila es la 1 aunque su id sea otro.
+     * El orden llega como `sort[i][field]`/`sort[i][dir]` y se resuelve contra
+     * `SORTABLE`. Con un sorter activo, `number` es la posición en ese orden.
      */
     public function test_datos_ordena_por_una_columna_de_la_whitelist(): void
     {
@@ -177,9 +185,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: se aplican TODOS los sorters de la whitelist, en orden de llegada.
-     * Quedarse con el primero rompería el orden compuesto que el usuario armó
-     * con shift+click en los encabezados.
+     * Se aplican todos los sorters de la whitelist, en orden de llegada: es el
+     * orden compuesto que el usuario arma con shift+click en los encabezados.
      */
     public function test_datos_aplica_todos_los_sorters_en_orden_de_llegada(): void
     {
@@ -196,10 +203,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: un campo fuera de la whitelist se descarta en silencio. El caso
-     * `password_hash` es el que importa: no existe en `contacts`, así que si
-     * el nombre llegara a la query SQLite tiraría “no such column” y esto
-     * sería un 500. Un 200 con el orden default prueba que nunca llegó.
+     * Un campo fuera de `SORTABLE` se descarta en silencio. `password_hash` es el
+     * caso que importa: no existe en `contacts`, así que si llegara a la query
+     * SQLite respondería un 500; un 200 con el orden default prueba que no llegó.
      */
     public function test_datos_ignora_un_campo_fuera_de_la_whitelist(): void
     {
@@ -224,8 +230,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S10: página y orden se combinan en el servidor. Con el sorter activo la
-     * página 2 es la segunda porción alfabética, y la numeración arranca en 6.
+     * Página y orden se combinan en el servidor: la página 2 del orden
+     * alfabético trae la segunda porción y numera desde 6.
      */
     public function test_datos_pagina_y_ordena_juntos(): void
     {
@@ -332,11 +338,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S7: un alta inválida NO redirige. El redirect descartaba lo tipeado y
-     * dejaba el modal cerrado, así que el usuario tenía que volver a abrirlo y
-     * a escribir todo (y el mensaje vivía en un toast que no decía qué campo
-     * corregir). El formulario vuelve a renderizarse con los valores, los
-     * mensajes por campo y el modal abierto, que es donde estaba escribiendo.
+     * Un alta inválida no redirige: vuelve con 422, el modal abierto, lo tipeado
+     * y el mensaje del campo. Un redirect perdería lo escrito y dejaría el modal
+     * cerrado.
      */
     public function test_store_invalido_rerenderiza_el_formulario_con_lo_tipeado_y_el_error(): void
     {
@@ -355,8 +359,8 @@ final class ContactsTest extends ContactsTestCase
 
         $html = (string) $response->getBody();
 
-        // El modal tiene que viajar abierto: el <dialog> sale con `open` (la
-        // regla de daisyUI es `.modal[open]`), sin depender de JS.
+        // El modal tiene que viajar abierto: el <dialog> sale con `open`, la
+        // regla de daisyUI que lo muestra, sin depender de JS.
         self::assertMatchesRegularExpression(
             '/<dialog\b[^>]*id="contact-create-modal"[^>]*\bopen\b/',
             $html,
@@ -370,10 +374,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S7: la edición tenía el mismo defecto por una vía peor: 303 a
-     * /contactos descartaba la pantalla de edición entera, así que el usuario
-     * perdía el formulario, lo tipeado y hasta el contacto que estaba
-     * editando. Ahora la página de edición vuelve con los valores y el error.
+     * La edición inválida devuelve 422 en la misma pantalla de edición, con lo
+     * tipeado y el error, y sin tocar la fila guardada.
      */
     public function test_update_invalido_rerenderiza_el_formulario_en_vez_de_redirigir(): void
     {
@@ -407,10 +409,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * S5: la edición de un contacto inexistente es un 404, no un redirect al
-     * listado. El redirect escondía el error: el usuario veía el listado como
-     * si el contacto se hubiera abierto, y el aviso que lo explicaba duraba
-     * cinco segundos.
+     * Editar un contacto inexistente es un 404 con la página de error, no un
+     * redirect al listado que esconda el problema.
      */
     public function test_edit_de_un_contacto_inexistente_responde_404(): void
     {
@@ -436,10 +436,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * El borrado de un contacto inexistente SOBREVIVE a S5 como PRG: una
-     * acción con redirect no es una vista de recurso, y el listado (que sí
-     * existe) es el destino correcto. Lo que no puede pasar es que el aviso se
-     * pierda sin que nadie lo vea.
+     * Borrar un contacto inexistente sí redirige: es una acción y no una vista de
+     * recurso, así que el destino correcto es el listado, con el aviso de que no
+     * existía a la vista.
      */
     public function test_borrar_un_contacto_inexistente_redirige_con_aviso(): void
     {
@@ -463,10 +462,9 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
-     * Query string como la manda Tabulator 6.7.1: su generador de URLs
-     * serializa objetos anidados con corchetes y encodeURIComponent, así que
-     * `sort` viaja como `sort%5B0%5D%5Bfield%5D=…`. Los nombres de `page` y
-     * `per_page` son los del resto de la app.
+     * Query string como la manda la tabla: serializa los objetos anidados con
+     * corchetes, así que `sort` viaja como `sort%5B0%5D%5Bfield%5D=…`. `page` y
+     * `per_page` son los nombres del resto de la app.
      *
      * @param array<string, int|string> $params
      * @param list<array{field: string, dir: string}> $sorters
@@ -482,6 +480,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
+     * Decodifica el cuerpo de la respuesta y falla el test si no es JSON.
+     *
      * @return array<string, mixed>
      */
     private static function json(Response $response): array
@@ -495,6 +495,8 @@ final class ContactsTest extends ContactsTestCase
     }
 
     /**
+     * Las filas de `data`, con el test fallando si la clave no vino.
+     *
      * @param array<string, mixed> $payload
      * @return list<array<string, mixed>>
      */

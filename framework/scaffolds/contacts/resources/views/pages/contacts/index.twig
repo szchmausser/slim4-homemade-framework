@@ -1,8 +1,15 @@
+{# Página del listado: el shell, la tabla remota y los tres modales.
+   La sirve `ContactController::index()`; las filas no viajan en el HTML: el
+   contenedor de `components/table/tabulator.twig` las pide a `/contactos/datos`.
+
+   Para tu entidad copia la página, cambia la URL del endpoint y los `id` de los
+   modales, que los botones y el script del demo referencian por nombre. #}
 {% extends 'layouts/app.twig' %}
 
 {% block title %}Contactos{% endblock %}
 
 {% block head %}
+    {# CSS local de la tabla, con su SRI: el demo no pide nada a un CDN. #}
     <link rel="stylesheet"
           href="{{ url('/assets/vendor/tabulator/6.7.1/tabulator_simple.min.css') }}"
           crossorigin="anonymous" integrity="sha384-845p0lFU615QIduQrRBstSh/4oeH8AntnsjQxQorupjL89uYj3JAryzqwGRHHsT3">
@@ -34,6 +41,8 @@
 
             <h2 class="text-lg font-semibold">Listado</h2>
 
+            {# La tabla es un contenedor vacío con la URL del endpoint: las filas
+               llegan por JSON y, si el JS no corre, el `noscript` lo explica. #}
             {% include 'components/table/tabulator.twig' with {
                 id: 'contacts-table',
                 url: url('/contactos/datos'),
@@ -46,10 +55,9 @@
         </div>
     </section>
 
-    {# `open_create_modal`: el alta inválida sin JS reusa este mismo render con
-       el modal abierto y lo tipeado, así el usuario sigue donde estaba
-       escribiendo (S7). Con htmx el 422 devuelve solo el formulario y el 204
-       cierra el modal por evento; sin JS, el éxito sigue siendo 303. #}
+    {# `open_create_modal`: el alta sin JS que falla la validación reusa esta
+       página con el modal abierto y lo tipeado. Con htmx el 422 devuelve solo
+       el formulario y el 204 cierra el modal por evento. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-create-modal',
         title: 'Nuevo contacto',
@@ -66,6 +74,8 @@
         {% endblock %}
     {% endembed %}
 
+    {# El script del demo completa el nombre y el `action` de este formulario con
+       los datos de la fila: por eso el `action` sale vacío en el HTML. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-delete-modal',
         title: 'Eliminar contacto'
@@ -95,6 +105,8 @@
         {% endblock %}
     {% endembed %}
 
+    {# Cuerpo vacío a propósito: el script pide `edit_url` por htmx y lo carga acá
+       adentro antes de abrir el modal. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-edit-modal',
         title: 'Editar contacto'
@@ -106,6 +118,8 @@
 {% endblock %}
 
 {% block scripts %}
+    {# Los dos bundles locales, con SRI: el de Tabulator y el script del demo que
+       lee la URL del contenedor y lo inicializa. #}
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
             crossorigin="anonymous" integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"

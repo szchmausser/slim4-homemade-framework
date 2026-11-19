@@ -1,3 +1,8 @@
+{# Página de edición de un contacto: el formulario completo fuera de un modal.
+   La sirve `ContactController::edit()` cuando la petición no trae `HX-Request`,
+   y reusa `pages/contacts/_form.twig` con el contacto cargado.
+
+   Para tu entidad copia la página, cambia la acción y la miga de pan. #}
 {% extends 'layouts/app.twig' %}
 
 {% block title %}Editar contacto{% endblock %}
@@ -22,6 +27,8 @@
 
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body">
+            {# El mismo formulario del alta, ahora con `contact`: al no venir
+               `form_values`, los campos salen con lo guardado. #}
             {% include 'pages/contacts/_form.twig' with {
                 action: url('/contactos/' ~ contact.id),
                 contact: contact,
