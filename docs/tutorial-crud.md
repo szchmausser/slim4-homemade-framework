@@ -245,7 +245,7 @@ usa una clase por tabla, y esa clase queda como el único lugar que conoce `nota
 
 **Acción**: crea `app/Models/Nota.php`:
 
-```php
+```php excerpt
 <?php
 
 declare(strict_types=1);
@@ -324,7 +324,7 @@ ruta que devuelve un texto fijo. Con eso alcanza para saber si el registro funci
 
 **Acción**: el archivo de rutas de tu entidad, `routes/notas.php`:
 
-```php
+```php excerpt
 <?php
 
 declare(strict_types=1);
@@ -426,7 +426,7 @@ La carpeta no existe en el clon: creala. La entrada se versiona.
 
 Ahora el archivo, `config/navigation/notas.php`:
 
-```php
+```php excerpt
 <?php
 
 declare(strict_types=1);
@@ -506,7 +506,7 @@ ahorra buscar en el lugar equivocado.
 
 **Acción**: ahora el controlador. Crea `app/Http/Controllers/NotaController.php` con una sola acción:
 
-```php
+```php excerpt
 <?php
 
 declare(strict_types=1);
@@ -653,7 +653,7 @@ datos que van a entrar después—, y por eso el contenido se mueve tal cual, si
 
 **Acción**: crea `resources/views/pages/notas/index.twig` con el mismo contenido, todavía estático:
 
-```twig
+```twig excerpt
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="utf-8"><title>Notas</title></head>
@@ -871,7 +871,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 **Acción**: mueve el `<ul>` completo de 6.5 a un parcial nuevo,
 `resources/views/pages/notas/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
 
-```twig
+```twig excerpt
 <div id="notas-panel">
     <ul class="space-y-2">
         {% for item in notas %}
@@ -1484,7 +1484,7 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
 **Acción**: mueve el formulario que hoy vive dentro del `<dialog>` a
 `resources/views/pages/notas/_form.twig`:
 
-```twig
+```twig excerpt
 {#
   Formulario de una nota: lo comparten el alta y la edición.
 
@@ -2264,7 +2264,7 @@ importa de verdad, porque una validación que no repinta el modal es una validac
 
 **Acción**: crea `tests/Notas/Http/NotaTest.php`, una carpeta por entidad, con el esqueleto y los dos tests del alta:
 
-```php
+```php excerpt
 <?php
 
 declare(strict_types=1);
@@ -3046,7 +3046,7 @@ el modal de alta, que es el que queda abierto.
 El `422` pasa por el mismo `renderList()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
 contrato, agrega a `tests/Notas/Http/NotaTest.php`:
 
-```php
+```php excerpt
     public function test_un_422_no_empuja_la_url(): void
     {
         $token = self::token('/notas');

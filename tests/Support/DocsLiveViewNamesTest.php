@@ -15,7 +15,8 @@ use PHPUnit\Framework\TestCase;
  * Ninguno de los dos rompe `docs:check`, porque no son copias declaradas.
  *
  * Se revisan README, DESIGN, AGENTS y THIRD-PARTY-NOTICES, que describen el
- * proyecto para quien lo lee, más la guía de stack.
+ * proyecto para quien lo lee, más los documentos de `docs/` que hablan del árbol
+ * que este clon ya tiene.
  */
 final class DocsLiveViewNamesTest extends TestCase
 {
@@ -80,7 +81,16 @@ final class DocsLiveViewNamesTest extends TestCase
             $raiz . '/THIRD-PARTY-NOTICES.md',
         ];
 
+        // `tutorial-crud.md` queda afuera a propósito: es un recorrido que crea su
+        // propia entidad paso a paso, así que nombra rutas de la entidad del ejemplo
+        // que no existen hasta que el lector las escribe (o instala el demo).
+        $excluidos = ['tutorial-crud.md'];
+
         foreach (glob($raiz . '/docs/*.md') ?: [] as $archivo) {
+            if (in_array(basename($archivo), $excluidos, true)) {
+                continue;
+            }
+
             $docs[] = $archivo;
         }
 

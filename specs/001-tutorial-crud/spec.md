@@ -111,11 +111,21 @@ está logrado.
 - **FR-008**: Cada pieza reutilizable presentada MUST explicarse con qué resuelve, cuándo usarla y qué se evita al usarla.
 - **FR-009**: El cierre del recorrido MUST enseñar a escribir la suite mínima de la entidad —alta correcta, validación que rechaza y aviso ante un identificador inexistente— y MUST presentarla como el reemplazo automatizado de las comprobaciones manuales hechas durante el recorrido.
 - **FR-010**: El cierre del recorrido MUST dejar el patrón explícito para aplicarlo a una entidad distinta de la del ejemplo.
-- **FR-011**: El artefacto MUST vivir en un archivo en la raíz del repositorio, fuera de `docs/`, `.ai/` y del README, y MUST poder agregarse sin romper el gate del proyecto.
+- **FR-011**: El artefacto MUST vivir en un archivo en la raíz del repositorio, fuera de `docs/`, `.ai/` y del README, y MUST poder agregarse sin romper el gate del proyecto. *(Superado: ver «Enmienda de ubicación».)*
 - **FR-012**: El artefacto MUST NOT modificar la guía existente ni los demos, y MUST agregar una única línea de enlace en el índice de guías del README.
 - **FR-013**: El recorrido MUST NOT enseñar a construir el framework (instalación de PHP/Termux, contenedor de dependencias, middlewares, auth, assets) ni a modificar sus piezas; MUST explicarlas para usarlas, y sí incluye el arranque de la aplicación hasta una sesión iniciada porque sin sesión no hay ruta protegida que ver.
 - **FR-014**: La comprobación de FR-004 MUST ser manual y su resultado esperado MUST estar escrito antes de que el lector la ejecute: una petición HTTP a la ruta recién creada con su respuesta esperada, o la ruta abierta en el navegador con lo que debe verse.
-- **FR-015**: El artefacto MUST ubicarse en `tutorial-crud.md`, en la raíz del repositorio.
+- **FR-015**: El artefacto MUST ubicarse en `tutorial-crud.md`, en la raíz del repositorio. *(Superado: ver «Enmienda de ubicación».)*
+
+### Enmienda de ubicación
+
+El artefacto pasó a `docs/tutorial-crud.md`. El motivo es organizativo —la raíz queda para
+los documentos con contrato de descubrimiento (`README`, `AGENTS`, `CHANGELOG`, avisos de
+terceros)— y el precio es que `docs/` es un directorio vigilado: lo que copia un archivo del
+repositorio se compara contra el archivo real. Por eso los nueve fences del recorrido que
+muestran archivos de la entidad del ejemplo van marcados `excerpt` (no son copias del repo,
+son el estado del archivo en ese paso) y `DocsLiveViewNamesTest` lo excluye (nombra vistas
+que el lector todavía no escribió). El resto del contrato sigue vigente.
 - **FR-016**: El recorrido MUST introducir cada capacidad junto con su comprobación manual observable, y MUST NOT pedirle al lector que automatice nada antes del cierre.
 - **FR-017**: La primera capacidad del recorrido MUST exponerse con una respuesta simple verificable por petición directa, antes de introducir vistas.
 - **FR-018**: El recorrido MUST NOT introducir utilidades `dark:`, assets nuevos ni respuestas 303 para HTMX: muestra y usa el mecanismo vigente del proyecto — `data-theme`, assets vendorizados con SRI y HTML de región.

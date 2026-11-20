@@ -7,8 +7,8 @@ Lo que `tutorial-crud.md` tiene que cumplir para considerarse válido. `tasks.md
 
 | Requisito | Regla verificable |
 |---|---|
-| Ubicación | Archivo único `tutorial-crud.md` en la raíz del repositorio |
-| Alcance del gate | No está en `docs/`, ni en `.ai/`, ni es el README; no agrega scripts ni dependencias |
+| Ubicación | Archivo único `docs/tutorial-crud.md` (enmienda: nació en la raíz) |
+| Alcance del gate | Vive en `docs/` con sus copias marcadas `excerpt` y fuera de `DocsLiveViewNamesTest`; no agrega scripts ni dependencias |
 | Prerrequisitos | Bloque al inicio: qué necesita el lector (PHP, Composer, cliente HTTP, navegador) y qué **no** se enseña aquí |
 | Orden | Los pasos son secuenciales y cada uno asume el estado que dejó el anterior |
 | Arranque | Incluye el tramo hasta una sesión iniciada contra una ruta protegida |
