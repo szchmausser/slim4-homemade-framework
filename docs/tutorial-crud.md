@@ -175,7 +175,9 @@ a mano, lo asigna el comando del proyecto:
 composer make:migration CreateNotasTable
 ```
 
-Eso deja `006_create_notas_table.php` con el esqueleto. Complétalo:
+Eso deja `006_create_notas_table.php` con el esqueleto. El aviso que imprime es esperado y no bloquea
+nada: el scaffold del demo de notas declara la misma clase, así que ese demo no puede instalarse
+mientras exista tu migración. Complétalo:
 
 ```php
 <?php

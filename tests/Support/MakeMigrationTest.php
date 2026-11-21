@@ -33,8 +33,17 @@ final class MakeMigrationTest extends TestCase
 
         @mkdir($this->root . '/database/migrations', 0755, true);
 
-        foreach (glob($this->projectRoot . '/database/migrations/*.php') ?: [] as $migration) {
-            copy($migration, $this->root . '/database/migrations/' . basename($migration));
+        // Fixture hermético: el rango de la app se escribe acá y no se copia del
+        // repo. Copiarlo ataba el test a cuántas migraciones reales existan, y
+        // la primera migración que agregue quien usa el esqueleto lo rompía.
+        foreach ([
+            '001_create_users_table.php' => 'CreateUsersTable',
+            '002_create_remember_tokens_table.php' => 'CreateRememberTokensTable',
+            '003_login_attempts.php' => 'LoginAttempts',
+            '004_add_login_attempts_index.php' => 'AddLoginAttemptsIndex',
+            '005_add_rotated_at_to_remember_tokens.php' => 'AddRotatedAtToRememberTokens',
+        ] as $relative => $class) {
+            $this->writeMigration('database/migrations/' . $relative, $class);
         }
 
         foreach ($this->band as $relative => $class) {

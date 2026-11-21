@@ -99,7 +99,9 @@ foreach ($files as $relative => $path) {
 
 if ($enScaffold !== '') {
     echo "Aviso: la clase {$class} también la declara el scaffold {$enScaffold}.\n";
-    echo "Ese demo no puede instalarse mientras exista tu migración.\n";
+    echo "Phinx deriva la clase del nombre del archivo, así que ese demo y tu migración\n";
+    echo "no pueden convivir: instalarlo abortaría con «has the same name as».\n";
+    echo "Tu migración queda igual; sólo evita `composer demo:<demo>:install`.\n";
 }
 
 $relativePath = 'database/migrations/' . sprintf('%03d', $next) . '_' . snakeCase($class) . '.php';
