@@ -260,7 +260,14 @@ Con la tabla creada, el problema pasa a ser desde dónde escribirla. Un controla
 a mano repite el nombre de la tabla, el orden de las columnas y el escapado en cada acción; el proyecto
 usa una clase por tabla, y esa clase queda como el único lugar que conoce `notas`.
 
-**Acción**: crea `app/Models/Nota.php`:
+**Acción**: crea el esqueleto con el comando del proyecto:
+
+```bash
+composer make:model Nota
+```
+
+Deja `app/Models/Nota.php` con el namespace, la tabla y `$fillable` vacío. Los docblocks no los escribe:
+dependen de tus columnas. Tiene que quedar así:
 
 ```php excerpt
 <?php

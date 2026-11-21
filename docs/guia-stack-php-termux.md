@@ -318,6 +318,7 @@ composer require --dev phpunit/phpunit
         "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
         "make:migration": "@php scripts/make-migration.php",
+        "make:model": "@php scripts/make-model.php",
         "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
@@ -5202,6 +5203,7 @@ Con workers, dos requests concurrentes sobre la **misma sesión** se contendian 
 ```bash
 composer migrate                         # corre migraciones pendientes
 composer make:migration Nombre            # crea database/migrations/NNN_nombre.php con el siguiente número libre
+composer make:model Nombre                # esqueleto de app/Models/Nombre.php (tabla y fillable)
 vendor/bin/phinx seed:create NombreSeed  # crea un seed de datos (cap. 11.1)
 vendor/bin/phinx seed:run -s DatabaseSeeder  # corre todos en orden (cap. 11.2)
 vendor/bin/phinx seed:run -s NombreSeed  # corre uno solo
