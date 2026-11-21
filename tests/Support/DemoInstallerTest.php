@@ -185,6 +185,47 @@ final class DemoInstallerTest extends TestCase
         self::assertFalse($this->hasContactsTable());
     }
 
+    public function test_install_deja_el_demo_tasks_en_el_layout_plano(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'tasks', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertFileExists($this->root . '/app/Models/Task.php');
+        self::assertFileExists($this->root . '/app/Http/Controllers/TaskController.php');
+        self::assertDirectoryDoesNotExist($this->root . '/app/Tasks');
+    }
+
+    public function test_install_deja_el_demo_contacts_en_el_layout_plano(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'contacts', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertFileExists($this->root . '/app/Models/Contact.php');
+        self::assertFileExists($this->root . '/app/Http/Controllers/ContactController.php');
+        self::assertDirectoryDoesNotExist($this->root . '/app/Contacts');
+    }
+
+    public function test_remove_conserva_los_directorios_compartidos_de_la_app(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'tasks', '--no-db']);
+        self::assertSame(0, $exit, $stderr);
+
+        // Los tres los crea la instalación del demo y son de la app cuando el
+        // demo se va: un remove que los borre deja el esqueleto sin destinos.
+        $shared = ['app/Models', 'app/Http/Controllers', 'resources/views/pages'];
+        foreach ($shared as $dir) {
+            self::assertDirectoryExists($this->root . '/' . $dir, 'La instalación no creó ' . $dir);
+        }
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'tasks', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertStringContainsString('removido', $stdout);
+        foreach ($shared as $dir) {
+            self::assertDirectoryExists($this->root . '/' . $dir, 'El remove borró el directorio compartido ' . $dir);
+        }
+    }
+
     public function test_install_revierte_los_archivos_si_la_db_falla(): void
     {
         // Una tabla `notes` preexistente hace fallar la migración del demo: el

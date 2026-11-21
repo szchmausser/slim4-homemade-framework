@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Contacts\Http;
 
-use App\Contacts\Models\Contact;
+use App\Models\Contact;
 use Tests\Support\HttpTestCase;
 
 /**

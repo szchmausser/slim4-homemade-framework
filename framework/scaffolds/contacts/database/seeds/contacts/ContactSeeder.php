@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Contacts\Models\Contact;
+use App\Models\Contact;
 use Phinx\Seed\AbstractSeed;
 
 /**

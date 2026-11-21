@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  * Los tres casos que importan aquí y que no se pueden adivinar desde el código
  * de los llamadores:
  * 1. `app`, `/app` y `/app/` son el mismo prefijo. Si la normalización se
- *    escapa, `//app/tareas` o `/app//tareas` llegan al router y no matchean.
+ *    escapa, `//app/tasks` o `/app//tasks` llegan al router y no matchean.
  * 2. Sin prefijo, todo tiene que salir byte a byte como antes de existir el
  *    helper: es la garantía de que el cambio no toca el despliegue en la raíz.
  * 3. La raíz (`path('/')`) conserva la barra final: `/app/` y no `/app`. Un
@@ -34,8 +34,8 @@ final class UrlTest extends TestCase
         self::prefijo('');
 
         self::assertSame('', Url::base());
-        self::assertSame('/tareas', Url::path('/tareas'));
-        self::assertSame('/tareas', Url::path('tareas'));
+        self::assertSame('/tasks', Url::path('/tasks'));
+        self::assertSame('/tasks', Url::path('tasks'));
         self::assertSame('/', Url::path('/'));
         self::assertSame('/assets/daisyui-5.7.46.css', Url::path('/assets/daisyui-5.7.46.css'));
     }
@@ -45,7 +45,7 @@ final class UrlTest extends TestCase
         self::prefijo('app');
 
         self::assertSame('/app', Url::base());
-        self::assertSame('/app/tareas', Url::path('/tareas'));
+        self::assertSame('/app/tasks', Url::path('/tasks'));
     }
 
     public function test_un_prefijo_con_barra_final_pierde_la_barra(): void
@@ -53,17 +53,17 @@ final class UrlTest extends TestCase
         self::prefijo('/app/');
 
         self::assertSame('/app', Url::base());
-        self::assertSame('/app/tareas', Url::path('/tareas'));
+        self::assertSame('/app/tasks', Url::path('/tasks'));
     }
 
     public function test_el_prefijo_se_recorta_en_los_bordes(): void
     {
         // Un .env con espacios alrededor (copiar y pegar) no puede producir
-        // `/app /tareas`: se recorta, y las barras de más colapsan.
+        // `/app /tasks`: se recorta, y las barras de más colapsan.
         self::prefijo('  /app/  ');
 
         self::assertSame('/app', Url::base());
-        self::assertSame('/app/tareas', Url::path('tareas'));
+        self::assertSame('/app/tasks', Url::path('tasks'));
     }
 
     public function test_la_raiz_con_prefijo_conserva_la_barra_final(): void
@@ -80,10 +80,10 @@ final class UrlTest extends TestCase
     {
         self::prefijo('/app');
 
-        self::assertSame(Url::path('/tareas'), Url::path('tareas'));
-        self::assertSame('/app/tareas', Url::path('tareas'));
-        // La barra se agrega una sola vez: `//app/tareas` es otra ruta.
-        self::assertSame('/app/tareas/5/toggle', Url::path('/tareas/5/toggle'));
+        self::assertSame(Url::path('/tasks'), Url::path('tasks'));
+        self::assertSame('/app/tasks', Url::path('tasks'));
+        // La barra se agrega una sola vez: `//app/tasks` es otra ruta.
+        self::assertSame('/app/tasks/5/toggle', Url::path('/tasks/5/toggle'));
     }
 
     public function test_la_barra_sola_es_no_tener_prefijo(): void
@@ -93,7 +93,7 @@ final class UrlTest extends TestCase
         self::prefijo('/');
 
         self::assertSame('', Url::base());
-        self::assertSame('/tareas', Url::path('/tareas'));
+        self::assertSame('/tasks', Url::path('/tasks'));
     }
 
     /**

@@ -11,7 +11,7 @@ use Tests\Tasks\Http\TasksTestCase;
  * POST sin token no crea nada y el 400 de htmx llega con un evento que alguien
  * escucha.
  *
- * Capa tests. La autenticación en sí no se prueba acá: `/tareas` exige login y estos
+ * Capa tests. La autenticación en sí no se prueba acá: `/tasks` exige login y estos
  * casos entran logueados.
  *
  * Para tu entidad, copia el archivo y cambia la ruta.
@@ -20,14 +20,14 @@ final class CsrfFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
     public function test_get_renderiza_el_formulario_con_token(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas')
+            self::request('GET', '/tasks')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -39,12 +39,12 @@ final class CsrfFlowTest extends TasksTestCase
         $app = self::app();
 
         // 1. El GET abre la sesión y deja el token en ella.
-        $getResponse = $app->handle(self::request('GET', '/tareas'));
+        $getResponse = $app->handle(self::request('GET', '/tasks'));
         $token = $this->scrapeToken((string) $getResponse->getBody());
 
         // 2. El POST reutiliza ese token.
         $postResponse = $app->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -58,7 +58,7 @@ final class CsrfFlowTest extends TasksTestCase
     public function test_post_con_token_invalido_redirige_al_login(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => 'basura',
                 'csrf_value' => 'basura',
                 'title'      => 'No deberia guardarse',
@@ -74,7 +74,7 @@ final class CsrfFlowTest extends TasksTestCase
     public function test_post_htmx_con_token_invalido_devuelve_400_y_hx_trigger(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', ['title' => 'x'], ['HX-Request' => 'true'])
+            self::request('POST', '/tasks', ['title' => 'x'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());

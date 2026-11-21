@@ -128,13 +128,13 @@ mi-app/
 │   │   └── Env.php                 # lectura tipada del entorno (get/bool/int)
 │   └── scaffolds/
 │       ├── tasks/                  # demo opcional: composer demo:tasks:install
-│       │   ├── app/Tasks/{Http,Models}/
+│       │   ├── app/{Models,Http/Controllers}/
 │       │   ├── database/{migrations,seeds}/tasks/
 │       │   ├── resources/views/pages/tasks/
 │       │   ├── routes/tasks.php
 │       │   └── tests/Tasks/
 │       └── contacts/               # demo Tabulator: composer demo:contacts:install
-│           ├── app/Contacts/{Http,Models}/
+│           ├── app/{Models,Http/Controllers}/
 │           ├── database/{migrations,seeds}/contacts/
 │           ├── public/assets/{vendor/tabulator,css,js}/
 │           ├── resources/views/pages/contacts/
@@ -204,7 +204,7 @@ mi-app/
 └── phpunit.xml
 ```
 
-El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php` (la entrada del módulo en el menú). Sin ese comando, la app base queda limpia.
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php` (la entrada del módulo en el menú). Sin ese comando, la app base queda limpia. El layout es plano, el mismo del tutorial: el demo no crea un namespace `App\Tasks`; lo único que agrupa por demo es la migración, en `database/migrations/tasks/`, para reservar la banda 900.
 
 Hay tres demos (`tasks`, `contacts` y `notes`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
@@ -1155,7 +1155,7 @@ En `config/middleware.php`, entre routing y sesión (en ejecución corre justo d
     $app->add(SessionMiddleware::class);
 ```
 
-`framework/Http/Middleware/RequireAuthMiddleware.php` (NO global: se agrega por grupo, solo a `/tareas`):
+`framework/Http/Middleware/RequireAuthMiddleware.php` (NO global: se agrega por grupo, solo a `/tasks`):
 
 ```php
 <?php
@@ -1811,7 +1811,7 @@ final class CsrfTokens
 
 ## 9. Rutas, controladores y auth
 
-`routes/web.php` completo. Novedades respecto al CRUD pelado: rutas de auth (login/logout públicas, `/tareas` protegido por grupo) y la home que pasa `user_*` + CSRF porque el layout los necesita en todo render:
+`routes/web.php` completo. Novedades respecto al CRUD pelado: rutas de auth (login/logout públicas, `/tasks` protegido por grupo) y la home que pasa `user_*` + CSRF porque el layout los necesita en todo render:
 
 ```php
 <?php
@@ -2101,21 +2101,21 @@ abstract class Controller
 
 El orden del merge es el contrato: flash + CSRF, después defaults del controlador, después `$extra` de la acción. Lo puntual siempre gana a lo general. Y php-di autowirea el constructor heredado sin configuración: el próximo controlador nace con `extends Controller` y listo.
 
-`framework/scaffolds/tasks/app/Tasks/Http/TaskController.php`:
+`framework/scaffolds/tasks/app/Http/Controllers/TaskController.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Tasks\Http;
+namespace App\Http\Controllers;
 
 use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -2126,7 +2126,8 @@ use Slim\Exception\HttpNotFoundException;
  *
  * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
  * para el recorte, `Validator` para el título, `Flash` para los avisos y
- * `Controller::render()` para la plantilla.
+ * `Controller::render()` para la plantilla. El modelo vive en `app/Models/Task.php`,
+ * el layout plano que enseña la convención.
  *
  * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
  * único lugar que elige plantilla y estado.
@@ -2149,7 +2150,7 @@ class TaskController extends Controller
             // Con el prefijo ya aplicado: el `base_url` de este resultado es la
             // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
             // los dos heredan el prefijo sin saberlo.
-            Url::path('/tareas')
+            Url::path('/tasks')
         );
 
         return [
@@ -2158,7 +2159,7 @@ class TaskController extends Controller
         ];
     }
 
-    /** `GET /tareas`. Sólo delega en `respond()`: el endpoint no arma datos. */
+    /** `GET /tasks`. Sólo delega en `respond()`: el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->respond($request, $response);
@@ -2179,7 +2180,7 @@ class TaskController extends Controller
         // El orden del merge importa: `pageData()` primero, así un `$extra` no
         // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
-            'active' => 'tareas',
+            'active' => 'tasks',
             'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
@@ -2211,7 +2212,7 @@ class TaskController extends Controller
         $pagination = $data['pagination'];
 
         // La URL empujada es la canónica de la vista y no la de la acción:
-        // `/tareas/5/toggle` sólo acepta POST, y recargarla sería un 404.
+        // `/tasks/5/toggle` sólo acepta POST, y recargarla sería un 404.
         return $response->withHeader('HX-Push-Url', sprintf(
             '%s?page=%d&per_page=%d',
             $pagination['base_url'],
@@ -2221,7 +2222,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `POST /tareas`. Valida el título, guarda y vuelve al panel con el aviso; si
+     * `POST /tasks`. Valida el título, guarda y vuelve al panel con el aviso; si
      * no valida, responde 422.
      */
     public function store(Request $request, Response $response): Response
@@ -2252,7 +2253,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `DELETE /tareas/{id}`. Borra y vuelve al panel con el aviso.
+     * `DELETE /tasks/{id}`. Borra y vuelve al panel con el aviso.
      */
     public function destroy(Request $request, Response $response, array $args): Response
     {
@@ -2274,7 +2275,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `GET /tareas/{id}/edit`. Vuelve el panel entero con esa fila en modo
+     * `GET /tasks/{id}/edit`. Vuelve el panel entero con esa fila en modo
      * formulario.
      */
     public function edit(Request $request, Response $response, array $args): Response
@@ -2302,7 +2303,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `PUT /tareas/{id}`. Guarda el título; un fallo de validación devuelve 422 con
+     * `PUT /tasks/{id}`. Guarda el título; un fallo de validación devuelve 422 con
      * la fila en modo formulario.
      */
     public function update(Request $request, Response $response, array $args): Response
@@ -2351,7 +2352,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `POST /tareas/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
+     * `POST /tasks/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
      * `completed_at` al completar y limpiándola al volver atrás.
      *
      * Vuelve el panel entero con la lista actualizada.
@@ -2553,14 +2554,14 @@ El login es un form normal (sin HTMX): navega de verdad con 303. Cuatro detalles
 
 ## 10. Modelos Eloquent (+ User y RememberToken)
 
-`framework/scaffolds/tasks/app/Tasks/Models/Task.php`:
+`framework/scaffolds/tasks/app/Models/Task.php`:
 
 ```php
 <?php
 
 declare(strict_types=1);
 
-namespace App\Tasks\Models;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -2571,8 +2572,13 @@ use Illuminate\Database\Eloquent\Model;
  * `900_create_tasks_table.php`, el controlador escribe a través de este modelo y
  * las vistas reciben sus instancias.
  *
+ * La tabla tampoco se declara: Eloquent la deriva del nombre de la clase (`Task`
+ * → `tasks`). `$table` se escribe sólo cuando la tabla se aparta de esa
+ * convención; el tutorial lo muestra con la suya en español.
+ *
  * Para tu entidad, copia el archivo y ajusta `$fillable`, `$casts` y las
- * anotaciones: PHPStan las lee para tipar cada fila.
+ * anotaciones: PHPStan las lee para tipar cada fila. Si el nombre de la tabla no
+ * es el plural de la clase, declara `$table`.
  *
  * @property int $id
  * @property string $title
@@ -2675,7 +2681,7 @@ class RememberToken extends Model
 }
 ```
 
-`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `framework/Auth/`. `app/Models/` queda para los modelos que el usuario del esqueleto va a crear (`User`, y los de dominio que no vengan de un scaffold: el `Task` del demo vive en `app/Tasks/Models/`).
+`RememberToken` es la única pieza de persistencia que pertenece al framework y no al dominio: solo la usa `RememberMe`. Por eso vive en `framework/Auth/`. `app/Models/` queda para los modelos de la app (`User` y los de dominio, vengan de un scaffold o no: el `Task` del demo se instala en `app/Models/Task.php`, con el mismo namespace `App\Models`).
 
 ## 11. Migraciones con Phinx
 
@@ -3026,7 +3032,7 @@ final class DatabaseSeeder extends AbstractSeed
 
 declare(strict_types=1);
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
@@ -3077,7 +3083,7 @@ ADMIN_EMAIL=... ADMIN_PASSWORD=... vendor/bin/phinx seed:run -s DatabaseSeeder
 
 declare(strict_types=1);
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**
@@ -4035,7 +4041,7 @@ Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadc
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags (por Composer van **después de `--`**): `composer demo:tasks:install -- --force` reinstala sobre archivos existentes —antes los respalda en `storage/backups/`—, `--no-db` opera solo sobre archivos y `--no-files` solo sobre la DB. Lo instalado queda registrado en `storage/demo-state/<demo>.json` con el sha256 de cada archivo: comparar contra ese manifiesto distingue un archivo **desactualizado** (lo movió el scaffold y nadie lo editó: se pisa o se borra sin backup) de uno **editado** (el `remove` aborta y pide `composer demo:tasks:remove -- --force` o `--no-files`).
+> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags (por Composer van **después de `--`**): `composer demo:tasks:install -- --force` reinstala sobre archivos existentes —antes los respalda en `storage/backups/`—, `--no-db` opera solo sobre archivos y `--no-files` solo sobre la DB. Lo instalado queda registrado en `storage/demo-state/<demo>.json` con el sha256 de cada archivo: comparar contra ese manifiesto distingue un archivo **desactualizado** (lo movió el scaffold y nadie lo editó: se pisa o se borra sin backup) de uno **editado** (el `remove` aborta y pide `composer demo:tasks:remove -- --force` o `--no-files`).
 
 La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`.
 
@@ -4470,8 +4476,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
        La página es 1 a propósito: la tarea nueva queda arriba. #}
     {# `method` y `action` no son redundantes con `hx-post`: htmx intercepta el
        submit, pero sin JS el formulario tiene que poder enviarse solo. #}
-    <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
-          method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
+    <form id="alta-tarea" hx-post="{{ url('/tasks') }}?page=1&per_page={{ pagination.per_page }}"
+          method="post" action="{{ url('/tasks') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"
@@ -4593,7 +4599,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 {# `flex-wrap`: el mensaje de error viaja en su propia línea en vez
                    de robarle ancho al input y a los botones en móvil. #}
-                <form hx-put="{{ url('/tareas/' ~ task.id) }}?{{ posicion|raw }}"
+                <form hx-put="{{ url('/tasks/' ~ task.id) }}?{{ posicion|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
@@ -4638,7 +4644,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         icon: 'x',
                         icon_class: 'h-3.5 w-3.5',
                         extra_class: 'gap-1.5',
-                        hx_get: url('/tareas') ~ '?' ~ posicion,
+                        hx_get: url('/tasks') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'cancel-' ~ task.id
@@ -4719,7 +4725,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
                         aria_label: task.status == 'completado' ? 'Desmarcar' : 'Completar',
                         title: task.status == 'completado' ? 'Desmarcar' : 'Completar',
-                        hx_post: url('/tareas/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
+                        hx_post: url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
@@ -4733,7 +4739,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         extra_class: 'btn-square size-9',
                         aria_label: 'Editar',
                         title: 'Editar',
-                        hx_get: url('/tareas/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
+                        hx_get: url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'edit-' ~ task.id
@@ -4774,7 +4780,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             variant: 'error',
                             icon: 'trash',
                             extra_class: 'gap-1.5',
-                            hx_delete: url('/tareas/' ~ task.id) ~ '?' ~ posicion,
+                            hx_delete: url('/tasks/' ~ task.id) ~ '?' ~ posicion,
                             hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
                             hx_target: '#tareas-panel',
                             hx_swap: 'outerHTML',
@@ -4806,11 +4812,11 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 > | query string (`?csrf_name=…&csrf_value=…`) | **400** + `HX-Trigger: {"csrf":"…"}` |
 > | headers `csrf_name` / `csrf_value` | **200**, la tarea desaparece |
 >
-> **El toggle es un `POST` que devuelve el panel entero.** `hx-post="/tareas/{id}/toggle"` con `hx-swap="outerHTML"` sobre `#tareas-panel` y tokens por `hx-headers` (el botón no está en un form: mismo motivo que el DELETE). No alcanza con swapear el botón solo: cambiar el estado mueve también la fila entera y los contadores de la paginación.
+> **El toggle es un `POST` que devuelve el panel entero.** `hx-post="/tasks/{id}/toggle"` con `hx-swap="outerHTML"` sobre `#tareas-panel` y tokens por `hx-headers` (el botón no está en un form: mismo motivo que el DELETE). No alcanza con swapear el botón solo: cambiar el estado mueve también la fila entera y los contadores de la paginación.
 >
 > **El estado vive en un tooltip, no escrito al lado del título.** "Pendiente" / "Completada el 14/08/2026 22:31" en la fila le robaba ancho al título en móvil, y es un dato que sólo se busca cuando interesa. Ahora el icono es un `<button>` que abre un globito **por click** (Alpine `x-data="{ open: false }"`; se cierra con `@click.outside` o `@keydown.escape`): en táctil no existe el hover, así que `title=` nativo no serviría, y el `tooltip` de daisyUI es CSS-hover. El texto completo va en `aria-label` del botón (`:aria-expanded` refleja si está abierto) y el globo es puramente visual: `aria-hidden` + `pointer-events-none`, para que no se quede con el click que debería cerrarlo. El icono es entonces la única señal de estado, así que el pendiente usa `icon-pending` (una tinta propia definida en el layout) y el completado `icon-success`: `text-base-content/40` quedaba bajo el piso de 4.5:1 y `text-base-400` no existe en daisyUI 5 (salía a full contraste, más pesado que el verde).
 >
-> **`index()` también responde distinto para htmx** (cap. 9): los botones "Editar" y "Cancelar" piden `GET /tareas/...`/`GET /tareas` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
+> **`index()` también responde distinto para htmx** (cap. 9): los botones "Editar" y "Cancelar" piden `GET /tasks/...`/`GET /tasks` esperando la región. Sin el branch, htmx metería un `<html>` completo dentro del panel.
 
 `public/index.php` (ya mostrado en el cap. 13):
 
@@ -4978,7 +4984,7 @@ En el controlador, un método privado por ruta listada (la página y el tamaño 
             $request,
             // Con el prefijo de APP_BASE_PATH ya aplicado: base_url es la
             // fuente de la paginación y del HX-Push-Url.
-            Url::path('/tareas')
+            Url::path('/tasks')
         );
 
         return [
@@ -5155,7 +5161,7 @@ vendor/bin/phinx seed:run -s DatabaseSeeder   # admin + datos demo
 php -S 127.0.0.1:8080 -t public
 ```
 
-Abre `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tareas` (la app).
+Abre `http://localhost:8080/` desde el navegador del teléfono (bienvenida) y `http://localhost:8080/tasks` (la app).
 
 ### 17.1 Que no se te muera cuando apagas la pantalla
 
@@ -5792,7 +5798,7 @@ use Tests\Tasks\Http\TasksTestCase;
  * POST sin token no crea nada y el 400 de htmx llega con un evento que alguien
  * escucha.
  *
- * Capa tests. La autenticación en sí no se prueba acá: `/tareas` exige login y estos
+ * Capa tests. La autenticación en sí no se prueba acá: `/tasks` exige login y estos
  * casos entran logueados.
  *
  * Para tu entidad, copia el archivo y cambia la ruta.
@@ -5801,14 +5807,14 @@ final class CsrfFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
     public function test_get_renderiza_el_formulario_con_token(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas')
+            self::request('GET', '/tasks')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -5820,12 +5826,12 @@ final class CsrfFlowTest extends TasksTestCase
         $app = self::app();
 
         // 1. El GET abre la sesión y deja el token en ella.
-        $getResponse = $app->handle(self::request('GET', '/tareas'));
+        $getResponse = $app->handle(self::request('GET', '/tasks'));
         $token = $this->scrapeToken((string) $getResponse->getBody());
 
         // 2. El POST reutiliza ese token.
         $postResponse = $app->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -5839,7 +5845,7 @@ final class CsrfFlowTest extends TasksTestCase
     public function test_post_con_token_invalido_redirige_al_login(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => 'basura',
                 'csrf_value' => 'basura',
                 'title'      => 'No deberia guardarse',
@@ -5855,7 +5861,7 @@ final class CsrfFlowTest extends TasksTestCase
     public function test_post_htmx_con_token_invalido_devuelve_400_y_hx_trigger(): void
     {
         $response = self::app()->handle(
-            self::request('POST', '/tareas', ['title' => 'x'], ['HX-Request' => 'true'])
+            self::request('POST', '/tasks', ['title' => 'x'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
@@ -6105,7 +6111,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -6121,7 +6127,7 @@ final class DeleteTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -6131,7 +6137,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id)
+            self::request('DELETE', '/tasks/' . $task->id)
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -6148,7 +6154,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id . '?' . http_build_query($token))
+            self::request('DELETE', '/tasks/' . $task->id . '?' . http_build_query($token))
                 ->withHeader('HX-Request', 'true')
         );
 
@@ -6168,7 +6174,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/999999', $token)
+            self::request('DELETE', '/tasks/999999', $token)
         );
 
         self::assertSame(404, $response->getStatusCode());
@@ -6179,14 +6185,14 @@ final class DeleteTaskTest extends TasksTestCase
     {
         $task = Task::create(['title' => 'Comprar pan']);
 
-        $html = (string) self::app()->handle(self::request('GET', '/tareas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/tasks'))->getBody();
 
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
         // Sólo importa que el borrado apunte al recurso correcto: la posición del
         // query string tiene su propio caso en `ListStateContractTest`.
-        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
+        self::assertStringContainsString('hx-delete="/tasks/' . $task->id . '?', $html);
     }
 }
 ```
@@ -6202,7 +6208,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -6218,14 +6224,14 @@ final class PartialRenderTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
     public function test_get_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas')
+            self::request('GET', '/tasks')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -6239,7 +6245,7 @@ final class PartialRenderTest extends TasksTestCase
     public function test_get_con_hx_request_devuelve_solo_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['HX-Request' => 'true'])
+            self::request('GET', '/tasks', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -6260,7 +6266,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -6283,7 +6289,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -6304,7 +6310,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id, [
+            self::request('DELETE', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
             ])
@@ -6342,7 +6348,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -6359,7 +6365,7 @@ final class EditTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -6368,7 +6374,7 @@ final class EditTaskTest extends TasksTestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('GET', '/tareas/' . $task->id . '/edit')
+            self::request('GET', '/tasks/' . $task->id . '/edit')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -6380,7 +6386,7 @@ final class EditTaskTest extends TasksTestCase
 
         // Sólo el recurso destino: la posición del query string tiene su caso en
         // `ListStateContractTest`.
-        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
+        self::assertStringContainsString('hx-put="/tasks/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('Cancelar', $html);
@@ -6394,7 +6400,7 @@ final class EditTaskTest extends TasksTestCase
     public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas/999999/edit')
+            self::request('GET', '/tasks/999999/edit')
         );
 
         self::assertSame(404, $response->getStatusCode());
@@ -6412,7 +6418,7 @@ final class EditTaskTest extends TasksTestCase
     public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas/999999/edit', [], ['HX-Request' => 'true'])
+            self::request('GET', '/tasks/999999/edit', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -6441,7 +6447,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan integral',
@@ -6466,7 +6472,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => '',
@@ -6493,7 +6499,7 @@ final class EditTaskTest extends TasksTestCase
         $tipeado = str_repeat('b', 200);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => $tipeado,
@@ -6523,7 +6529,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/999999', [
+            self::request('PUT', '/tasks/999999', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'No debería guardarse',
@@ -6540,7 +6546,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/999999', [
+            self::request('PUT', '/tasks/999999', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'No debería guardarse',
@@ -6563,7 +6569,7 @@ final class EditTaskTest extends TasksTestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
+            self::request('PUT', '/tasks/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());
@@ -7049,7 +7055,7 @@ final class AuthTest extends HttpTestCase
 
 Dos consecuencias de tener rutas protegidas que te van a morder si no las sabes:
 
-1. **Los tests base usan `/_test/protected`.** `AppFactory` registra esa ruta solo para la suite, así los tests de auth y base path no dependen del demo. Los tests del demo (`/tareas`) viven en `framework/scaffolds/tasks/tests/Tasks/` y se instalan con el scaffold.
+1. **Los tests base usan `/_test/protected`.** `AppFactory` registra esa ruta solo para la suite, así los tests de auth y base path no dependen del demo. Los tests del demo (`/tasks`) viven en `framework/scaffolds/tasks/tests/Tasks/` y se instalan con el scaffold.
 2. **El esquema lo aplica Phinx, no `AppFactory`.** `tests/bootstrap.php` migra un SQLite temporal en `storage/cache/tests/`; `AppFactory` solo construye la app. No hay `CREATE TABLE` espejo que mantener: si agregas una migración, la suite la corre.
 
 ### 20.10 Paginación: matemática pura + flujo con 12 filas
@@ -7143,7 +7149,7 @@ final class PaginationTest extends TestCase
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 2, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 2, 10, '/tasks');
 
         self::assertSame(25, $p['total']);
         self::assertSame(10, $p['per_page']);
@@ -7152,14 +7158,14 @@ final class PaginationTest extends TestCase
         self::assertSame(11, $p['from']);
         self::assertSame(20, $p['to']);
         self::assertCount(10, $p['items']);
-        self::assertSame('/tareas', $p['base_url']);
+        self::assertSame('/tasks', $p['base_url']);
     }
 
     public function test_pagina_fuera_de_rango_se_clampea_a_la_ultima(): void
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 99, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 99, 10, '/tasks');
 
         self::assertSame(3, $p['current_page']);
         self::assertCount(5, $p['items']);
@@ -7187,7 +7193,7 @@ final class PaginationTest extends TestCase
 
     public function test_sin_filas_no_rompe_los_contadores(): void
     {
-        $p = Pagination::paginate($this->query(), 1, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 1, 10, '/tasks');
 
         self::assertSame(0, $p['total']);
         self::assertSame(1, $p['last_page']);
@@ -7200,7 +7206,7 @@ final class PaginationTest extends TestCase
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 1, 999, '/tareas');
+        $p = Pagination::paginate($this->query(), 1, 999, '/tasks');
 
         self::assertSame(10, $p['per_page']);
         self::assertSame(3, $p['last_page']);
@@ -7234,7 +7240,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -7248,7 +7254,7 @@ final class PaginationFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth).
+        // `/tasks` exige login (RequireAuth).
         self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
@@ -7258,7 +7264,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_pagina_dos_trae_las_mas_viejas_y_contadores(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?page=2'));
+        $response = self::app()->handle(self::request('GET', '/tasks?page=2'));
 
         self::assertSame(200, $response->getStatusCode());
 
@@ -7272,7 +7278,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_per_page_grande_mete_todo_en_una(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?per_page=25'));
+        $response = self::app()->handle(self::request('GET', '/tasks?per_page=25'));
 
         $html = (string) $response->getBody();
 
@@ -7283,7 +7289,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_per_page_invalido_cae_al_default(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?per_page=999&page=2'));
+        $response = self::app()->handle(self::request('GET', '/tasks?per_page=999&page=2'));
 
         $html = (string) $response->getBody();
 
@@ -7292,11 +7298,11 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_los_links_apuntan_al_panel_y_conservan_el_tamano(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?page=2&per_page=10'));
+        $response = self::app()->handle(self::request('GET', '/tasks?page=2&per_page=10'));
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('hx-get="/tareas?page=1&per_page=10"', $html);
+        self::assertStringContainsString('hx-get="/tasks?page=1&per_page=10"', $html);
         self::assertStringContainsString('hx-target="#tareas-panel"', $html);
     }
 }
@@ -7401,7 +7407,7 @@ curl -sI http://127.0.0.1:8080/no-existe | head -5
 **[t]** Sin error visible: deslogueos o CSRF mismatch. Tres causas en orden: `session.save_path` limpiado por Android (cap. 18.4), `secure => true` sin HTTPS (la cookie no viaja), directorio inexistente (el bootstrap ya crea `storage/sessions/`).
 
 ```bash
-curl -sI http://127.0.0.1:8080/tareas | grep -i set-cookie
+curl -sI http://127.0.0.1:8080/tasks | grep -i set-cookie
 # esperado: mi_app_session=...; path=/; HttpOnly; SameSite=Lax
 ```
 
@@ -7410,8 +7416,8 @@ curl -sI http://127.0.0.1:8080/tareas | grep -i set-cookie
 **[v]** El backend emite `HX-Trigger: {"csrf":"..."}` y el navegador lo ignora: el listener tiene que estar en el layout (el panel se reemplaza con cada swap).
 
 ```bash
-curl -sI -X POST http://127.0.0.1:8080/tareas | grep -i hx-trigger
-curl -s http://127.0.0.1:8080/tareas | grep -c 'csrf.window'
+curl -sI -X POST http://127.0.0.1:8080/tasks | grep -i hx-trigger
+curl -s http://127.0.0.1:8080/tasks | grep -c 'csrf.window'
 # esperado: 1 o más
 ```
 
@@ -7493,7 +7499,7 @@ Si el `install` te sugiere `update`, es porque tu clon es anterior al fix: el `p
 
 ### 21.22 Suite roja de golpe tras proteger una ruta
 
-**[v]** Proteges `/tareas` con `RequireAuth` y varios tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tareas` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
+**[v]** Proteges `/tasks` con `RequireAuth` y varios tests se ponen rojos con 303: no es regresión, es la puerta funcionando. Los tests viejos tienen que entrar logueados (inyectar `$_SESSION['user_id']` en `setUp()` + limpiar en `tearDown()`); la auth en sí se testea en `AuthTest`, no ahí. Si un test de `/tasks` falla con 303 después de un cambio de middleware, lo primero es mirar la sesión, no el controlador.
 
 ### 21.23 `Duplicate migration` con versión `2147483647`
 
@@ -7543,15 +7549,15 @@ curl -sI http://127.0.0.1:8080/no-existe | head -5
 curl -s http://127.0.0.1:8080/no-existe | wc -c
 # esperado: cientos de bytes, no cientos de KB (el test exige < 4096)
 
-# 5. La cookie de sesión tiene que viajar (cap. 8). Ojo: /tareas ahora exige
+# 5. La cookie de sesión tiene que viajar (cap. 8). Ojo: /tasks ahora exige
 # login, así que la cookie se verifica contra /login (pública, con sesión).
 curl -sI http://127.0.0.1:8080/login | grep -i set-cookie
 # esperado: mi_app_session=...; path=/; HttpOnly; SameSite=Lax
 
-# 5b. La puerta (cap. 9.2): sin login, /tareas no muestra nada.
-curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://127.0.0.1:8080/tareas
+# 5b. La puerta (cap. 9.2): sin login, /tasks no muestra nada.
+curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" http://127.0.0.1:8080/tasks
 # esperado: 303 .../login
-curl -sI -H "HX-Request: true" http://127.0.0.1:8080/tareas | grep -i hx-redirect
+curl -sI -H "HX-Request: true" http://127.0.0.1:8080/tasks | grep -i hx-redirect
 # esperado: HX-Redirect: /login (200, no 303: el swap no sigue redirects)
 ```
 
@@ -7578,8 +7584,8 @@ curl -s -b jar.txt -c jar.txt --data-urlencode "csrf_name=..." \
   --data-urlencode "csrf_value=..." --data-urlencode "email=TU_EMAIL" \
   --data-urlencode "password=TU_CLAVE" --data-urlencode "remember=1" \
   -i http://127.0.0.1:8080/login | grep -E "^(HTTP|Location|Set-Cookie)"
-# esperado: 303, Location: /tareas, Set-Cookie de sesión + remember=... (HttpOnly, Max-Age)
-curl -s -b jar.txt http://127.0.0.1:8080/tareas | wc -c
+# esperado: 303, Location: /tasks, Set-Cookie de sesión + remember=... (HttpOnly, Max-Age)
+curl -s -b jar.txt http://127.0.0.1:8080/tasks | wc -c
 # esperado: >0 (con jar logueado; sin jar es el 303 del chequeo 5b)
 ```
 
@@ -7656,7 +7662,7 @@ resources/views/layouts/parts/topbar.twig: 43 lineas NO documentadas
 resources/views/pages/errors/_htmx.twig: 4 lineas NO documentadas
 ```
 
-Lo que reporta son, casi todos, archivos que la guía referencia por ruta pero no transcribe línea por línea (`tests/Support/*`, los componentes y los partials del shell) más una línea de `config/auth.php`: es la deuda de documentación, medida — y la lista cambia con la versión del repo y con los demos instalados (`app/Tasks/**` aparece al instalar una demo). Y el alcance honesto: el `find` cubre `app`, `config`, `routes`, `tests`, `resources` y `bootstrap` — `composer.json`, `.env`, `.gitignore` y `.gitattributes` están fuera del escaneo y se verifican a ojo contra los caps. 4 y 5. Los assets vendorizados (`.js`/`.css`) también están fuera: no se copian bytes a una guía, se verifican con el SRI del cap. 14.1.
+Lo que reporta son, casi todos, archivos que la guía referencia por ruta pero no transcribe línea por línea (`tests/Support/*`, los componentes y los partials del shell) más una línea de `config/auth.php`: es la deuda de documentación, medida — y la lista cambia con la versión del repo y con los demos instalados (`app/Models/Task.php` y `app/Http/Controllers/TaskController.php` aparecen al instalar el demo). Y el alcance honesto: el `find` cubre `app`, `config`, `routes`, `tests`, `resources` y `bootstrap` — `composer.json`, `.env`, `.gitignore` y `.gitattributes` están fuera del escaneo y se verifican a ojo contra los caps. 4 y 5. Los assets vendorizados (`.js`/`.css`) también están fuera: no se copian bytes a una guía, se verifican con el SRI del cap. 14.1.
 
 ### 22.4 El chequeo de cinco segundos que sí depende de tu teléfono
 
@@ -7677,7 +7683,7 @@ Si `pkg install php` responde `Unable to locate package`, vuelve al 21.1.
 | Que funcione `termux-wake-lock` | Necesita Android suspendiendo el proceso | 21.11, en el teléfono |
 | Consumo real de RAM bajo OOM killer | Es el OOM killer del kernel, no PHP | Cap. 18.1, con `echo "exit=$?"` |
 | Que SQLite ande bien con WAL en Android | El backup tiene que llevar `-wal` y `-shm` | Cap. 18.6 |
-| Render visual del shell (sidebar, temas) | Sin ojo no hay verificación de diseño | Abrir `/` y `/tareas` en el teléfono, claro y oscuro |
+| Render visual del shell (sidebar, temas) | Sin ojo no hay verificación de diseño | Abrir `/` y `/tasks` en el teléfono, claro y oscuro |
 
 Todo lo demás — lógica PHP, pipeline, sesiones, CSRF, tests, headers, SRI, contratos HTMX — está verificado por ejecución, y el Nivel A lo reproduce en cinco minutos.
 

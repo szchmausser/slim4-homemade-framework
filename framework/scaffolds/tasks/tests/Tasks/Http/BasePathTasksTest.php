@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Support\AppFactory;
 use Tests\Tasks\Http\TasksTestCase;
 
@@ -40,12 +40,12 @@ final class BasePathTasksTest extends TasksTestCase
     {
         self::loginAs();
 
-        $response = self::app()->handle(self::request('GET', '/app/tareas'));
+        $response = self::app()->handle(self::request('GET', '/app/tasks'));
 
         self::assertSame(200, $response->getStatusCode(), 'el prefijo no llegó al router');
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('href="/app/tareas"', $html);
+        self::assertStringContainsString('href="/app/tasks"', $html);
         self::assertStringContainsString('href="/app/assets/daisyui-5.7.46.css"', $html);
 
         self::assertDoesNotMatchRegularExpression(
@@ -65,10 +65,10 @@ final class BasePathTasksTest extends TasksTestCase
             Task::create(['title' => sprintf('Tarea %02d', $i)]);
         }
 
-        $html = (string) self::app()->handle(self::request('GET', '/app/tareas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/app/tasks'))->getBody();
 
         self::assertMatchesRegularExpression(
-            '#<a[^>]*href="/app/tareas\?page=2&(?:amp;)?per_page=10"#',
+            '#<a[^>]*href="/app/tasks\?page=2&(?:amp;)?per_page=10"#',
             $html,
             'la paginación tiene que llevar el prefijo'
         );
@@ -76,10 +76,10 @@ final class BasePathTasksTest extends TasksTestCase
         $task = Task::orderByDesc('id')->first();
         self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
 
-        $token = self::token('/app/tareas');
+        $token = self::token('/app/tasks');
 
         $response = self::app()->handle(
-            self::request('POST', sprintf('/app/tareas/%d/toggle?page=1&per_page=10', $task->id))
+            self::request('POST', sprintf('/app/tasks/%d/toggle?page=1&per_page=10', $task->id))
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -87,7 +87,7 @@ final class BasePathTasksTest extends TasksTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(
-            '/app/tareas?page=1&per_page=10',
+            '/app/tasks?page=1&per_page=10',
             $response->getHeaderLine('HX-Push-Url')
         );
     }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Tasks\Http\TaskController;
+use App\Http\Controllers\TaskController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
@@ -20,7 +20,7 @@ use Slim\Routing\RouteCollectorProxy;
 return function (App $app) {
     // El middleware se monta sobre el grupo: protege las seis rutas de una vez y
     // es el lugar natural para la autorización de la entidad completa.
-    $app->group('/tareas', function (RouteCollectorProxy $route) {
+    $app->group('/tasks', function (RouteCollectorProxy $route) {
         $route->get('', [TaskController::class, 'index']);              // listado paginado
         $route->post('', [TaskController::class, 'store']);             // alta desde el formulario
         $route->get('/{id}/edit', [TaskController::class, 'edit']);     // fila en modo edición

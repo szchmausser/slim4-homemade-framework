@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tasks\Http;
+namespace App\Http\Controllers;
 
 use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\Validation\Validator;
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Illuminate\Support\Carbon;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -20,7 +20,8 @@ use Slim\Exception\HttpNotFoundException;
  *
  * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
  * para el recorte, `Validator` para el título, `Flash` para los avisos y
- * `Controller::render()` para la plantilla.
+ * `Controller::render()` para la plantilla. El modelo vive en `app/Models/Task.php`,
+ * el layout plano que enseña la convención.
  *
  * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
  * único lugar que elige plantilla y estado.
@@ -43,7 +44,7 @@ class TaskController extends Controller
             // Con el prefijo ya aplicado: el `base_url` de este resultado es la
             // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
             // los dos heredan el prefijo sin saberlo.
-            Url::path('/tareas')
+            Url::path('/tasks')
         );
 
         return [
@@ -52,7 +53,7 @@ class TaskController extends Controller
         ];
     }
 
-    /** `GET /tareas`. Sólo delega en `respond()`: el endpoint no arma datos. */
+    /** `GET /tasks`. Sólo delega en `respond()`: el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->respond($request, $response);
@@ -73,7 +74,7 @@ class TaskController extends Controller
         // El orden del merge importa: `pageData()` primero, así un `$extra` no
         // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
-            'active' => 'tareas',
+            'active' => 'tasks',
             'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
         ];
 
@@ -105,7 +106,7 @@ class TaskController extends Controller
         $pagination = $data['pagination'];
 
         // La URL empujada es la canónica de la vista y no la de la acción:
-        // `/tareas/5/toggle` sólo acepta POST, y recargarla sería un 404.
+        // `/tasks/5/toggle` sólo acepta POST, y recargarla sería un 404.
         return $response->withHeader('HX-Push-Url', sprintf(
             '%s?page=%d&per_page=%d',
             $pagination['base_url'],
@@ -115,7 +116,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `POST /tareas`. Valida el título, guarda y vuelve al panel con el aviso; si
+     * `POST /tasks`. Valida el título, guarda y vuelve al panel con el aviso; si
      * no valida, responde 422.
      */
     public function store(Request $request, Response $response): Response
@@ -146,7 +147,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `DELETE /tareas/{id}`. Borra y vuelve al panel con el aviso.
+     * `DELETE /tasks/{id}`. Borra y vuelve al panel con el aviso.
      */
     public function destroy(Request $request, Response $response, array $args): Response
     {
@@ -168,7 +169,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `GET /tareas/{id}/edit`. Vuelve el panel entero con esa fila en modo
+     * `GET /tasks/{id}/edit`. Vuelve el panel entero con esa fila en modo
      * formulario.
      */
     public function edit(Request $request, Response $response, array $args): Response
@@ -196,7 +197,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `PUT /tareas/{id}`. Guarda el título; un fallo de validación devuelve 422 con
+     * `PUT /tasks/{id}`. Guarda el título; un fallo de validación devuelve 422 con
      * la fila en modo formulario.
      */
     public function update(Request $request, Response $response, array $args): Response
@@ -245,7 +246,7 @@ class TaskController extends Controller
     }
 
     /**
-     * `POST /tareas/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
+     * `POST /tasks/{id}/toggle`. Alterna `pendiente` y `completado`, guardando
      * `completed_at` al completar y limpiándola al volver atrás.
      *
      * Vuelve el panel entero con la lista actualizada.

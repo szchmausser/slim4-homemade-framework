@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -18,7 +18,7 @@ final class ToggleTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -28,7 +28,7 @@ final class ToggleTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas/' . $task->id . '/toggle')
+            self::request('POST', '/tasks/' . $task->id . '/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -58,7 +58,7 @@ final class ToggleTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas/' . $task->id . '/toggle')
+            self::request('POST', '/tasks/' . $task->id . '/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -80,7 +80,7 @@ final class ToggleTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas/999999/toggle')
+            self::request('POST', '/tasks/999999/toggle')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -114,7 +114,7 @@ final class ToggleTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas/999999/toggle', $token)
+            self::request('POST', '/tasks/999999/toggle', $token)
         );
 
         self::assertSame(404, $response->getStatusCode());

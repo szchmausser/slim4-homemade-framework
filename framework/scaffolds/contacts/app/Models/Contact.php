@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Contacts\Models;
+namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,8 +14,13 @@ use Illuminate\Database\Eloquent\Model;
  * migración `920_create_contacts_table.php`, el seeder la llena y el controlador
  * escribe a través de este modelo.
  *
- * Para tu entidad copia el archivo y cambia `$table`, `$fillable` y las
- * anotaciones `@property`: PHPStan las lee para tipar cada fila.
+ * La tabla no se declara: Eloquent la deriva del nombre de la clase (`Contact`
+ * → `contacts`). `$table` se escribe sólo cuando la tabla se aparta de esa
+ * convención; el tutorial lo muestra con la suya en español.
+ *
+ * Para tu entidad copia el archivo y cambia `$fillable` y las anotaciones
+ * `@property`: PHPStan las lee para tipar cada fila. Si el nombre de la tabla no
+ * es el plural de la clase, declara `$table`.
  *
  * @property int $id
  * @property string $name
@@ -30,8 +35,6 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class Contact extends Model
 {
-    protected $table = 'contacts';
-
     /**
      * Límite de asignación masiva: `create()` y `fill()` aceptan solo estas
      * claves, así que un campo del request que no esté acá se descarta.

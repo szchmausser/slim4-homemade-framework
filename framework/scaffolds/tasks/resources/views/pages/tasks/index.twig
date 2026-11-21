@@ -42,8 +42,8 @@
        La página es 1 a propósito: la tarea nueva queda arriba. #}
     {# `method` y `action` no son redundantes con `hx-post`: htmx intercepta el
        submit, pero sin JS el formulario tiene que poder enviarse solo. #}
-    <form id="alta-tarea" hx-post="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
-          method="post" action="{{ url('/tareas') }}?page=1&per_page={{ pagination.per_page }}"
+    <form id="alta-tarea" hx-post="{{ url('/tasks') }}?page=1&per_page={{ pagination.per_page }}"
+          method="post" action="{{ url('/tasks') }}?page=1&per_page={{ pagination.per_page }}"
           hx-target="#tareas-panel" hx-swap="outerHTML"
           hx-on::after-request="if (event.detail.xhr.status === 200) this.reset()"
           hx-disabled-elt="#alta-tarea button"

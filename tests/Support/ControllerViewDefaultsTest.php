@@ -67,9 +67,9 @@ final class ControllerViewDefaultsTest extends TestCase
     {
         self::assertSame([
             ['label' => 'Inicio', 'href' => Url::path('/')],
-            ['label' => 'Contactos', 'href' => '/contactos'],
+            ['label' => 'Contactos', 'href' => '/contacts'],
             ['label' => 'Editar', 'current' => true],
-        ], self::controlador()->migasForParaTest('Contactos', '/contactos', 'Editar'));
+        ], self::controlador()->migasForParaTest('Contactos', '/contacts', 'Editar'));
     }
 
     /**

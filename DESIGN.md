@@ -128,7 +128,7 @@ existe; si una pieza es reutilizable va en `components/`, y si es del shell va e
 
 {% include 'components/table/tabulator.twig' with {
     id: 'contacts-table',
-    url: url('/contactos/datos'),
+    url: url('/contacts/data'),
     label: 'Listado de contactos'
 } only %}
 
@@ -139,13 +139,13 @@ existe; si una pieza es reutilizable va en `components/`, y si es del shell va e
 } %}
 ```
 
-El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contactos` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa el modo remoto de Tabulator contra `GET /contactos/datos`, que devuelve `{last_page, data}` para la `page` y el `per_page` pedidos (10 por página, selector 5/10/25/50/100, contador en español). El orden también es remoto: los encabezados mandan `sort[i][field]`/`sort[i][dir]` y el servidor los resuelve contra una whitelist explícita, así que el `#` es la posición en el orden visible. **Modo remoto no es mezclar los dos modelos de paginación**: Tabulator no pagina ni ordena una copia local, sólo pide páginas y muestra lo que llega, y el servidor es el único que cuenta, recorta y ordena sobre la tabla completa. Mezclar sería lo otro —filas locales paginadas por el cliente sobre un dataset que el servidor ya recortó— y ahí el estado de página no correspondería con los datos. Por eso el HTML de `/contactos` no embebe ninguna fila. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
+El demo de contactos es una isla de tabla avanzada con **Tabulator 6.7.1** vendorizado: `public/assets/vendor/tabulator/6.7.1/` + `contacts-tabulator.css` + `contacts-tabulator.js`, cargados solo en `/contacts` mediante los bloques `head`/`scripts`. Su CSS remapea encabezado, filas y celdas a `base-200`/`base-100`/`base-content`; sin eso, el tema oscuro conserva los colores claros del vendor. **No usa `components/pagination/simple.twig` a propósito**: esa paginación es server-rendered y emite URLs/HTMX, mientras que esta tabla activa el modo remoto de Tabulator contra `GET /contacts/data`, que devuelve `{last_page, data}` para la `page` y el `per_page` pedidos (10 por página, selector 5/10/25/50/100, contador en español). El orden también es remoto: los encabezados mandan `sort[i][field]`/`sort[i][dir]` y el servidor los resuelve contra una whitelist explícita, así que el `#` es la posición en el orden visible. **Modo remoto no es mezclar los dos modelos de paginación**: Tabulator no pagina ni ordena una copia local, sólo pide páginas y muestra lo que llega, y el servidor es el único que cuenta, recorta y ordena sobre la tabla completa. Mezclar sería lo otro —filas locales paginadas por el cliente sobre un dataset que el servidor ya recortó— y ahí el estado de página no correspondería con los datos. Por eso el HTML de `/contacts` no embebe ninguna fila. El footer de Tabulator se mapea a los tokens del tema, incluido el estado activo y el selector de tamaño.
 
 ## Interacción
 
 - **Tema**: toggle `swap` en el header; el estado vive en `localStorage` y se refleja en `data-theme`. El sidebar plegado también se pre-pinta.
 - **Sidebar**: overlay en móvil, columna plegable en desktop. Fuera de pantalla lleva `inert`, aplicado también en un script de parseo para cubrir la ventana previa a Alpine.
-- **Avisos**: un solo host, abajo a la derecha, pila `column-reverse` (el nuevo arriba, crece hacia arriba), tope 3, vida gobernada por `animationend`, pausa al hover, `prefers-reduced-motion` conserva el fade que retira el nodo. En htmx el flash viaja en `HX-Trigger-After-Swap`; las pantallas con redirect pueden optar por `usesToastFlash()` y recibir `toast_items`, que el host incorpora al inicializarse. Contactos usa esa segunda vía: su CRUD redirige a `/contactos` y muestra el mismo toast, sin banner inline.
+- **Avisos**: un solo host, abajo a la derecha, pila `column-reverse` (el nuevo arriba, crece hacia arriba), tope 3, vida gobernada por `animationend`, pausa al hover, `prefers-reduced-motion` conserva el fade que retira el nodo. En htmx el flash viaja en `HX-Trigger-After-Swap`; las pantallas con redirect pueden optar por `usesToastFlash()` y recibir `toast_items`, que el host incorpora al inicializarse. Contactos usa esa segunda vía: su CRUD redirige a `/contacts` y muestra el mismo toast, sin banner inline.
 - **URL**: el servidor emite `HX-Push-Url` con la página que efectivamente renderizó (no se pone `hx-push-url` en las plantillas, porque `Pagination` recorta la página y el atributo mentiría).
 - **En vuelo**: `hx-disabled-elt` en el formulario de alta y en el panel, para que un doble clic no duplique la mutación.
 - **Foco**: los controles llevan `data-focus-key`; un listener lo guarda en `htmx:beforeRequest` y lo restaura en `htmx:afterSettle`. Si la fila desapareció, el foco cae en `#tareas-panel` (`tabindex="-1"`).
@@ -168,8 +168,8 @@ En los bloques `<script>` y en las expresiones de Alpine los identificadores van
 
 `APP_BASE_PATH` (vacío por defecto) permite servir la app desde una carpeta en vez de la raíz del dominio. Con `/app`, todas las URLs de las vistas, las acciones htmx, los assets, los redirects y el `HX-Push-Url` salen prefijadas; vacío, todo queda idéntico al caso raíz.
 
-- En plantillas: `{{ url('/tareas') }}`. Nunca un literal `href="/tareas"`.
-- En PHP: `Framework\Http\Url::path('/tareas')`.
+- En plantillas: `{{ url('/tasks') }}`. Nunca un literal `href="/tasks"`.
+- En PHP: `Framework\Http\Url::path('/tasks')`.
 - El servidor tiene que reenviar el prefijo a `public/index.php` (nginx: `handle_path /app/*`). **`php -S -t public` no puede servir una ruta prefijada**: sirve solo el caso raíz, así que un despliegue con prefijo exige proxy o regla de reescritura.
 - Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo: es la única regla que hay que recordar al agregar vistas.
 
@@ -183,4 +183,4 @@ Vendorizados con SRI, servidos desde `public/assets/`; la lógica no crítica de
 - Utilidades `dark:`.
 - Colores fuera de los tokens.
 - Clases de daisyUI que no existan en el bundle vendorizado.
-- JS nuevo fuera de: los bloques inline de pre-pintado/shell/toastStack de `layouts/app.twig`, el pre-pintado de `layouts/auth.twig` y `pages/errors/error.twig`, el `x-data` de Alpine y `public/assets/app.js` (con SRI, solo lógica no crítica del shell). **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contactos`; no se usa en el shell ni en listados simples.
+- JS nuevo fuera de: los bloques inline de pre-pintado/shell/toastStack de `layouts/app.twig`, el pre-pintado de `layouts/auth.twig` y `pages/errors/error.twig`, el `x-data` de Alpine y `public/assets/app.js` (con SRI, solo lógica no crítica del shell). **Excepción acotada:** el demo de contactos carga Tabulator vendorizado y su initializer local con SRI, solo en `/contacts`; no se usa en el shell ni en listados simples.

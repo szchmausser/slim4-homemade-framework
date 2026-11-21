@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Support\HttpTestCase;
 
 /**
@@ -19,12 +19,12 @@ use Tests\Support\HttpTestCase;
 abstract class TasksTestCase extends HttpTestCase
 {
     /**
-     * En el demo la página protegida es `/tareas`, así que de ahí sale el token;
+     * En el demo la página protegida es `/tasks`, así que de ahí sale el token;
      * el login también renderiza el partial, pero esta ruta es la real.
      *
      * @return array{csrf_name: string, csrf_value: string}
      */
-    protected static function token(string $path = '/tareas'): array
+    protected static function token(string $path = '/tasks'): array
     {
         return parent::token($path);
     }

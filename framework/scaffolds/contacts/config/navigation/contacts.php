@@ -13,7 +13,7 @@ declare(strict_types=1);
  */
 return [
     'label'    => 'Contactos',
-    'href'     => '/contactos',
+    'href'     => '/contacts',
     'icon'     => 'contacts',
     'key'      => 'contacts',
     // Ficha que el menú muestra para orientar a quien recién llega.

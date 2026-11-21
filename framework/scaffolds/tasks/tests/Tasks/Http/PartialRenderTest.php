@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -20,14 +20,14 @@ final class PartialRenderTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
     public function test_get_sin_hx_request_devuelve_la_pagina_completa(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas')
+            self::request('GET', '/tasks')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -41,7 +41,7 @@ final class PartialRenderTest extends TasksTestCase
     public function test_get_con_hx_request_devuelve_solo_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas', [], ['HX-Request' => 'true'])
+            self::request('GET', '/tasks', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -62,7 +62,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -85,7 +85,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -106,7 +106,7 @@ final class PartialRenderTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id, [
+            self::request('DELETE', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
             ])

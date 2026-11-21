@@ -116,7 +116,7 @@ final class ViewClassIntegrityTest extends TestCase
         );
 
         // Un bloque `{% %}` no aporta clases: adentro vive dato, no markup
-        // (`active == 'tareas'`, `'completado'`). Si se extrajera, esos valores
+        // (`active == 'tasks'`, `'completado'`). Si se extrajera, esos valores
         // se reportarian como clases muertas. El texto FUERA del bloque sí es
         // una clase real, porque Twig lo renderiza tal cual.
         self::assertSame(

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -18,7 +18,7 @@ final class PaginationFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth).
+        // `/tasks` exige login (RequireAuth).
         self::loginAs();
 
         for ($i = 1; $i <= 12; $i++) {
@@ -28,7 +28,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_pagina_dos_trae_las_mas_viejas_y_contadores(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?page=2'));
+        $response = self::app()->handle(self::request('GET', '/tasks?page=2'));
 
         self::assertSame(200, $response->getStatusCode());
 
@@ -42,7 +42,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_per_page_grande_mete_todo_en_una(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?per_page=25'));
+        $response = self::app()->handle(self::request('GET', '/tasks?per_page=25'));
 
         $html = (string) $response->getBody();
 
@@ -53,7 +53,7 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_per_page_invalido_cae_al_default(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?per_page=999&page=2'));
+        $response = self::app()->handle(self::request('GET', '/tasks?per_page=999&page=2'));
 
         $html = (string) $response->getBody();
 
@@ -62,11 +62,11 @@ final class PaginationFlowTest extends TasksTestCase
 
     public function test_los_links_apuntan_al_panel_y_conservan_el_tamano(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas?page=2&per_page=10'));
+        $response = self::app()->handle(self::request('GET', '/tasks?page=2&per_page=10'));
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('hx-get="/tareas?page=1&per_page=10"', $html);
+        self::assertStringContainsString('hx-get="/tasks?page=1&per_page=10"', $html);
         self::assertStringContainsString('hx-target="#tareas-panel"', $html);
     }
 }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -20,7 +20,7 @@ final class DeleteTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -30,7 +30,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id)
+            self::request('DELETE', '/tasks/' . $task->id)
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -47,7 +47,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id . '?' . http_build_query($token))
+            self::request('DELETE', '/tasks/' . $task->id . '?' . http_build_query($token))
                 ->withHeader('HX-Request', 'true')
         );
 
@@ -67,7 +67,7 @@ final class DeleteTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/999999', $token)
+            self::request('DELETE', '/tasks/999999', $token)
         );
 
         self::assertSame(404, $response->getStatusCode());
@@ -78,13 +78,13 @@ final class DeleteTaskTest extends TasksTestCase
     {
         $task = Task::create(['title' => 'Comprar pan']);
 
-        $html = (string) self::app()->handle(self::request('GET', '/tareas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/tasks'))->getBody();
 
         self::assertStringNotContainsString('hx-confirm', $html, 'El confirm() nativo tiene que estar muerto.');
         self::assertStringContainsString('<dialog', $html);
         self::assertStringContainsString('¿Borrar esta tarea?', $html);
         // Sólo importa que el borrado apunte al recurso correcto: la posición del
         // query string tiene su propio caso en `ListStateContractTest`.
-        self::assertStringContainsString('hx-delete="/tareas/' . $task->id . '?', $html);
+        self::assertStringContainsString('hx-delete="/tasks/' . $task->id . '?', $html);
     }
 }

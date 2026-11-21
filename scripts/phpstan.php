@@ -41,8 +41,14 @@ if (!is_file($config)) {
 // y hay que analizarlo ahí. Sus tests/seeds no se analizan, igual que la base
 // no analiza tests/. Con el demo instalado, ya lo cubre app/ (evitamos la
 // clase duplicada). El config temporal incluye el base y suma el scaffold.
+//
+// La señal es el modelo instalado y no un directorio `app/Tasks`: los demos
+// usan el layout plano (`app/Models`, `app/Http/Controllers`), así que ese
+// directorio no existe ni instalado ni desinstalado. Mirar la ruta instalada —y
+// no `storage/demo-state/tasks.json`— evita analizar el scaffold cuando el
+// manifiesto quedó y los archivos no: si la clase está en app/, app/ la cubre.
 $analyseConfig = $config;
-if (!is_dir($root . '/app/Tasks') && is_dir($root . '/framework/scaffolds')) {
+if (!is_file($root . '/app/Models/Task.php') && is_dir($root . '/framework/scaffolds')) {
     $scaffoldConfig = $root . '/storage/cache/phpstan-scaffold.neon';
     $content = implode("\n", [
         'includes:',

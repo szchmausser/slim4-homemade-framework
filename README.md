@@ -59,7 +59,7 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer docs:sync` | Reescribe las copias de archivos de la guía desde el repo (`docs-check` es el que verifica) |
 | `composer phpstan` | Análisis estático nivel 5 (phar dev-only; se cachea en `storage/cache/`) |
 | `composer migrate:fresh` | Todas las migraciones sobre una SQLite temporal |
-| `composer demo:tasks:install` | Copia `framework/scaffolds/tasks/` a `app/Tasks`, rutas, vistas, migraciones, seeds y tests; migra y siembra 100 tareas |
+| `composer demo:tasks:install` | Copia `framework/scaffolds/tasks/` a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, rutas, vistas, migraciones, seeds y tests; migra y siembra 100 tareas |
 | `composer demo:tasks:remove` | Desinstala el demo de tareas y limpia la tabla `tasks` + sus filas de `phinxlog` |
 | `composer demo:install` / `demo:remove` | Alias compatibles de `demo:tasks:install` / `demo:tasks:remove` |
 | `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
@@ -76,7 +76,7 @@ Los comandos propios (`verify`, `lint`, `docs:check`, `docs:sync`, `db:backup`, 
 
 Los flags del demo se pasan después de `--`: `composer demo:tasks:install -- --force` reinstala, y `composer demo:tasks:remove -- --no-db` borra solo archivos (deja la DB). Los mismos flags aplican a `demo:contacts:install` / `demo:contacts:remove`.
 
-El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con **paginación y ordenamiento resueltos en el servidor** (`GET /contactos/datos`, 10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa la paginación server-rendered de los listados simples. Las altas, ediciones y borrados usan HTMX: la tabla se refresca sin recargar la página y conserva página/orden.
+El demo de contactos usa **Tabulator 6.7.1** vendorizado con SRI. Es una isla de tabla avanzada con **paginación y ordenamiento resueltos en el servidor** (`GET /contacts/data`, 10 filas por página, selector 5/10/25/50/100) y un seed de 100 contactos para probarla; no usa la paginación server-rendered de los listados simples. Las altas, ediciones y borrados usan HTMX: la tabla se refresca sin recargar la página y conserva página/orden.
 
 `respect/validation` queda en la línea 2.5: la 3.x exige PHP >= 8.5 y cambia la API (`Validator` como interfaz). Actualizarla obligaría a subir el piso del proyecto y reescribir la capa de validación.
 
@@ -139,7 +139,7 @@ Los demos usan estas piezas como referencia real: tareas usa lista, paginación,
     label: 'Guardar',
     type: 'submit',
     icon: 'check',
-    hx_post: url('/tareas'),
+    hx_post: url('/tasks'),
     hx_target: '#tareas-panel'
 } only %}
 

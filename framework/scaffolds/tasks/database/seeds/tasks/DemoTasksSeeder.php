@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Phinx\Seed\AbstractSeed;
 
 /**

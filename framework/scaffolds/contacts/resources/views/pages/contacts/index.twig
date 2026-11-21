@@ -1,6 +1,6 @@
 {# Página del listado: el shell, la tabla remota y los tres modales.
    La sirve `ContactController::index()`; las filas no viajan en el HTML: el
-   contenedor de `components/table/tabulator.twig` las pide a `/contactos/datos`.
+   contenedor de `components/table/tabulator.twig` las pide a `/contacts/data`.
 
    Para tu entidad copia la página, cambia la URL del endpoint y los `id` de los
    modales, que los botones y el script del demo referencian por nombre. #}
@@ -45,7 +45,7 @@
                llegan por JSON y, si el JS no corre, el `noscript` lo explica. #}
             {% include 'components/table/tabulator.twig' with {
                 id: 'contacts-table',
-                url: url('/contactos/datos'),
+                url: url('/contacts/data'),
                 label: 'Listado de contactos'
             } only %}
 
@@ -66,7 +66,7 @@
     } %}
         {% block body %}
             {% include 'pages/contacts/_form.twig' with {
-                action: url('/contactos'),
+                action: url('/contacts'),
                 submit_label: 'Crear contacto',
                 submit_icon: 'plus',
                 cancel_target: 'contact-create-modal'

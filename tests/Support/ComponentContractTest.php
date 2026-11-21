@@ -36,7 +36,7 @@ final class ComponentContractTest extends TestCase
             'icon' => 'check',
             'size' => 'sm',
             'extra_class' => 'gap-1.5',
-            'hx_post' => '/tareas/1',
+            'hx_post' => '/tasks/1',
             'hx_target' => '#tareas-panel',
             'hx_swap' => 'outerHTML',
             'hx_headers' => '{"csrf_name":"token"}',
@@ -45,7 +45,7 @@ final class ComponentContractTest extends TestCase
 
         self::assertStringContainsString('type="submit"', $html);
         self::assertStringContainsString('btn btn-primary btn-sm gap-1.5', $html);
-        self::assertStringContainsString('hx-post="/tareas/1"', $html);
+        self::assertStringContainsString('hx-post="/tasks/1"', $html);
         self::assertStringContainsString('hx-target="#tareas-panel"', $html);
         self::assertStringContainsString('hx-swap="outerHTML"', $html);
         self::assertStringContainsString('hx-headers=', $html);
@@ -148,7 +148,7 @@ final class ComponentContractTest extends TestCase
         // anuncia y `tabindex="-1"` lo saca del orden de tabulación.
         $html = $this->twig->render('components/ui/button.twig', [
             'label' => 'Volver a contactos',
-            'href' => '/contactos',
+            'href' => '/contacts',
             'disabled' => true,
         ]);
 
@@ -167,19 +167,19 @@ final class ComponentContractTest extends TestCase
             'label' => 'Volver a contactos',
             'variant' => 'ghost',
             'size' => 'sm',
-            'href' => '/contactos',
+            'href' => '/contacts',
             'target' => '_blank',
             'aria_label' => 'Volver a contactos',
             'icon' => 'arrow-left',
-            'hx_get' => '/contactos?page=2',
+            'hx_get' => '/contacts?page=2',
             'data_focus_key' => 'back-1',
         ]);
 
-        self::assertStringContainsString('href="/contactos"', $html);
+        self::assertStringContainsString('href="/contacts"', $html);
         self::assertStringContainsString('target="_blank"', $html);
         self::assertStringContainsString('aria-label="Volver a contactos"', $html);
         self::assertStringContainsString('btn btn-ghost btn-sm', $html);
-        self::assertStringContainsString('hx-get="/contactos?page=2"', $html);
+        self::assertStringContainsString('hx-get="/contacts?page=2"', $html);
         self::assertStringContainsString('data-focus-key="back-1"', $html);
         self::assertStringContainsString('<svg', $html);
         self::assertStringNotContainsString('type=', $html);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -21,7 +21,7 @@ final class EditTaskTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -30,7 +30,7 @@ final class EditTaskTest extends TasksTestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('GET', '/tareas/' . $task->id . '/edit')
+            self::request('GET', '/tasks/' . $task->id . '/edit')
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -42,7 +42,7 @@ final class EditTaskTest extends TasksTestCase
 
         // Sólo el recurso destino: la posición del query string tiene su caso en
         // `ListStateContractTest`.
-        self::assertStringContainsString('hx-put="/tareas/' . $task->id . '?', $html);
+        self::assertStringContainsString('hx-put="/tasks/' . $task->id . '?', $html);
         self::assertStringContainsString('value="Comprar pan"', $html);
         self::assertStringContainsString('name="csrf_name"', $html);
         self::assertStringContainsString('Cancelar', $html);
@@ -56,7 +56,7 @@ final class EditTaskTest extends TasksTestCase
     public function test_get_edit_de_un_id_inexistente_sin_htmx_responde_404(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas/999999/edit')
+            self::request('GET', '/tasks/999999/edit')
         );
 
         self::assertSame(404, $response->getStatusCode());
@@ -74,7 +74,7 @@ final class EditTaskTest extends TasksTestCase
     public function test_get_edit_de_un_id_inexistente_con_htmx_avisa_en_el_panel(): void
     {
         $response = self::app()->handle(
-            self::request('GET', '/tareas/999999/edit', [], ['HX-Request' => 'true'])
+            self::request('GET', '/tasks/999999/edit', [], ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -103,7 +103,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan integral',
@@ -128,7 +128,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => '',
@@ -155,7 +155,7 @@ final class EditTaskTest extends TasksTestCase
         $tipeado = str_repeat('b', 200);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, [
+            self::request('PUT', '/tasks/' . $task->id, [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => $tipeado,
@@ -185,7 +185,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/999999', [
+            self::request('PUT', '/tasks/999999', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'No debería guardarse',
@@ -202,7 +202,7 @@ final class EditTaskTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/999999', [
+            self::request('PUT', '/tasks/999999', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'No debería guardarse',
@@ -225,7 +225,7 @@ final class EditTaskTest extends TasksTestCase
         $task = Task::create(['title' => 'Comprar pan']);
 
         $response = self::app()->handle(
-            self::request('PUT', '/tareas/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
+            self::request('PUT', '/tasks/' . $task->id, ['title' => 'No debería guardarse'], ['HX-Request' => 'true'])
         );
 
         self::assertSame(400, $response->getStatusCode());

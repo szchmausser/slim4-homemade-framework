@@ -13,10 +13,10 @@ declare(strict_types=1);
  */
 return [
     'label'    => 'Tareas',
-    'href'     => '/tareas',
+    'href'     => '/tasks',
     'icon'     => 'tasks',
     // El sidebar compara esta clave con el `active` que pasa el controlador.
-    'key'      => 'tareas',
+    'key'      => 'tasks',
     // Ficha que la portada muestra para orientar a quien recién llega.
     'summary'  => 'Lista con edición en línea y cambio de estado: cada acción se intercambia como región HTMX.',
     'why'      => 'El demo que exprime el shell: región HTMX, paginación del servidor, foco tras el swap y avisos dentro del swap.',

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Contacts\Http\ContactController;
+use App\Http\Controllers\ContactController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
@@ -18,9 +18,9 @@ use Slim\Routing\RouteCollectorProxy;
  * cada `POST` necesita el token de `components/form/csrf.twig`.
  */
 return function (App $app) {
-    $app->group('/contactos', function (RouteCollectorProxy $route) {
+    $app->group('/contacts', function (RouteCollectorProxy $route) {
         $route->get('', [ContactController::class, 'index']);                 // página con la tabla
-        $route->get('/datos', [ContactController::class, 'data']);            // JSON del modo remoto
+        $route->get('/data', [ContactController::class, 'data']);             // JSON del modo remoto
         $route->post('', [ContactController::class, 'store']);                // alta desde el modal
         $route->get('/{id}/edit', [ContactController::class, 'edit']);        // formulario de edición
         $route->post('/{id}', [ContactController::class, 'update']);          // guardar la edición

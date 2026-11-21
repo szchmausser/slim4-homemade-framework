@@ -36,14 +36,14 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 
 | Ruta | Qué es |
 |---|---|
-| `app/` | Código de la app: las entidades nuevas van planas en `app/Models` y `app/Http/Controllers`, que es lo que enseña el tutorial. Los demos agrupan por entidad en `app/<Demo>/`. |
+| `app/` | Código de la app: todas las entidades van planas en `app/Models` y `app/Http/Controllers`, que es lo que enseña el tutorial. Los demos siguen esa misma convención (`app/Models/Task.php`), así que instalar uno no crea un namespace `App\<Demo>`; su único agrupamiento es la migración en `database/migrations/<demo>/`, que reserva una banda de versiones (`tasks` 900, `notes` 910, `contacts` 920). |
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |
-| `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. |
+| `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. Las migraciones de cada demo viven en `database/migrations/<demo>/`: es la única excepción al layout plano, para reservar la banda de versiones. |
 | `tests/` | Tests de la app y de tus entidades: contratos del framework, comportamiento HTTP y scripts. Una carpeta por entidad (`tests/<Entidad>/Http/`, `namespace Tests\<Entidad>\Http`); los tests de cada demo viajan en su scaffold. |
 | `scripts/` | `lint`, `docs-check/sync`, `phpstan`, `migrate-fresh`, `demo`, `serve`, backup. |
 

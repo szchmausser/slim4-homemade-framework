@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Psr\Http\Message\ResponseInterface;
 use Tests\Tasks\Http\TasksTestCase;
 
@@ -21,7 +21,7 @@ final class ToastFlowTest extends TasksTestCase
 {
     protected function setUp(): void
     {
-        // `/tareas` exige login (RequireAuth): estos casos entran logueados.
+        // `/tasks` exige login (RequireAuth): estos casos entran logueados.
         self::loginAs();
     }
 
@@ -30,7 +30,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -54,7 +54,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => 'Comprar pan',
@@ -83,7 +83,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas', [
+            self::request('POST', '/tasks', [
                 'csrf_name'  => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
                 'title'      => '',
@@ -105,7 +105,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas/' . $task->id . '/toggle', [], $token + ['HX-Request' => 'true'])
+            self::request('POST', '/tasks/' . $task->id . '/toggle', [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -122,7 +122,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/' . $task->id, [], $token + ['HX-Request' => 'true'])
+            self::request('DELETE', '/tasks/' . $task->id, [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -138,7 +138,7 @@ final class ToastFlowTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('DELETE', '/tareas/999999', [], $token + ['HX-Request' => 'true'])
+            self::request('DELETE', '/tasks/999999', [], $token + ['HX-Request' => 'true'])
         );
 
         self::assertSame(200, $response->getStatusCode());
@@ -150,7 +150,7 @@ final class ToastFlowTest extends TasksTestCase
 
     public function test_una_navegacion_htmx_sin_accion_no_emite_toasts(): void
     {
-        $response = self::app()->handle(self::request('GET', '/tareas', [], ['HX-Request' => 'true']));
+        $response = self::app()->handle(self::request('GET', '/tasks', [], ['HX-Request' => 'true']));
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame('', $response->getHeaderLine('HX-Trigger-After-Swap'), 'Sin flash no hay evento.');

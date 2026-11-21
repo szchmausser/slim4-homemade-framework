@@ -707,6 +707,13 @@ function removeEmptyParents(string $dir, string $root): void
     $keep = [
         $root,
         $root . '/app',
+        // Destinos planos del layout de los demos: los crea la instalación, pero
+        // son de la app. Sin esto, quitar la última demo vacía `app/Models`,
+        // `app/Http/Controllers` o `resources/views/pages` y el esqueleto queda
+        // sin los directorios por convención.
+        $root . '/app/Http',
+        $root . '/app/Http/Controllers',
+        $root . '/app/Models',
         $root . '/config',
         $root . '/database',
         $root . '/database/migrations',
@@ -715,6 +722,7 @@ function removeEmptyParents(string $dir, string $root): void
         $root . '/public/assets',
         $root . '/resources',
         $root . '/resources/views',
+        $root . '/resources/views/pages',
         $root . '/routes',
         $root . '/tests',
         $root . '/storage',

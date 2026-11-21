@@ -78,3 +78,45 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   Referencias viejas a `notas` que quedan a propósito: los registros históricos
   `odd/tasks/{framework-comments,tutorial-walkthrough,tutorial-walkthrough-findings,view-organization}.md`
   y la copia del `DatabaseSeeder` en la guía (misma razón que el ítem pendiente de arriba).
+- L10 (agente, T3/T4): `tasks` y `contacts` aplanados de punta a punta. Cuatro archivos movidos (sin
+  commit): `app/Tasks/Models/Task.php` → `app/Models/Task.php` (namespace `App\Models`),
+  `app/Tasks/Http/TaskController.php` → `app/Http/Controllers/TaskController.php`, y lo mismo con
+  `app/Contacts/{Models,Http}`. Dentro del scaffold la ruta relativa es la del destino
+  (`framework/scaffolds/tasks/app/Models/Task.php`), así que el instalador no cambió: sigue copiando
+  archivo por archivo. Rutas: `/tareas` → `/tasks` y `/contactos` → `/contacts`, incluido el endpoint de
+  datos (`/contactos/datos` → `/contacts/data`), los `url()`/`Url::path()`/`redirect()` y los `hx-*`; el
+  sidebar ya se activa con `'tasks'` (antes `'tareas'`) y el `href`/`key` de `config/navigation/` están en
+  inglés. `Contact` perdió `protected $table = 'contacts'`: Eloquent lo deriva de la clase, como `Note` y
+  `Task`. Las migraciones siguen en `database/migrations/<demo>/` (bandas 900/920): es la única excepción
+  al layout plano. Se conservaron a propósito los `id` de HTML (`#tareas-panel`, `#lista-tareas`,
+  `#alta-tarea`), las etiquetas visibles («Tareas», «Contactos», `label: 'tareas'` del paginador) y las
+  columnas `title`/`status`/`completed_at`/`name`/`email`/`phone`: S2 fija qué pasa a inglés y los `id`
+  no están en esa lista; cambiarlos obligaba a tocar aserciones que no son de ruta.
+- L11 (agente, T5): infraestructura. `scripts/phpstan.php` detectaba el demo instalado por `app/Tasks`,
+  que con layout plano no existe nunca: con el demo instalado sumaba igual
+  `framework/scaffolds/tasks/app` y la clase quedaba duplicada. Ahora mira `app/Models/Task.php` (la ruta
+  que analiza `app/`), así que instalado no analiza el scaffold y desinstalado sí. No se agregó
+  `contacts` al análisis: fuera del alcance de esta unidad y el archivo no lo listaba antes.
+  `removeEmptyParents()` protege además `app/Models`, `app/Http`, `app/Http/Controllers` y
+  `resources/views/pages`: sin eso, quitar la última demo borraba los destinos por convención que ahora
+  usa el layout plano. La matriz `demo-round-trip` lista los destinos planos de `tasks` y `contacts`
+  (y corrige `resources/views/{tasks,contacts}` por `resources/views/pages/...`, que además hoy no
+  existen) y «Assert no demo residue» los cubre archivo por archivo. `DemoInstallerTest` suma tres casos:
+  install plano de cada demo y remove que conserva los tres directorios compartidos. En `tests/Support`
+  las rutas viejas pasaron a `/tasks`/`/contacts` (fixtures de `UrlTest`, `PaginationTest`,
+  `ComponentContractTest`, `ControllerViewDefaultsTest`) sin cambiar lo que cada test demuestra.
+- L12 (agente, T3/T4/T5 parcial): documentación. `AGENTS.md` ya no dice que los demos agrupan en
+  `app/<Demo>/`: explica el layout plano y la excepción de la migración en subdirectorio (banda de
+  versiones). `README.md`, `DESIGN.md` y la guía con los destinos, rutas y el endpoint `/contacts/data`;
+  en la guía se actualizaron las rutas declaradas en la prosa de los bloques copiados (si no,
+  `docs:check` falla) y `composer docs:sync` reescribió las copias. `docs/tutorial-crud.md` no menciona
+  esos paths, así que no se tocó. Verificación observada: lint OK; docs sync/check OK (55 copias);
+  phpstan OK sin demos y con los dos instalados (la prueba de la detección); suite base OK (218 tests) y
+  con los dos demos instalados OK (295 tests); install/remove real sobre `storage/cache/flat-probe.sqlite`
+  (25 y 16 archivos, `TaskSeeder: 100 tareas demo.` / `ContactSeeder: 100 contactos demo.`, remove sin
+  residuos y sin borrar `app/Models`, `app/Http/Controllers` ni `resources/views/pages`).
+- L13 (agente, para la próxima unidad): siguen pendientes `database/seeds/DatabaseSeeder.php` (L9) y las
+  referencias viejas que quedan en archivos fuera de estas superficies: `config/container.php:102`,
+  `tests/bootstrap.php:38`, `tests/Http/BasePathTest.php:15`, `tests/Http/PaginationTest.php:71-75`
+  (`/app/contactos/datos`) y los ejemplos de docblock de `framework/Http/Url.php:36,50`. Son comentarios y
+  fixtures, no comportamiento.

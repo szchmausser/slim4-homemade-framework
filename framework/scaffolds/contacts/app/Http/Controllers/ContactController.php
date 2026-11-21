@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Contacts\Http;
+namespace App\Http\Controllers;
 
-use App\Contacts\Models\Contact;
+use App\Models\Contact;
 use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
@@ -23,7 +23,8 @@ use Slim\Exception\HttpNotFoundException;
  * `Contact`, a `Pagination`, `Validator`, `Flash` y a las vistas de la demo.
  *
  * Para tu entidad cambian el modelo, `SORTABLE`, las reglas de
- * `validationErrors()` y los nombres de plantilla.
+ * `validationErrors()` y los nombres de plantilla. El modelo vive en
+ * `app/Models/Contact.php`: layout plano, sin namespace por demo.
  */
 final class ContactController extends Controller
 {
@@ -45,14 +46,14 @@ final class ContactController extends Controller
      */
     private const SORTABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
 
-    /** `GET /contactos`: renderiza la página; las filas las pide la tabla a `data`. */
+    /** `GET /contacts`: renderiza la página; las filas las pide la tabla a `data`. */
     public function index(Request $request, Response $response): Response
     {
         return $this->renderList($request, $response);
     }
 
     /**
-     * `POST /contactos`: valida y crea. Con htmx responde 204 y eventos; sin JS
+     * `POST /contacts`: valida y crea. Con htmx responde 204 y eventos; sin JS
      * redirige con aviso, y un rechazo vuelve con el formulario repintado.
      */
     public function store(Request $request, Response $response): Response
@@ -65,7 +66,7 @@ final class ContactController extends Controller
                 // htmx reemplaza solo el formulario: el modal sigue abierto y no
                 // se pierde lo escrito.
                 return $this->renderForm($request, $response, [
-                    'action' => Url::path('/contactos'),
+                    'action' => Url::path('/contacts'),
                     'cancel_target' => 'contact-create-modal',
                     'submit_label' => 'Crear contacto',
                     'submit_icon' => 'plus',
@@ -94,7 +95,7 @@ final class ContactController extends Controller
         return $this->back($response);
     }
 
-    /** `GET /contactos/{id}/edit`: con htmx, solo el formulario; sin JS, la página. */
+    /** `GET /contacts/{id}/edit`: con htmx, solo el formulario; sin JS, la página. */
     public function edit(Request $request, Response $response, array $args): Response
     {
         $contact = Contact::find((int) $args['id']);
@@ -105,7 +106,7 @@ final class ContactController extends Controller
 
         if ($this->isHtmx($request)) {
             return $this->renderForm($request, $response, [
-                'action' => Url::path('/contactos/' . $contact->getKey()),
+                'action' => Url::path('/contacts/' . $contact->getKey()),
                 'contact' => $contact,
                 'cancel_target' => 'contact-edit-modal',
                 'submit_label' => 'Guardar cambios',
@@ -117,7 +118,7 @@ final class ContactController extends Controller
     }
 
     /**
-     * `POST /contactos/{id}`: valida y guarda. Un rechazo repinta el formulario
+     * `POST /contacts/{id}`: valida y guarda. Un rechazo repinta el formulario
      * con lo tipeado; el 404 sale antes, cuando el contacto no existe.
      */
     public function update(Request $request, Response $response, array $args): Response
@@ -136,7 +137,7 @@ final class ContactController extends Controller
                 // Mismo formulario, con los errores y lo tipeado: el modal no se
                 // cierra.
                 return $this->renderForm($request, $response, [
-                    'action' => Url::path('/contactos/' . $contact->getKey()),
+                    'action' => Url::path('/contacts/' . $contact->getKey()),
                     'contact' => $contact,
                     'cancel_target' => 'contact-edit-modal',
                     'submit_label' => 'Guardar cambios',
@@ -166,7 +167,7 @@ final class ContactController extends Controller
     }
 
     /**
-     * `POST /contactos/{id}/delete`: borra y responde. Sin JS redirige con el
+     * `POST /contacts/{id}/delete`: borra y responde. Sin JS redirige con el
      * aviso que corresponda; con htmx devuelve 204 y los eventos que cierran el
      * modal y refrescan la tabla. Un id inexistente se avisa, no rompe.
      */
@@ -191,7 +192,7 @@ final class ContactController extends Controller
     }
 
     /**
-     * `GET /contactos/datos`: el endpoint que consume el modo remoto de la tabla.
+     * `GET /contacts/data`: el endpoint que consume el modo remoto de la tabla.
      *
      * Devuelve `{last_page, last_row, data}` con la página y el orden resueltos
      * en el servidor. `page` y `per_page` son los mismos nombres del resto de la
@@ -205,7 +206,7 @@ final class ContactController extends Controller
         $listing = Pagination::fromRequest(
             $this->sortedContacts($query['sort'] ?? null),
             $request,
-            Url::path('/contactos/datos')
+            Url::path('/contacts/data')
         );
 
         // `#` es la posición en el orden visible, no el id: con un sorter activo
@@ -277,7 +278,7 @@ final class ContactController extends Controller
     /** Vuelta al listado con 303: el `GET` que sigue al `POST` del patrón PRG. */
     private function back(Response $response): Response
     {
-        return $this->redirect($response, '/contactos');
+        return $this->redirect($response, '/contacts');
     }
 
     /**
@@ -318,7 +319,7 @@ final class ContactController extends Controller
         $response = $this->render($request, $response, 'pages/contacts/edit.twig', [
             'active' => 'contacts',
             'contact' => $contact,
-            'breadcrumbs' => $this->breadcrumbsFor('Contactos', Url::path('/contactos'), 'Editar'),
+            'breadcrumbs' => $this->breadcrumbsFor('Contactos', Url::path('/contacts'), 'Editar'),
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);
@@ -415,8 +416,8 @@ final class ContactController extends Controller
             'name' => (string) $contact->getAttribute('name'),
             'email' => (string) $contact->getAttribute('email'),
             'phone' => (string) ($contact->getAttribute('phone') ?? ''),
-            'edit_url' => Url::path('/contactos/' . $id . '/edit'),
-            'delete_url' => Url::path('/contactos/' . $id . '/delete'),
+            'edit_url' => Url::path('/contacts/' . $id . '/edit'),
+            'delete_url' => Url::path('/contacts/' . $id . '/delete'),
         ];
     }
 }

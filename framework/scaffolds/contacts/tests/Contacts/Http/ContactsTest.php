@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Contacts\Http;
 
-use App\Contacts\Models\Contact;
+use App\Models\Contact;
 use Psr\Http\Message\ResponseInterface as Response;
 
 /**
@@ -26,18 +26,18 @@ final class ContactsTest extends ContactsTestCase
     /**
      * La página no viaja con las filas: trae el shell de la tabla y la URL del
      * endpoint, y el listado se pide aparte. El nombre sembrado no aparece en el
-     * HTML y sí en la respuesta de `/contactos/datos`.
+     * HTML y sí en la respuesta de `/contacts/data`.
      */
     public function test_index_no_embebe_las_filas_y_apunta_al_endpoint(): void
     {
         Contact::create(['name' => 'Ana Torres', 'email' => 'ana@ejemplo.com', 'phone' => '123']);
 
-        $response = self::app()->handle(self::request('GET', '/contactos'));
+        $response = self::app()->handle(self::request('GET', '/contacts'));
         $html = (string) $response->getBody();
 
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('data-tabulator-table', $html);
-        self::assertStringContainsString('data-url="/contactos/datos"', $html);
+        self::assertStringContainsString('data-url="/contacts/data"', $html);
         self::assertStringNotContainsString('data-rows', $html, 'Las filas no viajan en el HTML.');
         self::assertStringNotContainsString('Ana Torres', $html, 'Las filas no viajan en el HTML.');
 
@@ -60,7 +60,7 @@ final class ContactsTest extends ContactsTestCase
         $contact = Contact::create(['name' => 'Miga', 'email' => 'miga@ejemplo.com']);
 
         $html = (string) self::app()->handle(
-            self::request('GET', '/contactos/' . $contact->id . '/edit')
+            self::request('GET', '/contacts/' . $contact->id . '/edit')
         )->getBody();
 
         self::assertStringContainsString('aria-label="Miga de pan"', $html);
@@ -110,8 +110,8 @@ final class ContactsTest extends ContactsTestCase
         // Los ids no arrancan en 1 —la secuencia sobrevive al borrado entre
         // tests—, así que las URLs se comparan contra el contacto más nuevo.
         $newest = Contact::query()->orderByDesc('id')->firstOrFail();
-        self::assertSame('/contactos/' . $newest->id . '/edit', $rows[0]['edit_url']);
-        self::assertSame('/contactos/' . $newest->id . '/delete', $rows[0]['delete_url']);
+        self::assertSame('/contacts/' . $newest->id . '/edit', $rows[0]['edit_url']);
+        self::assertSame('/contacts/' . $newest->id . '/delete', $rows[0]['delete_url']);
 
         $keys = array_keys($rows[0]);
         sort($keys);
@@ -251,9 +251,9 @@ final class ContactsTest extends ContactsTestCase
 
     public function test_los_avisos_de_contactos_llegan_al_host_de_toasts(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        self::app()->handle(self::request('POST', '/contactos', [
+        self::app()->handle(self::request('POST', '/contacts', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Toast Uno',
@@ -261,28 +261,28 @@ final class ContactsTest extends ContactsTestCase
             'phone' => '',
         ]));
 
-        $html = (string) self::app()->handle(self::request('GET', '/contactos'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/contacts'))->getBody();
         self::assertStringContainsString('toast-host', $html);
         self::assertStringContainsString('x-init="addAll(', $html);
         self::assertStringContainsString('Contacto creado.', $html);
 
         $contact = Contact::query()->where('email', 'toast@ejemplo.com')->firstOrFail();
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        self::app()->handle(self::request('POST', '/contactos/' . $contact->id . '/delete', [
+        self::app()->handle(self::request('POST', '/contacts/' . $contact->id . '/delete', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
         ]));
 
-        $html = (string) self::app()->handle(self::request('GET', '/contactos'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/contacts'))->getBody();
         self::assertStringContainsString('Contacto eliminado.', $html);
     }
 
     public function test_store_crea_un_contacto(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos', [
+        $response = self::app()->handle(self::request('POST', '/contacts', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Bruno Díaz',
@@ -291,7 +291,7 @@ final class ContactsTest extends ContactsTestCase
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/contactos', $response->getHeaderLine('Location'));
+        self::assertSame('/contacts', $response->getHeaderLine('Location'));
         self::assertSame(1, Contact::query()->count());
     }
 
@@ -302,9 +302,9 @@ final class ContactsTest extends ContactsTestCase
             'email' => 'carla@ejemplo.com',
             'phone' => '555-0103',
         ]);
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos/' . $contact->id, [
+        $response = self::app()->handle(self::request('POST', '/contacts/' . $contact->id, [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Carla Actualizada',
@@ -322,11 +322,11 @@ final class ContactsTest extends ContactsTestCase
             'name' => 'Temporal',
             'email' => 'temporal@ejemplo.com',
         ]);
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
         $response = self::app()->handle(self::request(
             'POST',
-            '/contactos/' . $contact->id . '/delete',
+            '/contacts/' . $contact->id . '/delete',
             [
                 'csrf_name' => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
@@ -344,9 +344,9 @@ final class ContactsTest extends ContactsTestCase
      */
     public function test_store_invalido_rerenderiza_el_formulario_con_lo_tipeado_y_el_error(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos', [
+        $response = self::app()->handle(self::request('POST', '/contacts', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Sin correo',
@@ -384,9 +384,9 @@ final class ContactsTest extends ContactsTestCase
             'email' => 'carla@ejemplo.com',
             'phone' => '555-0103',
         ]);
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos/' . $contact->id, [
+        $response = self::app()->handle(self::request('POST', '/contacts/' . $contact->id, [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => '',
@@ -401,7 +401,7 @@ final class ContactsTest extends ContactsTestCase
 
         $html = (string) $response->getBody();
 
-        self::assertStringContainsString('action="/contactos/' . $contact->id . '"', $html, 'Tiene que ser la pantalla de edición.');
+        self::assertStringContainsString('action="/contacts/' . $contact->id . '"', $html, 'Tiene que ser la pantalla de edición.');
         self::assertStringContainsString('Este campo es obligatorio.', $html);
         self::assertStringContainsString('value="carla.nueva@ejemplo.com"', $html, 'Se repintó el email guardado en vez de lo tipeado.');
         self::assertStringContainsString('value="555-0199"', $html, 'El teléfono tipeado se perdió.');
@@ -414,7 +414,7 @@ final class ContactsTest extends ContactsTestCase
      */
     public function test_edit_de_un_contacto_inexistente_responde_404(): void
     {
-        $response = self::app()->handle(self::request('GET', '/contactos/999999/edit'));
+        $response = self::app()->handle(self::request('GET', '/contacts/999999/edit'));
 
         self::assertSame(404, $response->getStatusCode());
         self::assertStringContainsString('No encontramos esa página.', (string) $response->getBody());
@@ -422,9 +422,9 @@ final class ContactsTest extends ContactsTestCase
 
     public function test_update_de_un_contacto_inexistente_responde_404(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos/999999', [
+        $response = self::app()->handle(self::request('POST', '/contacts/999999', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Fantasma',
@@ -442,11 +442,11 @@ final class ContactsTest extends ContactsTestCase
      */
     public function test_borrar_un_contacto_inexistente_redirige_con_aviso(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
         $response = self::app()->handle(self::request(
             'POST',
-            '/contactos/999999/delete',
+            '/contacts/999999/delete',
             [
                 'csrf_name' => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],
@@ -454,9 +454,9 @@ final class ContactsTest extends ContactsTestCase
         ));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/contactos', $response->getHeaderLine('Location'));
+        self::assertSame('/contacts', $response->getHeaderLine('Location'));
 
-        $html = (string) self::app()->handle(self::request('GET', '/contactos'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/contacts'))->getBody();
 
         self::assertStringContainsString('El contacto no existe.', $html, 'El aviso del borrado perdido no llegó al listado.');
     }
@@ -476,7 +476,7 @@ final class ContactsTest extends ContactsTestCase
             $params['sort[' . $index . '][dir]'] = $sorter['dir'];
         }
 
-        return '/contactos/datos' . ($params === [] ? '' : '?' . http_build_query($params));
+        return '/contacts/data' . ($params === [] ? '' : '?' . http_build_query($params));
     }
 
     /**
@@ -544,7 +544,7 @@ final class ContactsTest extends ContactsTestCase
 
     public function test_el_index_incluye_el_modal_de_edicion(): void
     {
-        $html = (string) self::app()->handle(self::request('GET', '/contactos'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/contacts'))->getBody();
 
         self::assertStringContainsString('id="contact-edit-modal"', $html);
         self::assertStringContainsString('id="contact-edit-body"', $html);
@@ -552,9 +552,9 @@ final class ContactsTest extends ContactsTestCase
 
     public function test_store_htmx_devuelve_204_y_eventos_de_refresco(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos', [
+        $response = self::app()->handle(self::request('POST', '/contacts', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Alta HTMX',
@@ -573,9 +573,9 @@ final class ContactsTest extends ContactsTestCase
 
     public function test_store_invalido_htmx_devuelve_solo_el_formulario(): void
     {
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos', [
+        $response = self::app()->handle(self::request('POST', '/contacts', [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => '',
@@ -587,7 +587,7 @@ final class ContactsTest extends ContactsTestCase
 
         $html = (string) $response->getBody();
         self::assertStringContainsString('<form', $html);
-        self::assertStringContainsString('hx-post="/contactos"', $html);
+        self::assertStringContainsString('hx-post="/contacts"', $html);
         self::assertStringContainsString('no-es-email', $html);
         self::assertStringNotContainsString('<!DOCTYPE html>', $html);
         self::assertSame(0, Contact::query()->count());
@@ -603,7 +603,7 @@ final class ContactsTest extends ContactsTestCase
 
         $response = self::app()->handle(self::request(
             'GET',
-            '/contactos/' . $contact->id . '/edit',
+            '/contacts/' . $contact->id . '/edit',
             [],
             ['HX-Request' => 'true']
         ));
@@ -611,7 +611,7 @@ final class ContactsTest extends ContactsTestCase
         self::assertSame(200, $response->getStatusCode());
 
         $html = (string) $response->getBody();
-        self::assertStringContainsString('hx-post="/contactos/' . $contact->id . '"', $html);
+        self::assertStringContainsString('hx-post="/contacts/' . $contact->id . '"', $html);
         self::assertStringContainsString('name="name"', $html);
         self::assertStringNotContainsString('<!DOCTYPE html>', $html);
     }
@@ -623,9 +623,9 @@ final class ContactsTest extends ContactsTestCase
             'email' => 'antes@ejemplo.com',
             'phone' => '',
         ]);
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
-        $response = self::app()->handle(self::request('POST', '/contactos/' . $contact->id, [
+        $response = self::app()->handle(self::request('POST', '/contacts/' . $contact->id, [
             'csrf_name' => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'name' => 'Despues',
@@ -646,11 +646,11 @@ final class ContactsTest extends ContactsTestCase
             'email' => 'borrar-htmx@ejemplo.com',
             'phone' => '',
         ]);
-        $token = self::token('/contactos');
+        $token = self::token('/contacts');
 
         $response = self::app()->handle(self::request(
             'POST',
-            '/contactos/' . $contact->id . '/delete',
+            '/contacts/' . $contact->id . '/delete',
             [
                 'csrf_name' => $token['csrf_name'],
                 'csrf_value' => $token['csrf_value'],

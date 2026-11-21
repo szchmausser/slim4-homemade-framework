@@ -84,7 +84,7 @@ final class PaginationTest extends TestCase
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 2, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 2, 10, '/tasks');
 
         self::assertSame(25, $p['total']);
         self::assertSame(10, $p['per_page']);
@@ -93,14 +93,14 @@ final class PaginationTest extends TestCase
         self::assertSame(11, $p['from']);
         self::assertSame(20, $p['to']);
         self::assertCount(10, $p['items']);
-        self::assertSame('/tareas', $p['base_url']);
+        self::assertSame('/tasks', $p['base_url']);
     }
 
     public function test_pagina_fuera_de_rango_se_clampea_a_la_ultima(): void
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 99, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 99, 10, '/tasks');
 
         self::assertSame(3, $p['current_page']);
         self::assertCount(5, $p['items']);
@@ -128,7 +128,7 @@ final class PaginationTest extends TestCase
 
     public function test_sin_filas_no_rompe_los_contadores(): void
     {
-        $p = Pagination::paginate($this->query(), 1, 10, '/tareas');
+        $p = Pagination::paginate($this->query(), 1, 10, '/tasks');
 
         self::assertSame(0, $p['total']);
         self::assertSame(1, $p['last_page']);
@@ -141,7 +141,7 @@ final class PaginationTest extends TestCase
     {
         $this->seedUsers(25);
 
-        $p = Pagination::paginate($this->query(), 1, 999, '/tareas');
+        $p = Pagination::paginate($this->query(), 1, 999, '/tasks');
 
         self::assertSame(10, $p['per_page']);
         self::assertSame(3, $p['last_page']);

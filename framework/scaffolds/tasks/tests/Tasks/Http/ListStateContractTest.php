@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Tasks\Http;
 
-use App\Tasks\Models\Task;
+use App\Models\Task;
 use Tests\Tasks\Http\TasksTestCase;
 
 /**
@@ -35,22 +35,22 @@ final class ListStateContractTest extends TasksTestCase
      */
     public function test_las_acciones_de_fila_conservan_la_pagina_y_el_tamano(): void
     {
-        $html = self::page('/tareas?page=2&per_page=10');
+        $html = self::page('/tasks?page=2&per_page=10');
 
         $posicion = 'page=2&(?:amp;)?per_page=10';
 
         self::assertMatchesRegularExpression(
-            '#hx-post="/tareas/\d+/toggle\?' . $posicion . '"#',
+            '#hx-post="/tasks/\d+/toggle\?' . $posicion . '"#',
             $html,
             'el toggle tiene que arrastrar la posicion actual'
         );
         self::assertMatchesRegularExpression(
-            '#hx-get="/tareas/\d+/edit\?' . $posicion . '"#',
+            '#hx-get="/tasks/\d+/edit\?' . $posicion . '"#',
             $html,
             'editar tiene que arrastrar la posicion actual'
         );
         self::assertMatchesRegularExpression(
-            '#hx-delete="/tareas/\d+\?' . $posicion . '"#',
+            '#hx-delete="/tasks/\d+\?' . $posicion . '"#',
             $html,
             'borrar tiene que arrastrar la posicion actual'
         );
@@ -67,17 +67,17 @@ final class ListStateContractTest extends TasksTestCase
         self::assertNotNull($task, 'el fixture tiene que haber creado tareas');
 
         // La tarea más vieja cae en la página 2 con el orden desc por id.
-        $html = self::page(sprintf('/tareas/%d/edit?page=2&per_page=10', $task->id));
+        $html = self::page(sprintf('/tasks/%d/edit?page=2&per_page=10', $task->id));
 
         $posicion = 'page=2&(?:amp;)?per_page=10';
 
         self::assertMatchesRegularExpression(
-            '#hx-put="/tareas/' . $task->id . '\?' . $posicion . '"#',
+            '#hx-put="/tasks/' . $task->id . '\?' . $posicion . '"#',
             $html,
             'guardar la edicion tiene que conservar la posicion'
         );
         self::assertMatchesRegularExpression(
-            '#hx-get="/tareas\?' . $posicion . '"#',
+            '#hx-get="/tasks\?' . $posicion . '"#',
             $html,
             'cancelar tiene que volver a la pagina desde la que se edito'
         );
@@ -90,15 +90,15 @@ final class ListStateContractTest extends TasksTestCase
      */
     public function test_la_paginacion_es_un_enlace_real_con_href(): void
     {
-        $html = self::page('/tareas?page=2&per_page=10');
+        $html = self::page('/tasks?page=2&per_page=10');
 
         self::assertMatchesRegularExpression(
-            '#<a[^>]*href="/tareas\?page=1&(?:amp;)?per_page=10"[^>]*>#',
+            '#<a[^>]*href="/tasks\?page=1&(?:amp;)?per_page=10"[^>]*>#',
             $html,
             'el enlace a la pagina anterior tiene que tener href'
         );
         self::assertMatchesRegularExpression(
-            '#<a[^>]*href="/tareas\?page=1&(?:amp;)?per_page=10"[^>]*hx-get="#',
+            '#<a[^>]*href="/tasks\?page=1&(?:amp;)?per_page=10"[^>]*hx-get="#',
             $html,
             'el href y el hx-get tienen que convivir en el mismo enlace'
         );
@@ -111,7 +111,7 @@ final class ListStateContractTest extends TasksTestCase
      */
     public function test_las_peticiones_deshabilitan_su_disparador_mientras_estan_en_vuelo(): void
     {
-        $html = self::page('/tareas?page=2&per_page=10');
+        $html = self::page('/tasks?page=2&per_page=10');
 
         self::assertMatchesRegularExpression(
             '#<form[^>]*id="alta-tarea"[^>]*hx-disabled-elt="[^"]+"#',
@@ -131,7 +131,7 @@ final class ListStateContractTest extends TasksTestCase
      * página pedida, así que el server publica en `HX-Push-Url` la que renderizó.
      *
      * La URL empujada es la canónica de la vista y no la de la acción:
-     * `/tareas/5/toggle` sólo acepta POST y recargarla sería un 404.
+     * `/tasks/5/toggle` sólo acepta POST y recargarla sería un 404.
      */
     public function test_una_accion_de_fila_empuja_la_url_de_la_pagina_renderizada(): void
     {
@@ -141,7 +141,7 @@ final class ListStateContractTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', sprintf('/tareas/%d/toggle?page=2&per_page=10', $task->id))
+            self::request('POST', sprintf('/tasks/%d/toggle?page=2&per_page=10', $task->id))
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -149,7 +149,7 @@ final class ListStateContractTest extends TasksTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(
-            '/tareas?page=2&per_page=10',
+            '/tasks?page=2&per_page=10',
             $response->getHeaderLine('HX-Push-Url'),
             'la accion tiene que empujar la posicion que el server renderizo'
         );
@@ -171,7 +171,7 @@ final class ListStateContractTest extends TasksTestCase
         $token = self::token();
 
         $sigue = self::app()->handle(
-            self::request('DELETE', sprintf('/tareas/%d?page=2&per_page=10', $viejas[0]->id))
+            self::request('DELETE', sprintf('/tasks/%d?page=2&per_page=10', $viejas[0]->id))
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -179,13 +179,13 @@ final class ListStateContractTest extends TasksTestCase
 
         self::assertSame(200, $sigue->getStatusCode());
         self::assertSame(
-            '/tareas?page=2&per_page=10',
+            '/tasks?page=2&per_page=10',
             $sigue->getHeaderLine('HX-Push-Url'),
             'quedan 11 filas: la pagina 2 existe y se renderiza'
         );
 
         $vacia = self::app()->handle(
-            self::request('DELETE', sprintf('/tareas/%d?page=2&per_page=10', $viejas[1]->id))
+            self::request('DELETE', sprintf('/tasks/%d?page=2&per_page=10', $viejas[1]->id))
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -193,7 +193,7 @@ final class ListStateContractTest extends TasksTestCase
 
         self::assertSame(200, $vacia->getStatusCode());
         self::assertSame(
-            '/tareas?page=1&per_page=10',
+            '/tasks?page=1&per_page=10',
             $vacia->getHeaderLine('HX-Push-Url'),
             'quedan 10 filas: la pagina 2 desaparecio y el server renderizo la 1'
         );
@@ -205,10 +205,10 @@ final class ListStateContractTest extends TasksTestCase
      */
     public function test_el_alta_conserva_el_tamano_de_pagina_y_empuja_la_pagina_uno(): void
     {
-        $html = self::page('/tareas?page=1&per_page=25');
+        $html = self::page('/tasks?page=1&per_page=25');
 
         self::assertStringContainsString(
-            'hx-post="/tareas?page=1&per_page=25"',
+            'hx-post="/tasks?page=1&per_page=25"',
             $html,
             'el form de alta tiene que arrastrar el tamano de pagina elegido'
         );
@@ -216,7 +216,7 @@ final class ListStateContractTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas?page=1&per_page=25')
+            self::request('POST', '/tasks?page=1&per_page=25')
                 ->withHeader('HX-Request', 'true')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
@@ -225,7 +225,7 @@ final class ListStateContractTest extends TasksTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertSame(
-            '/tareas?page=1&per_page=25',
+            '/tasks?page=1&per_page=25',
             $response->getHeaderLine('HX-Push-Url'),
             'crear tiene que empujar la pagina 1 con el tamano elegido'
         );
@@ -248,7 +248,7 @@ final class ListStateContractTest extends TasksTestCase
         $token = self::token();
 
         $response = self::app()->handle(
-            self::request('POST', '/tareas?page=1&per_page=25')
+            self::request('POST', '/tasks?page=1&per_page=25')
                 ->withHeader('csrf_name', $token['csrf_name'])
                 ->withHeader('csrf_value', $token['csrf_value'])
                 ->withParsedBody(['title' => 'Alta sin htmx'])
