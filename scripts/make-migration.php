@@ -19,6 +19,10 @@ declare(strict_types=1);
 // DEMO_BAND_START, así el contador de la app nunca los toca y
 // `ls database/migrations/` no abre huecos.
 //
+// El nombre de clase se chequea sólo contra el espacio real, que es lo que Phinx
+// carga al migrar. Si la clase la declara un scaffold, se avisa y se sigue: ese
+// demo no puede instalarse mientras la migración propia exista.
+//
 // MAKE_MIGRATION_ROOT permite correrlo contra un árbol temporal (tests). En uso
 // normal queda vacío y el root es el del proyecto.
 
@@ -59,12 +63,19 @@ if ($class === '') {
 
 $files = migrationFiles($root);
 
-foreach ($files as $relative => $path) {
-    $declared = declaredClass($path);
-
-    if ($declared === $class) {
+foreach (spaceFiles($root) as $relative => $path) {
+    if (declaredClass($path) === $class) {
         fwrite(STDERR, "La clase {$class} ya existe en {$relative}.\n");
         exit(1);
+    }
+}
+
+$enScaffold = '';
+
+foreach (scaffoldFiles($root) as $relative => $path) {
+    if (declaredClass($path) === $class) {
+        $enScaffold = $relative;
+        break;
     }
 }
 
@@ -84,6 +95,11 @@ foreach ($files as $relative => $path) {
         fwrite(STDERR, 'La versión ' . sprintf('%03d', $next) . " ya la usa {$relative}.\n");
         exit(1);
     }
+}
+
+if ($enScaffold !== '') {
+    echo "Aviso: la clase {$class} también la declara el scaffold {$enScaffold}.\n";
+    echo "Ese demo no puede instalarse mientras exista tu migración.\n";
 }
 
 $relativePath = 'database/migrations/' . sprintf('%03d', $next) . '_' . snakeCase($class) . '.php';
@@ -133,38 +149,79 @@ function skeleton(string $class): string
 }
 
 /**
- * Todos los archivos de migración del espacio: la app y cada scaffold.
+ * El espacio real de Phinx: los `*.php` de primer nivel más las copias de demos
+ * instalados. Es lo único que Phinx carga al migrar.
+ *
+ * @return array<string, string> ruta relativa al root => ruta absoluta
+ */
+function spaceFiles(string $root): array
+{
+    $files = [];
+
+    foreach (glob($root . '/database/migrations/*.php') ?: [] as $path) {
+        $files[substr($path, strlen($root) + 1)] = $path;
+    }
+
+    foreach (glob($root . '/database/migrations/*', GLOB_ONLYDIR) ?: [] as $dir) {
+        $files += phpFilesUnder($dir, $root);
+    }
+
+    ksort($files);
+
+    return $files;
+}
+
+/**
+ * Los scaffolds: reservan versiones aunque el demo no esté instalado.
+ *
+ * @return array<string, string> ruta relativa al root => ruta absoluta
+ */
+function scaffoldFiles(string $root): array
+{
+    $files = [];
+
+    foreach (glob($root . '/framework/scaffolds/*', GLOB_ONLYDIR) ?: [] as $scaffold) {
+        $dir = $scaffold . '/database/migrations';
+
+        if (is_dir($dir)) {
+            $files += phpFilesUnder($dir, $root);
+        }
+    }
+
+    ksort($files);
+
+    return $files;
+}
+
+/**
+ * Unión de las dos: es el contador de versiones que hay que respetar.
  *
  * @return array<string, string> ruta relativa al root => ruta absoluta
  */
 function migrationFiles(string $root): array
 {
-    $roots = [$root . '/database/migrations'];
-
-    foreach (glob($root . '/framework/scaffolds/*', GLOB_ONLYDIR) ?: [] as $scaffold) {
-        $path = $scaffold . '/database/migrations';
-
-        if (is_dir($path)) {
-            $roots[] = $path;
-        }
-    }
-
-    $files = [];
-
-    foreach ($roots as $dir) {
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
-        );
-
-        foreach ($iterator as $file) {
-            if ($file->isFile() && $file->getExtension() === 'php') {
-                $absolute = $file->getPathname();
-                $files[substr($absolute, strlen($root) + 1)] = $absolute;
-            }
-        }
-    }
-
+    $files = spaceFiles($root) + scaffoldFiles($root);
     ksort($files);
+
+    return $files;
+}
+
+/**
+ * @return array<string, string> ruta relativa al root => ruta absoluta
+ */
+function phpFilesUnder(string $dir, string $root): array
+{
+    $files = [];
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS)
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->isFile() && $file->getExtension() === 'php') {
+            $absolute = $file->getPathname();
+            $files[substr($absolute, strlen($root) + 1)] = $absolute;
+        }
+    }
 
     return $files;
 }

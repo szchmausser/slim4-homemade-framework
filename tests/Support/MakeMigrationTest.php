@@ -97,6 +97,24 @@ final class MakeMigrationTest extends TestCase
         self::assertSame($antes, $this->migrationFiles());
     }
 
+    public function test_permite_una_clase_que_solo_existe_en_un_scaffold(): void
+    {
+        // El scaffold de notas declara `CreateNotasTable`, pero no está en el
+        // espacio de Phinx hasta instalar el demo, y ese demo no puede convivir
+        // con tu propia `notas`. Bloquear el nombre dejaría el paso 2 del
+        // tutorial sin poder crear su migración.
+        $this->writeMigration(
+            'framework/scaffolds/notas/database/migrations/notas/910_create_notas_table.php',
+            'CreateNotasTable'
+        );
+
+        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotasTable']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertFileExists($this->root . '/database/migrations/006_create_notas_table.php');
+        self::assertStringContainsString('910_create_notas_table.php', $stdout);
+    }
+
     public function test_no_entra_en_la_banda_reservada_para_demos(): void
     {
         $this->writeMigration('database/migrations/899_relleno.php', 'Relleno');
