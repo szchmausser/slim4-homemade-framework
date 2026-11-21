@@ -8,6 +8,7 @@ Lo que `tutorial-crud.md` tiene que cumplir para considerarse válido. `tasks.md
 | Requisito | Regla verificable |
 |---|---|
 | Ubicación | Archivo único `docs/tutorial-crud.md` (enmienda: nació en la raíz) |
+| Imágenes | Los PNG viven en `docs/tutorial-crud-images/` y el Markdown los referencia con ruta relativa desde `docs/`, nunca con `../` que salga del directorio |
 | Alcance del gate | Vive en `docs/` con sus copias marcadas `excerpt` y fuera de `DocsLiveViewNamesTest`; no agrega scripts ni dependencias |
 | Prerrequisitos | Bloque al inicio: qué necesita el lector (PHP, Composer, cliente HTTP, navegador) y qué **no** se enseña aquí |
 | Orden | Los pasos son secuenciales y cada uno asume el estado que dejó el anterior |
