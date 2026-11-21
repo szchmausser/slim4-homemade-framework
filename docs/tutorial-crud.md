@@ -3144,6 +3144,10 @@ escrito para que la segunda entidad no te obligue a releer los trece anteriores.
 | La cantidad de registros de prueba | El encabezado en `components/ui/page-header.twig` |
 | El icono y el subtítulo del encabezado | Los seis casos del cierre |
 
+**Los textos del cromo no están en las vistas: salen de `lang/`.** Cuando tu entidad reusa el shell, el texto
+visible se agrega como clave en `lang/es.php` y `lang/en.php`; el cómo —incluido `Trans::t()` para traducir un
+flash desde el controlador— está en la guía, §15.3.
+
 **Los archivos a tocar**, en orden:
 
 1. `database/migrations/NNN_create_<entidad>_table.php`. El número lo asigna

@@ -7,6 +7,7 @@ use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\I18n\TranslationExtension;
 use Framework\I18n\TranslatorFactory;
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -97,7 +98,18 @@ return [
     // propio, y el día que cambie la implementación no hay firmas que tocar.
     // El locale sale de APP_LOCALE con default en código (S6), así que un clon
     // sin .env arranca en español.
-    TranslatorInterface::class => static fn (): TranslatorInterface => TranslatorFactory::create(),
+    //
+    // Se registra en `Trans` acá, en el único lugar donde se construye el
+    // traductor: es el mismo objeto que usa Twig, así que un controlador que
+    // hace `Trans::t(...)` y una plantilla que hace `t(...)` no pueden quedar en
+    // idiomas distintos. Sin este registro `Trans` arma su propio traductor con
+    // los mismos defaults, pero sería una segunda copia.
+    TranslatorInterface::class => static function (): TranslatorInterface {
+        $translator = TranslatorFactory::create();
+        Trans::register($translator);
+
+        return $translator;
+    },
 
     Twig::class => function (ContainerInterface $c) {
         $twig = Twig::create(__DIR__ . '/../resources/views', [

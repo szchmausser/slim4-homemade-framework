@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\I18n\Trans;
 use Framework\I18n\TranslationExtension;
 use Framework\I18n\TranslatorFactory;
 use Framework\Support\Env;
@@ -340,6 +341,104 @@ final class I18nTest extends HttpTestCase
             ->render([]);
 
         self::assertSame('Primera|Siguiente|Página 3', $html);
+    }
+
+    /**
+     * Trans: desde PHP se traduce el locale activo del contenedor, con parámetros.
+     *
+     * El registro lo hace el contenedor, cuando construye `TranslatorInterface`:
+     * el accesor tiene que trabajar con ESE traductor y no con una copia armada
+     * por su cuenta, o el locale de la app dejaría de aplicar en los controladores.
+     */
+    public function test_trans_traduce_con_el_locale_activo_y_con_parametros(): void
+    {
+        self::withLocale(['APP_LOCALE' => 'en', 'APP_FALLBACK_LOCALE' => 'es'], static function (): void {
+            $traductor = self::app()->getContainer()->get(TranslatorInterface::class);
+
+            self::assertSame(
+                'Showing 1 to 10 of 42 records',
+                Trans::t('pagination.showing', [
+                    '%from%'  => 1,
+                    '%to%'    => 10,
+                    '%total%' => 42,
+                    '%label%' => Trans::t('pagination.label'),
+                ]),
+                'Trans::t() no tradujo con el locale del contenedor.'
+            );
+
+            // Mismo objeto: lo que traduce el contenedor y lo que traduce el
+            // accesor no pueden venir de dos traductores distintos.
+            self::assertSame($traductor->trans('pagination.next'), Trans::t('pagination.next'));
+        });
+    }
+
+    /**
+     * Trans: sin registro previo no explota, y con registro manda ese traductor.
+     *
+     * El «antes» corre en un proceso nuevo a propósito: para cuando esta suite
+     * llega acá, el contenedor ya se armó en algún test anterior, así que el
+     * único estado limpio posible es un PHP que nunca arrancó la app. El caso es
+     * real: un script o un comando de consola que traduce sin pedir el
+     * contenedor.
+     */
+    public function test_trans_funciona_antes_y_despues_del_registro_del_contenedor(): void
+    {
+        $env = getenv();
+        unset($env['APP_LOCALE'], $env['APP_FALLBACK_LOCALE']);
+
+        $process = proc_open(
+            [PHP_BINARY, '-r', 'require "vendor/autoload.php"; echo Framework\\I18n\\Trans::t("pagination.first");'],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            __DIR__ . '/../..',
+            $env
+        );
+
+        if (!is_resource($process)) {
+            self::fail('No se pudo ejecutar PHP para probar Trans sin contenedor.');
+        }
+
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        self::assertSame(0, proc_close($process), 'Trans::t() explotó sin el contenedor registrado: ' . $stderr);
+        self::assertSame('', $stderr);
+        self::assertSame('Primera', $stdout, 'El fallback de Trans::t() no armó el traductor por defecto.');
+
+        // Y después del registro: el traductor del contenedor es el que manda.
+        self::withLocale(['APP_LOCALE' => 'en', 'APP_FALLBACK_LOCALE' => 'es'], static function (): void {
+            self::app()->getContainer()->get(TranslatorInterface::class);
+
+            self::assertSame('First', Trans::t('pagination.first'));
+        });
+    }
+
+    /** Trans: una clave inexistente devuelve la clave, igual que en Twig (S5). */
+    public function test_trans_devuelve_la_clave_inexistente(): void
+    {
+        self::assertSame('no.existe.esta.clave', Trans::t('no.existe.esta.clave'));
+    }
+
+    /** Trans: cambiar `APP_LOCALE` cambia lo que devuelve `Trans::t()`. */
+    public function test_cambiar_app_locale_cambia_lo_que_devuelve_trans(): void
+    {
+        $en = '';
+        $es = '';
+
+        self::withLocale(['APP_LOCALE' => 'en', 'APP_FALLBACK_LOCALE' => 'es'], static function () use (&$en): void {
+            self::app()->getContainer()->get(TranslatorInterface::class);
+            $en = Trans::t('pagination.first');
+        });
+
+        self::withLocale(['APP_LOCALE' => 'es'], static function () use (&$es): void {
+            self::app()->getContainer()->get(TranslatorInterface::class);
+            $es = Trans::t('pagination.first');
+        });
+
+        self::assertSame('First', $en);
+        self::assertSame('Primera', $es);
     }
 
     /** S7: el cromo migrado rinde exactamente el mismo español que antes. */

@@ -23,9 +23,11 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   `APP_BASE_PATH`.
 - **Los textos visibles del cromo van por catálogo.** En componentes y layouts se
   usa `{{ t('clave') }}` (o `|trans`) con la clave en inglés; el texto vive en
-  `lang/{es,en}.php`. Locale: `APP_LOCALE` (default `es`), fallback
-  `APP_FALLBACK_LOCALE` (default `en`), los dos documentados en la guía, no en
-  `.env.example`.
+  `lang/{es,en}.php`. Desde PHP la misma clave sale con
+  `Framework\I18n\Trans::t('clave')` (`t()` y `|trans` son sólo de Twig), que es
+  lo que usa un controlador para un flash. Locale: `APP_LOCALE` (default `es`),
+  fallback `APP_FALLBACK_LOCALE` (default `en`), los dos documentados en la guía,
+  no en `.env.example`.
 - **Las migraciones son la única fuente del esquema.** No crear tablas a mano ni
   duplicar el esquema en tests. Los seeds son datos, no schema.
 - **`app/` es del usuario; `framework/` es reusable.** No metas reglas de negocio

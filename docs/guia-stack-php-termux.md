@@ -476,6 +476,7 @@ use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\I18n\TranslationExtension;
 use Framework\I18n\TranslatorFactory;
 use Illuminate\Database\Capsule\Manager as Capsule;
@@ -566,7 +567,18 @@ return [
     // propio, y el día que cambie la implementación no hay firmas que tocar.
     // El locale sale de APP_LOCALE con default en código (S6), así que un clon
     // sin .env arranca en español.
-    TranslatorInterface::class => static fn (): TranslatorInterface => TranslatorFactory::create(),
+    //
+    // Se registra en `Trans` acá, en el único lugar donde se construye el
+    // traductor: es el mismo objeto que usa Twig, así que un controlador que
+    // hace `Trans::t(...)` y una plantilla que hace `t(...)` no pueden quedar en
+    // idiomas distintos. Sin este registro `Trans` arma su propio traductor con
+    // los mismos defaults, pero sería una segunda copia.
+    TranslatorInterface::class => static function (): TranslatorInterface {
+        $translator = TranslatorFactory::create();
+        Trans::register($translator);
+
+        return $translator;
+    },
 
     Twig::class => function (ContainerInterface $c) {
         $twig = Twig::create(__DIR__ . '/../resources/views', [
@@ -4079,20 +4091,101 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 
 Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadcrumbs`, que es opcional. Sin él cae a `[{label: 'Inicio', icon: 'home', current: true}]`; con una sola miga pinta sólo su etiqueta (con `icon` si la trae) y con varias, la `<nav class="breadcrumbs">` completa, donde cada miga sin `current: true` es un `<a href>` y la marcada `current` es un `<span aria-current="page">`. Si agregas páginas, cada una arma sus propias migas (el helper `breadcrumbs()` del controlador base hace las dos típicas); `active`, en cambio, es lo que resalta el item del sidebar (cap. 9).
 
-### 15.3 Traducción del cromo: catálogos, `t()` y `APP_LOCALE`
+### 15.3 Traducción del cromo: catálogos, `t()`, `Trans::t()` y `APP_LOCALE`
 
-Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— no se escriben más a mano en los templates: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale.
+Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— no se escriben a mano en los templates: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale.
+
+Esto es lo que hay; después, cómo se usa cuando agregás algo tuyo.
+
+**Qué hay.**
 
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve locale/fallback y registra los catálogos |
-| Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` |
+| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve locale/fallback y carga los catálogos |
+| Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` en las plantillas |
+| Accesor PHP | `framework/I18n/Trans.php` | `Trans::t()` para controladores, comandos y scripts |
 | Catálogos | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto` |
-| Registro | `config/container.php` | `TranslatorInterface` en el contenedor + extensión y global `app_locale` en Twig |
+| Registro | `config/container.php` | `TranslatorInterface` en el contenedor (y registrado en `Trans`), extensión y global `app_locale` en Twig |
 
 El contenedor expone `Symfony\Contracts\Translation\TranslatorInterface` (la interfaz de contratos, no la clase concreta), así que cualquier código propio pide el traductor por tipo y no por implementación. La extensión se registra **una sola vez**, en el `Twig::class` del contenedor: `t()` está disponible en layouts, componentes y scaffolds sin tocar cada vista. Además publica el global `app_locale`, que es lo que alimenta el `lang="..."` del `<html>`: con `APP_LOCALE=en`, anunciar `es` sería mentir.
 
-La extensión completa, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):
+**Las dos variables.** `APP_LOCALE` es el idioma activo (default `es`) y `APP_FALLBACK_LOCALE` el de respaldo (default `en`). Los dos defaults viven en código y no en `.env.example` porque `.env` no se versiona (cap. 5): un clon arranca en español sin configurar nada, y si querés otro idioma agregás la línea a mano.
+
+```bash
+# en tu .env (local, no se commitea)
+APP_LOCALE=en
+APP_FALLBACK_LOCALE=es
+```
+
+**Traducir en Twig.** `t()` y el filtro `|trans` son lo mismo; los parámetros se pasan como un objeto `%nombre% => valor` y los reemplaza el traductor:
+
+```twig
+{{ t('note.created') }}
+{{ 'note.created'|trans }}
+{{ t('pagination.showing', {
+    '%from%': pagination.from,
+    '%to%': pagination.to,
+    '%total%': pagination.total,
+    '%label%': label|default(t('pagination.label'))
+}) }}
+```
+
+**Traducir desde PHP.** `Trans::t()` es ese mismo `t()` para el código que no renderiza una plantilla, con la misma firma: clave y parámetros. El caso concreto es el aviso de un controlador, que hasta ahora se escribía en español y no había forma de regionalizar:
+
+```php
+use Framework\I18n\Trans;
+
+// Antes: el mensaje quedaba en español aunque APP_LOCALE=en.
+Flash::set('success', 'Nota creada.');
+
+// Ahora: el aviso sale en el idioma activo.
+Flash::set('success', Trans::t('note.created'));
+
+// Con parámetros, igual que en Twig.
+Flash::set('success', Trans::t('note.created_named', ['%name%' => $note->title]));
+```
+
+`Trans::t()` devuelve la clave si no la encuentra, igual que `|trans` (S5): un mensaje mal escrito se ve raro, no rompe el request.
+
+**Por qué un accesor y no un servicio inyectado.** Los controladores de este proyecto no tienen constructor (Slim los resuelve por nombre de clase desde el archivo de rutas) y `Flash::set()`/`Url::path()` ya son estáticos: `Trans::t()` sigue ese patrón en vez de forzar un cambio de arquitectura para traducir un flash. El traductor no es una copia: `config/container.php` lo registra en `Trans` en el único lugar donde se construye, así que el controlador y la plantilla del mismo request no pueden quedar en idiomas distintos. Si nadie lo registró todavía —un script, un comando de consola—, la primera llamada arma el traductor por defecto con `APP_LOCALE` y lo cachea: no hay fatal por falta de registro.
+
+**Dónde va una clave nueva.** En los dos catálogos, con la misma clave y el mismo nombre de parámetro. Las claves van en inglés y nombran el concepto por superficie (`note.created`, `pagination.showing`, `modal.close`); el valor es lo que se traduce. `lang/es.php`:
+
+```php excerpt
+'note.created'       => 'Nota creada.',
+'note.created_named' => 'Nota creada: %name%.',
+```
+
+`lang/en.php`:
+
+```php excerpt
+'note.created'       => 'Note created.',
+'note.created_named' => 'Note created: %name%.',
+```
+
+**Agregar un idioma.**
+
+1. Copiá `lang/en.php` a `lang/<locale>.php`. El nombre del archivo es el locale en minúsculas: `pt.php`, o `pt_br.php` para `pt_BR`.
+2. Traducí los valores. Las claves no se tocan: son el contrato entre catálogos.
+3. Agregá `APP_LOCALE=pt` a mano en tu `.env` (no se versiona, por eso la variable no está en `.env.example`), o pasala por entorno en el despliegue.
+4. Corré `composer test`. La paridad de claves que exige la suite es entre `es` y `en`; un catálogo nuevo no entra en ese control, así que sus claves las mantenés sincronizadas vos.
+
+Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` para las claves que no tenga, y un idioma a medio traducir es un estado válido.
+
+**Trampas.**
+
+- **Claves en inglés, textos en el catálogo.** `note.created`, no `nota.creada`: la clave es un identificador, no una traducción, y renombrarla rompe los dos catálogos a la vez.
+- **Apóstrofos dentro de literales JS.** Si la traducción se interpola en una expresión de Alpine entre comillas simples, escapala con `|e('js')`: deja el apóstrofo como `\u0027` y el autoescape HTML vuelve a escapar el resultado, así que «Ouvrir l'app» no cierra la cadena y el botón no se queda sin nombre accesible (`layouts/parts/topbar.twig`, fijado por `tests/Support/I18nTest.php`). En un atributo estático NO va el filtro: ahí alcanza el escape HTML y `\uXXXX` se vería literal.
+- **No se traducen identificadores ni rutas.** Tablas, columnas, nombres de campo, claves de configuración y URLs quedan como están: cambiar el idioma cambia textos, no contratos.
+- **`es` y `en` tienen que declarar las mismas claves**, y hay un test que falla si se desincronizan: una clave que existe en un solo archivo se ve como texto en el idioma equivocado.
+
+**Límites honestos.**
+
+- **El locale es estático por despliegue.** Se resuelve una vez, cuando se construye el traductor: no hay selector de idioma por usuario, ni negociación por `Accept-Language`, ni locale por request. Cambiar de idioma es cambiar `APP_LOCALE` y reiniciar el proceso.
+- **Falta externalizar** los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores (`AuthController` incluido), los mensajes del validador, `resources/views/pages/*`, `error.twig` y el JS del demo de contacts. La infraestructura ya está: `Trans::t()` es la pieza que le faltaba al PHP, así que cada superficie es reemplazar literales por claves, sin inventar mecanismo.
+- **El formato de fechas y números no es por locale**, y no lo va a ser sin `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, y los nombres de mes y día que vienen con el idioma). La extensión no está garantizada en el PHP de Termux: mientras tanto, el formato queda en el `php.ini` del despliegue y las fechas se muestran en un solo formato.
+
+**El código.** La extensión de Twig, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):
 
 `framework/I18n/TranslationExtension.php`:
 
@@ -4155,37 +4248,97 @@ final class TranslationExtension extends AbstractExtension
 }
 ```
 
-**Las dos variables.** `APP_LOCALE` es el idioma activo (default `es`) y `APP_FALLBACK_LOCALE` el de respaldo (default `en`). No están en `.env.example` porque el default vive en código y `.env` no se versiona (cap. 5): si querés otro idioma, agregá la línea a mano en tu `.env`.
+El accesor de PHP, con el docblock que explica por qué no es un servicio inyectado:
 
-```bash
-# en tu .env (local, no se commitea)
-APP_LOCALE=en
-APP_FALLBACK_LOCALE=es
+`framework/I18n/Trans.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Framework\I18n;
+
+use Symfony\Contracts\Translation\TranslatorInterface;
+
+/**
+ * Traducción desde PHP: el mismo `t()` que Twig, pero para el código que no
+ * renderiza una plantilla.
+ *
+ *     Trans::t('note.created');
+ *     Trans::t('pagination.showing', ['%from%' => 1, '%to%' => 10]);
+ *     Flash::set('success', Trans::t('note.created'));
+ *
+ * Existe porque `t()` y `|trans` son extensiones de Twig: un controlador que
+ * arma el mensaje de un flash antes de redirigir no tiene plantilla donde
+ * pedirlo, así que el texto quedaba escrito en español adentro del PHP y el
+ * cambio de idioma se detenía en el borde del cromo. Sigue el patrón de `Flash`
+ * y `Url`: un helper estático, sin estado propio más que el traductor.
+ *
+ * No es un servicio inyectado, y es deliberado. Los controladores de este
+ * proyecto no tienen constructor (Slim los resuelve por nombre de clase desde
+ * las rutas), así que inyectar el traductor obligaría a darles constructor y a
+ * resolverlos por el contenedor: una decisión de arquitectura bastante más
+ * grande que este accesor y sin probar acá. El costo del helper estático es que
+ * no se puede sustituir sin tocar el registro (ver `register()`), y por eso el
+ * último registro gana.
+ *
+ * El traductor lo registra `config/container.php` al construir
+ * `TranslatorInterface` —el mismo objeto que consume Twig, no una segunda
+ * copia—. Si nadie lo registró todavía (un script, un comando de consola, un
+ * test que no arranca el contenedor), la primera llamada arma el traductor por
+ * defecto con `TranslatorFactory::create()`, que ya lee `APP_LOCALE` y
+ * `APP_FALLBACK_LOCALE`, y lo deja cacheado: `t()` no explota por falta de
+ * registro. El precio de cachearlo es que un cambio de esas variables después
+ * de la primera llamada no se nota hasta que el contenedor registre el suyo.
+ */
+final class Trans
+{
+    /** Traductor en uso; null hasta que alguien lo registre o se use el fallback. */
+    private static ?TranslatorInterface $translator = null;
+
+    /** Clase de accesor: se usa estáticamente. */
+    private function __construct()
+    {
+    }
+
+    /**
+     * Registra el traductor de la app. Lo llama `config/container.php`.
+     *
+     * El último registro gana, y eso es lo que hace útil el accesor en tests y
+     * en un eventual «previsualizar otro idioma» sin reiniciar el proceso.
+     */
+    public static function register(TranslatorInterface $translator): void
+    {
+        self::$translator = $translator;
+    }
+
+    /**
+     * Traduce una clave del catálogo al locale activo.
+     *
+     * Mismos parámetros que en Twig: `%nombre%` en el texto del catálogo y
+     * `['%nombre%' => $valor]` acá. Una clave ausente devuelve la clave, como en
+     * `t()` de Twig (S5): traducir no puede romper el request.
+     *
+     * @param array<string, string|int|float> $params
+     */
+    public static function t(string $key, array $params = []): string
+    {
+        return self::translator()->trans($key, $params);
+    }
+
+    /**
+     * Traductor registrado, o el de por defecto la primera vez.
+     *
+     * El fallback se construye una sola vez: hacerlo en cada `t()` sería
+     * rearmar el traductor por cada mensaje de un listado.
+     */
+    private static function translator(): TranslatorInterface
+    {
+        return self::$translator ??= TranslatorFactory::create();
+    }
+}
 ```
-
-**Los catálogos.** Un archivo por idioma, plano: `clave => texto`. Las claves van en inglés y nombran el concepto por superficie (`pagination.showing`, `modal.close`, `field.optional`); el valor es lo que se traduce. Los parámetros se escriben `%nombre%` y se interpolan al traducir. Una clave ausente **no rompe**: se devuelve la clave tal cual (y si existe en el fallback, se usa esa traducción). Los dos catálogos tienen que declarar las mismas claves; la suite lo verifica.
-
-**En Twig** alcanza con `t()` o con el filtro `|trans`, que son lo mismo:
-
-```twig
-{{ t('modal.close') }}
-{{ 'pagination.next'|trans }}
-{{ t('pagination.showing', {
-    '%from%': pagination.from,
-    '%to%': pagination.to,
-    '%total%': pagination.total,
-    '%label%': label|default(t('pagination.label'))
-}) }}
-```
-
-**Cómo agregar un idioma.**
-
-1. Copiá `lang/en.php` a `lang/<locale>.php` (el nombre del archivo es el locale en minúsculas: `pt_br.php` para `pt_BR`).
-2. Traducí los valores. Las claves no se tocan: son el contrato entre catálogos.
-3. Poné `APP_LOCALE=<locale>` en tu `.env`, o pasalo por entorno en el deploy.
-4. Corré `composer test`: la suite compara las claves de todos los catálogos y falla si falta una.
-
-**Qué queda pendiente de externalizar.** Este slice cubre el cromo del shell. Los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores y los mensajes del validador siguen con literales en español; pasarlos por `t()` es trabajo de las unidades siguientes, y la infraestructura ya está lista para eso.
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
