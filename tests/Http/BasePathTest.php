@@ -12,7 +12,7 @@ use Tests\Support\HttpTestCase;
  *
  * El caso real: el despliegue no vive en la raíz del dominio sino en una
  * carpeta (`https://dominio.com/app/`). Con todas las URLs raíz-absolutas, cada
- * `href="/tareas"` y cada `src="/assets/..."` resolvía al dominio y daba 404:
+ * `href="/tasks"` y cada `src="/assets/..."` resolvía al dominio y daba 404:
  * la app se veía sin estilos y sin poder navegar.
  *
  * Se verifica lo que el usuario ve, no la implementación: la request entra con

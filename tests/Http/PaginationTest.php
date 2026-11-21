@@ -68,11 +68,11 @@ final class PaginationTest extends TestCase
 
         $p = Pagination::fromRequest(
             $this->query(),
-            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/app/contactos/datos?page=1'),
-            '/app/contactos/datos'
+            (new ServerRequestFactory())->createServerRequest('GET', 'http://localhost/app/contacts/data?page=1'),
+            '/app/contacts/data'
         );
 
-        self::assertSame('/app/contactos/datos', $p['base_url']);
+        self::assertSame('/app/contacts/data', $p['base_url']);
     }
 
     /**

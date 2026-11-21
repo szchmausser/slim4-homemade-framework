@@ -133,6 +133,12 @@ mi-app/
 │       │   ├── resources/views/pages/tasks/
 │       │   ├── routes/tasks.php
 │       │   └── tests/Tasks/
+│       ├── notes/                  # demo del tutorial, en inglés: composer demo:notes:install
+│       │   ├── app/{Models,Http/Controllers}/
+│       │   ├── database/{migrations,seeds}/notes/
+│       │   ├── resources/views/pages/notes/
+│       │   ├── routes/notes.php
+│       │   └── tests/Notes/
 │       └── contacts/               # demo Tabulator: composer demo:contacts:install
 │           ├── app/{Models,Http/Controllers}/
 │           ├── database/{migrations,seeds}/contacts/
@@ -546,7 +552,7 @@ return [
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
 
-        // `url('/tareas')` global para las plantillas (S13): es la ÚNICA vía
+        // `url('/tasks')` global para las plantillas (S13): es la ÚNICA vía
         // por la que una URL llega al HTML, así que no puede quedar una
         // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
         // la misma cadena que estaba escrita a mano y nada cambia.
@@ -5497,7 +5503,7 @@ Tests\Support\AppFactory::make();
 // La sesion se abre UNA vez, aca, y no en el primer request. En PHP >= 8.5
 // session_start() vuelve a dejar $_SESSION en [] (antes conservaba lo que el
 // llamador habia puesto), asi que los tests que siembran $_SESSION['user_id']
-// en setUp() llegaban a /tareas sin sesion: 303 a /login y cuerpo vacio, que
+// en setUp() llegaban a /tasks sin sesion: 303 a /login y cuerpo vacio, que
 // el helper de tokens reportaba como "no encontre el hidden csrf_name".
 // Abriendo la sesion antes, el middleware ve PHP_SESSION_ACTIVE y no la
 // reinicia, con lo cual los valores de cada setUp() sobreviven al request.

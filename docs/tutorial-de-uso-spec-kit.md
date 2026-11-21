@@ -397,7 +397,7 @@ Formato obligatorio, sin excepciones:
 
 ```text
 - [ ] T001 [P] Crear migración 004_export_jobs_table en database/migrations/
-- [ ] T004 [US1] Agregar exportCsv() en app/Contacts/ContactController.php
+- [ ] T004 [US1] Agregar exportCsv() en app/Http/Controllers/ContactController.php
 - [ ] T007 [US1] Cubrir export filtrado en tests/Feature/ContactExportTest.php
 ```
 

@@ -33,7 +33,7 @@ final class Url
     /**
      * URL de una ruta interna, con el prefijo ya aplicado.
      *
-     * Acepta `/tareas` y `tareas` por igual: quien llama no necesita acordarse de
+     * Acepta `/tasks` y `tasks` por igual: quien llama no necesita acordarse de
      * la barra inicial y el resultado nunca la duplica. La raíz conserva su barra
      * final (`/app/`), que es la URL que el router resuelve y la que el navegador
      * muestra; sin ella, la raíz del despliegue quedaría como una ruta más.
@@ -47,7 +47,7 @@ final class Url
      * Reduce cualquier forma de escribir el prefijo a `''` o `/algo`.
      *
      * `app`, `/app`, `/app/` y `  app  ` son el mismo prefijo. Una barra de más
-     * produce `//app/tareas`, una ruta distinta que no coincide con ninguna
+     * produce `//app/tasks`, una ruta distinta que no coincide con ninguna
      * definición. `/` significa lo mismo que vacío: aplicación en la raíz.
      */
     private static function normalize(string $value): string

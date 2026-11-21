@@ -13,9 +13,12 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   migración `910_create_notes_table.php` con clase `CreateNotesTable`.
 - **S3**: la tabla se deriva de Eloquent; `$table` sólo se declara cuando la tabla se aparta de la
   convención. Hoy `Contact` y `Nota` lo declaran sin necesidad: se retira.
-- **S4**: el tutorial sigue en español (`notas`, `titulo`, `cuerpo`, `/notas`) y lleva `$table = 'notas'`
-  explícito como ejemplo del costo. Al no compartir tabla ni clase con `notes`, tutorial y demo dejan de
-  ser incompatibles.
+- **S4** (corregida en L14): el tutorial sigue en español (`notas`, `titulo`, `cuerpo`, `/notas`) y **no**
+  declara `$table`, porque la entidad del recorrido cae justo en la convención de Eloquent
+  (`Nota` → `notas`, igual que `Note` → `notes`): declararlo sería enseñar una regla equivocada. El costo
+  de apartarse de la convención lo explica el propio tutorial con `Ciudad` → `ciudads` (el pluralizador
+  es inglés) y lo ejercita `composer make:model`, que escribe `$table` sólo cuando la tabla pedida difiere
+  de la inferida. Al no compartir tabla ni clase con `notes`, tutorial y demo conviven.
 - **S5**: instalar, remover y el round-trip siguen funcionando: manifiesto, backups y rollback intactos.
 - **S6**: documentación coherente: `AGENTS.md`, guía (cap. 23 y árboles), tutorial y comandos
   `demo:<nombre>:*` con los nombres nuevos.
@@ -120,3 +123,28 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   `tests/bootstrap.php:38`, `tests/Http/BasePathTest.php:15`, `tests/Http/PaginationTest.php:71-75`
   (`/app/contactos/datos`) y los ejemplos de docblock de `framework/Http/Url.php:36,50`. Son comentarios y
   fixtures, no comportamiento.
+- L14 (agente, corrección de la spec): **S4 estaba mal**. Decía que el tutorial lleva `$table = 'notas'`
+  explícito como ejemplo del costo. Es falso: `Nota` → `notas` **es** la derivación de Eloquent
+  (`Str::snake(Str::pluralStudly('Nota'))`, la misma función que usa `Model::getTable()`), así que
+  `app/Models/Nota.php` del tutorial no declara `$table` (`docs/tutorial-crud.md:299`) y `MakeModelTest`
+  fija que el generador sólo lo escribe cuando la tabla se aparta de la inferida. Si S4 pedía declararlo,
+  mandaba a enseñar una regla equivocada (el mismo `$table` redundante que S3 retira de los demos).
+  Verificado: `Str::snake(Str::pluralStudly('Nota'))` → `notas` y `...('Note')` → `notes`; el caso que
+  cuesta el override sigue siendo `Ciudad` → `ciudads`, que el tutorial ya explica. S4 queda reescrita para
+  decir lo que pasa: el tutorial no declara `$table` y el costo se enseña con `Ciudad`.
+  **Historial**: L13 y la S4 original asumían que el tutorial era el «ejemplo del costo»; el ejemplo del
+  costo es `Ciudad`, no `Nota`.
+- L15 (agente, hallazgos de la verificación): referencias viejas al día. `PRODUCT.md` con `/tasks`,
+  `/contacts` y `/contacts/data`; `docs/tutorial-de-uso-spec-kit.md` con
+  `app/Http/Controllers/ContactController.php`; `config/container.php` y `tests/bootstrap.php` con
+  `/tasks` en sus comentarios (la guía los copia, así que `composer docs:sync` reescribió las copias de los
+  capítulos correspondientes); `framework/Http/Url.php` con `/tasks` y `//app/tasks` en los docblocks de
+  ejemplo; `tests/Http/BasePathTest.php` y `tests/Http/PaginationTest.php` con `/tasks` y
+  `/app/contacts/data`, fixtures que ahora imitan las rutas vigentes sin cambiar lo que cada test
+  demuestra. `docs/guia-stack-php-termux.md` lista `notes` en el árbol de scaffolds (decía «Hay tres
+  demos» y mostraba dos). Verificación: `composer docs:sync`/`check` OK, `composer lint` OK,
+  `composer phpstan` OK, `php vendor/bin/phpunit --filter 'BasePath|Pagination'` OK y la suite completa OK;
+  el grep de barrido (`/tareas|/contactos|App\\Tasks|App\\Contacts|App\\Notas`) sobre `README.md`,
+  `AGENTS.md`, `PRODUCT.md`, `DESIGN.md`, `docs`, `specs`, `config`, `tests`, `framework`, `app` y `scripts`
+  no devuelve nada. Fuera de esa lista quedan referencias históricas (`.ai/`, `odd/`, `.gsd/`,
+  `.impeccable/`) y una viva que esta unidad no puede tocar: el comentario de `.env.example:34`.

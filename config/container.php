@@ -99,7 +99,7 @@ return [
             'auto_reload' => true, // en dev recompila al cambiar una plantilla
         ]);
 
-        // `url('/tareas')` global para las plantillas (S13): es la ÚNICA vía
+        // `url('/tasks')` global para las plantillas (S13): es la ÚNICA vía
         // por la que una URL llega al HTML, así que no puede quedar una
         // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
         // la misma cadena que estaba escrita a mano y nada cambia.
