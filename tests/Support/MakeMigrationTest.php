@@ -58,25 +58,25 @@ final class MakeMigrationTest extends TestCase
 
     public function test_escribe_el_siguiente_numero_libre_con_el_esqueleto_del_proyecto(): void
     {
-        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotasTable']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotesTable']);
 
         self::assertSame(0, $exit, $stderr);
-        self::assertStringContainsString('database/migrations/006_create_notas_table.php', $stdout);
+        self::assertStringContainsString('database/migrations/006_create_notes_table.php', $stdout);
         self::assertSame(
-            $this->skeleton('CreateNotasTable'),
-            (string) file_get_contents($this->root . '/database/migrations/006_create_notas_table.php')
+            $this->skeleton('CreateNotesTable'),
+            (string) file_get_contents($this->root . '/database/migrations/006_create_notes_table.php')
         );
     }
 
     public function test_acepta_snake_case_y_normaliza_clase_y_archivo(): void
     {
-        [$exit, $stdout, $stderr] = $this->runCommand(['create_notas_table']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['create_notes_table']);
 
         self::assertSame(0, $exit, $stderr);
-        self::assertFileExists($this->root . '/database/migrations/006_create_notas_table.php');
+        self::assertFileExists($this->root . '/database/migrations/006_create_notes_table.php');
         self::assertStringContainsString(
-            'final class CreateNotasTable extends AbstractMigration',
-            (string) file_get_contents($this->root . '/database/migrations/006_create_notas_table.php')
+            'final class CreateNotesTable extends AbstractMigration',
+            (string) file_get_contents($this->root . '/database/migrations/006_create_notes_table.php')
         );
     }
 
@@ -95,23 +95,24 @@ final class MakeMigrationTest extends TestCase
     {
         $this->writeMigration(
             'database/migrations/006_otra_cosa.php',
-            'CreateNotasTable'
+            'CreateNotesTable'
         );
         $antes = $this->migrationFiles();
 
-        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotasTable']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotesTable']);
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('CreateNotasTable', $stderr);
+        self::assertStringContainsString('CreateNotesTable', $stderr);
         self::assertSame($antes, $this->migrationFiles());
     }
 
     public function test_permite_una_clase_que_solo_existe_en_un_scaffold(): void
     {
-        // El scaffold de notes declara `CreateNotesTable`, pero no está en el
-        // espacio de Phinx hasta instalar el demo. Que un scaffold reserve el
-        // nombre no puede impedir crear tu migración: el script avisa y sigue,
-        // porque el choque real aparece recién al instalar el demo.
+        // El scaffold de notes declara `CreateNotesTable` —la misma clase que la
+        // entidad del tutorial—, pero no está en el espacio de Phinx hasta
+        // instalar el demo. Que un scaffold reserve el nombre no puede impedir
+        // crear tu migración: el script avisa y sigue, porque el choque real
+        // aparece recién al instalar el demo.
         $this->writeMigration(
             'framework/scaffolds/notes/database/migrations/notes/910_create_notes_table.php',
             'CreateNotesTable'

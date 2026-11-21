@@ -3,7 +3,7 @@
 Recorrido para agregar tu propia entidad a este proyecto, desde un clon recién hecho hasta tenerla
 funcionando con tests. Está escrito para seguirse de arriba abajo, en orden, sin saltear pasos.
 
-Al terminar tendrás una entidad `notas` que lista, crea, valida y responde por identificador, y
+Al terminar tendrás una entidad `notes` que lista, crea, valida y responde por identificador, y
 una suite mínima que reemplaza las comprobaciones que fuiste haciendo a mano.
 
 ## Prerrequisitos
@@ -44,8 +44,8 @@ del shell. El código y las rutas de cada paso son los que mandan.
 ## Índice
 
 1. [Arrancar la app hasta tener sesión](#1-arrancar-la-app-hasta-tener-sesión)
-2. [La migración de `notas`](#2-la-migración-de-notas)
-3. [El modelo `Nota`](#3-el-modelo-nota)
+2. [La migración de `notes`](#2-la-migración-de-notes)
+3. [El modelo `Note`](#3-el-modelo-note)
 4. [Registrar la entidad en las rutas y en el menú](#4-registrar-la-entidad-en-las-rutas-y-en-el-menú)
 5. [La primera ruta: JSON verificable](#5-la-primera-ruta-json-verificable)
 6. [La pantalla del listado: del HTML crudo al shell](#6-la-pantalla-del-listado-del-html-crudo-al-shell)
@@ -66,20 +66,19 @@ crece, y el 14 te deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notes:install` (se quita con `composer demo:notes:remove`). Sirve para comparar, no para
-aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La diferencia es el idioma de
-los nombres: el demo usa los identificadores convencionales en inglés —`Note`, tabla `notes`, `/notes`,
-`pages/notes/`, `Tests\Notes\`— y el recorrido los usa en castellano —`Nota`, tabla `notas`, `/notas`,
-`pages/notas/`—. El comportamiento y las vistas son los mismos.
+aprender: el demo te da el código hecho, el recorrido te hace escribirlo. Es el mismo recorrido, con los
+identificadores en inglés —`Note`, tabla `notes`, `/notes`, `pages/notes/`, `Tests\Notes\`— y los textos
+visibles iguales a los de estas páginas.
 
 `remove` tiene una salvedad: si editaste alguno de los archivos del demo, aborta y pide
 `composer demo:notes:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.
 El manifiesto en `storage/demo-state/` distingue lo que editaste de lo que sólo quedó viejo porque el
 scaffold avanzó.
 
-El demo no comparte tabla ni clase de migración con tu entidad, así que podés instalarlo con el recorrido
-ya hecho: conviven en la misma app —`/notes` y `/notas`— sin pisarse. Lo único que no podés es tratarlo
-como si fuera la tuya: sus filas, su tabla y sus rutas son otras. Si querés comparar, instalalo antes de
-empezar o después de terminar, pero no lo edites esperando que sea tu código.
+El demo comparte tabla y clase de migración con tu entidad —`notes` y `CreateNotesTable`—, así que no
+puede estar instalado mientras seguís el recorrido: para comparar, usá otra instalación, o instalalo y
+desinstalalo antes de empezar. Y no lo edites esperando que sea tu código: el tuyo es el que escribís en
+estas páginas.
 
 ## 1. Arrancar la app hasta tener sesión
 
@@ -154,7 +153,7 @@ empieza en el paso siguiente.
 
 ---
 
-## 2. La migración de `notas`
+## 2. La migración de `notes`
 
 **Objetivo**: crear la tabla. Sin tabla, el modelo no puede guardar nada.
 
@@ -167,10 +166,10 @@ archivo de la entidad es el que crea la tabla y el que permite deshacerla.
 **Acción**: crea el archivo con el comando del proyecto:
 
 ```bash
-composer make:migration CreateNotasTable
+composer make:migration CreateNotesTable
 ```
 
-Escribe `database/migrations/006_create_notas_table.php` con el número que le toca —no lo elijas a
+Escribe `database/migrations/006_create_notes_table.php` con el número que le toca —no lo elijas a
 mano—. Complétalo:
 
 ```php
@@ -180,13 +179,13 @@ declare(strict_types=1);
 
 use Phinx\Migration\AbstractMigration;
 
-final class CreateNotasTable extends AbstractMigration
+final class CreateNotesTable extends AbstractMigration
 {
     public function change(): void
     {
-        $this->table('notas')
-            ->addColumn('titulo', 'string', ['limit' => 120])
-            ->addColumn('cuerpo', 'text', ['null' => true])
+        $this->table('notes')
+            ->addColumn('title', 'string', ['limit' => 120])
+            ->addColumn('body', 'text', ['null' => true])
             ->addTimestamps()
             ->create();
     }
@@ -204,15 +203,15 @@ sin pendientes.
 
 - Phinx dice que ya existe una migración con ese número: borra el archivo que acabas de crear y vuelve
   a correr `composer make:migration`; quédate con el número que asigna. Nunca reutilices uno.
-- El error menciona `notas` ya existente: la tabla quedó de un intento anterior. `vendor/bin/phinx
+- El error menciona `notes` ya existente: la tabla quedó de un intento anterior. `vendor/bin/phinx
   rollback -t 0` la baja, y vuelves a subir.
 
 **Qué no prueba**: que el modelo use esta tabla ni que los campos alcancen. La migración sólo prueba
 que el esquema se puede crear y revertir.
 
-> **`titulo` acepta nulos en la tabla**: la obligatoriedad la impone el validador (paso 7).
+> **`title` acepta nulos en la tabla**: la obligatoriedad la impone el validador (paso 7).
 
-**Qué ganaste**: la tabla `notas` existe, con sus columnas y su marcha atrás —`phinx rollback` la baja
+**Qué ganaste**: la tabla `notes` existe, con sus columnas y su marcha atrás —`phinx rollback` la baja
 sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
 controlador es justo lo que el proyecto evita.
 
@@ -221,17 +220,17 @@ controlador es justo lo que el proyecto evita.
 **El número sale del nombre del archivo.** Phinx toma la versión del prefijo numérico (`006`) y nada
 más: no mira la clase ni lleva una tabla de nombres. Por eso el nombre lo pone el comando y no vos.
 
-**El generador no se usa en este proyecto.** `vendor/bin/phinx create CreateNotasTable` escribe
-`AAAAMMDDhhmmss_create_notas_table.php` —el timestamp del momento, nunca `006_`— con el esqueleto y el
+**El generador no se usa en este proyecto.** `vendor/bin/phinx create CreateNotesTable` escribe
+`AAAAMMDDhhmmss_create_notes_table.php` —el timestamp del momento, nunca `006_`— con el esqueleto y el
 `change()` vacío. En PHP de 32 bits ese prefijo de catorce dígitos satura el entero, así que todas las
 migraciones colapsan a la misma versión. `composer make:migration` existe justo para eso: pone el `NNN_`
 del siguiente número libre y el nombre en snake case.
 
-**El aviso del scaffold.** Al crear la tuya puede aparecer un aviso porque la clase de tu migración
-coincide con la de un scaffold. No bloquea nada: Phinx deriva la clase del nombre del archivo, así que el
-choque aparecería recién al instalar ese demo. Con los demos en inglés ese aviso no sale para tu entidad
-en castellano: el demo de notas declara `910_create_notes_table.php` (`CreateNotesTable`) y la tuya es
-`CreateNotasTable`.
+**El aviso del scaffold.** Al crear la tuya va a aparecer un aviso: la clase `CreateNotesTable` ya la
+declara el scaffold del demo de `notes`. Es esperado y no bloquea nada —`006_create_notes_table.php` se
+escribe igual—: Phinx deriva la clase del nombre del archivo, así que el choque aparecería recién al
+instalar el demo. La consecuencia es la de la presentación: tu migración y el demo no conviven; con el
+demo instalado, este comando se niega directamente.
 
 **Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notes` `910-919` y `contacts`
 `920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
@@ -255,7 +254,7 @@ a mano y acordarte del orden; el proyecto ya tiene el mecanismo, sólo hay que e
 
 ---
 
-## 3. El modelo `Nota`
+## 3. El modelo `Note`
 
 **Objetivo**: poder leer y escribir la tabla desde PHP sin SQL escrito a mano.
 
@@ -263,15 +262,15 @@ a mano y acordarte del orden; el proyecto ya tiene el mecanismo, sólo hay que e
 
 Con la tabla creada, el problema pasa a ser desde dónde escribirla. Un controlador que arma la sentencia
 a mano repite el nombre de la tabla, el orden de las columnas y el escapado en cada acción; el proyecto
-usa una clase por tabla, y esa clase queda como el único lugar que conoce `notas`.
+usa una clase por tabla, y esa clase queda como el único lugar que conoce `notes`.
 
 **Acción**: crea el esqueleto con el comando del proyecto:
 
 ```bash
-composer make:model Nota
+composer make:model Note
 ```
 
-Deja `app/Models/Nota.php` con el namespace, la tabla y `$fillable` vacío. Los docblocks no los escribe:
+Deja `app/Models/Note.php` con el namespace, la tabla y `$fillable` vacío. Los docblocks no los escribe:
 dependen de tus columnas. Tiene que quedar así:
 
 ```php excerpt
@@ -285,21 +284,21 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property int $id
- * @property string $titulo
- * @property string|null $cuerpo
+ * @property string $title
+ * @property string|null $body
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
- * @method static Nota|null find(int|string $id)
- * @method static Nota create(array<string, mixed> $attributes = [])
- * @method static \Illuminate\Database\Eloquent\Builder<Nota> orderByDesc(string $column)
+ * @method static Note|null find(int|string $id)
+ * @method static Note create(array<string, mixed> $attributes = [])
+ * @method static \Illuminate\Database\Eloquent\Builder<Note> orderByDesc(string $column)
  */
-class Nota extends Model
+class Note extends Model
 {
-    protected $fillable = ['titulo', 'cuerpo'];
+    protected $fillable = ['title', 'body'];
 }
 ```
 
-No lleva `$table`: Eloquent deriva `notas` del nombre de la clase. Se escribe sólo cuando la tabla no es
+No lleva `$table`: Eloquent deriva `notes` del nombre de la clase. Se escribe sólo cuando la tabla no es
 esa derivación —con `Ciudad`, por ejemplo, porque el pluralizador de Eloquent es inglés y daría
 `ciudads`—. El comando hace exactamente eso: si le pasás la tabla, la escribe; si no, confía en la
 convención.
@@ -322,12 +321,12 @@ más.
 
 **Qué no prueba**: que el modelo conecte con la tabla. El lint sólo verifica sintaxis; la prueba real
 llega en el paso 7, cuando creas la primera nota. Si el modelo apunta a una tabla inexistente, el
-error aparece ahí, con `no such table: notas`.
+error aparece ahí, con `no such table: notes`.
 
 > El modelo sí se puede comprobar desde la terminal: `php -r 'require "bootstrap/app.php"; echo
-> App\Models\Nota::query()->count(), PHP_EOL;'` imprime `0` sin avisos.
+> App\Models\Note::query()->count(), PHP_EOL;'` imprime `0` sin avisos.
 
-**Qué ganaste**: `Nota::query()` alcanza la tabla y el resto de los pasos puede leer y escribir sin SQL
+**Qué ganaste**: `Note::query()` alcanza la tabla y el resto de los pasos puede leer y escribir sin SQL
 escrito a mano. El costo es que todavía nadie la usa: no hay ruta que la llame, así que el modelo existe
 y no se ve en ninguna pantalla.
 
@@ -338,7 +337,7 @@ mano en cada operación.
 
 ### Cuando el nombre no da la tabla
 
-`Nota` → `notas` cae dentro de la convención, así que el modelo no lleva `$table`. Con nombres que el
+`Note` → `notes` cae dentro de la convención, así que el modelo no lleva `$table`. Con nombres que el
 pluralizador inglés no resuelve —`Ciudad` daría `ciudads`— el modelo sí lo lleva, y
 `composer make:model Ciudad ciudades` lo escribe por vos. La convención se sigue hasta que no alcanza; la
 desviación queda escrita en el modelo, a la vista.
@@ -347,21 +346,21 @@ desviación queda escrita en el modelo, a la vista.
 
 ## 4. Registrar la entidad en las rutas y en el menú
 
-**Objetivo**: que el framework sepa que existe `/notas`, comprobarlo, y que la app ofrezca el camino
+**Objetivo**: que el framework sepa que existe `/notes`, comprobarlo, y que la app ofrezca el camino
 para llegar sin escribir la URL a mano.
 
 **Estado de partida**: pasos 1 a 3 hechos.
 
 ### 4.1 Un archivo de rutas por entidad
 
-El modelo ya sabe leer la tabla, pero la app no tiene por dónde pedirla: `/notas` no existe para el
+El modelo ya sabe leer la tabla, pero la app no tiene por dónde pedirla: `/notes` no existe para el
 framework. Este paso se lo dice, en un archivo propio en lugar de tocar el arranque de la app, para que
 agregar una entidad no obligue a editar infraestructura compartida.
 
-El archivo tiene una sola idea: un grupo bajo `/notas` con la protección aplicada al grupo, y adentro una
+El archivo tiene una sola idea: un grupo bajo `/notes` con la protección aplicada al grupo, y adentro una
 ruta que devuelve un texto fijo. Con eso alcanza para saber si el registro funciona.
 
-**Acción**: el archivo de rutas de tu entidad, `routes/notas.php`:
+**Acción**: el archivo de rutas de tu entidad, `routes/notes.php`:
 
 ```php excerpt
 <?php
@@ -375,9 +374,9 @@ use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function (RouteCollectorProxy $route) {
+    $app->group('/notes', function (RouteCollectorProxy $route) {
         $route->get('', function (Request $request, Response $response): Response {
-            $response->getBody()->write('notas: ruta registrada');
+            $response->getBody()->write('notes: ruta registrada');
 
             return $response->withHeader('Content-Type', 'text/plain; charset=utf-8');
         });
@@ -390,18 +389,18 @@ primero y después el resto de `routes/*.php` por orden alfabético. Dejar el ar
 lo que hace falta, y por eso agregar una entidad no toca `bootstrap/app.php`.
 
 La ruta atiende un **closure**, no un controlador. Es un andamio: sirve para comprobar el registro sin
-escribir todavía la clase, y en el paso 5 lo reemplaza `NotaController`. El `POST` no se registra hasta
+escribir todavía la clase, y en el paso 5 lo reemplaza `NoteController`. El `POST` no se registra hasta
 el paso 7, cuando exista la acción `store` que lo atiende: una ruta sin acción es una promesa que el
 framework no puede cumplir.
 
-**Comprobación**: dos visitas a `http://localhost:8080/notas`, y ninguna debería darte un error.
+**Comprobación**: dos visitas a `http://localhost:8080/notes`, y ninguna debería darte un error.
 
 1. **Sin sesión** —una ventana privada, o cierra sesión antes—. Tienes que volver al login: una
    **redirección 303** a `/login`.
 2. **Con sesión**. Tienes que ver el texto, sin HTML alrededor:
 
    ```
-   notas: ruta registrada
+   notes: ruta registrada
    ```
 
 El 303 prueba que la ruta existe y que la protección está puesta: una ruta inexistente devuelve 404, no
@@ -415,7 +414,7 @@ redirige. El 200 con el texto prueba que la petición llegó hasta tu closure.
   que sin `return function (App $app) { … };` PHP intenta llamar al valor que devuelve el `require` y
   muere con `Value of type int is not callable`.
 - Ves el login en vez del texto aunque hayas iniciado sesión: la sesión se perdió. Vuelve al paso 1.
-- Llegas al texto por otra URL: el patrón del `group('/notas')` no coincide con la que estás abriendo.
+- Llegas al texto por otra URL: el patrón del `group('/notes')` no coincide con la que estás abriendo.
 
 **Qué no prueba**: que la ruta haga algo útil. Prueba el registro y la protección; el controlador llega
 en el paso 5.
@@ -431,7 +430,7 @@ en el paso 5.
   `return` no hay registro silencioso: el arranque hace `(require $archivo)($app)` y la app responde
   500, no vacío.
 
-**Qué ganaste**: `/notas` existe, responde un texto que sólo puede salir de esta ruta y exige sesión, así
+**Qué ganaste**: `/notes` existe, responde un texto que sólo puede salir de esta ruta y exige sesión, así
 que el registro quedó comprobado sin haber escrito el controlador. Falta lo demás: no hay pantalla, ni
 datos, ni un camino para llegar sin teclear la URL.
 
@@ -450,7 +449,7 @@ POST». Sin él, `curl` podría crear filas sin sesión.
 
 ### 4.2 El menú: llegar sin escribir la URL
 
-Con la ruta respondiendo, llegas a `/notas` escribiendo la URL a mano. Eso sirve para probar y no para
+Con la ruta respondiendo, llegas a `/notes` escribiendo la URL a mano. Eso sirve para probar y no para
 usar: quien entra a la app no tiene por dónde descubrir la pantalla. El menú lateral es la mejora que
 ahorra ese paso, y se arma por convención, igual que las rutas: cada módulo deja su entrada en
 `config/navigation/`.
@@ -463,7 +462,7 @@ mkdir -p config/navigation
 
 La carpeta no existe en el clon: creala. La entrada se versiona.
 
-Ahora el archivo, `config/navigation/notas.php`:
+Ahora el archivo, `config/navigation/notes.php`:
 
 ```php excerpt
 <?php
@@ -480,9 +479,9 @@ declare(strict_types=1);
  */
 return [
     'label'    => 'Notas',
-    'href'     => '/notas',
+    'href'     => '/notes',
     'icon'     => 'list',
-    'key'      => 'notas',
+    'key'      => 'notes',
     'position' => 30,
 ];
 ```
@@ -491,7 +490,7 @@ return [
 entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
-debajo de «Inicio», y al tocarlo llegas a `/notas`, que responde el texto de prueba del paso anterior.
+debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
 
 Si tu ventana es angosta —por debajo del breakpoint `lg`— el sidebar está colapsado detrás del botón
 ☰ del header: ábrelo y ahí está la entrada. Las capturas están a ancho de escritorio justamente para
@@ -533,7 +532,7 @@ Las dos capturas, antes y después de crear el archivo:
 
 **Objetivo**: comprobar que tu ruta responde algo, antes de involucrar vistas y formularios.
 
-**Estado de partida**: paso 4 hecho; `/notas` responde el texto de prueba `notas: ruta registrada`.
+**Estado de partida**: paso 4 hecho; `/notes` responde el texto de prueba `notes: ruta registrada`.
 
 Ese texto prueba una sola cosa: que la ruta está registrada. No dice si el request llega, si el contenedor
 construye la clase ni si la respuesta sale bien formada. Este paso cambia el closure por un controlador y
@@ -543,7 +542,7 @@ La recompensa es de diagnóstico: si el JSON sale, el cableado está bien y cual
 después es de la vista; si no sale, no tiene sentido tocar Twig todavía. Esa distinción es la que te
 ahorra buscar en el lugar equivocado.
 
-**Acción**: ahora el controlador. Crea `app/Http/Controllers/NotaController.php` con una sola acción:
+**Acción**: ahora el controlador. Crea `app/Http/Controllers/NoteController.php` con una sola acción:
 
 ```php excerpt
 <?php
@@ -556,20 +555,20 @@ use Framework\Http\Controller;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 
-final class NotaController extends Controller
+final class NoteController extends Controller
 {
     public function index(Request $request, Response $response): Response
     {
-        $cuerpo = ['status' => 'ok', 'recurso' => 'notas'];
+        $body = ['status' => 'ok', 'resource' => 'notes'];
 
-        $response->getBody()->write((string) json_encode($cuerpo, JSON_UNESCAPED_UNICODE));
+        $response->getBody()->write((string) json_encode($body, JSON_UNESCAPED_UNICODE));
 
         return $response->withHeader('Content-Type', 'application/json');
     }
 }
 ```
 
-Y en `routes/notas.php`, el closure del paso 4 se reemplaza por la acción. El archivo queda así, y el
+Y en `routes/notes.php`, el closure del paso 4 se reemplaza por la acción. El archivo queda así, y el
 `use` del controlador es lo único nuevo:
 
 ```php
@@ -577,14 +576,14 @@ Y en `routes/notas.php`, el closure del paso 4 se reemplaza por la acción. El a
 
 declare(strict_types=1);
 
-use App\Http\Controllers\NotaController;
+use App\Http\Controllers\NoteController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 return function (App $app) {
-    $app->group('/notas', function (RouteCollectorProxy $route) {
-        $route->get('', [NotaController::class, 'index']);
+    $app->group('/notes', function (RouteCollectorProxy $route) {
+        $route->get('', [NoteController::class, 'index']);
     })->add(RequireAuthMiddleware::class);
 };
 ```
@@ -592,25 +591,25 @@ return function (App $app) {
 **Convenciones que este paso deja claras**:
 
 - **El namespace es la ruta del archivo.** El `composer.json` mapea `App\` a `app/`, así que
-  `App\Http\Controllers\NotaController` sólo puede vivir en `app/Http/Controllers/NotaController.php`.
+  `App\Http\Controllers\NoteController` sólo puede vivir en `app/Http/Controllers/NoteController.php`.
   Si mueves el archivo, mueves el namespace.
 - **El nombre del archivo es el nombre de la clase**, mayúscula incluida. En Linux y en Termux el
   sistema de archivos distingue mayúsculas: `notacontroller.php` no carga.
 - **Los subdirectorios sí funcionan aquí**, al revés que en `routes/`: `App\Http\Controllers\Auth\AuthController`
   vive en `app/Http/Controllers/Auth/AuthController.php`. El namespace acompaña la profundidad.
-- **La ruta apunta a la clase, no al archivo**: `[NotaController::class, 'index']` es un método de
+- **La ruta apunta a la clase, no al archivo**: `[NoteController::class, 'index']` es un método de
   instancia, y el contenedor construye la clase en cada petición.
 
-**Comprobación**: con sesión iniciada, abre `http://localhost:8080/notas` en el navegador. Tienes que
+**Comprobación**: con sesión iniciada, abre `http://localhost:8080/notes` en el navegador. Tienes que
 ver exactamente:
 
 ```json
-{"status":"ok","recurso":"notas"}
+{"status":"ok","resource":"notes"}
 ```
 
 **Falla si**:
 
-- Ves `{"status":"ok","recurso":"notas"}` pero el login te lo pidió de nuevo: normal, la ruta está
+- Ves `{"status":"ok","resource":"notes"}` pero el login te lo pidió de nuevo: normal, la ruta está
   protegida; inicia sesión y vuelve.
 - Ves HTML: el navegador está mostrando otra ruta; revisa la URL.
 - Ves un error de PHP: el `namespace` o el nombre de la clase no coinciden con la ruta del archivo.
@@ -635,7 +634,7 @@ sigue es darle una vista.
 **Objetivo**: llegar a la pantalla del listado entendiendo qué aporta cada pieza, empezando por lo
 básico y sin mezclar capas.
 
-**Estado de partida**: paso 5 hecho; `/notas` devuelve el JSON de prueba y el menú ya muestra la
+**Estado de partida**: paso 5 hecho; `/notes` devuelve el JSON de prueba y el menú ya muestra la
 entrada. Ahora `index()` deja de devolver JSON.
 
 ### 6.1 Primero, un HTML mínimo desde el controlador
@@ -666,9 +665,9 @@ HTML;
     }
 ```
 
-No agregues `use App\Models\Nota;` todavía: en este paso no hay consulta ni plantilla.
+No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni plantilla.
 
-**Comprobación**: abre `http://localhost:8080/notas`. Ves una página blanca con el título y el
+**Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
 párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
 
 **Qué no prueba**: Twig, el modelo ni el shell. Prueba que la ruta, el controlador y la respuesta HTTP
@@ -690,7 +689,7 @@ Ese HTML vive donde no debería: mezcla la respuesta con la presentación y no h
 retorcer el heredoc. Twig resuelve las dos cosas a la vez —un archivo para la vista y el escapado de los
 datos que van a entrar después—, y por eso el contenido se mueve tal cual, sin cambios.
 
-**Acción**: crea `resources/views/pages/notas/index.twig` con el mismo contenido, todavía estático:
+**Acción**: crea `resources/views/pages/notes/index.twig` con el mismo contenido, todavía estático:
 
 ```twig excerpt
 <!DOCTYPE html>
@@ -708,7 +707,7 @@ Y cambia el cuerpo de `index()` para renderizarla:
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->render($request, $response, 'pages/notas/index.twig');
+        return $this->render($request, $response, 'pages/notes/index.twig');
     }
 ```
 
@@ -721,7 +720,7 @@ encargar del escapado cuando entren los datos, pero eso todavía no ocurre.
 **Falla si**:
 
 - Ves una página en blanco o un 500: la ruta de la plantilla no coincide con
-  `resources/views/pages/notas/index.twig`.
+  `resources/views/pages/notes/index.twig`.
 - Ves el HTML dos veces: quedó el `write()` anterior y además el `render()`.
 
 **Pieza — `Controller::render()`**: resuelve la plantilla, le inyecta los datos comunes (CSRF, usuario,
@@ -736,12 +735,12 @@ La vista ya se renderiza, pero el controlador no consulta nada: el `<h1>` y el p
 paso conecta las tres piezas que hasta aquí estaban sueltas —modelo, controlador y plantilla— y es el
 primero que puede fallar por datos y no por cableado.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`.
+**Archivo**: `app/Http/Controllers/NoteController.php`.
 
 **Acción**: suma el import del modelo, junto a los demás `use`, y pásale la colección a la vista:
 
 ```php
-use App\Models\Nota;
+use App\Models\Note;
 ```
 
 **Archivo**: el mismo controlador, método `index()`.
@@ -749,13 +748,13 @@ use App\Models\Nota;
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->render($request, $response, 'pages/notas/index.twig', [
-            'notas' => Nota::orderByDesc('id')->get(),
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes' => Note::orderByDesc('id')->get(),
         ]);
     }
 ```
 
-**Archivo**: `resources/views/pages/notas/index.twig`, el archivo estático de 6.2.
+**Archivo**: `resources/views/pages/notes/index.twig`, el archivo estático de 6.2.
 
 **Antes**: el párrafo que estaba debajo del título.
 
@@ -769,15 +768,15 @@ use App\Models\Nota;
 ```twig
     <h1>Notas</h1>
     <ul>
-        {% for item in notas %}
-            <li>{{ item.titulo }}</li>
+        {% for item in notes %}
+            <li>{{ item.title }}</li>
         {% else %}
             <li>No hay notas todavía.</li>
         {% endfor %}
     </ul>
 ```
 
-**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Todavía no hay seed de `notas`: inserta
+**Comprobación**: con la tabla vacía ves «No hay notas todavía.». Todavía no hay seed de `notes`: inserta
 una fila a mano —un `INSERT` puntual contra `database/database.sqlite`, o el modelo que acabas de
 crear— y aparece su título. El escapado de Twig convierte `<` y `&` en entidades: no uses `|raw` para
 datos de usuario.
@@ -787,8 +786,8 @@ controlador → modelo → plantilla.
 
 **Falla si**:
 
-- `Class "App\Http\Controllers\Nota" not found`: falta el `use App\Models\Nota;`.
-- La lista sale vacía aunque haya filas: no estás pasando la clave `notas` o el nombre de la variable
+- `Class "App\Http\Controllers\Note" not found`: falta el `use App\Models\Note;`.
+- La lista sale vacía aunque haya filas: no estás pasando la clave `notes` o el nombre de la variable
   no coincide con el `{% for %}`.
 - Aparece HTML crudo del título: alguien agregó `|raw`; quitalo.
 
@@ -796,7 +795,7 @@ controlador → modelo → plantilla.
 embargo, es el HTML suelto de 6.1: sin tema, sin menú y sin el usuario del paso 1, como una página de
 otro sitio. El shell es el paso siguiente.
 
-**Pieza — Eloquent**: `Nota::orderByDesc('id')->get()` devuelve una colección de modelos. El modelo
+**Pieza — Eloquent**: `Note::orderByDesc('id')->get()` devuelve una colección de modelos. El modelo
 sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y no consulta la base.
 
 ![La lista con una nota, ya escapada por Twig](tutorial-crud-images/06-3-lista.png)
@@ -818,8 +817,8 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 {% block content %}
     <h1>Notas</h1>
     <ul>
-        {% for item in notas %}
-            <li>{{ item.titulo }}</li>
+        {% for item in notes %}
+            <li>{{ item.title }}</li>
         {% else %}
             <li>No hay notas todavía.</li>
         {% endfor %}
@@ -827,7 +826,7 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 {% endblock %}
 ```
 
-**Comprobación**: recarga `/notas`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
+**Comprobación**: recarga `/notes`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
 header y el tema. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
 como en 6.3: un título y una lista sin estilos propios. No tiene que haber tarjeta, ni filas con borde, ni
 espaciado entre los ítems; si ves una tarjeta, estás mirando el paso siguiente.
@@ -869,9 +868,9 @@ que se vea qué aportó el shell y qué aporta el diseño.
         <div class="card-body gap-4">
             <h1 class="text-2xl font-bold">Notas</h1>
             <ul class="space-y-2">
-                {% for item in notas %}
+                {% for item in notes %}
                     <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                        <span class="font-semibold">{{ item.titulo }}</span>
+                        <span class="font-semibold">{{ item.title }}</span>
                     </li>
                 {% else %}
                     <li class="opacity-60">No hay notas todavía.</li>
@@ -908,14 +907,14 @@ El panel es la región que más adelante se va a refrescar sola. Sepáralo del r
 todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para tenerla ordenada.
 
 **Acción**: mueve el `<ul>` completo de 6.5 a un parcial nuevo,
-`resources/views/pages/notas/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
+`resources/views/pages/notes/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
 
 ```twig excerpt
-<div id="notas-panel">
+<div id="notes-panel">
     <ul class="space-y-2">
-        {% for item in notas %}
+        {% for item in notes %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% else %}
             <li class="opacity-60">No hay notas todavía.</li>
@@ -924,7 +923,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 </div>
 ```
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`.
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
 
 **Antes**:
 
@@ -940,7 +939,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 
 ```twig
             <h1 class="text-2xl font-bold">Notas</h1>
-            {% include 'pages/notas/_panel.twig' %}
+            {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
 
@@ -948,7 +947,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 
 **Por qué el `div` va adentro**: cuando más adelante el panel se intercambie con HTMX y `outerHTML`,
 la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en `index.twig`, el primer swap
-se lo llevaría junto con su id, y todo lo que apunte a `#notas-panel` quedaría apuntando a algo que ya
+se lo llevaría junto con su id, y todo lo que apunte a `#notes-panel` quedaría apuntando a algo que ya
 no existe.
 
 **Falla si**:
@@ -970,14 +969,14 @@ La pantalla ya lista, pero no ofrece nada: para crear una nota todavía no hay n
 alta llega en 7.2. Necesita un encabezado que diga qué es y ofrezca la acción principal. Escribámoslo a
 mano primero, para ver exactamente qué contiene.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`.
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
 
 **Antes**: después de 6.6, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
 
 ```twig
         <div class="card-body gap-4">
             <h1 class="text-2xl font-bold">Notas</h1>
-            {% include 'pages/notas/_panel.twig' %}
+            {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
 
@@ -999,45 +998,45 @@ dentro del mismo `card-body`.
                     </h1>
                     <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
-                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                     Agregar nota
                 </button>
             </div>
 
             <h2 class="text-lg font-semibold">Listado</h2>
 
-            {% include 'pages/notas/_panel.twig' %}
+            {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
 
-**Archivo**: `app/Http/Controllers/NotaController.php`, método `index()`.
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `index()`.
 
 **Antes**:
 
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->render($request, $response, 'pages/notas/index.twig', [
-            'notas' => Nota::orderByDesc('id')->get(),
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes' => Note::orderByDesc('id')->get(),
         ]);
     }
 ```
 
 **Después**: el arreglo de datos suma dos cosas que **lee el shell, no tu vista**:
 
-- `active`: el sidebar lo compara con la clave `key` de `config/navigation/notas.php` para marcar la
+- `active`: el sidebar lo compara con la clave `key` de `config/navigation/notes.php` para marcar la
   entrada. Sin él, la página funciona igual pero el menú no resalta «Notas».
 - `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Su fallback es un
   único «Inicio» marcado como actual, así que sin esta clave el encabezado dice que estás en la
-  portada aunque estés en `/notas`. Con dos migas pinta la ruta y marca la última con
+  portada aunque estés en `/notes`. Con dos migas pinta la ruta y marca la última con
   `aria-current="page"`.
 
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->render($request, $response, 'pages/notas/index.twig', [
-            'notas'       => Nota::orderByDesc('id')->get(),
-            'active'      => 'notas',
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes'       => Note::orderByDesc('id')->get(),
+            'active'      => 'notes',
             'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ]);
     }
@@ -1072,7 +1071,7 @@ cuál es la buena. Es el mismo caso del panel en 6.6, y el proyecto ya lo tiene 
 `components/ui/page-header.twig`. Usémoslo: la vista deja de describir la forma y pasa a declarar el
 contenido.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`.
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
 
 **Antes**: el armazón de 6.7, con el botón todavía crudo.
 
@@ -1087,7 +1086,7 @@ contenido.
                     </h1>
                     <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
-                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                     Agregar nota
                 </button>
             </div>
@@ -1103,7 +1102,7 @@ subtítulo desaparecen de tu vista; queda el hueco.
                 subtitle: 'Tus notas, con alta y acciones por fila.'
             } %}
                 {% block actions %}
-                    <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                    <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                         Agregar nota
                     </button>
                 {% endblock %}
@@ -1148,13 +1147,13 @@ del hueco. Con uno alcanza. Con dos —«Exportar» y «Agregar»— cada contro
 medio de la pantalla, lejos de la esquina. La fila que falta también es un componente, y el proyecto
 ya lo tiene. Usémoslo.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, dentro del `{% block actions %}`.
+**Archivo**: `resources/views/pages/notes/index.twig`, dentro del `{% block actions %}`.
 
 **Antes**: el botón suelto, como quedó en 6.7.
 
 ```twig
                 {% block actions %}
-                    <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                    <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                         Agregar nota
                     </button>
                 {% endblock %}
@@ -1171,7 +1170,7 @@ la separación.
                 {% block actions %}
                     {% embed 'components/ui/action-bar.twig' %}
                         {% block controls %}
-                            <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                            <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                                 Agregar nota
                             </button>
                         {% endblock %}
@@ -1209,7 +1208,7 @@ la separación.
         {% include 'components/ui/button.twig' with {
             label: 'Agregar nota',
             icon: 'plus',
-            data_modal_open: 'nota-create-modal'
+            data_modal_open: 'note-create-modal'
         } only %}
     {% endblock %}
 {% endembed %}
@@ -1305,7 +1304,7 @@ El diálogo se declara al final del bloque, cerrado, y lo abre el botón del enc
 formulario no ocupa lugar en la página hasta que alguien lo pide. Es la forma más barata de tener alta sin
 salir del listado, y por eso el proyecto la conserva.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`, después de `</section>` y antes de
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`, después de `</section>` y antes de
 `{% endblock %}`.
 
 **Acción**: agrega un `<dialog>` nativo con el formulario a mano.
@@ -1315,18 +1314,18 @@ salir del listado, y por eso el proyecto la conserva.
 > paso.
 
 ```twig
-<dialog id="nota-create-modal" class="modal">
+<dialog id="note-create-modal" class="modal">
     <div class="modal-box">
         <h3 class="text-lg font-bold">Nueva nota</h3>
-        <form method="post" action="{{ url('/notas') }}" class="space-y-4">
+        <form method="post" action="{{ url('/notes') }}" class="space-y-4">
             <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
             <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
 
-            <label class="label" for="titulo">Título</label>
-            <input id="titulo" name="titulo" class="input w-full" required maxlength="120">
+            <label class="label" for="title">Título</label>
+            <input id="title" name="title" class="input w-full" required maxlength="120">
 
-            <label class="label" for="cuerpo">Cuerpo</label>
-            <input id="cuerpo" name="cuerpo" class="input w-full" maxlength="2000">
+            <label class="label" for="body">Cuerpo</label>
+            <input id="body" name="body" class="input w-full" maxlength="2000">
 
             <div class="modal-action">
                 <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
@@ -1338,7 +1337,7 @@ salir del listado, y por eso el proyecto la conserva.
 ```
 
 **Comprobación**: toca «Agregar nota»: se abre el diálogo nativo, con sus dos campos y los dos botones.
-«Cancelar» lo cierra. Guarda con un título: **no pasa nada todavía** —el formulario apunta a `/notas`
+«Cancelar» lo cierra. Guarda con un título: **no pasa nada todavía** —el formulario apunta a `/notes`
 con `POST`, y esa ruta no existe hasta el paso siguiente—.
 
 **Qué no prueba**: que la nota se guarde. Este paso sólo monta el diálogo y su formulario.
@@ -1347,11 +1346,11 @@ con `POST`, y esa ruta no existe hasta el paso siguiente—.
 
 ### 7.2 La acción que guarda
 
-El formulario ya tiene a dónde apuntar, pero del otro lado no hay nada: el `POST /notas` no está
+El formulario ya tiene a dónde apuntar, pero del otro lado no hay nada: el `POST /notes` no está
 registrado y el controlador no sabe recibirlo. Este paso cierra el circuito —ruta, validación, guardado y
 aviso— y es el primero en el que crear una nota funciona de punta a punta.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`.
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `store()`.
 
 Vas a necesitar dos `use` más arriba del archivo, junto a los que ya están:
 
@@ -1364,45 +1363,45 @@ use Framework\Validation\Validator;
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
-        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
+        $data['body'] = trim((string) ($data['body'] ?? ''));
 
         $validator = Validator::make($data, [
-            'titulo' => 'required|max:120',
-            'cuerpo' => 'max:2000',
+            'title' => 'required|max:120',
+            'body'  => 'max:2000',
         ]);
 
         if ($validator->fails()) {
-            return $this->render($request, $response, 'pages/notas/index.twig', [
-                'notas'  => Nota::orderByDesc('id')->get(),
-                'active' => 'notas',
+            return $this->render($request, $response, 'pages/notes/index.twig', [
+                'notes'  => Note::orderByDesc('id')->get(),
+                'active' => 'notes',
             ])->withStatus(422);
         }
 
-        Nota::create([
-            'titulo' => (string) $data['titulo'],
-            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
+        Note::create([
+            'title' => (string) $data['title'],
+            'body'  => $data['body'] !== '' ? $data['body'] : null,
         ]);
 
         Flash::set('success', 'Nota creada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 ```
 
-**Archivo**: `routes/notas.php`, dentro del `group('/notas')`.
+**Archivo**: `routes/notes.php`, dentro del `group('/notes')`.
 
 **Antes**:
 
 ```php
-        $route->get('', [NotaController::class, 'index']);
+        $route->get('', [NoteController::class, 'index']);
 ```
 
 **Después**: agrega el `post` debajo del `get`; las dos rutas comparten el grupo y el middleware de
 sesión.
 
 ```php
-        $route->get('', [NotaController::class, 'index']);
-        $route->post('', [NotaController::class, 'store']);
+        $route->get('', [NoteController::class, 'index']);
+        $route->post('', [NoteController::class, 'store']);
 ```
 
 Se registra aquí, con su acción, y no en el paso 4: una ruta sin acción es una promesa que el framework
@@ -1411,10 +1410,10 @@ no puede cumplir —y el error aparece recién cuando alguien la visita—.
 **Archivo**: el mismo controlador, dentro de la clase.
 
 **Por qué redirige en vez de devolver la página**: el `POST` mutó; si respondiera la página, refrescar
-reenviaría el alta y crearías dos. El 303 manda al navegador a `/notas` con un `GET`.
+reenviaría el alta y crearías dos. El 303 manda al navegador a `/notes` con un `GET`.
 
-**Comprobación**: guarda con un título. Vuelves a `/notas`, la nota aparece en la lista y el aviso
-«Nota creada.» sale abajo a la derecha. El `cuerpo` es opcional: si lo dejas vacío, se guarda como
+**Comprobación**: guarda con un título. Vuelves a `/notes`, la nota aparece en la lista y el aviso
+«Nota creada.» sale abajo a la derecha. El `body` es opcional: si lo dejas vacío, se guarda como
 `null`, no como cadena vacía.
 
 **Qué no prueba**: que el error quede donde corresponde. Si el POST falla la validación, este formulario
@@ -1434,16 +1433,16 @@ estará pegado al campo que lo causó. El componente del proyecto resuelve el ca
 opcional, mensaje y atributos de accesibilidad—, y ese contrato es el que 7.6 necesita para mostrar un
 rechazo.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, dentro del `<form>` del diálogo de 7.1.
+**Archivo**: `resources/views/pages/notes/index.twig`, dentro del `<form>` del diálogo de 7.1.
 
 **Antes**: los dos pares `label` + `input` y los dos `hidden` de CSRF.
 
 ```twig
-            <label class="label" for="titulo">Título</label>
-            <input id="titulo" name="titulo" class="input w-full" maxlength="120">
+            <label class="label" for="title">Título</label>
+            <input id="title" name="title" class="input w-full" maxlength="120">
 
-            <label class="label" for="cuerpo">Cuerpo</label>
-            <input id="cuerpo" name="cuerpo" class="input w-full" maxlength="2000">
+            <label class="label" for="body">Cuerpo</label>
+            <input id="body" name="body" class="input w-full" maxlength="2000">
 
             <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
             <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
@@ -1456,21 +1455,21 @@ atributos de accesibilidad.
 {% set values = form_values|default(null) %}
 
 {% include 'components/form/field.twig' with {
-    name: 'titulo',
+    name: 'title',
     label: 'Título',
-    value: values ? values.titulo : '',
+    value: values ? values.title : '',
     required: true,
     maxlength: 120,
-    error: errors.titulo|default(null)
+    error: errors.title|default(null)
 } only %}
 
 {% include 'components/form/field.twig' with {
-    name: 'cuerpo',
+    name: 'body',
     label: 'Cuerpo',
-    value: values ? values.cuerpo : '',
+    value: values ? values.body : '',
     optional: true,
     maxlength: 2000,
-    error: errors.cuerpo|default(null)
+    error: errors.body|default(null)
 } only %}
 ```
 
@@ -1521,7 +1520,7 @@ de usarlo en un segundo lugar sin copiarlo. El capítulo 9 necesita el mismo for
 otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copias después.
 
 **Acción**: mueve el formulario que hoy vive dentro del `<dialog>` a
-`resources/views/pages/notas/_form.twig`:
+`resources/views/pages/notes/_form.twig`:
 
 ```twig excerpt
 {#
@@ -1536,7 +1535,7 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
 
 {# `form_values` gana sobre la nota guardada: en un rechazo se repinta lo que el
    usuario escribió, no lo que hay en la base. #}
-{% set values = form_values|default(nota|default(null)) %}
+{% set values = form_values|default(note|default(null)) %}
 
 {# El envío deshabilita el botón: un doble clic sobre un formulario POST plano
    crea dos filas. Si el servidor rechaza, la página vuelve y el botón se
@@ -1548,21 +1547,21 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
     {# El mensaje llega desde `Validator` con la clave del campo: aquí sólo se
        pasa, y el campo es quien lo ata al input. #}
     {% include 'components/form/field.twig' with {
-        name: 'titulo',
+        name: 'title',
         label: 'Título',
-        value: values ? values.titulo : '',
+        value: values ? values.title : '',
         required: true,
         maxlength: 120,
-        error: errors.titulo|default(null)
+        error: errors.title|default(null)
     } only %}
 
     {% include 'components/form/field.twig' with {
-        name: 'cuerpo',
+        name: 'body',
         label: 'Cuerpo',
-        value: values ? values.cuerpo : '',
+        value: values ? values.body : '',
         optional: true,
         maxlength: 2000,
-        error: errors.cuerpo|default(null)
+        error: errors.body|default(null)
     } only %}
 
     <div class="modal-action">
@@ -1583,7 +1582,7 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
 ```
 
 El parcial no sabe si el formulario es de alta o de edición: recibe `action`, `submit_label`,
-`submit_icon` y, cuando corresponde, `nota`. `values` resuelve el orden: primero lo que el usuario
+`submit_icon` y, cuando corresponde, `note`. `values` resuelve el orden: primero lo que el usuario
 tipeó en un rechazo (`form_values`), después la nota guardada, y al final vacío.
 
 El `onsubmit` deshabilita el botón de envío para evitar un doble POST por doble clic. El botón
@@ -1592,7 +1591,7 @@ por eso funciona igual en el diálogo nativo de este paso y en el modal del proy
 Los dos botones usan `components/ui/button.twig`, el mismo que vas a ver en 8.2: encapsula variante,
 icono y cierre.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, dentro de `<dialog id="nota-create-modal">` y de
+**Archivo**: `resources/views/pages/notes/index.twig`, dentro de `<dialog id="note-create-modal">` y de
 `<div class="modal-box">`.
 
 **Antes**: el `<form> … </form>` inline de 7.1.
@@ -1602,11 +1601,11 @@ conservan.
 
 ```twig
             <h3 class="text-lg font-bold">Nueva nota</h3>
-            {% include 'pages/notas/_form.twig' with {
-                action: url('/notas'),
+            {% include 'pages/notes/_form.twig' with {
+                action: url('/notes'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
-                nota: null
+                note: null
             } %}
         </div>
     </dialog>
@@ -1617,7 +1616,7 @@ variables del token; `render()` las inyecta en el contexto de `index.twig`, y `o
 contexto. Con `only` los dos campos ocultos salen con `name=""` y el POST termina en un 303 al login
 sin ningún mensaje.
 
-`nota: null` parece un detalle, pero corta la herencia: cuando este mismo parcial se use en el modal de
+`note: null` parece un detalle, pero corta la herencia: cuando este mismo parcial se use en el modal de
 edición, no queremos que el alta se abra con los datos de la nota que se está editando.
 
 **Comprobación**: el botón «Agregar nota» sigue abriendo el diálogo; «Cancelar» lo cierra y crear una
@@ -1648,24 +1647,24 @@ El diálogo nativo funciona, pero el proyecto ya tiene un modal con tema, telón
 Escape. Y el botón del encabezado todavía es un `<button>` suelto: cada pantalla que necesite abrir ese
 modal tendría que repetir sus clases.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`, después de `</section>` y antes de
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`, después de `</section>` y antes de
 `{% endblock %}`.
 
 **Acción**: reemplaza todo el `<dialog> … </dialog>` por el componente:
 
 ```twig
     {% embed 'components/ui/modal.twig' with {
-        id: 'nota-create-modal',
+        id: 'note-create-modal',
         title: 'Nueva nota',
         subtitle: 'Pon un título; el cuerpo es opcional.',
         open: false
     } %}
         {% block body %}
-            {% include 'pages/notas/_form.twig' with {
-                action: url('/notas'),
+            {% include 'pages/notes/_form.twig' with {
+                action: url('/notes'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
-                nota: null
+                note: null
             } %}
         {% endblock %}
     {% endembed %}
@@ -1676,7 +1675,7 @@ modal tendría que repetir sus clases.
 **Antes**:
 
 ```twig
-                <button class="btn btn-primary gap-2" data-modal-open="nota-create-modal">
+                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
                     Agregar nota
                 </button>
 ```
@@ -1687,7 +1686,7 @@ modal tendría que repetir sus clases.
                 {% include 'components/ui/button.twig' with {
                     label: 'Agregar nota',
                     icon: 'plus',
-                    data_modal_open: 'nota-create-modal'
+                    data_modal_open: 'note-create-modal'
                 } only %}
 ```
 
@@ -1704,7 +1703,7 @@ cerrado (`open: false`).
 
 - El botón no abre nada: `data_modal_open` no coincide con el `id` del modal.
 - Ves el formulario fuera del modal: el `embed` no está dentro de `{% block content %}`.
-- El modal abre con datos de otra nota: falta `nota: null` en el include del alta.
+- El modal abre con datos de otra nota: falta `note: null` en el include del alta.
 
 **Qué ganaste**: el modal es del proyecto —telón, foco, cierre con Escape y botón de cerrar— y tu vista
 sólo declara el título, el subtítulo y el cuerpo. El costo se ve al rechazar: el modal nace siempre
@@ -1722,16 +1721,16 @@ Un formulario inválido no es una página nueva: es la misma página con el moda
 lo que el usuario ya había tipeado. Si el servidor devuelve la página con el modal cerrado, el usuario
 ve el error pero pierde el contexto.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`, método `store()`, dentro de
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `store()`, dentro de
 `if ($validator->fails())`.
 
 **Antes**: el rechazo sólo devuelve la lista y el estado 422.
 
 ```php
         if ($validator->fails()) {
-            return $this->render($request, $response, 'pages/notas/index.twig', [
-                'notas'  => Nota::orderByDesc('id')->get(),
-                'active' => 'notas',
+            return $this->render($request, $response, 'pages/notes/index.twig', [
+                'notes'  => Note::orderByDesc('id')->get(),
+                'active' => 'notes',
             ])->withStatus(422);
         }
 ```
@@ -1740,17 +1739,17 @@ ve el error pero pierde el contexto.
 
 ```php
         if ($validator->fails()) {
-            return $this->render($request, $response, 'pages/notas/index.twig', [
-                'notas'             => Nota::orderByDesc('id')->get(),
+            return $this->render($request, $response, 'pages/notes/index.twig', [
+                'notes'             => Note::orderByDesc('id')->get(),
                 'errors'            => $validator->errors(),
                 'form_values'       => $data,
                 'open_create_modal' => true,
-                'active'            => 'notas',
+                'active'            => 'notes',
             ])->withStatus(422);
         }
 ```
 
-**Archivo**: `resources/views/pages/notas/index.twig`, dentro del `{% embed 'components/ui/modal.twig' %}`
+**Archivo**: `resources/views/pages/notes/index.twig`, dentro del `{% embed 'components/ui/modal.twig' %}`
 del modal de alta.
 
 **Antes**:
@@ -1775,7 +1774,7 @@ bloque completo, de la nada al 422: los tres pasos van en el mismo shell porque 
 de cookies.
 
 ```bash
-J=/tmp/notas-cookies.txt
+J=/tmp/notes-cookies.txt
 rm -f $J
 
 # 1. iniciar sesión. El jar arranca vacío: sin este paso, todo lo que sigue responde 303 a /login.
@@ -1786,19 +1785,19 @@ curl -s -o /dev/null -w 'login=%{http_code}' -b $J -c $J --data-urlencode "csrf_
 # login=303. Un 200 acá significa que la sesión no se creó y el POST de abajo va a dar 303 otra vez.
 
 # 2. con la sesión, el par CSRF del alta sale del propio listado
-curl -s -c $J -b $J http://127.0.0.1:8080/notas > /tmp/notas.html
-csrf_name=$(grep -o 'name="csrf_name" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
-csrf_value=$(grep -o 'name="csrf_value" value="[^"]*"' /tmp/notas.html | head -1 | sed 's/.*value="//;s/"//')
+curl -s -c $J -b $J http://127.0.0.1:8080/notes > /tmp/notes.html
+csrf_name=$(grep -o 'name="csrf_name" value="[^"]*"' /tmp/notes.html | head -1 | sed 's/.*value="//;s/"//')
+csrf_value=$(grep -o 'name="csrf_value" value="[^"]*"' /tmp/notes.html | head -1 | sed 's/.*value="//;s/"//')
 
 # 3. POST con el título vacío: tiene que responder 422 y traer el modal abierto
-curl -s -o /tmp/resp.html -w 'post=%{http_code}' -b $J --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" --data-urlencode "titulo=" --data-urlencode "cuerpo=cuerpo que debe sobrevivir" http://127.0.0.1:8080/notas; echo
-grep -c 'nota-create-modal[^>]*open' /tmp/resp.html   # 1
+curl -s -o /tmp/resp.html -w 'post=%{http_code}' -b $J --data-urlencode "csrf_name=$csrf_name" --data-urlencode "csrf_value=$csrf_value" --data-urlencode "title=" --data-urlencode "body=cuerpo que debe sobrevivir" http://127.0.0.1:8080/notes; echo
+grep -c 'note-create-modal[^>]*open' /tmp/resp.html   # 1
 grep -c 'Este campo es obligatorio.' /tmp/resp.html    # 1
 grep -c 'cuerpo que debe sobrevivir' /tmp/resp.html    # 1
 ```
 
 Los tres `grep -c` tienen que dar `1`: modal abierto, error junto al campo y lo tipeado conservado.
-Desde el capítulo 11 el mismo caso queda como test y se corre con `vendor/bin/phpunit --filter NotaTest`.
+Desde el capítulo 11 el mismo caso queda como test y se corre con `vendor/bin/phpunit --filter NoteTest`.
 
 El `required` se queda: es defensa en profundidad. El navegador ahorra el viaje; el servidor no confía
 en él, y por eso la validación también vive en `store()`.
@@ -1808,7 +1807,7 @@ en él, y por eso la validación también vive en `store()`.
 - El modal queda cerrado: falta `open_create_modal` o el modal no lo está leyendo.
 - Los errores no aparecen: no estás pasando `errors` a `_form.twig`.
 - Se borra lo tipeado: falta `form_values`.
-- El error sale en el modal de edición: `nota` está llegando con datos en el alta; revisa el `nota: null`.
+- El error sale en el modal de edición: `note` está llegando con datos en el alta; revisa el `note: null`.
 
 **Qué no prueba**: que dos pestañas abiertas no se pisen; no hay control de concurrencia.
 
@@ -1837,17 +1836,17 @@ La fila muestra el título y nada más: no hay forma de llegar a una nota ni de 
 El atajo más rápido es un emoji en un enlace y otro en un botón, y este paso lo escribe a propósito, para
 ver el resultado y su falla antes de arreglarla.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
 **Acción**: la fila pasa a ser flex —si no, las acciones caen debajo del título en vez de quedar a la
 derecha— y se agregan los dos controles con emoji. El `<li>` queda así:
 
 ```twig
 <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
-    <span class="font-semibold">{{ item.titulo }}</span>
+    <span class="font-semibold">{{ item.title }}</span>
     <div class="flex shrink-0 items-center gap-1">
-        <a class="btn btn-ghost btn-sm" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">✏️</a>
-        <button class="btn btn-ghost btn-sm" data-modal-open="nota-delete-{{ item.id }}">🗑️</button>
+        <a class="btn btn-ghost btn-sm" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">✏️</a>
+        <button class="btn btn-ghost btn-sm" data-modal-open="note-delete-{{ item.id }}">🗑️</button>
     </div>
 </li>
 ```
@@ -1876,7 +1875,7 @@ El atajo deja dos controles que existen y no se pueden usar: uno se anuncia como
 trae el icono del registro compartido y el nombre que anuncia el lector de pantalla, y registra las tres
 rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro del `<li>` del `{% for %}`.
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro del `<li>` del `{% for %}`.
 
 **Acción**: reemplaza los dos por el componente, con icono del registro compartido y nombre accesible:
 
@@ -1887,8 +1886,8 @@ rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Editar ' ~ item.titulo,
-                        href: url('/notas/' ~ item.id ~ '/edit')
+                        aria_label: 'Editar ' ~ item.title,
+                        href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
                     {% include 'components/ui/button.twig' with {
@@ -1896,8 +1895,8 @@ rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.titulo,
-                        data_modal_open: 'nota-delete-' ~ item.id
+                        aria_label: 'Borrar ' ~ item.title,
+                        data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
 ```
@@ -1906,23 +1905,23 @@ El componente no recibe manejadores: `data_modal_open` le pide al shell que abra
 ese `<dialog>` con `showModal()`. Así el botón conserva foco, Escape y el
 tratamiento visual del proyecto.
 
-**Archivo**: `routes/notas.php`, dentro del `group('/notas')`.
+**Archivo**: `routes/notes.php`, dentro del `group('/notes')`.
 
 **Antes**: el archivo sólo tiene el listado y el alta.
 
 ```php
-        $route->get('', [NotaController::class, 'index']);
-        $route->post('', [NotaController::class, 'store']);
+        $route->get('', [NoteController::class, 'index']);
+        $route->post('', [NoteController::class, 'store']);
 ```
 
 **Después**: agrega las tres rutas de edición y borrado; el archivo queda con cinco.
 
 ```php
-        $route->get('', [NotaController::class, 'index']);
-        $route->post('', [NotaController::class, 'store']);
-        $route->get('/{id}/edit', [NotaController::class, 'edit']);
-        $route->post('/{id}', [NotaController::class, 'update']);
-        $route->post('/{id}/delete', [NotaController::class, 'destroy']);
+        $route->get('', [NoteController::class, 'index']);
+        $route->post('', [NoteController::class, 'store']);
+        $route->get('/{id}/edit', [NoteController::class, 'edit']);
+        $route->post('/{id}', [NoteController::class, 'update']);
+        $route->post('/{id}/delete', [NoteController::class, 'destroy']);
 ```
 
 `edit()` y `update()` se implementan en el paso 9; `destroy()` en el paso 10. Hasta entonces, tocar el
@@ -1930,7 +1929,7 @@ lápiz da error, y eso es lo esperado en este punto: la ruta existe y la acción
 sale del contenedor y no del framework como un 404.
 
 **Comprobación**: los iconos se ven igual, pero cada control ahora se anuncia como «Editar <título>» y
-«Borrar <título>». El lápiz navega a `/notas/{id}/edit`; la papelera todavía no abre nada, porque el
+«Borrar <título>». El lápiz navega a `/notes/{id}/edit`; la papelera todavía no abre nada, porque el
 diálogo llega en el paso 10.
 
 **Qué ganaste**: nombre accesible, icono del registro compartido y el mismo tratamiento visual que el
@@ -1949,20 +1948,20 @@ resto de la app.
 
 **Objetivo**: editar una nota reusando el formulario y el diálogo del alta.
 
-**Estado de partida**: paso 8 hecho; el lápiz navega a `/notas/{id}/edit`, una ruta que existe pero
+**Estado de partida**: paso 8 hecho; el lápiz navega a `/notes/{id}/edit`, una ruta que existe pero
 cuya acción todavía no.
 
 ### 9.1 Abrir el modal con la nota
 
-El lápiz ya navega, pero del otro lado no hay nada: `/notas/{id}/edit` no tiene acción y un id inexistente
+El lápiz ya navega, pero del otro lado no hay nada: `/notes/{id}/edit` no tiene acción y un id inexistente
 tampoco tiene respuesta. Este paso crea `edit()` y el segundo modal, y deja el guardado para 9.2 para
 comprobar primero que los datos llegan enteros.
 
 La edición no agrega campos: el formulario ya está escrito y lo que falta es un segundo modal que lo
 envuelva con otro `action`. Por eso `index.twig` crece con un `embed` más, envuelto en un `if` que lo deja
-existir sólo cuando hay `nota`.
+existir sólo cuando hay `note`.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`.
+**Archivo**: `app/Http/Controllers/NoteController.php`.
 
 **Acción**: suma el import de la excepción y crea `edit()`:
 
@@ -1973,17 +1972,17 @@ use Slim\Exception\HttpNotFoundException;
 ```php
     public function edit(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
         }
 
-        return $this->render($request, $response, 'pages/notas/index.twig', [
-            'notas'           => Nota::orderByDesc('id')->get(),
-            'nota'            => $nota,
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes'           => Note::orderByDesc('id')->get(),
+            'note'            => $note,
             'open_edit_modal' => true,
-            'active'          => 'notas',
+            'active'          => 'notes',
         ]);
     }
 ```
@@ -1991,21 +1990,21 @@ use Slim\Exception\HttpNotFoundException;
 `edit()` no renderiza una pantalla nueva: reusa `index.twig`, le pasa la nota y le dice que abra el
 modal de edición. Así el formulario, el modal y la lista ya están en la misma página.
 
-**Archivo**: `resources/views/pages/notas/index.twig`, bloque `content`, después del `{% endembed %}` del
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`, después del `{% endembed %}` del
 modal de alta.
 
-Ahora agrega el segundo modal. Sólo se renderiza cuando hay `nota`:
+Ahora agrega el segundo modal. Sólo se renderiza cuando hay `note`:
 
 ```twig
-    {% if nota is defined %}
+    {% if note is defined %}
         {% embed 'components/ui/modal.twig' with {
-            id: 'nota-edit-modal',
+            id: 'note-edit-modal',
             title: 'Editar nota',
             open: open_edit_modal|default(false)
         } %}
             {% block body %}
-                {% include 'pages/notas/_form.twig' with {
-                    action: url('/notas/' ~ nota.id),
+                {% include 'pages/notes/_form.twig' with {
+                    action: url('/notes/' ~ note.id),
                     submit_label: 'Guardar cambios',
                 } %}
             {% endblock %}
@@ -2013,22 +2012,22 @@ Ahora agrega el segundo modal. Sólo se renderiza cuando hay `nota`:
     {% endif %}
 ```
 
-El `action` apunta a `/notas/{id}`; la ruta ya está registrada desde el paso 8, pero la acción `update()`
+El `action` apunta a `/notes/{id}`; la ruta ya está registrada desde el paso 8, pero la acción `update()`
 todavía no existe. Por eso en este paso el botón «Guardar cambios» **no guarda**. Primero comprobamos que
 el modal abre con los datos correctos.
 
 **Comprobación**: toca el lápiz de una nota. Esperado: se abre un modal con el título y el cuerpo ya
-cargados. Un id que no existe (`/notas/99999/edit`) tiene que dar la página 404 del framework, no un
+cargados. Un id que no existe (`/notes/99999/edit`) tiene que dar la página 404 del framework, no un
 error de PHP.
 
 **Qué no prueba**: guardar cambios. Eso es 9.2.
 
 **Falla si**:
 
-- El modal abre vacío: `nota` no está llegando, o `_form.twig` no está leyendo `nota`.
+- El modal abre vacío: `note` no está llegando, o `_form.twig` no está leyendo `note`.
 - El lápiz abre la página pero no el modal: falta `open_edit_modal` o el `id` no coincide.
 - El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
-- Ves el modal de edición en el alta: `nota` se está pasando sin querer; el alta debe llevar `nota: null`.
+- Ves el modal de edición en el alta: `note` se está pasando sin querer; el alta debe llevar `note: null`.
 
 **Qué ganaste**: el modal abre con el título y el cuerpo guardados, y un id que no existe da la 404 del
 framework en vez de un error de PHP. Falta lo obvio al primer clic: «Guardar cambios» no guarda, porque
@@ -2042,7 +2041,7 @@ tienen dos copias de la tabla y se desincronizan.
 
 ### 9.2 Guardar la edición
 
-El modal muestra la nota correcta y el `action` ya apunta a `/notas/{id}`; del otro lado no hay nadie
+El modal muestra la nota correcta y el `action` ya apunta a `/notes/{id}`; del otro lado no hay nadie
 escuchando. Este paso agrega `update()` y con él la otra mitad del contrato: validar, guardar y volver a
 la lista con el aviso, o rechazar sin perder lo escrito.
 
@@ -2053,57 +2052,57 @@ la lista con el aviso, o rechazar sin perder lo escrito.
 ```php
     public function update(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
         }
 
         $data = (array) $request->getParsedBody();
-        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
+        $data['body'] = trim((string) ($data['body'] ?? ''));
 
         $validator = Validator::make($data, [
-            'titulo' => 'required|max:120',
-            'cuerpo' => 'max:2000',
+            'title' => 'required|max:120',
+            'body'  => 'max:2000',
         ]);
 
         if ($validator->fails()) {
-            return $this->render($request, $response, 'pages/notas/index.twig', [
-                'notas'           => Nota::orderByDesc('id')->get(),
+            return $this->render($request, $response, 'pages/notes/index.twig', [
+                'notes'           => Note::orderByDesc('id')->get(),
                 'errors'          => $validator->errors(),
                 'form_values'     => $data,
-                'nota'            => $nota,
+                'note'            => $note,
                 'open_edit_modal' => true,
-                'active'          => 'notas',
+                'active'          => 'notes',
             ])->withStatus(422);
         }
 
-        $nota->fill([
-            'titulo' => (string) $data['titulo'],
-            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
+        $note->fill([
+            'title' => (string) $data['title'],
+            'body'  => $data['body'] !== '' ? $data['body'] : null,
         ])->save();
 
         Flash::set('success', 'Nota actualizada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 ```
 
-La validación es la misma que en el alta, pero el rechazo conserva `nota` y `open_edit_modal`: sin esas
+La validación es la misma que en el alta, pero el rechazo conserva `note` y `open_edit_modal`: sin esas
 dos claves, el 422 renderiza la lista, el modal de edición no existe y lo tipeado termina en el modal
 de alta. `form_values` repinta lo que el usuario escribió; `errors` muestra el mensaje en el campo.
 
 **Comprobación**: abre el lápiz de una nota, cambia el título y guarda. Esperado: vuelves a la lista,
 la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». El rechazo se comprueba igual
 que en 7.6 —el campo también lleva `required`, así que el navegador no deja enviarlo vacío—: con el
-mismo POST por `curl` contra `/notas/{id}`, esperando 422, el modal de edición abierto, el error y el
+mismo POST por `curl` contra `/notes/{id}`, esperando 422, el modal de edición abierto, el error y el
 cuerpo conservado.
 
 **Falla si**:
 
-- Guardar no cambia nada: el `action` del formulario no apunta a `/notas/{id}`, o el controlador no
+- Guardar no cambia nada: el `action` del formulario no apunta a `/notes/{id}`, o el controlador no
   hace `save()`.
-- El 422 abre el modal de alta: falta `nota` o `open_edit_modal` en el render de rechazo.
+- El 422 abre el modal de alta: falta `note` o `open_edit_modal` en el render de rechazo.
 - Se pierde lo tipeado: falta `form_values`.
 - El 404 sale como 500: no estás lanzando `HttpNotFoundException` antes de tocar la nota.
 
@@ -2134,13 +2133,13 @@ La papelera existe desde 8.2 y no hace nada: no hay ruta que la atienda. Borrar 
 recorrido que no tiene vuelta atrás, así que este paso la conecta de punta a punta con la confirmación
 más barata que hay —la del navegador— antes de reemplazarla por una que diga qué se borra.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro del `<li>` del `{% for %}`, en el lugar de la
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro del `<li>` del `{% for %}`, en el lugar de la
 papelera del paso 8.
 
 **Acción**: envuelve la papelera en un formulario con el `confirm` del navegador:
 
 ```twig
-<form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+<form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
       class="inline" onsubmit="return confirm('¿Borrar esta nota?')">
     {% include 'components/form/csrf.twig' %}
     {% include 'components/ui/button.twig' with {
@@ -2148,30 +2147,30 @@ papelera del paso 8.
         variant: 'ghost',
         size: 'sm',
         icon: 'trash',
-        aria_label: 'Borrar ' ~ item.titulo,
+        aria_label: 'Borrar ' ~ item.title,
         type: 'submit'
     } only %}
 </form>
 ```
 
-**Archivo**: `app/Http/Controllers/NotaController.php`, método `destroy()`.
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `destroy()`.
 
 **Acción**: agrega `destroy()`:
 
 ```php
     public function destroy(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request, 'No existe una nota con ese identificador.');
         }
 
-        $nota->delete();
+        $note->delete();
 
         Flash::set('success', 'Nota borrada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 ```
 
@@ -2191,7 +2190,7 @@ paso 8.2 le había puesto. Recuperarlo no es sólo quitar el formulario: el diá
 vez por fila, con el id que el botón nombra, y vivir fuera de la lista sin descolocarla. Ese es el trabajo
 del paso.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro del `{% for %}`, después del `</li>` de la
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro del `{% for %}`, después del `</li>` de la
 fila.
 
 **Acción**: desenvolvé la papelera y pon el diálogo justo después del `</li>`. El botón no se va: deja
@@ -2200,7 +2199,7 @@ el diálogo. La fila queda así:
 
 ```twig
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
                 <div class="flex shrink-0 items-center gap-1">
                     {# … el lápiz de 8.2 … #}
 
@@ -2209,27 +2208,27 @@ el diálogo. La fila queda así:
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.titulo,
-                        data_modal_open: 'nota-delete-' ~ item.id
+                        aria_label: 'Borrar ' ~ item.title,
+                        data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
             </li>
 ```
 
-Y después de la `</ul>`, todavía dentro de `#notas-panel`, el diálogo. Va aquí y no dentro del
+Y después de la `</ul>`, todavía dentro de `#notes-panel`, el diálogo. Va aquí y no dentro del
 `<li>` porque un `<dialog>` no es hijo válido de una `<ul>`, y porque un hijo más del `flex` de la
 fila la descoloca. Recorre las notas otra vez porque este bloque se emite una sola vez:
 
 ```twig
     </ul>
-    {% for item in notas %}
+    {% for item in notes %}
             {% embed 'components/ui/modal.twig' with {
-                id: 'nota-delete-' ~ item.id,
+                id: 'note-delete-' ~ item.id,
                 title: 'Borrar nota'
             } %}
                 {% block body %}
-                    <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                    <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                    <p class="py-3 opacity-70">¿Borrar «{{ item.title }}»? No se puede deshacer.</p>
+                    <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                           onsubmit="this.querySelector('[type=submit]').disabled = true">
                         {% include 'components/form/csrf.twig' %}
                         <div class="modal-action">
@@ -2301,76 +2300,76 @@ contratos, y se escriben en tres tandas para que cada una tenga un objetivo clar
 Los dos primeros tests cubren el camino que más se toca: crear y ser rechazado. El segundo es el que
 importa de verdad, porque una validación que no repinta el modal es una validación que el usuario pierde.
 
-**Acción**: crea `tests/Notas/Http/NotaTest.php`, una carpeta por entidad, con el esqueleto y los dos tests del alta:
+**Acción**: crea `tests/Notes/Http/NoteTest.php`, una carpeta por entidad, con el esqueleto y los dos tests del alta:
 
 ```php excerpt
 <?php
 
 declare(strict_types=1);
 
-namespace Tests\Notas\Http;
+namespace Tests\Notes\Http;
 
-use App\Models\Nota;
+use App\Models\Note;
 use Tests\Support\HttpTestCase;
 
-final class NotaTest extends HttpTestCase
+final class NoteTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         self::loginAs();
-        Nota::query()->delete();
+        Note::query()->delete();
     }
 
     protected function tearDown(): void
     {
-        Nota::query()->delete();
+        Note::query()->delete();
         parent::tearDown();
     }
 
-    private function crear(array $datos = []): Nota
+    private function createNote(array $data = []): Note
     {
-        // `$datos` primero: con el default a la izquierda, el `+` de PHP
+        // `$data` primero: con el default a la izquierda, el `+` de PHP
         // descarta el título que pasa cada test y todas las filas se llaman
         // «De prueba». El test igual pasa si sólo comprueba el estado final.
-        return Nota::create($datos + ['titulo' => 'De prueba']);
+        return Note::create($data + ['title' => 'De prueba']);
     }
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => 'Primera nota',
-            'cuerpo'     => 'Contenido',
+            'title'      => 'Primera nota',
+            'body'       => 'Contenido',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/notas', $response->getHeaderLine('Location'));
-        self::assertSame(1, Nota::query()->count());
+        self::assertSame('/notes', $response->getHeaderLine('Location'));
+        self::assertSame(1, Note::query()->count());
 
-        $lista = self::app()->handle(self::request('GET', '/notas'));
-        self::assertStringContainsString('Primera nota', (string) $lista->getBody());
-        self::assertStringContainsString('aria-current="page">Notas', (string) $lista->getBody());
+        $list = self::app()->handle(self::request('GET', '/notes'));
+        self::assertStringContainsString('Primera nota', (string) $list->getBody());
+        self::assertStringContainsString('aria-current="page">Notas', (string) $list->getBody());
     }
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => '',
-            'cuerpo'     => 'Texto que quiero conservar',
+            'title'      => '',
+            'body'       => 'Texto que quiero conservar',
         ]));
         $html = (string) $response->getBody();
 
         self::assertSame(422, $response->getStatusCode());
-        self::assertSame(0, Nota::query()->count());
+        self::assertSame(0, Note::query()->count());
         self::assertStringContainsString('Este campo es obligatorio.', $html);
         self::assertStringContainsString('Texto que quiero conservar', $html);
-        self::assertMatchesRegularExpression('/nota-create-modal[^>]*open/', $html);
+        self::assertMatchesRegularExpression('/note-create-modal[^>]*open/', $html);
     }
 }
 ```
@@ -2378,19 +2377,19 @@ final class NotaTest extends HttpTestCase
 **Comprobación**:
 
 ```bash
-vendor/bin/phpunit --filter NotaTest
+vendor/bin/phpunit --filter NoteTest
 ```
 
 Esperado: dos tests en verde.
 
 **Falla si**:
 
-- El test falla en `Location` (`/login` en vez de `/notas`): el token no está llegando, aunque el
+- El test falla en `Location` (`/login` en vez de `/notes`): el token no está llegando, aunque el
   primer `assertSame(303, …)` pase igual. Sin HTMX el rechazo de CSRF es un 303 al login, no un 400.
   `HttpTestCase::token()` te da el par.
 - El test del modal falla en el `assertMatchesRegularExpression`: el atributo `open` no está saliendo;
   revisa `open_create_modal`.
-- El test del alta pasa pero el de la lista no encuentra el título: el `GET /notas` no está viendo la
+- El test del alta pasa pero el de la lista no encuentra el título: el `GET /notes` no está viendo la
   fila que se creó, así que el problema está en la vista y no en el test.
 
 **Qué no prueba**: que la pantalla se vea bien. Prueba el contrato HTTP del alta: código, datos guardados
@@ -2408,40 +2407,40 @@ uno comprueba qué se guarda y adónde se vuelve.
 ```php
     public function test_edita_una_nota(): void
     {
-        $nota = $this->crear(['titulo' => 'Antes']);
-        $token = self::token('/notas');
+        $note = $this->createNote(['title' => 'Antes']);
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id, [
+        $response = self::app()->handle(self::request('POST', '/notes/' . $note->id, [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => 'Después',
+            'title'      => 'Después',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('Después', (string) Nota::find($nota->id)?->titulo);
+        self::assertSame('Después', (string) Note::find($note->id)?->title);
     }
 
     public function test_borra_una_nota_con_confirmacion(): void
     {
-        $nota = $this->crear();
-        $token = self::token('/notas');
+        $note = $this->createNote();
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id . '/delete', [
+        $response = self::app()->handle(self::request('POST', '/notes/' . $note->id . '/delete', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertNull(Nota::find($nota->id));
+        self::assertNull(Note::find($note->id));
     }
 ```
 
-**Comprobación**: `vendor/bin/phpunit --filter NotaTest` — cuatro tests en verde.
+**Comprobación**: `vendor/bin/phpunit --filter NoteTest` — cuatro tests en verde.
 
 **Falla si**:
 
-- El de edición falla en `Nota::find($nota->id)`: el `update()` no está guardando, o el `action` del
-  formulario no apunta a `/notas/{id}`.
+- El de edición falla en `Note::find($note->id)`: el `update()` no está guardando, o el `action` del
+  formulario no apunta a `/notes/{id}`.
 - El de borrado deja la fila: `destroy()` no se ejecutó, o la ruta `/{id}/delete` no está registrada.
 
 **Qué no prueba**: que la edición y el borrado se vean como los diseñaste. Eso lo cubre el navegador.
@@ -2458,7 +2457,7 @@ de PHP. Es el que evita que un enlace viejo tumbe la app.
 ```php
     public function test_avisa_cuando_el_identificador_no_existe(): void
     {
-        $response = self::app()->handle(self::request('GET', '/notas/99999/edit'));
+        $response = self::app()->handle(self::request('GET', '/notes/99999/edit'));
         $html = (string) $response->getBody();
 
         self::assertSame(404, $response->getStatusCode());
@@ -2473,12 +2472,12 @@ de PHP. Es el que evita que un enlace viejo tumbe la app.
 vendor/bin/phpunit
 ```
 
-Esperado: la suite completa en verde, con cinco tests de `NotaTest`. En 13.5 se suma el sexto, el del
+Esperado: la suite completa en verde, con cinco tests de `NoteTest`. En 13.5 se suma el sexto, el del
 422 con `HX-Push-Url`.
 
 **Falla si**:
 
-- La suite completa falla después: falta el `tearDown` que limpia `notas`.
+- La suite completa falla después: falta el `tearDown` que limpia `notes`.
 - El 404 llega con cuerpo vacío: el framework no está renderizando su página de error.
 
 **Qué no prueba**: que la pantalla se vea bien, ni que los diálogos abran. Prueba el contrato HTTP:
@@ -2547,7 +2546,7 @@ proyecto.
 - `{{ empty|default('No hay registros todavía.') }}` dentro de un `<li>`: el estado vacío ocupa una
   fila más de la lista; `empty_class` es su clase opcional.
 
-El componente no sabe nada de `notas` ni de `titulo`: sólo sabe recorrer y dejar un hueco.
+El componente no sabe nada de `notes` ni de `title`: sólo sabe recorrer y dejar un hueco.
 
 **Cómo se rellena el hueco**: ya lo hiciste con el modal. En 7.5 reemplazaste el `<dialog>` por
 `components/ui/modal.twig` y escribiste un `{% block body %}`; el modal puso el resto. Aquí es el mismo
@@ -2557,11 +2556,11 @@ dentro de su `for`.
 Para verlo sin el ruido de los botones, toma la fila mínima de 6.6:
 
 ```twig
-<div id="notas-panel">
+<div id="notes-panel">
     <ul class="space-y-2">
-        {% for item in notas %}
+        {% for item in notes %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% else %}
             <li class="opacity-60">No hay notas todavía.</li>
@@ -2573,14 +2572,14 @@ Para verlo sin el ruido de los botones, toma la fila mínima de 6.6:
 El equivalente con el componente es:
 
 ```twig
-<div id="notas-panel">
+<div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
-        items: notas,
+        items: notes,
         empty: 'No hay notas todavía.'
     } %}
         {% block row %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% endblock %}
     {% endembed %}
@@ -2591,7 +2590,7 @@ El equivalente con el componente es:
 
 - `embed 'components/list/simple.twig'`: incluye el componente y te deja reemplazar sus bloques. Un
   `include` común no puede: copia el componente tal cual y el bloque `row` quedaría vacío.
-- `with { items: notas, empty: '…' }`: pasa variables al scope del componente. `items` alimenta su
+- `with { items: notes, empty: '…' }`: pasa variables al scope del componente. `items` alimenta su
   `for`; `empty` es el texto de su `else`.
 - `{% block row %}`: rellena el bloque vacío. Se renderiza **donde el componente lo invoca**, o sea
   dentro de `{% for item in items %}`; por eso `item` es la nota de esa vuelta.
@@ -2606,7 +2605,7 @@ porque la indentación sugiere que el `<li>` se pinta una vez, cuando en realida
 
 - La lista aparece vacía aunque haya notas: usaste `include` en vez de `embed`, o el
   `{% block row %}` quedó fuera del `embed`.
-- Las filas salen vacías: escribiste `{{ item }}` en vez de `{{ item.titulo }}`.
+- Las filas salen vacías: escribiste `{{ item }}` en vez de `{{ item.title }}`.
 - Aparece «No hay registros todavía.» en vez de tu texto: `empty` no está llegando al componente.
 - La lista no aparece: el nombre del componente no coincide con `components/list/simple.twig`.
 
@@ -2618,9 +2617,9 @@ que sigue.
 
 ### 12.2 La fila al componente
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`.
+**Archivo**: `resources/views/pages/notes/_panel.twig`.
 
-**Antes**: el `<div id="notas-panel">` con el `<ul>`, el `{% for %}`, el `<li>` con los dos botones, el
+**Antes**: el `<div id="notes-panel">` con el `<ul>`, el `{% for %}`, el `<li>` con los dos botones, el
 recorrido de diálogos debajo de la lista y el `{% else %}` del vacío.
 
 **Regla**: lo que está entre `<li>` y `</li>` —título y botones— va adentro de `{% block row %}`. Lo
@@ -2630,22 +2629,22 @@ el componente. Los diálogos, por ahora, se quedan donde están.
 **Después**: el panel queda así.
 
 ```twig
-<div id="notas-panel">
+<div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
-        items: notas,
+        items: notes,
         empty: 'No hay notas todavía.'
     } %}
         {% block row %}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
                 <div class="flex shrink-0 items-center gap-1">
                     {% include 'components/ui/button.twig' with {
                         label: '',
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Editar ' ~ item.titulo,
-                        href: url('/notas/' ~ item.id ~ '/edit')
+                        aria_label: 'Editar ' ~ item.title,
+                        href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
                     {% include 'components/ui/button.twig' with {
@@ -2653,22 +2652,22 @@ el componente. Los diálogos, por ahora, se quedan donde están.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.titulo,
-                        data_modal_open: 'nota-delete-' ~ item.id
+                        aria_label: 'Borrar ' ~ item.title,
+                        data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
             </li>
         {% endblock %}
     {% endembed %}
 
-    {% for item in notas %}
+    {% for item in notes %}
         {% embed 'components/ui/modal.twig' with {
-            id: 'nota-delete-' ~ item.id,
+            id: 'note-delete-' ~ item.id,
             title: 'Borrar nota'
         } %}
             {% block body %}
-                <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                <p class="py-3 opacity-70">¿Borrar «{{ item.title }}»? No se puede deshacer.</p>
+                <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                       onsubmit="this.querySelector('[type=submit]').disabled = true">
                     {% include 'components/form/csrf.twig' %}
                     <div class="modal-action">
@@ -2694,7 +2693,7 @@ el componente. Los diálogos, por ahora, se quedan donde están.
 ```
 
 `block row` es la única parte de tu archivo que se repite por nota. Si copias el
-`<div id="notas-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
+`<div id="notes-panel">` adentro del bloque, el id se duplica y HTMX deja de saber qué reemplazar.
 
 **Comprobación**: la lista se ve **idéntica** a la del paso 10, con y sin notas; el lápiz abre el modal
 de edición; la papelera abre el diálogo que dice **qué nota** vas a borrar; borrar elimina una sola nota;
@@ -2725,9 +2724,9 @@ El panel ya usa el componente, pero los diálogos siguen siendo un segundo recor
 debajo. Eso funciona en esta pantalla y en ninguna más: quien reusa la lista tiene que acordarse de
 repetirlo, y en el orden correcto. El componente reserva un bloque para eso.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`.
+**Archivo**: `resources/views/pages/notes/_panel.twig`.
 
-**Antes**: el `{% for item in notas %}` con los `modal.twig`, después del `{% endembed %}`.
+**Antes**: el `{% for item in notes %}` con los `modal.twig`, después del `{% endembed %}`.
 
 **Después**: el mismo recorrido, tal cual, adentro de `{% block after %}`, que el componente emite
 después del `</ul>`. El bloque se pinta una sola vez y no recibe `item`, así que el `for` propio es
@@ -2735,9 +2734,9 @@ necesario.
 
 ```twig
         {% block after %}
-            {% for item in notas %}
+            {% for item in notes %}
                 {% embed 'components/ui/modal.twig' with {
-                    id: 'nota-delete-' ~ item.id,
+                    id: 'note-delete-' ~ item.id,
                     title: 'Borrar nota'
                 } %}
                     {# … el cuerpo del modal, igual que en 10.2 … #}
@@ -2769,15 +2768,15 @@ hereda también el lugar correcto para sus diálogos.
 ### 12.4 Enriquecer la fila
 
 Con el componente en su lugar, la fila todavía muestra sólo el título. Y hay un dato que vienes
-guardando desde el capítulo 7 y no se ve en ninguna parte: el `cuerpo`. Una nota con cuerpo y otra sin él
+guardando desde el capítulo 7 y no se ve en ninguna parte: el `body`. Una nota con cuerpo y otra sin él
 se ven igual, y eso es una pérdida silenciosa.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro de `{% block row %}`.
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro de `{% block row %}`.
 
 **Antes**:
 
 ```twig
-                <span class="font-semibold">{{ item.titulo }}</span>
+                <span class="font-semibold">{{ item.title }}</span>
 ```
 
 **Después**: el título pasa a ser un enlace a editar —un blanco más grande que el lápiz, útil en el
@@ -2785,9 +2784,9 @@ móvil— y debajo aparece el cuerpo cuando existe.
 
 ```twig
                 <div class="min-w-0">
-                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
-                    {% if item.cuerpo %}
-                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
+                    <a class="font-semibold" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">{{ item.title }}</a>
+                    {% if item.body %}
+                        <p class="text-sm opacity-70">{{ item.body }}</p>
                     {% endif %}
                 </div>
 ```
@@ -2801,7 +2800,7 @@ que el lápiz.
 
 **Falla si**:
 
-- El cuerpo no aparece aunque la nota lo tenga: falta el `{% if item.cuerpo %}` o el campo no se guardó.
+- El cuerpo no aparece aunque la nota lo tenga: falta el `{% if item.body %}` o el campo no se guardó.
 - Los botones se salen de la tarjeta: falta el `min-w-0` en el contenedor del título.
 - El título no es un enlace: quedó el `<span>` anterior.
 
@@ -2825,7 +2824,7 @@ La lista trae todo lo que hay en la tabla, y con cien notas la página tarda y e
 Recortar en el navegador no sirve: el HTML ya viajó. La paginación tiene que ocurrir en el servidor,
 sobre la consulta, y este paso la agrega sin tocar todavía la vista.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`.
+**Archivo**: `app/Http/Controllers/NoteController.php`.
 
 **Acción**: suma dos `use` —`Framework\Http\Pagination` y `Framework\Http\Url`, que es de donde sale
 `Url::path()`— y centraliza la lectura en un método privado:
@@ -2833,15 +2832,15 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
 ```php
     private function pageData(Request $request): array
     {
-        $paginacion = Pagination::fromRequest(
-            Nota::orderByDesc('id'),
+        $pagination = Pagination::fromRequest(
+            Note::orderByDesc('id'),
             $request,
-            Url::path('/notas')
+            Url::path('/notes')
         );
 
         return [
-            'notas'       => $paginacion['items'],
-            'pagination'  => $paginacion,
+            'notes'       => $pagination['items'],
+            'pagination'  => $pagination,
             'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ];
     }
@@ -2860,15 +2859,15 @@ Ahora `index()` usa ese helper:
 ```php
     public function index(Request $request, Response $response): Response
     {
-        return $this->render($request, $response, 'pages/notas/index.twig', $this->pageData($request) + [
-            'active' => 'notas',
+        return $this->render($request, $response, 'pages/notes/index.twig', $this->pageData($request) + [
+            'active' => 'notes',
         ]);
     }
 ```
 
 Todavía no toques la vista ni el helper de respuesta: primero comprobamos que el servidor recorta bien.
 
-**Comprobación**: con más de diez notas, abre directamente `/notas?page=2&per_page=10`. Esperado: ves
+**Comprobación**: con más de diez notas, abre directamente `/notes?page=2&per_page=10`. Esperado: ves
 las notas 11 a 20. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango se ajusta a la
 última. Los controles visuales todavía no están; eso es 13.2.
 
@@ -2900,7 +2899,7 @@ El servidor ya recorta, pero la vista no lo sabe: recibe diez notas y no tiene c
 siguientes. Falta el paginador, y falta que viaje **dentro** del panel: cuando HTMX reemplace la región,
 los controles tienen que venir con ella o quedan apuntando a un id que ya no se actualiza.
 
-**Archivo**: `resources/views/pages/notas/_panel.twig`, dentro de `div#notas-panel`, después del `embed` y
+**Archivo**: `resources/views/pages/notes/_panel.twig`, dentro de `div#notes-panel`, después del `embed` y
 antes de cerrar el `div`.
 
 **Acción**: agrega los controles:
@@ -2910,7 +2909,7 @@ antes de cerrar el `div`.
 
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
-        target: '#notas-panel'
+        target: '#notes-panel'
     } %}
 </div>
 ```
@@ -2919,7 +2918,7 @@ antes de cerrar el `div`.
 el selector de tamaño. Úsalo con `pagination` y un `target` que apunte a la región que se va a
 reemplazar. Evita rearmar los mismos botones en cada lista y desincronizar la página actual.
 
-**Comprobación**: con más de diez notas, abre `/notas`. Esperado: diez filas y, debajo, «Mostrando 1 al
+**Comprobación**: con más de diez notas, abre `/notes`. Esperado: diez filas y, debajo, «Mostrando 1 al
 10 de N registros», el selector de tamaño y los botones Primera/Anterior/1/2/3/Siguiente/Última. En la
 primera página, «Primera» y «Anterior» salen deshabilitados; con `?page=2&per_page=10` el mismo texto
 pasa a «Mostrando 11 al 20 de N registros».
@@ -2952,10 +2951,10 @@ el pedido:
         // Con HX-Request va SÓLO la región. Si devuelves la página entera, el
         // swap mete el shell del layout adentro del panel: dos sidebars, dos
         // headers y el contenido duplicado.
-        $template = $request->hasHeader('HX-Request') ? 'pages/notas/_panel.twig' : 'pages/notas/index.twig';
+        $template = $request->hasHeader('HX-Request') ? 'pages/notes/_panel.twig' : 'pages/notes/index.twig';
 
         return $this->render($request, $response, $template, $data + $extra + [
-            'active' => 'notas',
+            'active' => 'notes',
         ])->withStatus($status);
     }
 ```
@@ -2976,13 +2975,13 @@ La clave está en `HX-Request`: un pedido normal recibe `index.twig` completo; u
 sólo `_panel.twig`. Si devuelves la página completa a HTMX, el panel se reemplaza por **otra página
 completa** y el shell queda anidado: dos sidebars, dos headers y el contenido duplicado.
 
-**Comprobación**: en `/notas`, toca «Siguiente». El rango pasa a «Mostrando 11 al 20 de N» y la página 2
+**Comprobación**: en `/notes`, toca «Siguiente». El rango pasa a «Mostrando 11 al 20 de N» y la página 2
 queda marcada, **sin recarga**: el scroll se queda donde estaba. Cuenta en la **página entera** —un solo
 `<header>` y dos `<aside>`, el sidebar y la nota del pie—: si ves dos headers y cuatro asides, el
 servidor mandó la página completa y el shell quedó **al lado** del panel. Cuenta **elementos**, no
 texto: hay un `<aside>` escrito dentro de un comentario de JS que no es parte del DOM.
 
-La URL todavía **no** cambia: la barra sigue en `/notas`. Eso es el paso siguiente.
+La URL todavía **no** cambia: la barra sigue en `/notes`. Eso es el paso siguiente.
 
 **Falla si**:
 
@@ -2994,12 +2993,12 @@ La URL todavía **no** cambia: la barra sigue en `/notas`. Eso es el paso siguie
 **Qué no prueba**: que la URL del historial diga la página que estás viendo, ni que un 422 no la
 empuje. Eso es 13.4.
 
-![Después de «Siguiente»: el rango cambia y el shell no se duplica, pero la URL sigue en /notas](tutorial-crud-images/13-2-paginador-pagina-2.png)
+![Después de «Siguiente»: el rango cambia y el shell no se duplica, pero la URL sigue en /notes](tutorial-crud-images/13-2-paginador-pagina-2.png)
 
 ### 13.4 La URL honesta
 
 El swap funciona, pero la barra de direcciones quedó atrás: estás viendo la página 2 y la URL dice
-`/notas`. Si recargás o compartís el enlace, volvés a la primera. HTMX puede empujar la URL que el
+`/notes`. Si recargás o compartís el enlace, volvés a la primera. HTMX puede empujar la URL que el
 servidor sirvió, y sólo cuando la respuesta es una navegación real.
 
 **Archivo**: el mismo `renderList()`.
@@ -3009,14 +3008,14 @@ emitas en un error.
 
 ```php
         $rendered = $this->render($request, $response, $template, $data + $extra + [
-            'active' => 'notas',
+            'active' => 'notes',
         ])->withStatus($status);
 
         if ($status >= 400) {
             return $rendered;
         }
 
-        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
+        return $rendered->withHeader('HX-Push-Url', Url::path('/notes')
             . '?page=' . $data['pagination']['current_page']
             . '&per_page=' . $data['pagination']['per_page']);
 ```
@@ -3024,7 +3023,7 @@ emitas en un error.
 El guard `status >= 400` deja esa decisión en un solo lugar: la URL del historial tiene que representar
 una página que el usuario realmente navegó, no un 422 con errores.
 
-**Comprobación**: toca «Siguiente» y mira la barra: pasa a `/notas?page=2&per_page=10`. Recarga: seguís en
+**Comprobación**: toca «Siguiente» y mira la barra: pasa a `/notes?page=2&per_page=10`. Recarga: seguís en
 la página 2. Prueba «Última»: la URL que queda es la última página real, no la que pediste. `?page=99`
 escrito a mano no actualiza la barra —esa navegación es completa, y `HX-Push-Url` sólo viaja en las
 respuestas de htmx—: ves la última página, pero la URL sigue diciendo `?page=99`.
@@ -3050,7 +3049,7 @@ Los renders del listado están repetidos en tres métodos, y la repetición ya t
 uno decide por su cuenta si empuja `HX-Push-Url`, si pasa `active` y en qué estado devuelve la página. Con
 un solo camino, esa decisión vive en un lugar y el 422 no puede olvidarse de nada.
 
-**Archivo**: `app/Http/Controllers/NotaController.php`, métodos `edit()`, `store()` y `update()`.
+**Archivo**: `app/Http/Controllers/NoteController.php`, métodos `edit()`, `store()` y `update()`.
 
 **Acción**: reemplaza los renders sueltos de `edit()` y de los rechazos por `renderList()`, pasando lo
 propio en `$extra`:
@@ -3058,7 +3057,7 @@ propio en `$extra`:
 ```php
         // edit()
         return $this->renderList($request, $response, [
-            'nota'            => $nota,
+            'note'            => $note,
             'open_edit_modal' => true,
         ]);
 
@@ -3073,28 +3072,28 @@ propio en `$extra`:
         return $this->renderList($request, $response, [
             'errors'          => $validator->errors(),
             'form_values'     => $data,
-            'nota'            => $nota,
+            'note'            => $note,
             'open_edit_modal' => true,
         ], 422);
 ```
 
-En el rechazo de la edición, `'nota' => $nota` no es decorativo: `index.twig` envuelve el modal de
-edición en `{% if nota is defined %}`. Sin esa clave el modal no se renderiza y lo tipeado aparece en
+En el rechazo de la edición, `'note' => $note` no es decorativo: `index.twig` envuelve el modal de
+edición en `{% if note is defined %}`. Sin esa clave el modal no se renderiza y lo tipeado aparece en
 el modal de alta, que es el que queda abierto.
 
 El `422` pasa por el mismo `renderList()`, pero el guard de estado evita `HX-Push-Url`. Para fijar ese
-contrato, agrega a `tests/Notas/Http/NotaTest.php`:
+contrato, agrega a `tests/Notes/Http/NoteTest.php`:
 
 ```php excerpt
     public function test_un_422_no_empuja_la_url(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => '',
-            'cuerpo'     => '',
+            'title'      => '',
+            'body'       => '',
         ]));
 
         self::assertSame(422, $response->getStatusCode());
@@ -3110,8 +3109,8 @@ reabre el modal de edición con la nota y lo tipeado; la paginación 2xx sigue e
 **Falla si**:
 
 - Un 422 deja `HX-Push-Url`: el guard `status >= 400` no está o el estado no se pasa a `renderList()`.
-- El modal de edición desaparece en un 422: falta `nota` en `$extra`.
-- El alta inválida se abre en el modal de edición: sobra `nota` o `open_edit_modal` en el rechazo del
+- El modal de edición desaparece en un 422: falta `note` en `$extra`.
+- El alta inválida se abre en el modal de edición: sobra `note` o `open_edit_modal` en el rechazo del
   alta.
 - El test falla con 200: el título vacío no está llegando al validador o el token CSRF no es válido.
 
@@ -3121,7 +3120,7 @@ en `update()`, porque no son parte del render.
 
 **Pieza — un solo camino de render**: resuelve la página, el parcial, el estado y la cabecera en un
 único lugar. Úsalo en toda acción que renderice el listado. Evita que el alta, la edición y la
-paginación tengan cada una su propia copia de `notas` y `active`.
+paginación tengan cada una su propia copia de `notes` y `active`.
 
 ---
 
@@ -3131,7 +3130,7 @@ paginación tengan cada una su propia copia de `notas` y `active`.
 
 **Estado de partida**: pasos 1 a 13 hechos.
 
-El recorrido funcionó una vez, sobre `notas`. Lo que se repite no es esa entidad sino el patrón: qué
+El recorrido funcionó una vez, sobre `notes`. Lo que se repite no es esa entidad sino el patrón: qué
 archivos aparecen siempre, qué cambia con el dominio y en qué orden se comprueban. Este capítulo lo deja
 escrito para que la segunda entidad no te obligue a releer los trece anteriores.
 
@@ -3162,15 +3161,13 @@ Para el icono del encabezado y del menú usa un nombre del registro compartido �
 que no existe no rompe nada pero **no pinta nada**, ni el svg del `<h1>` ni el del sidebar. Si necesitas
 un glifo nuevo, agrégalo ahí primero.
 
-**Sobre el demo como punto de comparación**: `composer demo:notes:install` instala el demo en inglés y
+**Sobre el demo como punto de comparación**: `composer demo:notes:install` instala el mismo recorrido
 con el layout plano: `Note` en `app/Models`, `NoteController` en `app/Http/Controllers`, `routes/notes.php`,
-`pages/notes/`, tabla `notes` y migración `910_create_notes_table.php` (`CreateNotesTable`). No comparte
-tabla ni clase con tu entidad —la tuya es `Nota`, tabla `notas`, clase `CreateNotasTable`—, así que **sí
-convive con tu versión**: se instala al lado, con sus rutas `/notes`, sus datos y su pantalla. Lo único que
-no podés hacer es usarlo como si fuera tu entidad: no lee tu tabla ni responde en tus URLs. Para comparar,
-abrí las dos pantallas: el comportamiento es el mismo y el código se diferencia sólo en los nombres.
+`pages/notes/`, tabla `notes` y migración `910_create_notes_table.php` (`CreateNotesTable`). Comparte tabla
+y clase con tu entidad —la tuya también es `notes` y `CreateNotesTable`—, así que no conviven: para
+comparar, usá otra instalación.
 
-**Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
+**Comprobación**: elige otra entidad (por ejemplo `books`, con `title` y `year`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con
 confirmación, paginación y seis tests en verde.
 
@@ -3201,7 +3198,7 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
 | El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.6) |
-| La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `nota-delete-{id}` en el modal y en `data_modal_open` |
+| La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `note-delete-{id}` en el modal y en `data_modal_open` |
 | La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 12) |
 | La papelera no abre nada | El modal quedó fuera del bloque `after` | Muévelo a `{% block after %}`, que el componente emite después del `</ul>` (paso 12.3) |
 | La lista trae todo | La consulta no pasa por `Pagination::fromRequest()` | Paso 13.1 |

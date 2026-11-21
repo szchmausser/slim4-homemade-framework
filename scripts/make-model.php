@@ -5,9 +5,9 @@ declare(strict_types=1);
 use Illuminate\Support\Str;
 
 // Crea el esqueleto de un modelo Eloquent. Uso:
-//   composer make:model Nota
+//   composer make:model Note
 //   composer make:model Ciudad ciudades
-//   php scripts/make-model.php Nota
+//   php scripts/make-model.php Note
 //
 // Escribe app/Models/<Clase>.php con namespace y `$fillable` vacío. La tabla se
 // deriva con la MISMA función que usa Eloquent (`Str::snake(Str::pluralStudly())`,
@@ -63,7 +63,7 @@ $table = $posicionales[1] ?? '';
 
 if ($name === '') {
     fwrite(STDERR, "Uso: composer make:model <Nombre> [<tabla>]\n");
-    fwrite(STDERR, "  El nombre puede ir en CamelCase o snake_case: Nota o nota.\n");
+    fwrite(STDERR, "  El nombre puede ir en CamelCase o snake_case: Note o note.\n");
     fwrite(STDERR, "  La tabla se deriva con la convención de Eloquent; pasala como segundo\n");
     fwrite(STDERR, "  argumento sólo si tu plural español no es el que Eloquent infiere.\n");
     fwrite(STDERR, "  Ejemplo: composer make:model Ciudad ciudades\n");
@@ -73,7 +73,7 @@ if ($name === '') {
 $class = modelClassName($name);
 
 if ($class === '') {
-    fwrite(STDERR, "Nombre inválido: '{$name}'. Se esperan letras o números, por ejemplo Nota.\n");
+    fwrite(STDERR, "Nombre inválido: '{$name}'. Se esperan letras o números, por ejemplo Note.\n");
     exit(1);
 }
 
@@ -124,7 +124,7 @@ echo "Siguiente paso: completar los @property y @method con las columnas de la m
 exit(0);
 
 /**
- * `nota` y `Nota` producen la misma clase. El prefijo `model` evita chocar con
+ * `note` y `Note` producen la misma clase. El prefijo `model` evita chocar con
  * las funciones de scripts/make-migration.php: aunque cada script corre solo,
  * dos declaraciones con el mismo nombre en el mismo árbol confunden a PHPStan.
  */

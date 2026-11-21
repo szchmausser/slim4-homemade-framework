@@ -39,28 +39,28 @@ final class MakeModelTest extends TestCase
 
     public function test_no_escribe_table_cuando_la_convencion_de_eloquent_alcanza(): void
     {
-        [$exit, $stdout, $stderr] = $this->runCommand(['Nota']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['Note']);
 
         self::assertSame(0, $exit, $stderr);
-        self::assertStringContainsString('app/Models/Nota.php', $stdout);
-        self::assertStringContainsString('Tabla: notas', $stdout);
+        self::assertStringContainsString('app/Models/Note.php', $stdout);
+        self::assertStringContainsString('Tabla: notes', $stdout);
 
-        $modelo = (string) file_get_contents($this->root . '/app/Models/Nota.php');
+        $modelo = (string) file_get_contents($this->root . '/app/Models/Note.php');
 
         self::assertStringContainsString("namespace App\\Models;", $modelo);
-        self::assertStringContainsString('class Nota extends Model', $modelo);
+        self::assertStringContainsString('class Note extends Model', $modelo);
         self::assertStringContainsString('protected $fillable = [];', $modelo);
         self::assertStringNotContainsString('protected $table', $modelo);
     }
 
     public function test_acepta_snake_case_y_normaliza_el_nombre_de_clase(): void
     {
-        [$exit, $stdout, $stderr] = $this->runCommand(['nota']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['note']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString(
-            'class Nota extends Model',
-            (string) file_get_contents($this->root . '/app/Models/Nota.php')
+            'class Note extends Model',
+            (string) file_get_contents($this->root . '/app/Models/Note.php')
         );
     }
 
@@ -111,10 +111,10 @@ final class MakeModelTest extends TestCase
 
     public function test_no_pisa_un_modelo_que_ya_existe(): void
     {
-        $path = $this->root . '/app/Models/Nota.php';
+        $path = $this->root . '/app/Models/Note.php';
         file_put_contents($path, "<?php // editado a mano\n");
 
-        [$exit, $stdout, $stderr] = $this->runCommand(['Nota']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['Note']);
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('ya existe', $stderr);

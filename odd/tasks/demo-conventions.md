@@ -2,8 +2,8 @@
 
 Reescribir los tres demos para que sean el ejemplo canónico de las convenciones del framework:
 modelo en `app/Models/<Entidad>.php`, controlador en `app/Http/Controllers/<Entidad>Controller.php`,
-tabla derivada por Eloquent (sin `$table` redundante), rutas y vistas en inglés. El tutorial queda en
-español a propósito: ahí el lector paga el precio de apartarse de la convención escribiendo `$table`.
+tabla derivada por Eloquent (sin `$table` redundante), rutas y vistas en inglés. El tutorial se queda en
+español a propósito: su prosa y sus textos visibles no siguen la convención de nombres del framework.
 
 ## Specs
 
@@ -13,12 +13,15 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   migración `910_create_notes_table.php` con clase `CreateNotesTable`.
 - **S3**: la tabla se deriva de Eloquent; `$table` sólo se declara cuando la tabla se aparta de la
   convención. Hoy `Contact` y `Nota` lo declaran sin necesidad: se retira.
-- **S4** (corregida en L14): el tutorial sigue en español (`notas`, `titulo`, `cuerpo`, `/notas`) y **no**
-  declara `$table`, porque la entidad del recorrido cae justo en la convención de Eloquent
-  (`Nota` → `notas`, igual que `Note` → `notes`): declararlo sería enseñar una regla equivocada. El costo
-  de apartarse de la convención lo explica el propio tutorial con `Ciudad` → `ciudads` (el pluralizador
-  es inglés) y lo ejercita `composer make:model`, que escribe `$table` sólo cuando la tabla pedida difiere
-  de la inferida. Al no compartir tabla ni clase con `notes`, tutorial y demo conviven.
+- **S4** (corregida en L14, enmendada en L17): el tutorial mantiene la prosa y los textos visibles en
+  español, pero los identificadores del recorrido están en inglés: `Note`, tabla `notes`, columnas
+  `title`/`body`, `/notes`, `pages/notes/`, `tests/Notes/` y migración `006_create_notes_table.php`
+  (`CreateNotesTable`). **No** declara `$table`, porque la entidad del recorrido cae justo en la convención
+  de Eloquent (`Note` → `notes`): declararlo sería enseñar una regla equivocada. El costo de apartarse de
+  la convención lo explica el propio tutorial con `Ciudad` → `ciudads` (el pluralizador es inglés) y lo
+  ejercita `composer make:model`, que escribe `$table` sólo cuando la tabla pedida difiere de la inferida.
+  Como el demo `notes` es el mismo recorrido, tutorial y demo comparten tabla y clase de migración, así que
+  **no conviven**: el tutorial lo dice y manda a comparar en otra instalación.
 - **S5**: instalar, remover y el round-trip siguen funcionando: manifiesto, backups y rollback intactos.
 - **S6**: documentación coherente: `AGENTS.md`, guía (cap. 23 y árboles), tutorial y comandos
   `demo:<nombre>:*` con los nombres nuevos.
@@ -175,3 +178,26 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   `storage/cache/notes-en.sqlite` (`NoteSeeder: 12 demo notes.`, remove sin residuos) y
   `grep -rn "titulo\|cuerpo"` sobre el scaffold sin resultados. No se tocaron `docs/tutorial-crud.md`
   (sigue en español con `notas`/`titulo`/`cuerpo`), los otros scaffolds, `database/` ni `scripts/`.
+- L17 (agente, enmienda de S4 por decisión del humano): el tutorial pasa sus identificadores a inglés y
+  la prosa sigue en español, así que tutorial y demo vuelven a ser el mismo recorrido. Todo
+  `docs/tutorial-crud.md`: `Note`/`NoteController`/`Note::`, tabla `notes`, columnas `title`/`body`,
+  `/notes`, `pages/notes/`, `tests/Notes/Http/NoteTest.php` (`Tests\Notes\Http`), `routes/notes.php`,
+  `config/navigation/notes.php`, `CreateNotesTable` y `006_create_notes_table.php`; ids `notes-panel`,
+  `note-create-modal`, `note-edit-modal`, `note-delete-<id>`; variables `$note`, `$data`, `$list`,
+  `$pagination` y JSON `{"status":"ok","resource":"notes"}`. Los textos visibles siguen en castellano
+  («Notas», «Agregar nota», «Nota creada.», «No hay notas todavía.», «Mostrando 1 al 10…», migas), igual
+  que la prosa. `tests/Support/MakeMigrationTest.php` y `MakeModelTest.php` usan `CreateNotesTable`,
+  `006_create_notes_table.php` y `Note`/`notes` como fixtures de «la entidad del tutorial»; el caso
+  `test_permite_una_clase_que_solo_existe_en_un_scaffold` sigue probando lo suyo y su comentario ahora
+  dice que la clase del scaffold es la misma del tutorial. Presentación y cierre: tutorial y demo
+  comparten `notes` y `CreateNotesTable`, así que no conviven (otra instalación o desinstalar antes);
+  se reescribió «El aviso del scaffold»: ahora el aviso sí aparece al crear tu migración, es esperado, no
+  bloquea y con el demo instalado el comando se niega. Consecuencias del renombrado detectadas y
+  corregidas: `phinx create CreateNotesTable` escribe `AAAAMMDDhhmmss_create_notes_table.php`; los
+  `#ancla` del índice; la alineación de `'title'`/`'body'` en los fences; el ejemplo de segunda entidad
+  pasa a `books` con `title`/`year`. Quedan a propósito `04-2-menu-{con,sin}-notas.png` (nombre de
+  archivo de captura, fuera de las superficies) y los `notas`/`cuerpo` de prosa y cromo español.
+  Verificación observada: `composer docs:check` OK (56 copias), `composer lint` OK (96 archivos) y
+  `composer phpstan` OK, `php vendor/bin/phpunit` completo OK (227 tests, 1790 aserciones) con
+  `--filter 'MakeMigrationTest|MakeModelTest'` OK (14 tests), y `composer make:migration CreateNotesTable`
+  sobre un árbol temporal imprime el aviso del scaffold y crea `006_create_notes_table.php`.

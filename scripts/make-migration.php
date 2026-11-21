@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 // Crea el archivo de una migración con el siguiente número libre del rango de la
 // app. Uso:
-//   php scripts/make-migration.php CreateNotasTable
-//   composer make:migration CreateNotasTable
+//   php scripts/make-migration.php CreateNotesTable
+//   composer make:migration CreateNotesTable
 //
 // Por qué existe: `phinx create` nombra con timestamp YYYYMMDDHHMMSS, y en PHP
 // de 32 bits ese prefijo satura a PHP_INT_MAX (todas las migraciones colapsan a
@@ -49,7 +49,7 @@ foreach (array_slice($argv, 1) as $argument) {
 
 if ($name === '') {
     fwrite(STDERR, "Uso: composer make:migration <Nombre>\n");
-    fwrite(STDERR, "  El nombre puede ir en CamelCase o snake_case: CreateNotasTable o create_notas_table.\n");
+    fwrite(STDERR, "  El nombre puede ir en CamelCase o snake_case: CreateNotesTable o create_notes_table.\n");
     fwrite(STDERR, "  El número lo asigna el script: nunca lo elijas a mano.\n");
     exit(1);
 }
@@ -57,7 +57,7 @@ if ($name === '') {
 $class = className($name);
 
 if ($class === '') {
-    fwrite(STDERR, "Nombre inválido: '{$name}'. Se esperan letras o números, por ejemplo CreateNotasTable.\n");
+    fwrite(STDERR, "Nombre inválido: '{$name}'. Se esperan letras o números, por ejemplo CreateNotesTable.\n");
     exit(1);
 }
 
@@ -117,7 +117,7 @@ echo "Siguiente paso: escribir el change() y correr `composer migrate`.\n";
 exit(0);
 
 /**
- * `create_notas_table` y `CreateNotasTable` producen la misma clase.
+ * `create_notes_table` y `CreateNotesTable` producen la misma clase.
  */
 function className(string $raw): string
 {
@@ -132,7 +132,7 @@ function className(string $raw): string
 }
 
 /**
- * `CreateNotasTable` => `create_notas_table`.
+ * `CreateNotesTable` => `create_notes_table`.
  */
 function snakeCase(string $class): string
 {
