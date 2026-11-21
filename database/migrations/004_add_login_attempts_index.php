@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Phinx\Migration\AbstractMigration;
 
 /**
- * `Throttle::prune()` borra por attempted_at; el indice compuesto de 006
+ * `Throttle::prune()` borra por attempted_at; el indice compuesto de la 003
  * empieza por email, asi que ese DELETE hacia un scan completo. Este indice
  * cubre la poda y el limite por IP.
  */

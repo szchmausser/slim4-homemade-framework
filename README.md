@@ -100,7 +100,7 @@ php -S 127.0.0.1:8080 -t public
 
 El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu app, replica el patrón en las capas app-owned (`app/Models`, `app/Http/Controllers`, `routes/web.php`, `resources/views`):
 
-1. **Migración.** `vendor/bin/phinx create CreateRecetasTable`, complétala y **renombrala a secuencial** (`007_...`: los timestamps saturan int32 y el scaffold `tasks` reserva `001/004/005`, ver guía 11.1). `composer migrate`.
+1. **Migración.** `composer make:migration CreateRecetasTable`: el número lo asigna el comando (la app numera sin huecos desde `001`; los demos viven en bandas desde `900`, ver guía 11.1) y deja el archivo en snake case con el `change()` vacío. Complétalo y `composer migrate`.
 2. **Modelo** en `app/Models/` con `$fillable` (+ `$hidden` si hay secrets).
 3. **Controlador** que extienda `Controller`: lo repetido a `viewDefaults()`, lo puntual por `$extra` en cada `render()`. Si lista, pagina con `Pagination::paginate()` (nunca `get()` pelado) y pasa `pagination` a la vista.
 4. **Rutas** en `routes/web.php` (+ `->add(RequireAuthMiddleware::class)` si es protegida, `'active'` para la nav si tiene página completa).

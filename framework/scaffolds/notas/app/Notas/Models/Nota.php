@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * tipos devuelve cada lectura.
  *
  * Eloquent no sabe de HTTP ni de vistas: describe la fila y nada más. La tabla la
- * crea la migración (`database/migrations/notas/007_create_notas_table.php`), el
+ * crea la migración (`database/migrations/notas/910_create_notas_table.php`), el
  * controlador escribe a través de este modelo y las vistas reciben instancias.
  *
  * Para crear tu propia entidad, copia este archivo y cambia tres cosas: `$table`,

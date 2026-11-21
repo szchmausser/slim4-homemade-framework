@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
  * Modelo de la entidad `tasks`: qué columnas se escriben y con qué tipo se leen.
  *
  * Capa modelo. Describe la fila y nada más: la tabla la crea la migración
- * `001_create_tasks_table.php`, el controlador escribe a través de este modelo y
+ * `900_create_tasks_table.php`, el controlador escribe a través de este modelo y
  * las vistas reciben sus instancias.
  *
  * Para tu entidad, copia el archivo y ajusta `$fillable`, `$casts` y las

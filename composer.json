@@ -60,6 +60,7 @@
     "scripts": {
         "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
+        "make:migration": "@php scripts/make-migration.php",
         "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",

@@ -8,7 +8,7 @@ use Phinx\Migration\AbstractMigration;
  * Suma el estado y su fecha de finalización.
  *
  * Capa migración. `status` guarda `pendiente` o `completado`, y `completed_at` la
- * fecha en que se completó. `done` sigue en la tabla hasta que la 005 mueve sus
+ * fecha en que se completó. `done` sigue en la tabla hasta que la 902 mueve sus
  * datos.
  *
  * Para tu entidad, hazlo así: cuando el modelo de un dato cambia, migración nueva.

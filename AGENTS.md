@@ -52,6 +52,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 ```bash
 composer install:termux     # Termux/32-bit; en 64-bit: composer install
 composer migrate            # aplicar migraciones
+composer make:migration Nombre  # crea database/migrations/NNN_nombre.php con el siguiente número libre
 composer test               # PHPUnit de la app base
 composer lint               # lint propio
 composer phpstan            # PHPStan nivel 5 (PHAR, sin dependencias)
@@ -82,7 +83,8 @@ instalalo y corré `composer test` antes de cerrar.
 1. Leé `README.md`, `DESIGN.md`, `.ai/steering/` y el scaffold que vas a tocar.
 2. Si el cambio es de dominio, hacelo en `app/`; si es infra reusable, en `framework/`.
 3. Si agregás una entidad, creá su archivo en `routes/`, su migración y sus vistas;
-   no edites `bootstrap/app.php` para registrarla.
+   no edites `bootstrap/app.php` para registrarla. La migración se crea con
+   `composer make:migration Create<Entidad>Table`: el número lo asigna el script.
 4. Si agregás una ruta mutante, incluí el token CSRF (`components/form/csrf.twig`) y
    verificá el comportamiento HTMX (región, `HX-Trigger`, `HX-Push-Url`).
 5. Corré `composer verify` y, si corresponde, el demo instalado + `composer test`.

@@ -159,9 +159,11 @@ mi-app/
 │   └── middleware.php
 ├── database/
 │   ├── migrations/
-│   │   ├── 002_create_users_table.php
-│   │   ├── 003_create_remember_tokens_table.php
-│   │   └── 006_login_attempts.php
+│   │   ├── 001_create_users_table.php
+│   │   ├── 002_create_remember_tokens_table.php
+│   │   ├── 003_login_attempts.php
+│   │   ├── 004_add_login_attempts_index.php
+│   │   └── 005_add_rotated_at_to_remember_tokens.php
 │   ├── seeds/
 │   │   ├── AdminSeeder.php
 │   │   └── DatabaseSeeder.php
@@ -315,6 +317,7 @@ composer require --dev phpunit/phpunit
     "scripts": {
         "serve": "@php scripts/serve.php",
         "migrate": "phinx migrate",
+        "make:migration": "@php scripts/make-migration.php",
         "push": "bash scripts/push-termux.sh",
         "db:backup": "php scripts/db-backup.php",
         "test": "phpunit",
@@ -2564,7 +2567,7 @@ use Illuminate\Database\Eloquent\Model;
  * Modelo de la entidad `tasks`: qué columnas se escriben y con qué tipo se leen.
  *
  * Capa modelo. Describe la fila y nada más: la tabla la crea la migración
- * `001_create_tasks_table.php`, el controlador escribe a través de este modelo y
+ * `900_create_tasks_table.php`, el controlador escribe a través de este modelo y
  * las vistas reciben sus instancias.
  *
  * Para tu entidad, copia el archivo y ajusta `$fillable`, `$casts` y las
@@ -2723,13 +2726,13 @@ return [
 ];
 ```
 
-Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 5 ya vienen (`002`, `003`, `006`, `009` y `010`) — saltea directo al `migrate`. Crear de más aquí es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
+Crear y correr una migración (SOLO si construyes desde cero: si clonaste el repo, las 5 ya vienen (`001` a `005`) — saltea directo al `migrate`. Crear de más aquí es la causa N.º 1 del error "Duplicate migration" del cap. 21.23):
 
 ```bash
-vendor/bin/phinx create CreateTasksTable
+composer make:migration CreateTasksTable
 ```
 
-Completa el archivo generado en `database/migrations/` y renombralo a `001_create_tasks_table.php` (en 32 bits los timestamps de Phinx saturan el entero — regla en 11.1, vale desde la primera migración):
+Completa el archivo que genera `composer make:migration CreateTasksTable` en `database/migrations/`: el número ya viene asignado por el script, no lo elijas a mano (en 32 bits los timestamps de Phinx saturan el entero — regla en 11.1, vale desde la primera migración):
 
 ```php
 <?php
@@ -2764,6 +2767,34 @@ vendor/bin/phinx status          # verifica: down
 vendor/bin/phinx migrate         # vuelve a up
 ```
 
+**Si tu clon instaló un demo antes de la renumeración**, te quedó su copia con los números viejos en
+`database/migrations/<demo>/` (`tasks`, por ejemplo, con `001_`, `004_` y `005_`). Esa copia declara
+versiones que hoy usa la app: `phinx migrate` y `composer migrate:fresh` abortan con `Duplicate
+migration`, y `composer demo:tasks:remove` tampoco la reconoce, porque compara contra el scaffold
+actual. Se sale borrando la copia a mano; reintentar el migrate no cambia nada. El manifiesto sí se
+conserva: es lo que después deja reinstalar el demo sin `--force`.
+
+```bash
+rm -rf database/migrations/tasks
+```
+
+Con la copia afuera, recrea la base (si tiene datos que te importan, respaldala antes con `composer
+db:backup`) y siembra el admin. Las credenciales del seed salen de `.env` (`ADMIN_EMAIL` y
+`ADMIN_PASSWORD`, como en 11.1):
+
+```bash
+rm -f database/database.sqlite database/database.sqlite-wal database/database.sqlite-shm
+composer migrate
+vendor/bin/phinx seed:run -s DatabaseSeeder
+```
+
+`composer migrate:fresh` corre todas las migraciones sobre una SQLite temporal y la borra: sirve para
+comprobar que el esquema renumerado aplica limpio, pero **no reemplaza** el paso anterior — mientras la
+copia vieja siga en `database/migrations/<demo>/` aborta igual con `Duplicate migration`, y no toca tu
+`database/database.sqlite`. Si quieres el demo de vuelta, reinstálalo ya en la banda nueva:
+`composer demo:tasks:install` actualiza los archivos instalados. Si te responde que ya hay archivos
+instalados —porque perdiste `storage/demo-state/tasks.json`— agregale `-- --force`.
+
 ### 11.1 Migraciones de auth y seed del admin
 
 ```bash
@@ -2775,12 +2806,12 @@ vendor/bin/phinx create CreateRememberTokensTable
 >
 > ```bash
 > mv database/migrations/20260928185619_create_users_table.php \
->    database/migrations/002_create_users_table.php
+>    database/migrations/001_create_users_table.php
 > ```
 >
-> La base usa `002_create_users_table.php`, `003_create_remember_tokens_table.php`, `006_login_attempts.php`, `009_add_login_attempts_index.php` y `010_add_rotated_at_to_remember_tokens.php`. Los scaffolds reservan `001`, `004` y `005` (tasks), `007` (notas) y `008` (contacts); no uses esos números para migraciones propias. El siguiente libre es `011`. Cada `create` futuro: renombrar al siguiente número. Sin excepciones en 32 bits.
+> La app numera sin huecos desde `001`: hoy `001_create_users_table.php` hasta `005_add_rotated_at_to_remember_tokens.php`. Los demos viven en bandas reservadas desde `900` (`tasks` 900-909, `notas` 910-919, `contacts` 920-929), así que el crecimiento de la app nunca abre un hueco en `ls database/migrations/`. En este proyecto el renombrado no es manual: `composer make:migration <Nombre>` genera el archivo ya numerado con el siguiente libre, así que no elijas el número a mano.
 
-`database/migrations/002_create_users_table.php`:
+`database/migrations/001_create_users_table.php`:
 
 ```php
 <?php
@@ -2803,7 +2834,7 @@ final class CreateUsersTable extends AbstractMigration
 }
 ```
 
-`database/migrations/003_create_remember_tokens_table.php` (posterior al de users):
+`database/migrations/002_create_remember_tokens_table.php` (posterior al de users):
 
 ```php
 <?php
@@ -5170,7 +5201,7 @@ Con workers, dos requests concurrentes sobre la **misma sesión** se contendian 
 
 ```bash
 composer migrate                         # corre migraciones pendientes
-vendor/bin/phinx create NombreMigracion  # crea una nueva migración
+composer make:migration Nombre            # crea database/migrations/NNN_nombre.php con el siguiente número libre
 vendor/bin/phinx seed:create NombreSeed  # crea un seed de datos (cap. 11.1)
 vendor/bin/phinx seed:run -s DatabaseSeeder  # corre todos en orden (cap. 11.2)
 vendor/bin/phinx seed:run -s NombreSeed  # corre uno solo
@@ -7665,7 +7696,7 @@ Para que el cruce `git ls-files` vs. esta guía cierre sin fantasmas, esto es lo
 | `docs/guia-stack-php-termux.md` | Esta guía. Se lee, no se programa. |
 | `framework/Docs/CodeBlocks.php`, `scripts/docs-check.php` (parte nueva), `scripts/docs-sync.php`, `tests/Support/CodeBlocksTest.php` | El candado anti-pudrición de esta misma guía: parsean los fences, comparan cada copia contra el repo y las reescriben. No se replican porque son la herramienta que verifica este documento, no parte del framework (intro, y `composer docs:check`). |
 
-> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/pages/auth/login.twig`, `tests/Http/AuthTest.php`, las cinco migraciones base —`002`, `003`, `006`, `009` y `010`—) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
+> Todo lo demás (`app/Models/User.php`, `framework/Auth/RememberToken.php`, `framework/Auth/Auth.php`, `RememberMe.php`, `CsrfTokens.php`, los dos middlewares de auth, `AuthController.php`, `resources/views/pages/auth/login.twig`, `tests/Http/AuthTest.php`, las cinco migraciones base —`001` a `005`—) tiene capítulo con código copiable: caps. 7.3, 8.1, 9.2, 10, 11.1, 15.2 y 20.9. El cruce del cap. 22.3 los cubre.
 
 
 

@@ -21,7 +21,7 @@ final class CreateTasksTable extends AbstractMigration
             // 120 es el límite que valida el controlador con `max:120` y el que
             // declara `maxlength` en los formularios.
             ->addColumn('title', 'string', ['limit' => 120])
-            // `done` nace acá y la migración 005 la retira: una migración ya
+            // `done` nace acá y la migración 902 la retira: una migración ya
             // aplicada no se edita, se corrige con otra.
             ->addColumn('done', 'boolean', ['default' => false])
             ->addTimestamps()

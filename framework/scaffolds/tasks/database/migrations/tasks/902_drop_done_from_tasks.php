@@ -8,7 +8,7 @@ use Phinx\Migration\AbstractMigration;
  * Retira `tasks.done`, sin uso desde que `status` describe el estado.
  *
  * Capa migración. Una columna no se elimina sin mover antes sus datos, y una
- * migración ya aplicada no se edita: este archivo corrige a la 001. Se escribe a
+ * migración ya aplicada no se edita: este archivo corrige a la 900. Se escribe a
  * mano (`up`/`down`) porque el borrado de columnas no es reversible solo.
  *
  * Para tu entidad, el patrón es este: corregir con una migración nueva.

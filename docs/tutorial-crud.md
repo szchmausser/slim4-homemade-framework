@@ -166,9 +166,16 @@ archivo de la entidad es el que crea la tabla y el que permite deshacerla.
 ls database/migrations/
 ```
 
-Vas a ver archivos como `002_create_users_table.php` y `003_create_remember_tokens.php`. La
-convención del proyecto es **numeración secuencial**, no timestamps, así que toma el siguiente
-número libre. Si la última es `010_...`, tu archivo es `011_create_notas_table.php`:
+Vas a ver archivos como `001_create_users_table.php` y `002_create_remember_tokens_table.php`. La
+convención del proyecto es **numeración secuencial desde `001` y sin huecos**, no timestamps: los
+demos ocupan una banda aparte desde `900`, así que el rango bajo es de la app. El número no lo eliges
+a mano, lo asigna el comando del proyecto:
+
+```bash
+composer make:migration CreateNotasTable
+```
+
+Eso deja `006_create_notas_table.php` con el esqueleto. Complétalo:
 
 ```php
 <?php
@@ -195,26 +202,27 @@ vendor/bin/phinx migrate
 ```
 
 **Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
-`20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. Sirve, pero su versión
-es un **timestamp**, y este proyecto usa numeración secuencial. Así que, si lo usas, renombralo a `011_create_notas_table.php`: la versión
-sale del prefijo del archivo y el nombre de la clase no cambia.
+`20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. En este proyecto no lo
+uses: su versión es un **timestamp** y en PHP de 32 bits ese prefijo satura el entero, así que todas
+las migraciones colapsan a la misma versión. `composer make:migration` existe justo para eso: pone el
+`NNN_` del siguiente número libre y el nombre en snake case.
 
-> **`007` y `008` están tomados** por las migraciones de los demos de notas y contactos. No son
-> números libres aunque no veas esos archivos en `database/migrations/`: viven en
-> `framework/scaffolds/*/database/migrations/<demo>/` y el instalador del demo los copia con esa
-> versión. Si tu entidad usa uno de esos números, `composer demo:notas:install` aborta después con una
-> colisión que no esperabas.
+> **Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notas` `910-919` y `contacts`
+> `920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
+> veas en `database/migrations/`: el instalador del demo los copia con esa versión. La app numera desde
+> `001` sin entrar nunca en esa banda, así que `composer make:migration` no puede darte un número que
+> choque con un scaffold, esté el demo instalado o no.
 
-Por eso el recorrido crea el archivo a mano: son veinte líneas, y el nombre —que es lo que Phinx toma
-como versión— queda bien desde el principio.
+El archivo son veinte líneas: el comando te deja el número y el nombre bien puestos —el que Phinx toma
+como versión— y vos completás el `change()`.
 
 **Comprobación**: ejecuta `vendor/bin/phinx status` (o vuelve a `composer migrate`). Tienes que ver tu
 migración listada como aplicada, sin pendientes.
 
 **Falla si**:
 
-- Phinx dice que ya existe una migración con ese número: alguien usó ese número mientras mirabas.
-  Elige el siguiente libre, nunca reutilices uno.
+- Phinx dice que ya existe una migración con ese número: borra el archivo que acabas de crear y vuelve
+  a correr `composer make:migration`; quédate con el número que asigna. Nunca reutilices uno.
 - El error menciona `notas` ya existente: la tabla quedó de un intento anterior. `vendor/bin/phinx
   rollback -t 0` la baja, y vuelves a subir.
 
@@ -3108,9 +3116,9 @@ escrito para que la segunda entidad no te obligue a releer los trece anteriores.
 
 **Los archivos a tocar**, en orden:
 
-1. `database/migrations/NNN_create_<entidad>_table.php`. Toma el siguiente número libre de
-   `database/migrations/`, nunca `007` ni `008`: esas versiones las reservan los demos de notas y
-   contactos desde `framework/scaffolds/*/database/migrations/<demo>/`.
+1. `database/migrations/NNN_create_<entidad>_table.php`. El número lo asigna
+   `composer make:migration Create<Entidad>Table`: la app usa el rango bajo contiguo y los demos
+   viven desde `900`, así que nunca choca con un scaffold aunque el demo no esté instalado.
 2. `app/Models/<Entidad>.php`
 3. `routes/<entidad>.php` (el arranque lo carga solo, con `->add(RequireAuthMiddleware::class)` en el
    grupo; sin eso tu CRUD queda público) y `config/navigation/<entidad>.php`

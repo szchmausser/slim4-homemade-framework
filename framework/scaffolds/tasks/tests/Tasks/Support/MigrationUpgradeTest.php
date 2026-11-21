@@ -15,13 +15,20 @@ use Symfony\Component\Console\Output\NullOutput;
  * Una migración destructiva (`DROP COLUMN`) solo es segura si los datos viejos se
  * migran antes.
  *
- * Capa tests. Corre las migraciones hasta la 004, inserta una tarea con `done = 1`
- * como la dejaría la versión anterior, aplica la 005 y verifica el backfill y la
- * desaparición de la columna. Para tu entidad, copia el archivo y apunta a tu
- * migración destructiva.
+ * Capa tests. Corre las migraciones de `tasks` hasta la 901 —la 900 crea la tabla
+ * con `done` y la 901 suma `status`—, inserta una tarea con `done = 1` como la
+ * dejaría la versión anterior, aplica la 902 (que mueve los datos a `status` y
+ * recién después borra `done`) y verifica el backfill y la desaparición de la
+ * columna. Para tu entidad, copia el archivo y apunta a tu migración destructiva.
  */
 final class MigrationUpgradeTest extends TestCase
 {
+    /**
+     * Última migración de `tasks` que todavía conserva `done`: la 900 la crea,
+     * la 902 la retira. Migrar hasta acá reproduce la base previa al backfill.
+     */
+    private const LAST_VERSION_WITH_DONE = 901;
+
     private string $db;
 
     protected function setUp(): void
@@ -45,7 +52,7 @@ final class MigrationUpgradeTest extends TestCase
     public function testDoneIsBackfilledBeforeTheColumnIsDropped(): void
     {
         $manager = new Manager($this->config(), new ArrayInput([]), new NullOutput());
-        $manager->migrate('development', 4);
+        $manager->migrate('development', self::LAST_VERSION_WITH_DONE);
 
         $pdo = new PDO('sqlite:' . $this->db);
         $pdo->exec(

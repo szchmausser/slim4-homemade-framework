@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Model;
  * devuelve cada lectura.
  *
  * Eloquent no conoce HTTP ni Twig: describe la fila. La tabla la crea la
- * migración `008_create_contacts_table.php`, el seeder la llena y el controlador
+ * migración `920_create_contacts_table.php`, el seeder la llena y el controlador
  * escribe a través de este modelo.
  *
  * Para tu entidad copia el archivo y cambia `$table`, `$fillable` y las

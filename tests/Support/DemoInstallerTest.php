@@ -9,8 +9,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Regresión del removedor del scaffold: no debe confiar solo en el número de
- * versión de phinxlog. Una migración propia con la versión 004 no es la
- * migración 004 del demo y debe sobrevivir a `demo:tasks:remove`.
+ * versión de phinxlog. Una migración propia con la versión 900 no es la
+ * migración 900 del demo y debe sobrevivir a `demo:tasks:remove`.
  */
 final class DemoInstallerTest extends TestCase
 {
@@ -131,25 +131,25 @@ final class DemoInstallerTest extends TestCase
     public function test_remove_no_borra_una_migracion_del_usuario_con_la_misma_version(): void
     {
         $this->createLog([
-            [4, 'CreateRecetasTable'],
+            [900, 'CreateRecetasTable'],
         ]);
 
         [$exit, $stdout, $stderr] = $this->runRemove();
 
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('no hay migraciones del demo aplicadas', $stdout);
-        self::assertSame(['4:CreateRecetasTable'], $this->logRows());
+        self::assertSame(['900:CreateRecetasTable'], $this->logRows());
     }
 
     public function test_remove_limpia_las_migraciones_y_la_tabla_del_demo(): void
     {
         $this->createLog([
-            [1, 'CreateTasksTable'],
-            [2, 'CreateUsersTable'],
-            [3, 'CreateRememberTokensTable'],
-            [4, 'AddStatusToTasksTable'],
-            [5, 'DropDoneFromTasks'],
-            [6, 'LoginAttempts'],
+            [900, 'CreateTasksTable'],
+            [1, 'CreateUsersTable'],
+            [2, 'CreateRememberTokensTable'],
+            [901, 'AddStatusToTasksTable'],
+            [902, 'DropDoneFromTasks'],
+            [3, 'LoginAttempts'],
         ], withTasks: true);
 
         [$exit, $stdout, $stderr] = $this->runRemove();
@@ -157,9 +157,9 @@ final class DemoInstallerTest extends TestCase
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('tabla tasks eliminada', $stdout);
         self::assertSame([
-            '2:CreateUsersTable',
-            '3:CreateRememberTokensTable',
-            '6:LoginAttempts',
+            '1:CreateUsersTable',
+            '2:CreateRememberTokensTable',
+            '3:LoginAttempts',
         ], $this->logRows());
         self::assertFalse($this->hasTasksTable());
     }
@@ -167,10 +167,10 @@ final class DemoInstallerTest extends TestCase
     public function test_remove_limpia_el_demo_contacts_sin_tocar_las_migraciones_base(): void
     {
         $this->createLog([
-            [2, 'CreateUsersTable'],
-            [3, 'CreateRememberTokensTable'],
-            [6, 'LoginAttempts'],
-            [8, 'CreateContactsTable'],
+            [1, 'CreateUsersTable'],
+            [2, 'CreateRememberTokensTable'],
+            [3, 'LoginAttempts'],
+            [920, 'CreateContactsTable'],
         ], withContacts: true);
 
         [$exit, $stdout, $stderr] = $this->runRemove('contacts');
@@ -178,9 +178,9 @@ final class DemoInstallerTest extends TestCase
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('tabla contacts eliminada', $stdout);
         self::assertSame([
-            '2:CreateUsersTable',
-            '3:CreateRememberTokensTable',
-            '6:LoginAttempts',
+            '1:CreateUsersTable',
+            '2:CreateRememberTokensTable',
+            '3:LoginAttempts',
         ], $this->logRows());
         self::assertFalse($this->hasContactsTable());
     }
