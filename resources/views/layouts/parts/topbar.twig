@@ -9,14 +9,17 @@
        escribe el atributo, así que sin estático el botón se anuncia sólo como
        «botón». Alpine lo sobrescribe en runtime con el nombre del estado.
        `x-cloak` lo esconde hasta entonces: sin JS no hay nada que abrir.
-       Ojo al traducir estos nombres: la traducción se interpola dentro de un
-       literal JS entre comillas simples, así que un texto con apóstrofo
-       rompería la directiva. Los catálogos de hoy no los tienen. #}
+       Los nombres que van dentro de `:aria-label` se escapan con `|e('js')`:
+       la traducción se interpola en un literal JS entre comillas simples, así
+       que un apóstrofo del catálogo cerraría la cadena y Alpine no evaluaría
+       la directiva. Escapar para JS deja el texto en `\uXXXX` y Twig lo
+       vuelve a escapar para HTML, así que el atributo tampoco se rompe.
+       El `aria-label` estático no lo necesita: ahí Twig ya escapa para HTML. #}
     <button class="btn btn-square btn-ghost lg:hidden"
             x-cloak
             @click="sidebarOpen = !sidebarOpen"
             aria-label="{{ t('layout.open_menu') }}"
-            :aria-label="sidebarOpen ? '{{ t('layout.close_menu') }}' : '{{ t('layout.open_menu') }}'"
+            :aria-label="sidebarOpen ? '{{ t('layout.close_menu')|e('js') }}' : '{{ t('layout.open_menu')|e('js') }}'"
             :aria-expanded="sidebarOpen ? 'true' : 'false'">
         <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         <svg x-show="sidebarOpen" x-cloak xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -29,7 +32,7 @@
             x-cloak
             @click="toggleMini()"
             aria-label="{{ t('layout.collapse_menu') }}"
-            :aria-label="sidebarMini ? '{{ t('layout.expand_menu') }}' : '{{ t('layout.collapse_menu') }}'">
+            :aria-label="sidebarMini ? '{{ t('layout.expand_menu')|e('js') }}' : '{{ t('layout.collapse_menu')|e('js') }}'">
         {% include 'components/ui/icon.twig' with {name: 'chevrons-left', class: 'h-6 w-6'} %}
     </button>
 

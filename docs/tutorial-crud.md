@@ -66,9 +66,9 @@ crece, y el 14 te deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notes:install` (se quita con `composer demo:notes:remove`). Sirve para comparar, no para
-aprender: el demo te da el código hecho, el recorrido te hace escribirlo. Es el mismo recorrido, con los
-identificadores en inglés —`Note`, tabla `notes`, `/notes`, `pages/notes/`, `Tests\Notes\`— y los textos
-visibles iguales a los de estas páginas.
+aprender: el demo te da el código hecho, el recorrido te hace escribirlo. El demo es el mismo recorrido
+con los identificadores y los textos en inglés —`Note`, tabla `notes`, `/notes`, `pages/notes/`,
+`Tests\Notes\`, «Add note», «All notes»—; estas páginas dicen lo mismo en castellano.
 
 `remove` tiene una salvedad: si editaste alguno de los archivos del demo, aborta y pide
 `composer demo:notes:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.

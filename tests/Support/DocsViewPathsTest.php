@@ -99,7 +99,7 @@ final class DocsViewPathsTest extends TestCase
     {
         $raiz = dirname(__DIR__, 2);
 
-        // El tutorial declara copias de una entidad que el lector crea (pages/notas/…):
+        // El tutorial declara copias de una entidad que el lector crea (pages/notes/…):
         // no existen en el repo hasta instalar el demo, así que se valida sólo la guía.
         foreach (['docs/guia-stack-php-termux.md'] as $rel) {
             foreach (CodeBlocks::parse((string) file_get_contents($raiz . '/' . $rel)) as $bloque) {

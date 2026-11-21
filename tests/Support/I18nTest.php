@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\I18n\TranslationExtension;
 use Framework\I18n\TranslatorFactory;
 use Framework\Support\Env;
 use Slim\Views\Twig;
+use Symfony\Component\Translation\Loader\ArrayLoader;
+use Symfony\Component\Translation\Translator;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\Environment;
+use Twig\Loader\FilesystemLoader;
 
 /**
  * Contrato de la capa de traducción (S1-S7).
@@ -31,8 +35,36 @@ final class I18nTest extends HttpTestCase
      * Catálogo en español del cromo migrado, tal como estaba escrito a mano en
      * los templates. Es la referencia de S7: el render tiene que decir esto
      * mismo, carácter por carácter.
+     *
+     * Tiene que cubrir TODO el namespace `layout.*` del catálogo: si aparece una
+     * clave nueva y no entra acá, su español queda sin protección y el test
+     * seguiría verde mientras el texto cambia.
      */
     private const ESPANOL = [
+        // Marca y datos de ejecución del shell.
+        'app.name'               => 'Mi App',
+        'footer.environment'     => 'entorno %env%',
+
+        // Cromo de los layouts: navegación, controles y nombres accesibles.
+        'layout.brand_home'      => '%app%, ir al inicio',
+        'layout.breadcrumb'      => 'Miga de pan',
+        'layout.close_menu'      => 'Cerrar menú',
+        'layout.collapse_menu'   => 'Plegar menú',
+        'layout.expand_menu'     => 'Desplegar menú',
+        'layout.logout'          => 'Cerrar sesión',
+        'layout.main_navigation' => 'Navegación principal',
+        'layout.open_menu'       => 'Abrir menú',
+        'layout.skip_to_content' => 'Saltar al contenido',
+        'layout.theme_toggle'    => 'Cambiar entre tema claro y oscuro',
+
+        // Aviso flotante del shell.
+        'toast.close'            => 'Cerrar aviso',
+
+        // Modal nativo y campos de formulario.
+        'modal.close'            => 'Cerrar',
+        'field.optional'         => '(opcional)',
+
+        // Paginador reutilizable.
         'pagination.showing'     => 'Mostrando %from% al %to% de %total% %label%',
         'pagination.label'       => 'registros',
         'pagination.per_page'    => '%label% por página',
@@ -47,8 +79,6 @@ final class I18nTest extends HttpTestCase
         'pagination.go_last'     => 'Última página',
         'pagination.go_page'     => 'Página %page%',
         'pagination.apply'       => 'Aplicar',
-        'modal.close'            => 'Cerrar',
-        'field.optional'         => '(opcional)',
     ];
 
     private static function twig(): Environment
@@ -177,6 +207,32 @@ final class I18nTest extends HttpTestCase
         }
     }
 
+    /**
+     * S7: la referencia no se queda corta cuando el cromo suma una clave.
+     *
+     * Agregar `layout.*` y olvidarla en ESPANOL dejaría un texto del shell sin
+     * proteger: el render seguiría verde y nadie vería que la cadena cambió.
+     */
+    public function test_la_referencia_del_espanol_cubre_todas_las_claves_del_cromo(): void
+    {
+        $es = require self::LANG . '/es.php';
+
+        $deLayout = array_values(array_filter(
+            array_keys($es),
+            static fn (string $clave): bool => str_starts_with($clave, 'layout.')
+        ));
+
+        self::assertNotSame([], $deLayout, 'lang/es.php no tiene claves `layout.*`: el test estaría pasando en vacío.');
+
+        $faltan = array_values(array_diff($deLayout, array_keys(self::ESPANOL)));
+
+        self::assertSame(
+            [],
+            $faltan,
+            'Faltan en la referencia de S7, así que su español no lo protege nadie: ' . implode(', ', $faltan)
+        );
+    }
+
     /** S2: sin APP_LOCALE en el entorno, el default `es` vive en código (S6: .env no viaja). */
     public function test_sin_app_locale_el_default_es_es(): void
     {
@@ -205,6 +261,47 @@ final class I18nTest extends HttpTestCase
 
             self::assertSame('fr', $conFallback->getLocale());
             self::assertSame('Primera', $conFallback->trans('pagination.first'));
+        });
+    }
+
+    /**
+     * S2: un locale que no es un código de idioma no escapa de `lang/`.
+     *
+     * El locale termina dentro de `lang/<locale>.php`, así que `es/../en` arma
+     * otra ruta, `en.php` otra extensión y el vacío ninguna. En los tres casos
+     * manda el default `es` y el catálogo real: no se lee nada de afuera.
+     */
+    public function test_un_locale_invalido_no_escapa_de_lang_y_cae_en_es(): void
+    {
+        // El fallback se fija en código para que el resultado no dependa del
+        // entorno del que corre la suite.
+        self::withLocale(['APP_FALLBACK_LOCALE' => null], static function (): void {
+            foreach (['es/../en', '../en', '/etc/passwd', 'en.php', '..', '', '   ', 'es en'] as $invalido) {
+                $traductor = TranslatorFactory::create($invalido);
+
+                self::assertSame(
+                    'es',
+                    $traductor->getLocale(),
+                    "El locale «{$invalido}» tenía que caer en el default `es`."
+                );
+                self::assertSame(
+                    'Primera',
+                    $traductor->trans('pagination.first'),
+                    "El locale «{$invalido}» resolvió un catálogo fuera de `lang/`."
+                );
+            }
+        });
+    }
+
+    /** S2: un locale sin catálogo usa el fallback `en` que vive en código. */
+    public function test_un_locale_sin_catalogo_usa_el_fallback_en(): void
+    {
+        self::withLocale(['APP_FALLBACK_LOCALE' => null], static function (): void {
+            $traductor = TranslatorFactory::create('fr');
+
+            self::assertSame('fr', $traductor->getLocale());
+            self::assertSame('First', $traductor->trans('pagination.first'));
+            self::assertSame('Showing %from% to %to% of %total% %label%', $traductor->trans('pagination.showing'));
         });
     }
 
@@ -319,5 +416,141 @@ final class I18nTest extends HttpTestCase
 
         self::assertStringContainsString('Mostrando 1 al 10 de 42 registros', $es);
         self::assertStringNotContainsString('Showing', $es);
+    }
+
+    /**
+     * S7 + escape: un apóstrofo del catálogo no rompe la directiva de Alpine.
+     *
+     * El nombre accesible de los dos botones del header depende del estado
+     * (`sidebarOpen`, `sidebarMini`), así que se escribe en un ternario JS
+     * entre comillas simples y ahí se interpola la traducción. Sin `|e('js')`,
+     * «Ouvrir l'app» cierra la cadena, Alpine no evalúa el ternario y el botón
+     * se queda sin nombre accesible: el control existe y no se anuncia.
+     *
+     * El catálogo va en memoria (ArrayLoader) y no en un archivo temporal: el
+     * caso es el texto, no de dónde sale.
+     */
+    public function test_un_apostrofo_del_catalogo_no_rompe_los_nombres_de_alpine(): void
+    {
+        $traductor = new Translator('fr');
+        $traductor->addLoader('array', new ArrayLoader());
+        $traductor->addResource('array', [
+            'layout.breadcrumb'    => 'Fil',
+            'layout.close_menu'    => "Fermer l'app",
+            'layout.collapse_menu' => "Réduire l'app",
+            'layout.expand_menu'   => "Déplier l'app",
+            'layout.open_menu'     => "Ouvrir l'app",
+            'layout.theme_toggle'  => 'Thème',
+        ], 'fr');
+
+        $twig = new Environment(new FilesystemLoader(__DIR__ . '/../../resources/views'));
+        $twig->addExtension(new TranslationExtension($traductor));
+
+        $html = $twig->render('layouts/parts/topbar.twig');
+
+        // El `aria-label` estático es HTML puro: ahí alcanza el escape normal de
+        // Twig y el texto se ve tal cual. Escaparlo para JS mostraría `\uXXXX`.
+        self::assertStringContainsString('aria-label="Ouvrir l&#039;app"', $html);
+
+        $atributos = [];
+        preg_match_all('/:aria-label="([^"]*)"/', $html, $atributos);
+        self::assertArrayHasKey(1, $atributos, 'El header no tiene los dos nombres accesibles dependientes del estado.');
+        self::assertCount(2, $atributos[1], 'El header dejó de tener dos nombres accesibles dependientes del estado.');
+
+        $nombres = [];
+
+        foreach ($atributos[1] as $valor) {
+            $expresion = html_entity_decode($valor, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $literales = self::literalesDelTernario($expresion);
+
+            self::assertCount(
+                2,
+                $literales,
+                'La traducción cerró la cadena de JS: Alpine no puede evaluar `' . $expresion . '`.'
+            );
+
+            $nombres = array_merge($nombres, $literales);
+        }
+
+        sort($nombres);
+
+        self::assertSame(
+            ["Déplier l'app", "Fermer l'app", "Ouvrir l'app", "Réduire l'app"],
+            $nombres,
+            'Los nombres accesibles que evalúa Alpine no son los del catálogo.'
+        );
+    }
+
+    /**
+     * Los dos literales de `estado ? 'a' : 'b'`, ya decodificados.
+     *
+     * Devuelve `[]` cuando el ternario no se puede leer: ése es justo el modo en
+     * que se rompe la directiva, porque una comilla sin escapar cierra la
+     * cadena antes de tiempo.
+     *
+     * @return list<string>
+     */
+    private static function literalesDelTernario(string $expresion): array
+    {
+        $pregunta = strpos($expresion, "? '");
+        $separador = strpos($expresion, "' : '");
+        $cierre = strrpos($expresion, "'");
+
+        if ($pregunta === false || $separador === false || $cierre === false) {
+            return [];
+        }
+
+        if ($separador <= $pregunta || $cierre <= $separador) {
+            return [];
+        }
+
+        $literales = [
+            substr($expresion, $pregunta + 3, $separador - $pregunta - 3),
+            substr($expresion, $separador + 5, $cierre - $separador - 5),
+        ];
+
+        $textos = [];
+
+        foreach ($literales as $literal) {
+            if (!self::literalCompleto($literal)) {
+                return [];
+            }
+
+            // El escape de Twig para JS produce JSON válido (`\uXXXX`, `\\`,
+            // `\/`, `\n`…), así que un literal sano se decodifica como string.
+            $texto = json_decode('"' . $literal . '"', true);
+
+            if (!is_string($texto)) {
+                return [];
+            }
+
+            $textos[] = $texto;
+        }
+
+        return $textos;
+    }
+
+    /**
+     * ¿El literal no tiene comillas sin escapar?
+     *
+     * Se salta el carácter que sigue a cada barra: `\u0027` es una comilla
+     * inofensiva, una `'` suelta cierra la cadena.
+     */
+    private static function literalCompleto(string $literal): bool
+    {
+        $largo = strlen($literal);
+
+        for ($i = 0; $i < $largo; $i++) {
+            if ($literal[$i] === '\\') {
+                $i++;
+                continue;
+            }
+
+            if ($literal[$i] === "'" || $literal[$i] === '"') {
+                return false;
+            }
+        }
+
+        return $largo > 0;
     }
 }

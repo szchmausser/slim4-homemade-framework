@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  * - `layouts/` es el esqueleto del documento, con sus fragmentos en `parts/`.
  * - `components/<familia>/` es lo reutilizable con contrato propio.
  * - `pages/` son las pantallas, y cada feature puede tener sus fragmentos con
- *   guion bajo (`pages/notas/_panel.twig`).
+ *   guion bajo (`pages/notes/_panel.twig`).
  *
  * Antes convivían `partials/layout/*`, `partials/_icon.twig` y `layouts/*`: tres
  * lugares plausibles para el shell y otros tantos para un átomo, con la

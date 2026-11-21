@@ -295,6 +295,13 @@ final class LayoutContractTest extends TestCase
      * Los bindings que ya estaban no se mudan al atributo estático: Alpine
      * sigue siendo dueño del estado en runtime. Si alguien borra la directiva,
      * el nombre deja de seguir al estado y el toggle deja de escribir `theme`.
+     *
+     * Los dos `:aria-label` exigen `|e('js')` en la interpolación: el nombre
+     * viaja dentro de un literal JS entre comillas simples, así que un
+     * apóstrofo del catálogo cerraría la cadena y Alpine no evaluaría el
+     * ternario (lo prueba
+     * `I18nTest::test_un_apostrofo_del_catalogo_no_rompe_los_nombres_de_alpine`).
+     * El `aria-label` estático no lo lleva: ahí el escape HTML de Twig alcanza.
      */
     public function test_los_controles_del_header_conservan_sus_bindings_de_alpine(): void
     {
@@ -307,9 +314,9 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/:aria-label="sidebarOpen \? \'\{\{ t\(\'layout\.close_menu\'\) \}\}\' : \'\{\{ t\(\'layout\.open_menu\'\) \}\}\'"/',
+            '/:aria-label="sidebarOpen \? \'\{\{ t\(\'layout\.close_menu\'\)\|e\(\'js\'\) \}\}\' : \'\{\{ t\(\'layout\.open_menu\'\)\|e\(\'js\'\) \}\}\'"/',
             $hamburger,
-            'el hamburguesa perdió su :aria-label: el nombre tiene que seguir al estado abierto/cerrado en runtime.'
+            'el hamburguesa perdió su :aria-label con `|e(\'js\')`: el nombre tiene que seguir al estado abierto/cerrado en runtime y la interpolación se escapa para JS, o un apóstrofo del catálogo cierra la cadena.'
         );
 
         self::assertPattern(
@@ -325,9 +332,9 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/:aria-label="sidebarMini \? \'\{\{ t\(\'layout\.expand_menu\'\) \}\}\' : \'\{\{ t\(\'layout\.collapse_menu\'\) \}\}\'"/',
+            '/:aria-label="sidebarMini \? \'\{\{ t\(\'layout\.expand_menu\'\)\|e\(\'js\'\) \}\}\' : \'\{\{ t\(\'layout\.collapse_menu\'\)\|e\(\'js\'\) \}\}\'"/',
             $collapse,
-            'el botón de plegar perdió su :aria-label: el nombre tiene que seguir al estado plegado/desplegado en runtime.'
+            'el botón de plegar perdió su :aria-label con `|e(\'js\')`: el nombre tiene que seguir al estado plegado/desplegado en runtime y la interpolación se escapa para JS, o un apóstrofo del catálogo cierra la cadena.'
         );
 
         $theme = self::openingTag(

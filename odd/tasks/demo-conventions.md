@@ -201,3 +201,18 @@ español a propósito: su prosa y sus textos visibles no siguen la convención d
   `composer phpstan` OK, `php vendor/bin/phpunit` completo OK (227 tests, 1790 aserciones) con
   `--filter 'MakeMigrationTest|MakeModelTest'` OK (14 tests), y `composer make:migration CreateNotesTable`
   sobre un árbol temporal imprime el aviso del scaffold y crea `006_create_notes_table.php`.
+- L18 (agente, cierre del defecto y los advisories de la verificación): la presentación del tutorial ya no
+  afirma que el demo comparte los textos visibles. El demo `notes` es el mismo recorrido con los
+  identificadores **y los textos** en inglés (`Add note`, `All notes`, `No notes yet.`, `Note created.`), y
+  las páginas del tutorial dicen lo mismo en castellano; la frase queda en dos líneas y sin dramatizar.
+  Test nuevo `tests/Support/TutorialEntityTest.php`: el documento no puede nombrar `NotaController`,
+  `CreateNotasTable`, `006_create_notas_table`, `pages/notas/`, `tests/Notas`, `routes/notas` ni `/notas`, y
+  tiene que declarar `NoteController`, `CreateNotesTable`, `006_create_notes_table.php`, `pages/notes/`,
+  `Tests\Notes\Http`, `/notes` y las columnas `'title'`/`'body'`. Los patrones son literales y sensibles a
+  mayúsculas porque la prosa castellana dice «notas» y las capturas se llaman `04-2-menu-*-notas.png`;
+  `title`/`body` se buscan entrecomillados para no matchear el `<title>` del HTML estático. Comentarios al
+  día: `DocsViewPathsTest` y `ViewStructureTest` decían `pages/notas/`. Mutaciones observadas: «Abrir menu»
+  en `lang/es.php` falla S7; `NotaController` en el tutorial falla con archivo y línea; `Tests\Notas\Http`
+  falla la mitad de «identificadores vigentes». Verificación: `composer lint` OK (97 archivos),
+  `composer docs:check` OK (56 copias), `composer phpstan` OK, y la suite base queda verde salvo el guard de
+  `LayoutContractTest` que fija el `:aria-label` sin `|e('js')` (pendiente, ver L5 de `i18n.md`).
