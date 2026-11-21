@@ -424,9 +424,11 @@ final class DemoInstallerTest extends TestCase
         }
 
         if ($withNotes) {
-            // Sin la columna `cuerpo`: la migración del demo no puede crearla y
-            // falla, que es lo que el test de rollback necesita.
-            $pdo->exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, titulo TEXT)');
+            // Tabla `notes` preexistente e incompleta (le faltan `body` y los
+            // timestamps): Phinx no puede crear la tabla del demo porque ya
+            // existe, así que el install falla en la DB. Ese fallo es lo que
+            // necesita el test de rollback, no un texto exacto.
+            $pdo->exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, title TEXT)');
         }
 
         $pdo = null;

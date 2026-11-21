@@ -51,10 +51,10 @@ final class NoteController extends Controller
         return [
             'notes'      => $pagination['items'],
             'pagination' => $pagination,
-            // La miga la pinta el header del shell: Inicio como enlace y Notas
+            // La miga la pinta el header del shell: Inicio como enlace y Notes
             // como página actual. Sin ella, el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
-            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
+            'breadcrumbs' => $this->breadcrumbs('Notes', 'list'),
         ];
     }
 
@@ -99,17 +99,17 @@ final class NoteController extends Controller
     /**
      * `POST /notes`: el alta.
      *
-     * Valida el título y el cuerpo; si pasa, guarda y redirige al listado con el
+     * Valida `title` y `body`; si pasa, guarda y redirige al listado con el
      * aviso, y si falla devuelve 422 con el modal de alta abierto y lo tipeado.
      */
     public function store(Request $request, Response $response): Response
     {
         $data = (array) $request->getParsedBody();
-        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
+        $data['body'] = trim((string) ($data['body'] ?? ''));
 
         $validator = Validator::make($data, [
-            'titulo' => 'required|max:120',
-            'cuerpo' => 'max:2000',
+            'title' => 'required|max:120',
+            'body'  => 'max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -121,11 +121,11 @@ final class NoteController extends Controller
         }
 
         Note::create([
-            'titulo' => (string) $data['titulo'],
-            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
+            'title' => (string) $data['title'],
+            'body'  => $data['body'] !== '' ? $data['body'] : null,
         ]);
 
-        Flash::set('success', 'Nota creada.');
+        Flash::set('success', 'Note created.');
 
         return $this->redirect($response, '/notes');
     }
@@ -165,11 +165,11 @@ final class NoteController extends Controller
         }
 
         $data = (array) $request->getParsedBody();
-        $data['cuerpo'] = trim((string) ($data['cuerpo'] ?? ''));
+        $data['body'] = trim((string) ($data['body'] ?? ''));
 
         $validator = Validator::make($data, [
-            'titulo' => 'required|max:120',
-            'cuerpo' => 'max:2000',
+            'title' => 'required|max:120',
+            'body'  => 'max:2000',
         ]);
 
         if ($validator->fails()) {
@@ -185,11 +185,11 @@ final class NoteController extends Controller
         }
 
         $note->fill([
-            'titulo' => (string) $data['titulo'],
-            'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
+            'title' => (string) $data['title'],
+            'body'  => $data['body'] !== '' ? $data['body'] : null,
         ])->save();
 
-        Flash::set('success', 'Nota actualizada.');
+        Flash::set('success', 'Note updated.');
 
         return $this->redirect($response, '/notes');
     }
@@ -205,7 +205,7 @@ final class NoteController extends Controller
 
         $note->delete();
 
-        Flash::set('success', 'Nota borrada.');
+        Flash::set('success', 'Note deleted.');
 
         return $this->redirect($response, '/notes');
     }

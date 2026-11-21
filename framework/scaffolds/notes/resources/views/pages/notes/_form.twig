@@ -22,33 +22,35 @@
     {# El mensaje llega desde `Validator` con la clave del campo: aquí sólo se
        pasa, y el campo es quien lo ata al input. #}
     {% include 'components/form/field.twig' with {
-        name: 'titulo',
-        label: 'Título',
-        value: values ? values.titulo : '',
+        name: 'title',
+        label: 'Title',
+        value: values ? values.title : '',
         required: true,
         maxlength: 120,
-        error: errors.titulo|default(null)
+        error: errors.title|default(null)
     } only %}
 
+    {# El aviso de opcional va en la etiqueta y no en `optional: true`: ese
+       flag pertenece a `components/form/field.twig`, que lo escribe en
+       castellano para toda la app. #}
     {% include 'components/form/field.twig' with {
-        name: 'cuerpo',
-        label: 'Cuerpo',
-        value: values ? values.cuerpo : '',
-        optional: true,
+        name: 'body',
+        label: 'Body (optional)',
+        value: values ? values.body : '',
         maxlength: 2000,
-        error: errors.cuerpo|default(null)
+        error: errors.body|default(null)
     } only %}
 
     <div class="modal-action">
         {% include 'components/ui/button.twig' with {
-            label: 'Cancelar',
+            label: 'Cancel',
             variant: 'ghost',
             type: 'button',
             icon: 'x',
             data_modal_close: true
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: submit_label|default('Guardar'),
+            label: submit_label|default('Save'),
             type: 'submit',
             icon: submit_icon|default('check')
         } only %}

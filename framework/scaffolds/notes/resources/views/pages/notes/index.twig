@@ -9,21 +9,21 @@
 #}
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Notas{% endblock %}
+{% block title %}Notes{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
             {% embed 'components/ui/page-header.twig' with {
                 icon: 'list',
-                title: 'Notas',
-                subtitle: 'Tus notas, con alta y acciones por fila.'
+                title: 'Notes',
+                subtitle: 'Your notes, with creation and row actions.'
             } %}
                 {% block actions %}
                     {% embed 'components/ui/action-bar.twig' %}
                         {% block controls %}
                             {% include 'components/ui/button.twig' with {
-                                label: 'Agregar nota',
+                                label: 'Add note',
                                 icon: 'plus',
                                 data_modal_open: 'note-create-modal'
                             } only %}
@@ -32,7 +32,7 @@
                 {% endblock %}
             {% endembed %}
 
-            <h2 class="text-lg font-semibold">Listado</h2>
+            <h2 class="text-lg font-semibold">All notes</h2>
 
             {# El `include` y no un `embed`: el panel es la región que el
                controlador devuelve sola en una petición htmx. #}
@@ -42,8 +42,8 @@
 
     {% embed 'components/ui/modal.twig' with {
         id: 'note-create-modal',
-        title: 'Nueva nota',
-        subtitle: 'Pon un título; el cuerpo es opcional.',
+        title: 'New note',
+        subtitle: 'Give it a title; the body is optional.',
         open: open_create_modal|default(false)
     } %}
         {% block body %}
@@ -52,7 +52,7 @@
                estás editando. #}
             {% include 'pages/notes/_form.twig' with {
                 action: url('/notes'),
-                submit_label: 'Crear nota',
+                submit_label: 'Create note',
                 submit_icon: 'plus',
                 note: null
             } %}
@@ -65,13 +65,13 @@
     {% if note is defined %}
         {% embed 'components/ui/modal.twig' with {
             id: 'note-edit-modal',
-            title: 'Editar nota',
+            title: 'Edit note',
             open: open_edit_modal|default(false)
         } %}
             {% block body %}
                 {% include 'pages/notes/_form.twig' with {
                     action: url('/notes/' ~ note.id),
-                    submit_label: 'Guardar cambios',
+                    submit_label: 'Save changes',
                 } %}
             {% endblock %}
         {% endembed %}

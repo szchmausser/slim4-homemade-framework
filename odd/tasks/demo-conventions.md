@@ -148,3 +148,30 @@ español a propósito: ahí el lector paga el precio de apartarse de la convenci
   `AGENTS.md`, `PRODUCT.md`, `DESIGN.md`, `docs`, `specs`, `config`, `tests`, `framework`, `app` y `scripts`
   no devuelve nada. Fuera de esa lista quedan referencias históricas (`.ai/`, `odd/`, `.gsd/`,
   `.impeccable/`) y una viva que esta unidad no puede tocar: el comentario de `.env.example:34`.
+- L16 (agente, ampliación de S2): el demo `notes` pasa a inglés completo, **dominio incluido**.
+  Columnas `title` (string 120) y `body` (text nullable) en la migración `910_create_notes_table.php`
+  (`CreateNotesTable`, tabla `notes` y banda 910 intactas), `$fillable` y `@property` de `Note`, validación
+  (`title` → `required|max:120`, `body` → `max:2000`) y normalización de `body` vacío a `null` en
+  `store`/`update`. Flashes «Note created.» / «Note updated.» / «Note deleted.», miga «Notes» y título de
+  página «Notes». Vistas `pages/notes/*`: «Add note», «All notes», «New note» / «Create note», «Edit
+  note» / «Save changes», «Delete note» / «Delete», «Cancel», «Save», estado vacío «No notes yet.»,
+  `aria-label` «Edit …» / «Delete …», etiquetas «Title» y «Body (optional)». Los ids de HTML no cambian
+  (`#notes-panel`, `note-create-modal`, `note-edit-modal`, `note-delete-<id>`). `NoteSeeder` con doce
+  títulos realistas en inglés y `body` en los índices 0/3/6/9; sus dos mensajes de consola también en
+  inglés (`NoteSeeder: 12 demo notes.`). `NoteTest` afirma los campos y textos nuevos sin cambiar lo que
+  demuestra (alta, aviso, rechazo con el modal abierto, edición, borrado, CSRF, paginación por región,
+  guarda de doble submit, catálogo y menú); la portada pasa a «Demo de notes» porque `home.twig` aplica
+  `|lower` a `label`.
+  **Decisiones de traducción y límites**: el aviso de opcional va en la etiqueta («Body (optional)») y no
+  en `optional: true` porque `components/form/field.twig` escribe «(opcional)» para toda la app; los
+  mensajes del `Validator` («Este campo es obligatorio.») y el cromo de
+  `components/pagination/simple.twig` («Mostrando…», «Anterior», «Siguiente») siguen en castellano: son
+  framework y quedan fuera de las superficies de esta unidad. `DemoInstallerTest::createLog()` renombra su
+  fixture a `title`; el fallo que prueba el rollback no es una columna ausente sino que Phinx no puede
+  crear una tabla `notes` que ya existe (el fixture sigue incompleto, sin `body` ni timestamps), así que
+  el caso sigue midiendo el rollback del install. Verificación observada: lint OK (90 archivos); docs sync
+  (nada que sincronizar) y docs check OK (55 copias); phpstan OK; suite base OK (218 tests) y con el demo
+  instalado OK (230, `NoteTest` 12 y `DemoInstallerTest` 18); install/remove real sobre
+  `storage/cache/notes-en.sqlite` (`NoteSeeder: 12 demo notes.`, remove sin residuos) y
+  `grep -rn "titulo\|cuerpo"` sobre el scaffold sin resultados. No se tocaron `docs/tutorial-crud.md`
+  (sigue en español con `notas`/`titulo`/`cuerpo`), los otros scaffolds, `database/` ni `scripts/`.

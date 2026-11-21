@@ -19,13 +19,13 @@ declare(strict_types=1);
  * agregando una línea a una lista.
  */
 return [
-    'label'    => 'Notas',
+    'label'    => 'Notes',
     'href'     => '/notes',
     'icon'     => 'list',
     'key'      => 'notes',
     // Ficha que el menú muestra para orientar a quien recién llega.
     'summary'  => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
-    'why'      => 'Es el patrón del tutorial con nombres en inglés y el layout plano en app/Models y app/Http/Controllers: compara comportamiento, no ubicación.',
+    'why'      => 'Es el patrón del tutorial con el dominio en inglés (columnas title y body) y el layout plano en app/Models y app/Http/Controllers: compara comportamiento, no ubicación.',
     // Orden dentro del menú; los demos instalados se intercalan por este número.
     'position' => 30,
 ];

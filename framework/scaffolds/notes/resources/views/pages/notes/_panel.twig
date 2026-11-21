@@ -11,16 +11,16 @@
 <div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
         items: notes,
-        empty: 'No hay notas todavía.'
+        empty: 'No notes yet.'
     } %}
         {% block row %}
             {# Una fila: el título abre la edición y a la derecha van las dos
                acciones como iconos con nombre accesible. #}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
                 <div class="min-w-0">
-                    <a class="font-semibold" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
-                    {% if item.cuerpo %}
-                        <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
+                    <a class="font-semibold" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">{{ item.title }}</a>
+                    {% if item.body %}
+                        <p class="text-sm opacity-70">{{ item.body }}</p>
                     {% endif %}
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
@@ -29,7 +29,7 @@
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Editar ' ~ item.titulo,
+                        aria_label: 'Edit ' ~ item.title,
                         href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
@@ -41,7 +41,7 @@
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.titulo,
+                        aria_label: 'Delete ' ~ item.title,
                         data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
@@ -55,23 +55,23 @@
             {% for item in notes %}
                 {% embed 'components/ui/modal.twig' with {
                     id: 'note-delete-' ~ item.id,
-                    title: 'Borrar nota'
+                    title: 'Delete note'
                 } %}
                     {% block body %}
-                        <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
+                        <p class="py-3 opacity-70">Delete "{{ item.title }}"? This cannot be undone.</p>
                         <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                               onsubmit="this.querySelector('[type=submit]').disabled = true">
                             {% include 'components/form/csrf.twig' %}
                             <div class="modal-action">
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Cancelar',
+                                    label: 'Cancel',
                                     variant: 'ghost',
                                     type: 'button',
                                     icon: 'x',
                                     data_modal_close: true
                                 } only %}
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Borrar',
+                                    label: 'Delete',
                                     variant: 'error',
                                     type: 'submit',
                                     icon: 'trash'

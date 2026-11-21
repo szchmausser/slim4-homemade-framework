@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * La tabla no se declara: Eloquent la deriva del nombre de la clase (`Note` →
  * `notes`). `$table` se escribe sólo cuando la tabla se aparta de esa
- * convención; el tutorial lo muestra con la suya en español.
+ * convención; el tutorial lo explica con `Ciudad` → `ciudads`.
  *
  * Para crear tu propia entidad, copia este archivo y cambia dos cosas:
  * `$fillable` y las anotaciones `@property`. Las anotaciones no son
@@ -24,8 +24,8 @@ use Illuminate\Database\Eloquent\Model;
  * existe.
  *
  * @property int $id
- * @property string $titulo
- * @property string|null $cuerpo
+ * @property string $title
+ * @property string|null $body
  * @property \Illuminate\Support\Carbon $created_at
  * @property \Illuminate\Support\Carbon $updated_at
  * @method static Note|null find(int|string $id)
@@ -34,5 +34,5 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Note extends Model
 {
-    protected $fillable = ['titulo', 'cuerpo'];
+    protected $fillable = ['title', 'body'];
 }

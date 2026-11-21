@@ -36,8 +36,8 @@ final class NoteTest extends HttpTestCase
     {
         // `$data` va primero: si el default quedara a la izquierda, el `+` de
         // PHP descartaría el título que pasa cada test y todas las filas se
-        // llamarían «De prueba».
-        return Note::create($data + ['titulo' => 'De prueba']);
+        // llamarían «Sample».
+        return Note::create($data + ['title' => 'Sample']);
     }
 
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
@@ -47,8 +47,8 @@ final class NoteTest extends HttpTestCase
         $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => 'Primera nota',
-            'cuerpo'     => 'Contenido',
+            'title'      => 'First note',
+            'body'       => 'Content',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
@@ -56,9 +56,9 @@ final class NoteTest extends HttpTestCase
         self::assertSame(1, Note::query()->count());
 
         $list = self::app()->handle(self::request('GET', '/notes'));
-        self::assertStringContainsString('Primera nota', (string) $list->getBody());
+        self::assertStringContainsString('First note', (string) $list->getBody());
         self::assertStringContainsString('aria-label="Miga de pan"', (string) $list->getBody());
-        self::assertStringContainsString('aria-current="page">Notas', (string) $list->getBody());
+        self::assertStringContainsString('aria-current="page">Notes', (string) $list->getBody());
     }
 
     public function test_el_aviso_de_exito_llega_al_host_de_toasts_por_defecto(): void
@@ -71,14 +71,14 @@ final class NoteTest extends HttpTestCase
         self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => 'Con aviso',
-            'cuerpo'     => '',
+            'title'      => 'With flash',
+            'body'       => '',
         ]));
 
         $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
 
         self::assertStringContainsString('toast-host', $html);
-        self::assertStringContainsString('Nota creada.', $html);
+        self::assertStringContainsString('Note created.', $html);
     }
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
@@ -88,21 +88,23 @@ final class NoteTest extends HttpTestCase
         $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => '',
-            'cuerpo'     => 'Texto que quiero conservar',
+            'title'      => '',
+            'body'       => 'Text I want to keep',
         ]));
         $html = (string) $response->getBody();
 
         self::assertSame(422, $response->getStatusCode());
         self::assertSame(0, Note::query()->count());
+        // El mensaje es de `Framework\Validation\Validator`, compartido con la
+        // app: el validador no recibe mensajes del demo.
         self::assertStringContainsString('Este campo es obligatorio.', $html);
-        self::assertStringContainsString('Texto que quiero conservar', $html);
+        self::assertStringContainsString('Text I want to keep', $html);
         self::assertMatchesRegularExpression('/note-create-modal[^>]*open/', $html);
     }
 
     public function test_edita_una_nota(): void
     {
-        $note = $this->createNote(['titulo' => 'Antes']);
+        $note = $this->createNote(['title' => 'Before']);
         $token = self::token('/notes');
 
         // El alta comparte `_form.twig` con la edición, así que en la página de
@@ -111,9 +113,9 @@ final class NoteTest extends HttpTestCase
             self::request('GET', '/notes/' . $note->id . '/edit')
         )->getBody();
         self::assertStringContainsString('aria-label="Miga de pan"', $editPage);
-        self::assertStringContainsString('aria-current="page">Notas', $editPage);
+        self::assertStringContainsString('aria-current="page">Notes', $editPage);
         self::assertStringNotContainsString(
-            'value="Antes"',
+            'value="Before"',
             self::dialogHtml($editPage, 'note-create-modal'),
             'El alta no tiene que heredar la nota que se está editando.'
         );
@@ -121,22 +123,22 @@ final class NoteTest extends HttpTestCase
         $response = self::app()->handle(self::request('POST', '/notes/' . $note->id, [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => 'Después',
+            'title'      => 'After',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('Después', (string) Note::find($note->id)?->titulo);
+        self::assertSame('After', (string) Note::find($note->id)?->title);
     }
 
     public function test_el_rechazo_de_la_edicion_reabre_su_modal_y_no_el_del_alta(): void
     {
-        $note = $this->createNote(['titulo' => 'Actual']);
+        $note = $this->createNote(['title' => 'Current']);
         $token = self::token('/notes');
 
         $response = self::app()->handle(self::request('POST', '/notes/' . $note->id, [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => '',
+            'title'      => '',
         ]));
         $html = (string) $response->getBody();
 
@@ -166,8 +168,8 @@ final class NoteTest extends HttpTestCase
         $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
-            'titulo'     => '',
-            'cuerpo'     => '',
+            'title'      => '',
+            'body'       => '',
         ]));
 
         self::assertSame(422, $response->getStatusCode());
@@ -181,7 +183,7 @@ final class NoteTest extends HttpTestCase
         // El CSRF es global: sin token, el Guard corta antes del controlador y
         // manda al login. Por eso no se crea ninguna fila.
         $response = self::app()->handle(self::request('POST', '/notes', [
-            'titulo' => 'Sin token',
+            'title' => 'No token',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
@@ -192,7 +194,7 @@ final class NoteTest extends HttpTestCase
     public function test_pagina_por_region_y_expone_la_url_de_la_pagina_renderizada(): void
     {
         foreach (range(1, 12) as $i) {
-            $this->createNote(['titulo' => 'Nota ' . $i]);
+            $this->createNote(['title' => 'Note ' . $i]);
         }
 
         $response = self::app()->handle(self::request(
@@ -213,7 +215,7 @@ final class NoteTest extends HttpTestCase
 
     public function test_los_formularios_deshabilitan_el_boton_para_no_duplicar(): void
     {
-        $note = $this->createNote(['titulo' => 'Con guarda']);
+        $note = $this->createNote(['title' => 'With guard']);
         $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
         $guard = "this.querySelector('[type=submit]').disabled = true";
 
@@ -242,14 +244,14 @@ final class NoteTest extends HttpTestCase
         // El catálogo sale de los scaffolds, así que están los tres aunque solo
         // este esté instalado.
         self::assertSame(3, substr_count($html, 'Demo de '), 'La portada lista los tres módulos.');
-        self::assertStringContainsString('Demo de notas', $html);
+        self::assertStringContainsString('Demo de notes', $html);
         self::assertStringContainsString('composer demo:notes:remove', $html, 'Instalado: ofrece desinstalar.');
     }
 
     public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void
     {
         $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
-        $item = self::navItemHtml($html, 'Notas');
+        $item = self::navItemHtml($html, 'Notes');
 
         self::assertStringContainsString('href="/notes"', $item, 'La entrada del menú tiene que apuntar a /notes.');
         self::assertStringContainsString('aria-current="page"', $item, 'En /notes, su entrada va marcada como activa.');
