@@ -1,7 +1,33 @@
 {# Datos de ejecución del shell. La versión de PHP y el entorno salen del
    container; el stack del producto vive en la portada. «entorno» sale del
    catálogo (`footer.environment`) porque es una palabra, no un dato: el valor
-   de APP_ENV se interpola tal cual. #}
-<footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-    <aside>PHP {{ php_version }} · SQLite · {{ t('footer.environment', {'%env%': app_env}) }}</aside>
+   de APP_ENV se interpola tal cual.
+
+   El selector de idioma es un POST con CSRF: cambia la elección guardada en la
+   sesión, así que es una mutación y el Guard la protege como a cualquier otra.
+   `locale_names` sale del `locale.name` de CADA catálogo, así que cada idioma se
+   muestra en su propio idioma; `app_locale` es el resuelto por el middleware en
+   esta petición. `current_path` viaja como campo oculto —sin el prefijo de
+   despliegue, porque la ruta lo vuelve a poner con Url::path()— y el servidor lo
+   valida antes de redirigir: sólo rutas locales, nunca `//host` ni una URL
+   absoluta. #}
+<footer class="footer footer-center min-h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
+    <aside class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 py-1">
+        <span>PHP {{ php_version }} · SQLite · {{ t('footer.environment', {'%env%': app_env}) }}</span>
+        <form method="post" action="{{ url('/locale') }}" class="flex items-center gap-1">
+            <input type="hidden" name="redirect_to" value="{{ current_path|default('/') }}">
+            <select name="lang" class="select select-xs" aria-label="{{ t('footer.language') }}">
+                {% for code, name in locale_names %}
+                    <option value="{{ code }}"{% if code == app_locale %} selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            {% include 'components/ui/button.twig' with {
+                label: t('footer.apply'),
+                type: 'submit',
+                variant: 'ghost',
+                size: 'xs'
+            } only %}
+            {% include 'components/form/csrf.twig' %}
+        </form>
+    </aside>
 </footer>

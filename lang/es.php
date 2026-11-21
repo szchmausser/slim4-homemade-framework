@@ -24,6 +24,14 @@ return [
     // Pie del shell (datos de ejecución, no configuración de producto).
     'footer.environment' => 'entorno %env%',
 
+    // Selector de idioma del pie: nombre accesible del <select> y del botón.
+    'footer.apply'       => 'Cambiar',
+    'footer.language'    => 'Idioma',
+
+    // Nombre del idioma en el propio idioma. El selector lo lee del catálogo de
+    // CADA locale (no del activo) para que cada uno se reconozca en el suyo.
+    'locale.name' => 'Español',
+
     // Cromo de los layouts: navegación, controles y nombres accesibles.
     'layout.brand_home'      => '%app%, ir al inicio',
     'layout.breadcrumb'      => 'Miga de pan',

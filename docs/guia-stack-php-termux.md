@@ -127,7 +127,9 @@ mi-app/
 │   ├── Support/
 │   │   └── Env.php                 # lectura tipada del entorno (get/bool/int)
 │   ├── I18n/
-│   │   ├── TranslatorFactory.php   # traductor: locale de APP_LOCALE + catálogos de lang/
+│   │   ├── LocaleResolver.php      # locale de cada request (función pura: ?lang= > sesión > cabecera > default)
+│   │   ├── Trans.php               # Trans::t() para PHP (flashes, scripts)
+│   │   ├── TranslatorFactory.php   # traductor: catálogos de lang/ + default APP_LOCALE
 │   │   └── TranslationExtension.php # t() y |trans en Twig, sin twig-bridge
 │   └── scaffolds/
 │       ├── tasks/                  # demo opcional: composer demo:tasks:install
@@ -472,6 +474,7 @@ Sin esto, un checkout en Windows reescribe los `.js` a CRLF, el hash `integrity`
 declare(strict_types=1);
 
 use Framework\Http\Flash;
+use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
@@ -492,6 +495,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\TwigFunction;
 use Framework\Support\Env;
@@ -565,8 +569,9 @@ return [
     // Traductor de la app (S2). La interfaz de contratos y no la clase
     // concreta: es lo que consumen la extensión de Twig y cualquier código
     // propio, y el día que cambie la implementación no hay firmas que tocar.
-    // El locale sale de APP_LOCALE con default en código (S6), así que un clon
-    // sin .env arranca en español.
+    // El default de la resolución por request sale de APP_LOCALE (S6), así
+    // que un clon sin .env arranca en español; el locale activo lo cambia
+    // `LocaleMiddleware` en cada petición sobre este mismo objeto.
     //
     // Se registra en `Trans` acá, en el único lugar donde se construye el
     // traductor: es el mismo objeto que usa Twig, así que un controlador que
@@ -576,6 +581,22 @@ return [
     TranslatorInterface::class => static function (): TranslatorInterface {
         $translator = TranslatorFactory::create();
         Trans::register($translator);
+
+        return $translator;
+    },
+
+    // El contrato de traducción sólo promete `getLocale()`; cambiar el idioma en
+    // caliente lo declara `LocaleAwareInterface`, que implementa el `Translator`
+    // concreto. El middleware de locale pide esa capacidad y recibe ESTE mismo
+    // objeto (no una copia): el que ya consumen Twig y `Trans`.
+    LocaleAwareInterface::class => static function (ContainerInterface $c): LocaleAwareInterface {
+        $translator = $c->get(TranslatorInterface::class);
+
+        if (!$translator instanceof LocaleAwareInterface) {
+            throw new \RuntimeException(
+                'El traductor de la app tiene que implementar LocaleAwareInterface para resolver el locale por request.'
+            );
+        }
 
         return $translator;
     },
@@ -601,8 +622,24 @@ return [
         $translator = $c->get(TranslatorInterface::class);
         $twig->getEnvironment()->addExtension(new TranslationExtension($translator));
 
-        // `lang="..."` del <html>: con APP_LOCALE=en anunciar es sería mentir.
+        // `lang="..."` del <html>: valor de arranque (APP_LOCALE). El locale
+        // real de cada petición lo fija LocaleMiddleware, que reemplaza este
+        // global antes de que se renderice cualquier vista.
         $twig->getEnvironment()->addGlobal('app_locale', $translator->getLocale());
+
+        // Idiomas con catálogo y el nombre de cada uno en su propio idioma.
+        // Son propiedades de los archivos de `lang/`, no de la petición, así
+        // que se calculan una vez al construir Twig; el selector del footer los
+        // usa tal cual. `locale.name` de cada catálogo da el nombre nativo.
+        $twig->getEnvironment()->addGlobal('locale_names', TranslatorFactory::localeNames());
+
+        // `current_path` (la página actual, sin prefijo de despliegue) es por
+        // request: la fija LocaleMiddleware con el <form> del selector. El
+        // valor de arranque existe para que Twig lo considere un global
+        // existente: después del primer render uno nuevo lanzaría
+        // `LogicException` («…the extensions have already been initialized»),
+        // mientras que actualizar uno que ya está es la operación soportada.
+        $twig->getEnvironment()->addGlobal('current_path', '/');
 
         // Catálogo de módulos: todos los scaffolds que declaran metadatos en
         // config/navigation/, estén instalados o no. La portada los lista con
@@ -742,6 +779,7 @@ return [
     SecurityHeadersMiddleware::class => \DI\autowire(SecurityHeadersMiddleware::class),
 
     RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
+    LocaleMiddleware::class => \DI\autowire(LocaleMiddleware::class),
     RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ];
 ```
@@ -826,6 +864,7 @@ return $app;
 
 declare(strict_types=1);
 
+use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Middleware\SessionMiddleware;
@@ -857,6 +896,14 @@ return function (App $app) {
     // Entre sesión y routing: resume remember-me con la sesión ya abierta.
     // En orden de ejecución corre justo después de SessionMiddleware.
     $app->add(RememberMeMiddleware::class);
+
+    // Locale por request. Necesita la sesión ya abierta (ahí se recuerda la
+    // elección del visitante) y tiene que fijar el idioma antes de que se
+    // renderice cualquier vista. add() es LIFO: se registra ANTES de
+    // SessionMiddleware para ejecutarse DESPUÉS de ella. Orden real de
+    // ejecución, de afuera hacia adentro: SecurityHeaders → error → Session →
+    // Locale → RememberMe → routing → Twig → BodyParsing → Guard → ruta.
+    $app->add(LocaleMiddleware::class);
 
     // Arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);
@@ -1872,12 +1919,73 @@ declare(strict_types=1);
 
 use Framework\Auth\Auth;
 use Framework\Http\CsrfTokens;
+use Framework\Http\Middleware\LocaleMiddleware;
+use Framework\Http\Url;
+use Framework\I18n\LocaleResolver;
+use Framework\I18n\TranslatorFactory;
 use App\Http\Controllers\Auth\AuthController;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use Slim\App;
 use Slim\Csrf\Guard;
 use Slim\Views\Twig;
 
 return function (App $app) {
+    /**
+     * Ruta local segura para el redirect del selector de idioma.
+     *
+     * El campo `redirect_to` lo escribe el cliente y el servidor lo devuelve
+     * como `Location`: aceptar `//host` o una URL absoluta sería un redirect
+     * abierto, el vector clásico para mandar a un usuario ya autenticado a una
+     * copia del login. Se exige una ruta que empiece con UNA barra y se
+     * rechazan barras invertidas (los navegadores las normalizan a `/`, así que
+     * `/\evil.example` termina en `//evil.example`) y caracteres de control
+     * (inyección de cabecera). Todo lo demás —ausente incluido— cae en la
+     * portada.
+     */
+    $localPath = static function (mixed $value): string {
+        if (!is_string($value)) {
+            return '/';
+        }
+
+        $path = trim($value);
+
+        if ($path === '' || $path[0] !== '/' || str_starts_with($path, '//')) {
+            return '/';
+        }
+
+        if (str_contains($path, '\\') || preg_match('/[\x00-\x1F\x7F]/', $path) === 1) {
+            return '/';
+        }
+
+        return $path;
+    };
+
+    // Selector de idioma del footer. POST y no GET: cambia la elección guardada
+    // en la sesión, así que es una mutación y el Guard la protege con CSRF como
+    // a cualquier otro POST. Vive en web.php porque es parte del shell, no de
+    // una entidad.
+    $app->post('/locale', function (ServerRequestInterface $request, ResponseInterface $response) use ($localPath) {
+        $data = $request->getParsedBody();
+        $data = is_array($data) ? $data : [];
+
+        $requested = $data['lang'] ?? null;
+        $locale = is_string($requested)
+            ? LocaleResolver::find($requested, TranslatorFactory::availableLocales())
+            : null;
+
+        // Un código sin catálogo se ignora: la sesión no puede quedar apuntando
+        // a un idioma que no existe. Sin sesión abierta no hay dónde recordarlo
+        // y tampoco es un error: el redirect sigue, simplemente no persiste.
+        if ($locale !== null && session_status() === PHP_SESSION_ACTIVE) {
+            $_SESSION[LocaleMiddleware::SESSION_KEY] = $locale;
+        }
+
+        return $response
+            ->withStatus(303)
+            ->withHeader('Location', Url::path($localPath($data['redirect_to'] ?? null)));
+    });
+
     // Ruta raiz: pagina de presentacion del stack, con status 200. Sin ella
     // GET / devuelve 404 y el boton "Volver al inicio" de pages/errors/error.twig
     // vuelve a ser un link muerto. Pública a propósito (la pide la app, no ella).
@@ -4091,7 +4199,7 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 
 Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadcrumbs`, que es opcional. Sin él cae a `[{label: 'Inicio', icon: 'home', current: true}]`; con una sola miga pinta sólo su etiqueta (con `icon` si la trae) y con varias, la `<nav class="breadcrumbs">` completa, donde cada miga sin `current: true` es un `<a href>` y la marcada `current` es un `<span aria-current="page">`. Si agregas páginas, cada una arma sus propias migas (el helper `breadcrumbs()` del controlador base hace las dos típicas); `active`, en cambio, es lo que resalta el item del sidebar (cap. 9).
 
-### 15.3 Traducción del cromo: catálogos, `t()`, `Trans::t()` y `APP_LOCALE`
+### 15.3 Traducción del cromo: catálogos, `t()`, `Trans::t()` y locale por request
 
 Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— no se escriben a mano en los templates: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale.
 
@@ -4101,21 +4209,63 @@ Esto es lo que hay; después, cómo se usa cuando agregás algo tuyo.
 
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve locale/fallback y carga los catálogos |
+| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve default/fallback y carga **todos** los catálogos |
+| Resolutor | `framework/I18n/LocaleResolver.php` | Función pura que elige el locale de una petición |
+| Middleware | `framework/Http/Middleware/LocaleMiddleware.php` | Adaptador HTTP: resuelve, fija el locale, recuerda y agrega `Vary` |
 | Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` en las plantillas |
 | Accesor PHP | `framework/I18n/Trans.php` | `Trans::t()` para controladores, comandos y scripts |
-| Catálogos | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto` |
-| Registro | `config/container.php` | `TranslatorInterface` en el contenedor (y registrado en `Trans`), extensión y global `app_locale` en Twig |
+| Catálogos | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto`; `locale.name` es el nombre nativo |
+| Selector | `routes/web.php` + `layouts/parts/footer.twig` | `POST /locale` con CSRF y el `<select>` del pie |
+| Registro | `config/container.php` y `config/middleware.php` | `TranslatorInterface` y `Trans`; extensión y globals de Twig; orden del pipeline |
 
-El contenedor expone `Symfony\Contracts\Translation\TranslatorInterface` (la interfaz de contratos, no la clase concreta), así que cualquier código propio pide el traductor por tipo y no por implementación. La extensión se registra **una sola vez**, en el `Twig::class` del contenedor: `t()` está disponible en layouts, componentes y scaffolds sin tocar cada vista. Además publica el global `app_locale`, que es lo que alimenta el `lang="..."` del `<html>`: con `APP_LOCALE=en`, anunciar `es` sería mentir.
+El contenedor expone `Symfony\Contracts\Translation\TranslatorInterface` (la interfaz de contratos, no la clase concreta), así que cualquier código propio pide el traductor por tipo y no por implementación. La extensión se registra **una sola vez**, en el `Twig::class` del contenedor: `t()` está disponible en layouts, componentes y scaffolds sin tocar cada vista. Además publica los globals `app_locale` (el `lang="..."` del `<html>`) y `locale_names` (el selector del pie).
 
-**Las dos variables.** `APP_LOCALE` es el idioma activo (default `es`) y `APP_FALLBACK_LOCALE` el de respaldo (default `en`). Los dos defaults viven en código y no en `.env.example` porque `.env` no se versiona (cap. 5): un clon arranca en español sin configurar nada, y si querés otro idioma agregás la línea a mano.
+**El idioma es por petición, no por despliegue.** `LocaleMiddleware` resuelve el locale en cada request y lo fija en el traductor antes de que se renderice ninguna vista, así que el `t()` de Twig y el `Trans::t()` de un controlador de la MISMA petición no pueden quedar en idiomas distintos. El locale no se resuelve una vez al construir el contenedor: el traductor es un singleton y `php -S` o un worker de FPM atienden varias peticiones con el mismo proceso, así que el valor anterior contaminaría la siguiente.
+
+**Las dos variables.** `APP_LOCALE` es el **default** de la resolución: sólo gana cuando no hay pedido explícito, ni sesión, ni `Accept-Language` (default `es`). `APP_FALLBACK_LOCALE` es el catálogo de respaldo para una clave que el idioma activo no tiene (default `en`). Los dos defaults viven en código y no en `.env.example` porque `.env` no se versiona (cap. 5): un clon arranca en español sin configurar nada.
 
 ```bash
 # en tu .env (local, no se commitea)
 APP_LOCALE=en
 APP_FALLBACK_LOCALE=es
 ```
+
+### 15.3.1 Resolución por request: `?lang=`, sesión y `Accept-Language`
+
+**Precedencia.** El locale de cada petición sale del primer origen que tenga un código con catálogo:
+
+| Origen | Cuándo gana | Ejemplo |
+|---|---|---|
+| Explícito | `?lang=<código>` disponible; además queda guardado en la sesión | `/?lang=en` |
+| Sesión | el visitante ya eligió con el selector del pie | `$_SESSION['locale']` |
+| `Accept-Language` | no hay nada explícito ni guardado; una API sin sesión negocia acá | `Accept-Language: en` |
+| `APP_LOCALE` | último recurso; si ese código no tiene catálogo, el primero disponible | `es` |
+
+El orden vive en `LocaleResolver::resolve()`, una función **pura** (sin sesión, cabeceras ni traductor) que se prueba con una tabla de casos: precedencia, q-values, variantes regionales (`es-MX` → `es`), `*`, `q=0` («no acepto») y basura. Nunca lanza y nunca devuelve un código fuera de la lista de catálogos: un locale sin archivo se vería como claves crudas. `LocaleMiddleware` es el adaptador HTTP —lee las fuentes, llama al resolutor, aplica el resultado— y no decide nada por su cuenta:
+
+```php excerpt
+$locale = LocaleResolver::resolve(
+    $request->getQueryParams()['lang'] ?? null,   // explícito
+    $sessionLocale,                               // sesión (null si no está abierta)
+    $request->getHeaderLine('Accept-Language'),   // cabecera
+    TranslatorFactory::defaultLocale(),           // APP_LOCALE
+    TranslatorFactory::availableLocales(),        // lang/*.php
+);
+
+$translator->setLocale($locale);
+```
+
+**Se fija siempre, no sólo cuando cambia.** El traductor es un singleton del contenedor y el proceso atiende varias peticiones: si el middleware confiara en el valor anterior, una visita en inglés dejaría en inglés la siguiente, que no pidió nada. Por eso `setLocale()` corre en cada request y el default sale de `TranslatorFactory::defaultLocale()` (que lee `APP_LOCALE`), nunca de `$translator->getLocale()` —ese ya es el valor de la petición anterior—. Un test de dos requests seguidas en el mismo proceso lo fija: la primera con `Accept-Language: en`, la segunda sin nada; la segunda tiene que volver al español.
+
+**Orden del pipeline.** En `config/middleware.php` el middleware se registra **antes** de `SessionMiddleware`, porque `add()` es LIFO y lo agregado antes se ejecuta después. El orden real es `Session → Locale → RememberMe → routing → Twig → Guard → ruta`: la sesión ya está abierta cuando se resuelve, y el idioma ya está fijado antes del render. Que el orden sea el real y no el que sugiere la lectura del archivo lo prueba un test en un proceso nuevo (la suite tiene la sesión abierta desde el arranque): con `?lang=en` y sin sesión previa, la elección tiene que estar en `$_SESSION` al terminar la request. Si el middleware corriera antes de `SessionMiddleware`, no podría escribir en una sesión que todavía no existe.
+
+**Caso API (sin sesión).** El middleware mira `session_status()`: si no hay sesión activa no la abre ni intenta guardar nada, sólo negocia con `Accept-Language`. Una request con `Accept-Language: en` sobre un pipeline sin `SessionMiddleware` sale en inglés; con `?lang=en` también, pero sin persistencia (no hay dónde recordarla). Eso es lo que permite montar una API JSON sin arrastrar la cookie de sesión.
+
+**`Vary: Accept-Language`.** Toda respuesta que pasa por el middleware lleva esa cabecera, para que ningún caché intermedio guarde la versión en un idioma y la sirva a todos. Límite honesto: las páginas de error las genera el error middleware, que envuelve al de locale, así que no llevan `Vary`; su contenido sigue en español fijo (ver «Límites honestos»).
+
+**Globals de Twig.** `app_locale` y `locale_names` se registran al construir Twig; `app_locale` y `current_path` los **actualiza** el middleware en cada request. La distinción no es cosmética: Twig permite agregar un global nuevo sólo antes del primer render; después, agregar uno inexistente lanza `LogicException` («the extensions have already been initialized») y actualizar uno existente es lo soportado. Por eso `current_path` (la página actual, para que el selector vuelva a ella) también se registra en el contenedor.
+
+**El selector del pie.** El footer tiene un `<form method="post" action="{{ url('/locale') }}">` con un `<select name="lang">`, el botón y el par CSRF de `components/form/csrf.twig`. Es un POST porque cambia la elección guardada en la sesión y el Guard la protege como a cualquier mutación. El nombre de cada idioma se muestra **en su propio idioma** (`locale_names` sale del `locale.name` de cada catálogo, no del activo), así que quien no lee el idioma actual reconoce el suyo. La ruta valida el código contra los catálogos (un valor inexistente se ignora) y redirige a `redirect_to` sólo si es una ruta local: empieza con una barra, no con dos, sin barras invertidas ni caracteres de control. `//evil.example` y `https://…` caen en `/`, que es lo que cierra el redirect abierto.
 
 **Traducir en Twig.** `t()` y el filtro `|trans` son lo mismo; los parámetros se pasan como un objeto `%nombre% => valor` y los reemplaza el traductor:
 
@@ -4165,9 +4315,9 @@ Flash::set('success', Trans::t('note.created_named', ['%name%' => $note->title])
 
 **Agregar un idioma.**
 
-1. Copiá `lang/en.php` a `lang/<locale>.php`. El nombre del archivo es el locale en minúsculas: `pt.php`, o `pt_br.php` para `pt_BR`.
-2. Traducí los valores. Las claves no se tocan: son el contrato entre catálogos.
-3. Agregá `APP_LOCALE=pt` a mano en tu `.env` (no se versiona, por eso la variable no está en `.env.example`), o pasala por entorno en el despliegue.
+1. Copiá `lang/en.php` a `lang/<locale>.php`. El nombre del archivo es el locale en minúsculas: `pt.php`, o `pt_br.php` para `pt_BR`. El archivo es el registro: `TranslatorFactory::availableLocales()` lo encuentra, el resolutor puede elegirlo y el `<select>` del footer lo muestra sin tocar una línea de código.
+2. Traducí los valores y el nombre nativo en `locale.name` (`'Português'`). Las claves no se tocan: son el contrato entre catálogos.
+3. Opcional: `APP_LOCALE=pt` en tu `.env` (no se versiona, por eso la variable no está en `.env.example`) para que sea el idioma por defecto de quien no elige; sin eso, el visitante igual puede cambiar con el selector.
 4. Corré `composer test`. La paridad de claves que exige la suite es entre `es` y `en`; un catálogo nuevo no entra en ese control, así que sus claves las mantenés sincronizadas vos.
 
 Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` para las claves que no tenga, y un idioma a medio traducir es un estado válido.
@@ -4178,11 +4328,12 @@ Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` pa
 - **Apóstrofos dentro de literales JS.** Si la traducción se interpola en una expresión de Alpine entre comillas simples, escapala con `|e('js')`: deja el apóstrofo como `\u0027` y el autoescape HTML vuelve a escapar el resultado, así que «Ouvrir l'app» no cierra la cadena y el botón no se queda sin nombre accesible (`layouts/parts/topbar.twig`, fijado por `tests/Support/I18nTest.php`). En un atributo estático NO va el filtro: ahí alcanza el escape HTML y `\uXXXX` se vería literal.
 - **No se traducen identificadores ni rutas.** Tablas, columnas, nombres de campo, claves de configuración y URLs quedan como están: cambiar el idioma cambia textos, no contratos.
 - **`es` y `en` tienen que declarar las mismas claves**, y hay un test que falla si se desincronizan: una clave que existe en un solo archivo se ve como texto en el idioma equivocado.
+- **El traductor y el global de Twig son estado del proceso.** Un test que hace requests en otro idioma no puede dejar el inglés pegado: el middleware lo fija en cada petición y `tests/Support/HttpTestCase::tearDown()` limpia `$_SESSION['locale']`. Si escribís un test nuevo que cambie de idioma, no confíes en el valor anterior de `Trans`, `$translator->getLocale()` ni `app_locale`.
 
 **Límites honestos.**
 
-- **El locale es estático por despliegue.** Se resuelve una vez, cuando se construye el traductor: no hay selector de idioma por usuario, ni negociación por `Accept-Language`, ni locale por request. Cambiar de idioma es cambiar `APP_LOCALE` y reiniciar el proceso.
-- **Falta externalizar** los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores (`AuthController` incluido), los mensajes del validador, `resources/views/pages/*`, `error.twig` y el JS del demo de contacts. La infraestructura ya está: `Trans::t()` es la pieza que le faltaba al PHP, así que cada superficie es reemplazar literales por claves, sin inventar mecanismo.
+- **Falta externalizar** los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores (`AuthController` incluido), los mensajes del validador, `resources/views/pages/*`, `error.twig` y el JS del demo de contacts. La infraestructura ya está: `Trans::t()` cubre el PHP y el selector cubre la elección del visitante, así que cada superficie es reemplazar literales por claves, sin inventar mecanismo. Los avisos que escribe el Guard cuando falla el CSRF (`Flash::set('error', 'Tu sesión expiró…')`) y los de `RequireAuthMiddleware` también están en español fijo.
+- **La página de error queda fuera del locale por request.** Es autónoma (no usa el layout) y su `lang="es"` y sus textos están fijos: el error middleware la genera por fuera del `LocaleMiddleware`. Traducirla es parte de la deuda de `error.twig`, no del resolutor.
 - **El formato de fechas y números no es por locale**, y no lo va a ser sin `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, y los nombres de mes y día que vienen con el idioma). La extensión no está garantizada en el PHP de Termux: mientras tanto, el formato queda en el `php.ini` del despliegue y las fechas se muestran en un solo formato.
 
 **El código.** La extensión de Twig, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):

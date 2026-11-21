@@ -144,7 +144,9 @@ abstract class HttpTestCase extends TestCase
      */
     protected function tearDown(): void
     {
-        unset($_SESSION['user_id']);
+        // `locale` es la elección del selector y sobrevive a la request: sin
+        // limpiarla, el test siguiente renderiza en el idioma del anterior.
+        unset($_SESSION['user_id'], $_SESSION['locale']);
         User::query()->delete();
     }
 

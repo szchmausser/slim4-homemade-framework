@@ -15,6 +15,11 @@ return [
 
     'footer.environment' => 'environment %env%',
 
+    'footer.apply'       => 'Change',
+    'footer.language'    => 'Language',
+
+    'locale.name' => 'English',
+
     'layout.brand_home'      => '%app%, go to the home page',
     'layout.breadcrumb'      => 'Breadcrumb',
     'layout.close_menu'      => 'Close menu',

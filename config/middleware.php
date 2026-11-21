@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Middleware\SessionMiddleware;
@@ -33,6 +34,14 @@ return function (App $app) {
     // Entre sesión y routing: resume remember-me con la sesión ya abierta.
     // En orden de ejecución corre justo después de SessionMiddleware.
     $app->add(RememberMeMiddleware::class);
+
+    // Locale por request. Necesita la sesión ya abierta (ahí se recuerda la
+    // elección del visitante) y tiene que fijar el idioma antes de que se
+    // renderice cualquier vista. add() es LIFO: se registra ANTES de
+    // SessionMiddleware para ejecutarse DESPUÉS de ella. Orden real de
+    // ejecución, de afuera hacia adentro: SecurityHeaders → error → Session →
+    // Locale → RememberMe → routing → Twig → BodyParsing → Guard → ruta.
+    $app->add(LocaleMiddleware::class);
 
     // Arranca la sesión nativa para toda la app
     $app->add(SessionMiddleware::class);

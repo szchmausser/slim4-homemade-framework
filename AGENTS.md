@@ -25,9 +25,22 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   usa `{{ t('clave') }}` (o `|trans`) con la clave en inglés; el texto vive en
   `lang/{es,en}.php`. Desde PHP la misma clave sale con
   `Framework\I18n\Trans::t('clave')` (`t()` y `|trans` son sólo de Twig), que es
-  lo que usa un controlador para un flash. Locale: `APP_LOCALE` (default `es`),
-  fallback `APP_FALLBACK_LOCALE` (default `en`), los dos documentados en la guía,
-  no en `.env.example`.
+  lo que usa un controlador para un flash. No se agregan literales españoles
+  nuevos a layouts ni componentes: una clave nueva va en los dos catálogos con
+  el mismo nombre.
+- **El locale se resuelve por petición.** Precedencia: `?lang=` > sesión >
+  `Accept-Language` > `APP_LOCALE` (default `es`; fallback de catálogo
+  `APP_FALLBACK_LOCALE`, default `en`). El orden vive en
+  `Framework\I18n\LocaleResolver` (función pura) y lo aplica
+  `Framework\Http\Middleware\LocaleMiddleware`, registrado en
+  `config/middleware.php` para correr después de `SessionMiddleware`. El
+  middleware fija el traductor en **cada** request (el proceso atiende varias:
+  nunca se confía en el valor anterior), guarda la elección explícita en la
+  sesión sólo si hay una abierta (una API sin sesión negocia con
+  `Accept-Language`) y agrega `Vary: Accept-Language`. El visitante elige con el
+  selector del footer: `POST /locale`, con CSRF y redirect sólo a rutas locales
+  (`redirect_to` no acepta `//host` ni URLs absolutas). Los dos defaults se
+  documentan en la guía, no en `.env.example`.
 - **Las migraciones son la única fuente del esquema.** No crear tablas a mano ni
   duplicar el esquema en tests. Los seeds son datos, no schema.
 - **`app/` es del usuario; `framework/` es reusable.** No metas reglas de negocio
@@ -47,7 +60,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
-| `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans` y locale desde `APP_LOCALE`. |
+| `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans`, `Trans::t()` y resolutor del locale por request (`?lang=` > sesión > `Accept-Language` > `APP_LOCALE`). |
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |

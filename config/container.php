@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Framework\Http\Flash;
+use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
@@ -23,6 +24,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\TwigFunction;
 use Framework\Support\Env;
@@ -96,8 +98,9 @@ return [
     // Traductor de la app (S2). La interfaz de contratos y no la clase
     // concreta: es lo que consumen la extensión de Twig y cualquier código
     // propio, y el día que cambie la implementación no hay firmas que tocar.
-    // El locale sale de APP_LOCALE con default en código (S6), así que un clon
-    // sin .env arranca en español.
+    // El default de la resolución por request sale de APP_LOCALE (S6), así
+    // que un clon sin .env arranca en español; el locale activo lo cambia
+    // `LocaleMiddleware` en cada petición sobre este mismo objeto.
     //
     // Se registra en `Trans` acá, en el único lugar donde se construye el
     // traductor: es el mismo objeto que usa Twig, así que un controlador que
@@ -107,6 +110,22 @@ return [
     TranslatorInterface::class => static function (): TranslatorInterface {
         $translator = TranslatorFactory::create();
         Trans::register($translator);
+
+        return $translator;
+    },
+
+    // El contrato de traducción sólo promete `getLocale()`; cambiar el idioma en
+    // caliente lo declara `LocaleAwareInterface`, que implementa el `Translator`
+    // concreto. El middleware de locale pide esa capacidad y recibe ESTE mismo
+    // objeto (no una copia): el que ya consumen Twig y `Trans`.
+    LocaleAwareInterface::class => static function (ContainerInterface $c): LocaleAwareInterface {
+        $translator = $c->get(TranslatorInterface::class);
+
+        if (!$translator instanceof LocaleAwareInterface) {
+            throw new \RuntimeException(
+                'El traductor de la app tiene que implementar LocaleAwareInterface para resolver el locale por request.'
+            );
+        }
 
         return $translator;
     },
@@ -132,8 +151,24 @@ return [
         $translator = $c->get(TranslatorInterface::class);
         $twig->getEnvironment()->addExtension(new TranslationExtension($translator));
 
-        // `lang="..."` del <html>: con APP_LOCALE=en anunciar es sería mentir.
+        // `lang="..."` del <html>: valor de arranque (APP_LOCALE). El locale
+        // real de cada petición lo fija LocaleMiddleware, que reemplaza este
+        // global antes de que se renderice cualquier vista.
         $twig->getEnvironment()->addGlobal('app_locale', $translator->getLocale());
+
+        // Idiomas con catálogo y el nombre de cada uno en su propio idioma.
+        // Son propiedades de los archivos de `lang/`, no de la petición, así
+        // que se calculan una vez al construir Twig; el selector del footer los
+        // usa tal cual. `locale.name` de cada catálogo da el nombre nativo.
+        $twig->getEnvironment()->addGlobal('locale_names', TranslatorFactory::localeNames());
+
+        // `current_path` (la página actual, sin prefijo de despliegue) es por
+        // request: la fija LocaleMiddleware con el <form> del selector. El
+        // valor de arranque existe para que Twig lo considere un global
+        // existente: después del primer render uno nuevo lanzaría
+        // `LogicException` («…the extensions have already been initialized»),
+        // mientras que actualizar uno que ya está es la operación soportada.
+        $twig->getEnvironment()->addGlobal('current_path', '/');
 
         // Catálogo de módulos: todos los scaffolds que declaran metadatos en
         // config/navigation/, estén instalados o no. La portada los lista con
@@ -273,6 +308,7 @@ return [
     SecurityHeadersMiddleware::class => \DI\autowire(SecurityHeadersMiddleware::class),
 
     RememberMeMiddleware::class => \DI\autowire(RememberMeMiddleware::class),
+    LocaleMiddleware::class => \DI\autowire(LocaleMiddleware::class),
     RequireAuthMiddleware::class => \DI\autowire(RequireAuthMiddleware::class),
 ];
 
