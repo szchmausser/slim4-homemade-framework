@@ -38,6 +38,9 @@ Cada paso tiene la misma forma, y conviene respetarla:
 
 Si una comprobación no da lo esperado, no sigas: el paso siguiente asume que este quedó bien.
 
+Las capturas son de una corrida real del recorrido, con la app en español: los rótulos que se ven son los
+del shell. El código y las rutas de cada paso son los que mandan.
+
 ## Índice
 
 1. [Arrancar la app hasta tener sesión](#1-arrancar-la-app-hasta-tener-sesión)
@@ -333,32 +336,12 @@ toda lectura y escritura; el proyecto no escribe SQL a mano en los controladores
 disperso por las vistas y los controladores. Sin él tendrías que preparar sentencias y mapear filas a
 mano en cada operación.
 
-### Cuando la convención no alcanza
+### Cuando el nombre no da la tabla
 
-`Nota` → `notas` cae **dentro** de la convención, y por eso el modelo no lleva `$table`. El caso que sí te
-va a pasar es un nombre español terminado en consonante. Ejercitalo una vez y borralo:
-
-```bash
-composer make:model Ciudad
-```
-
-**Comprobación**: el comando imprime `Tabla: ciudads, derivada por Eloquent del nombre: el modelo no lleva
-$table`, y abajo te dice cómo pasarle otra. Ese `ciudads` es el pluralizador inglés de Eloquent
-equivocándose con un plural español.
-
-Ahora el override, que es el precio:
-
-```bash
-rm app/Models/Ciudad.php
-composer make:model Ciudad ciudades
-```
-
-**Comprobación**: `app/Models/Ciudad.php` lleva `protected $table = 'ciudades';`, y el comando lo explica:
-«Eloquent inferiría 'ciudads' del nombre, así que el modelo lleva $table». Sin esa línea, la primera
-consulta fallaría con `no such table: ciudads`.
-
-Borralo al terminar (`rm app/Models/Ciudad.php`): no es parte de la entidad del recorrido, y `composer lint`
-tiene que volver al total que anotaste al crear el modelo.
+`Nota` → `notas` cae dentro de la convención, así que el modelo no lleva `$table`. Con nombres que el
+pluralizador inglés no resuelve —`Ciudad` daría `ciudads`— el modelo sí lo lleva, y
+`composer make:model Ciudad ciudades` lo escribe por vos. La convención se sigue hasta que no alcanza; la
+desviación queda escrita en el modelo, a la vista.
 
 ---
 
