@@ -333,6 +333,33 @@ toda lectura y escritura; el proyecto no escribe SQL a mano en los controladores
 disperso por las vistas y los controladores. Sin él tendrías que preparar sentencias y mapear filas a
 mano en cada operación.
 
+### Cuando la convención no alcanza
+
+`Nota` → `notas` cae **dentro** de la convención, y por eso el modelo no lleva `$table`. El caso que sí te
+va a pasar es un nombre español terminado en consonante. Ejercitalo una vez y borralo:
+
+```bash
+composer make:model Ciudad
+```
+
+**Comprobación**: el comando imprime `Tabla: ciudads, derivada por Eloquent del nombre: el modelo no lleva
+$table`, y abajo te dice cómo pasarle otra. Ese `ciudads` es el pluralizador inglés de Eloquent
+equivocándose con un plural español.
+
+Ahora el override, que es el precio:
+
+```bash
+rm app/Models/Ciudad.php
+composer make:model Ciudad ciudades
+```
+
+**Comprobación**: `app/Models/Ciudad.php` lleva `protected $table = 'ciudades';`, y el comando lo explica:
+«Eloquent inferiría 'ciudads' del nombre, así que el modelo lleva $table». Sin esa línea, la primera
+consulta fallaría con `no such table: ciudads`.
+
+Borralo al terminar (`rm app/Models/Ciudad.php`): no es parte de la entidad del recorrido, y `composer lint`
+tiene que volver al total que anotaste al crear el modelo.
+
 ---
 
 ## 4. Registrar la entidad en las rutas y en el menú
