@@ -290,11 +290,14 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Nota extends Model
 {
-    protected $table = 'notas';
-
     protected $fillable = ['titulo', 'cuerpo'];
 }
 ```
+
+No lleva `$table`: Eloquent deriva `notas` del nombre de la clase. Se escribe sólo cuando la tabla no es
+esa derivación —con `Ciudad`, por ejemplo, porque el pluralizador de Eloquent es inglés y daría
+`ciudads`—. El comando hace exactamente eso: si le pasás la tabla, la escribe; si no, confía en la
+convención.
 
 **Comprobación**:
 

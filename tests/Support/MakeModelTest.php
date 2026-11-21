@@ -7,11 +7,15 @@ namespace Tests\Support;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `composer make:model` escribe el esqueleto, no la verdad: los docblocks que
- * PHPStan usa para tipar cada fila dependen de las columnas reales, y eso lo
- * completa quien escribe la entidad. El plural de la tabla tampoco es deducible
- * (task/tasks es inglés, ciudad/ciudades es español), así que el comando asume
- * `snake + s`, lo imprime y deja forzarlo con --table=.
+ * `composer make:model` sigue la convención de Eloquent: la tabla se deriva con
+ * `Str::snake(Str::pluralStudly())`, la misma función que usa `Model::getTable()`,
+ * y `$table` sólo se escribe cuando la tabla se aparta de esa derivación.
+ *
+ * Esa convención es inglesa: acierta `Category` y `Lunes`, no `Ciudad`. Por eso
+ * el plural español se pasa como segundo argumento, y por eso el test de
+ * `Category` importa: una regla propia tipo «+s» daría `categorys`.
+ *
+ * Los docblocks tampoco se generan: dependen de las columnas reales.
  */
 final class MakeModelTest extends TestCase
 {
@@ -33,19 +37,20 @@ final class MakeModelTest extends TestCase
         $this->removeTree($this->root);
     }
 
-    public function test_escribe_el_esqueleto_con_namespace_tabla_y_fillable_vacio(): void
+    public function test_no_escribe_table_cuando_la_convencion_de_eloquent_alcanza(): void
     {
         [$exit, $stdout, $stderr] = $this->runCommand(['Nota']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('app/Models/Nota.php', $stdout);
+        self::assertStringContainsString('Tabla: notas', $stdout);
 
         $modelo = (string) file_get_contents($this->root . '/app/Models/Nota.php');
 
         self::assertStringContainsString("namespace App\\Models;", $modelo);
         self::assertStringContainsString('class Nota extends Model', $modelo);
-        self::assertStringContainsString("protected \$table = 'notas';", $modelo);
         self::assertStringContainsString('protected $fillable = [];', $modelo);
+        self::assertStringNotContainsString('protected $table', $modelo);
     }
 
     public function test_acepta_snake_case_y_normaliza_el_nombre_de_clase(): void
@@ -59,7 +64,7 @@ final class MakeModelTest extends TestCase
         );
     }
 
-    public function test_la_tabla_como_segundo_argumento_gana_sobre_el_plural_asumido(): void
+    public function test_escribe_table_cuando_la_tabla_se_aparta_de_la_convencion(): void
     {
         [$exit, $stdout, $stderr] = $this->runCommand(['Ciudad', 'ciudades']);
 
@@ -67,6 +72,29 @@ final class MakeModelTest extends TestCase
         self::assertStringContainsString(
             "protected \$table = 'ciudades';",
             (string) file_get_contents($this->root . '/app/Models/Ciudad.php')
+        );
+    }
+
+    public function test_no_reemplaza_la_convencion_de_eloquent_por_una_regla_propia(): void
+    {
+        // `Category` => `categories` y `Lunes` => `lunes` los resuelve Doctrine.
+        // Una regla propia tipo «snake + s» daría `categorys` y `luness`.
+        [$exit, $stdout, $stderr] = $this->runCommand(['Category']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertStringContainsString('Tabla: categories', $stdout);
+        self::assertStringNotContainsString(
+            'protected $table',
+            (string) file_get_contents($this->root . '/app/Models/Category.php')
+        );
+
+        [$exit, $stdout, $stderr] = $this->runCommand(['Lunes']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertStringContainsString('Tabla: lunes', $stdout);
+        self::assertStringNotContainsString(
+            'protected $table',
+            (string) file_get_contents($this->root . '/app/Models/Lunes.php')
         );
     }
 
