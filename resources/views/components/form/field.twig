@@ -14,7 +14,9 @@
    sale exactamente como antes: sin aria de error y sin nodo vacío.
    El <p> del error va FUERA del contenedor del icono: ese div es `relative` y
    `inset-y-0` estira el glifo a todo el alto, así que un párrafo adentro lo
-   bajaría del centro del input. #}
+   bajaría del centro del input.
+   La pista de opcional sale de `field.optional` en el catálogo: es cromo del
+   componente, no texto de la pantalla. #}
 {% set input_id = id|default(name) %}
 {% set error_message = error|default('') %}
 {% set has_icon = icon is defined and icon %}
@@ -24,7 +26,7 @@
 <fieldset class="{{ field_class|default('fieldset') }}">
     <label class="{{ label_class|default('fieldset-legend') }}" for="{{ input_id }}">
         {{ label }}
-        {% if optional|default(false) %}<span class="opacity-60">(opcional)</span>{% endif %}
+        {% if optional|default(false) %}<span class="opacity-60">{{ t('field.optional') }}</span>{% endif %}
     </label>
     {% if has_icon %}<div class="{{ icon_wrap }}">{% endif %}
     {% if has_icon %}

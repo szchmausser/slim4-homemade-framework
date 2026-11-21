@@ -21,6 +21,11 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 - **URLs siempre por helper.** En Twig `{{ url('/ruta') }}`; en PHP
   `Framework\Http\Url::path('/ruta')`. Nunca literales raíz-absolutos: rompen
   `APP_BASE_PATH`.
+- **Los textos visibles del cromo van por catálogo.** En componentes y layouts se
+  usa `{{ t('clave') }}` (o `|trans`) con la clave en inglés; el texto vive en
+  `lang/{es,en}.php`. Locale: `APP_LOCALE` (default `es`), fallback
+  `APP_FALLBACK_LOCALE` (default `en`), los dos documentados en la guía, no en
+  `.env.example`.
 - **Las migraciones son la única fuente del esquema.** No crear tablas a mano ni
   duplicar el esquema en tests. Los seeds son datos, no schema.
 - **`app/` es del usuario; `framework/` es reusable.** No metas reglas de negocio
@@ -40,9 +45,11 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
+| `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans` y locale desde `APP_LOCALE`. |
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |
+| `lang/{es,en}.php` | Catálogos planos `clave => texto`; el español del shell sale de ahí. |
 | `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. Las migraciones de cada demo viven en `database/migrations/<demo>/`: es la única excepción al layout plano, para reservar la banda de versiones. |
 | `tests/` | Tests de la app y de tus entidades: contratos del framework, comportamiento HTTP y scripts. Una carpeta por entidad (`tests/<Entidad>/Http/`, `namespace Tests\<Entidad>\Http`); los tests de cada demo viajan en su scaffold. |
 | `scripts/` | `lint`, `docs-check/sync`, `phpstan`, `migrate-fresh`, `demo`, `serve`, backup. |

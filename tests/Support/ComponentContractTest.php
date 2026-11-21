@@ -6,6 +6,8 @@ namespace Tests\Support;
 
 use DOMDocument;
 use DOMXPath;
+use Framework\I18n\TranslationExtension;
+use Framework\I18n\TranslatorFactory;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
@@ -26,6 +28,10 @@ final class ComponentContractTest extends TestCase
             'autoescape' => 'html',
             'strict_variables' => false,
         ]);
+
+        // Los componentes del cromo traducen con `t()`: sin la extensión, el
+        // contrato se probaría contra un Twig que la app no usa.
+        $this->twig->addExtension(new TranslationExtension(TranslatorFactory::create()));
     }
 
     public function test_button_expone_htmx_y_foco_opcionales(): void

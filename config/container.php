@@ -7,6 +7,8 @@ use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Url;
+use Framework\I18n\TranslationExtension;
+use Framework\I18n\TranslatorFactory;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -20,6 +22,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\TwigFunction;
 use Framework\Support\Env;
 
@@ -89,7 +92,14 @@ return [
         return $capsule;
     },
 
-    Twig::class => function () {
+    // Traductor de la app (S2). La interfaz de contratos y no la clase
+    // concreta: es lo que consumen la extensión de Twig y cualquier código
+    // propio, y el día que cambie la implementación no hay firmas que tocar.
+    // El locale sale de APP_LOCALE con default en código (S6), así que un clon
+    // sin .env arranca en español.
+    TranslatorInterface::class => static fn (): TranslatorInterface => TranslatorFactory::create(),
+
+    Twig::class => function (ContainerInterface $c) {
         $twig = Twig::create(__DIR__ . '/../resources/views', [
             // Con 'cache' => false, Twig re-parsea cada .twig en cada request:
             // en un ARM de 32 bits eso se nota. El caché va a disco;
@@ -104,6 +114,14 @@ return [
         // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
+
+        // `t('clave')` y `|trans` en TODAS las plantillas, layouts y scaffolds
+        // incluidos: la extensión se registra una vez acá, no vista por vista.
+        $translator = $c->get(TranslatorInterface::class);
+        $twig->getEnvironment()->addExtension(new TranslationExtension($translator));
+
+        // `lang="..."` del <html>: con APP_LOCALE=en anunciar es sería mentir.
+        $twig->getEnvironment()->addGlobal('app_locale', $translator->getLocale());
 
         // Catálogo de módulos: todos los scaffolds que declaran metadatos en
         // config/navigation/, estén instalados o no. La portada los lista con

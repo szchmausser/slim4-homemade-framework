@@ -91,8 +91,8 @@ source ~/.bashrc
 mkdir -p ~/proyectos && cd ~/proyectos
 mkdir mi-app && cd mi-app
 
-mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs framework/Support app/Support
-mkdir -p bootstrap config database/migrations database/seeds
+mkdir -p app/Http/Controllers/Auth app/Http/Middleware app/Models framework/Auth framework/Http/Middleware framework/Validation framework/Docs framework/Support framework/I18n app/Support
+mkdir -p bootstrap config database/migrations database/seeds lang
 mkdir -p public/assets resources/views/layouts resources/views/layouts/parts resources/views/components resources/views/pages
 mkdir -p routes storage/logs storage/cache/twig storage/sessions
 mkdir -p tests/Http tests/Support
@@ -126,6 +126,9 @@ mi-app/
 │   │   └── CodeBlocks.php          # tooling de docs, no runtime
 │   ├── Support/
 │   │   └── Env.php                 # lectura tipada del entorno (get/bool/int)
+│   ├── I18n/
+│   │   ├── TranslatorFactory.php   # traductor: locale de APP_LOCALE + catálogos de lang/
+│   │   └── TranslationExtension.php # t() y |trans en Twig, sin twig-bridge
 │   └── scaffolds/
 │       ├── tasks/                  # demo opcional: composer demo:tasks:install
 │       │   ├── app/{Models,Http/Controllers}/
@@ -174,6 +177,9 @@ mi-app/
 │   │   ├── AdminSeeder.php
 │   │   └── DatabaseSeeder.php
 │   └── database.sqlite             # se autocrea; NO va a git
+├── lang/
+│   ├── es.php                      # catálogo por defecto (S7: el español no cambia)
+│   └── en.php                      # fallback
 ├── public/
 │   ├── assets/                     # vendorizado, SÍ va a git
 │   │   ├── tailwind-browser-4.3.3.js
@@ -230,6 +236,10 @@ composer require slim/csrf
 # este código ya no existen. Capítulo 12 roto en la primera request.
 composer require "respect/validation:^2.0"
 composer require monolog/monolog
+# Catálogos del cromo con el traductor de Symfony (cap. 15.3). Illuminate ya la
+# traía como transitiva de nesbot/carbon; declararla la fija como dependencia
+# directa y evita que un cambio de carbon se la lleve puesta.
+composer require symfony/translation
 
 composer require robmorgan/phinx:^0.13
 composer require --dev filp/whoops
@@ -294,17 +304,18 @@ composer require --dev phpunit/phpunit
         "ext-mbstring": "*",
         "ext-pdo_sqlite": "*",
         "ext-sqlite3": "*",
-        "slim/slim": "^4.15",
-        "slim/psr7": "^1.8",
-        "php-di/php-di": "^7.1",
-        "vlucas/phpdotenv": "^5.7",
         "illuminate/database": "^13.33",
-        "twig/twig": "^3.30",
-        "slim/twig-view": "^3.4",
-        "slim/csrf": "^1.5",
-        "respect/validation": "^2.0",
         "monolog/monolog": "^3.12",
-        "robmorgan/phinx": "^0.13"
+        "php-di/php-di": "^7.1",
+        "respect/validation": "^2.0",
+        "robmorgan/phinx": "^0.13",
+        "slim/csrf": "^1.5",
+        "slim/psr7": "^1.8",
+        "slim/slim": "^4.15",
+        "slim/twig-view": "^3.4",
+        "symfony/translation": "^8.1",
+        "twig/twig": "^3.30",
+        "vlucas/phpdotenv": "^5.7"
     },
     "require-dev": {
         "filp/whoops": "^2.18",
@@ -405,6 +416,11 @@ php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"  # si algún día necesi
 > para el caso "cloné en otro lado". La causa N.º 1 de "la app no arranca y ni
 > siquiera muestra el error bonito" era justamente un path inexistente: ahora
 > verías un `RuntimeException` accionable en vez del stack crudo (cap. 21.3).
+>
+> **`APP_LOCALE` y `APP_FALLBACK_LOCALE` no están en `.env.example`.** El default
+> (`es`, con fallback `en`) vive en código, así que un clon arranca en español
+> sin configurar nada; si querés otro idioma, agregá la línea a mano en tu
+> `.env` (que no se versiona) como se explica en el cap. 15.3.
 
 `.gitignore` completo:
 
@@ -460,6 +476,8 @@ use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Url;
+use Framework\I18n\TranslationExtension;
+use Framework\I18n\TranslatorFactory;
 use Illuminate\Database\Capsule\Manager as Capsule;
 use Monolog\Handler\RotatingFileHandler;
 use Monolog\Level;
@@ -473,6 +491,7 @@ use Psr\Log\LoggerInterface;
 use Slim\Csrf\Guard;
 use Slim\Psr7\Factory\ResponseFactory;
 use Slim\Views\Twig;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Twig\TwigFunction;
 use Framework\Support\Env;
 
@@ -542,7 +561,14 @@ return [
         return $capsule;
     },
 
-    Twig::class => function () {
+    // Traductor de la app (S2). La interfaz de contratos y no la clase
+    // concreta: es lo que consumen la extensión de Twig y cualquier código
+    // propio, y el día que cambie la implementación no hay firmas que tocar.
+    // El locale sale de APP_LOCALE con default en código (S6), así que un clon
+    // sin .env arranca en español.
+    TranslatorInterface::class => static fn (): TranslatorInterface => TranslatorFactory::create(),
+
+    Twig::class => function (ContainerInterface $c) {
         $twig = Twig::create(__DIR__ . '/../resources/views', [
             // Con 'cache' => false, Twig re-parsea cada .twig en cada request:
             // en un ARM de 32 bits eso se nota. El caché va a disco;
@@ -557,6 +583,14 @@ return [
         // raíz-absoluta olvidada en un href. Con APP_BASE_PATH vacío devuelve
         // la misma cadena que estaba escrita a mano y nada cambia.
         $twig->getEnvironment()->addFunction(new TwigFunction('url', [Url::class, 'path']));
+
+        // `t('clave')` y `|trans` en TODAS las plantillas, layouts y scaffolds
+        // incluidos: la extensión se registra una vez acá, no vista por vista.
+        $translator = $c->get(TranslatorInterface::class);
+        $twig->getEnvironment()->addExtension(new TranslationExtension($translator));
+
+        // `lang="..."` del <html>: con APP_LOCALE=en anunciar es sería mentir.
+        $twig->getEnvironment()->addGlobal('app_locale', $translator->getLocale());
 
         // Catálogo de módulos: todos los scaffolds que declaran metadatos en
         // config/navigation/, estén instalados o no. La portada los lista con
@@ -3406,11 +3440,11 @@ El layout que los integra, completo, es `resources/views/layouts/app.twig`:
 
 ```twig
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="{{ app_locale }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mi App{% endblock %}</title>
+    <title>{% block title %}{{ t('app.name') }}{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
     {% include 'layouts/parts/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
@@ -3698,7 +3732,7 @@ El layout que los integra, completo, es `resources/views/layouts/app.twig`:
 {# Primer elemento tabulable de la pagina. Sin esto, con teclado hay que atravesar
    hamburguesa, plegado, breadcrumb y toggle de tema en cada pagina antes de
    llegar al contenido. #}
-<a href="#contenido" class="skip-link">Saltar al contenido</a>
+<a href="#contenido" class="skip-link">{{ t('layout.skip_to_content') }}</a>
 {# Shell de la app: sidebar plegable + header + contenido + footer.
    El collapse lo gobierna Alpine con utilities estándar (w-16/w-64,
    translate-x, hidden): el browser build las compila al vuelo, incluso
@@ -4044,6 +4078,114 @@ El bloque usuario/salir vive en la sidebar del layout (arriba del pie), porque t
 ```
 
 Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadcrumbs`, que es opcional. Sin él cae a `[{label: 'Inicio', icon: 'home', current: true}]`; con una sola miga pinta sólo su etiqueta (con `icon` si la trae) y con varias, la `<nav class="breadcrumbs">` completa, donde cada miga sin `current: true` es un `<a href>` y la marcada `current` es un `<span aria-current="page">`. Si agregas páginas, cada una arma sus propias migas (el helper `breadcrumbs()` del controlador base hace las dos típicas); `active`, en cambio, es lo que resalta el item del sidebar (cap. 9).
+
+### 15.3 Traducción del cromo: catálogos, `t()` y `APP_LOCALE`
+
+Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— no se escriben más a mano en los templates: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale.
+
+| Pieza | Archivo | Qué hace |
+|---|---|---|
+| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve locale/fallback y registra los catálogos |
+| Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` |
+| Catálogos | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto` |
+| Registro | `config/container.php` | `TranslatorInterface` en el contenedor + extensión y global `app_locale` en Twig |
+
+El contenedor expone `Symfony\Contracts\Translation\TranslatorInterface` (la interfaz de contratos, no la clase concreta), así que cualquier código propio pide el traductor por tipo y no por implementación. La extensión se registra **una sola vez**, en el `Twig::class` del contenedor: `t()` está disponible en layouts, componentes y scaffolds sin tocar cada vista. Además publica el global `app_locale`, que es lo que alimenta el `lang="..."` del `<html>`: con `APP_LOCALE=en`, anunciar `es` sería mentir.
+
+La extensión completa, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):
+
+`framework/I18n/TranslationExtension.php`:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace Framework\I18n;
+
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Twig\Extension\AbstractExtension;
+use Twig\TwigFilter;
+use Twig\TwigFunction;
+
+/**
+ * Traducción en Twig sin `symfony/twig-bridge` (L4).
+ *
+ * El bridge existe para esto, pero arrastra una superficie mucho más grande que
+ * la necesaria: acá alcanza con dos alias del mismo método para cubrir las dos
+ * formas que se leen cómodas en una plantilla.
+ *
+ *     {{ t('modal.close') }}
+ *     {{ 'modal.close'|trans }}
+ *     {{ t('pagination.showing', {'%from%': pagination.from}) }}
+ *
+ * La firma usa `Symfony\Contracts\Translation\TranslatorInterface` y no la
+ * clase concreta: el contenedor expone la interfaz (S2) y las extensiones no
+ * necesitan un `Translator` para traducir.
+ */
+final class TranslationExtension extends AbstractExtension
+{
+    public function __construct(private readonly TranslatorInterface $translator)
+    {
+    }
+
+    /**
+     * @return list<TwigFunction>
+     */
+    public function getFunctions(): array
+    {
+        return [new TwigFunction('t', $this->translate(...))];
+    }
+
+    /**
+     * @return list<TwigFilter>
+     */
+    public function getFilters(): array
+    {
+        return [new TwigFilter('trans', $this->translate(...))];
+    }
+
+    /**
+     * @param array<string, string|int|float> $params
+     */
+    public function translate(string $key, array $params = []): string
+    {
+        return $this->translator->trans($key, $params);
+    }
+}
+```
+
+**Las dos variables.** `APP_LOCALE` es el idioma activo (default `es`) y `APP_FALLBACK_LOCALE` el de respaldo (default `en`). No están en `.env.example` porque el default vive en código y `.env` no se versiona (cap. 5): si querés otro idioma, agregá la línea a mano en tu `.env`.
+
+```bash
+# en tu .env (local, no se commitea)
+APP_LOCALE=en
+APP_FALLBACK_LOCALE=es
+```
+
+**Los catálogos.** Un archivo por idioma, plano: `clave => texto`. Las claves van en inglés y nombran el concepto por superficie (`pagination.showing`, `modal.close`, `field.optional`); el valor es lo que se traduce. Los parámetros se escriben `%nombre%` y se interpolan al traducir. Una clave ausente **no rompe**: se devuelve la clave tal cual (y si existe en el fallback, se usa esa traducción). Los dos catálogos tienen que declarar las mismas claves; la suite lo verifica.
+
+**En Twig** alcanza con `t()` o con el filtro `|trans`, que son lo mismo:
+
+```twig
+{{ t('modal.close') }}
+{{ 'pagination.next'|trans }}
+{{ t('pagination.showing', {
+    '%from%': pagination.from,
+    '%to%': pagination.to,
+    '%total%': pagination.total,
+    '%label%': label|default(t('pagination.label'))
+}) }}
+```
+
+**Cómo agregar un idioma.**
+
+1. Copiá `lang/en.php` a `lang/<locale>.php` (el nombre del archivo es el locale en minúsculas: `pt_br.php` para `pt_BR`).
+2. Traducí los valores. Las claves no se tocan: son el contrato entre catálogos.
+3. Poné `APP_LOCALE=<locale>` en tu `.env`, o pasalo por entorno en el deploy.
+4. Corré `composer test`: la suite compara las claves de todos los catálogos y falla si falta una.
+
+**Qué queda pendiente de externalizar.** Este slice cubre el cromo del shell. Los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores y los mensajes del validador siguen con literales en español; pasarlos por `t()` es trabajo de las unidades siguientes, y la infraestructura ya está lista para eso.
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
@@ -5021,11 +5163,16 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 
    Sin `join`: Tabulator separa sus fichas con un gap de 8px y cada una conserva su borde y radio.
    El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era la forma de pedir
-   prestado lo que el elemento ya significa. #}
+   prestado lo que el elemento ya significa.
+
+   Los textos salen de `lang/<locale>.php` con `t()`: las claves son las de `pagination.*` y el
+   español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
+   sin él, el sustantivo del contador y del selector sale del catálogo. #}
 {% if pagination.total > 0 %}
+{% set unit = label|default(t('pagination.label')) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
+        {{ t('pagination.showing', {'%from%': pagination.from, '%to%': pagination.to, '%total%': pagination.total, '%label%': unit}) }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
@@ -5041,9 +5188,9 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            mismo tono del contador, y deja el select a tinta plena. #}
         <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
             <label class="flex items-center gap-2">
-                <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
+                <span class="pagination-label">{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}</span>
                 <select class="pagination-select" name="per_page"
-                        aria-label="{{ label|default('registros')|capitalize }} por página"
+                        aria-label="{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}"
                         data-focus-key="pagination-size"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
@@ -5056,12 +5203,12 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                 </select>
             </label>
             <noscript>
-                <button type="submit" class="pagination-control">Aplicar</button>
+                <button type="submit" class="pagination-control">{{ t('pagination.apply') }}</button>
             </noscript>
         </form>
         {% endif %}
 
-        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Paginación">
+        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="{{ t('pagination.nav') }}">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
                distintas. Se imprime con `|raw` para que el `&` salga literal,
@@ -5077,17 +5224,17 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-first"
-                   aria-label="Primera página">Primera</a>
+                   aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</a>
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-prev"
-                   aria-label="Página anterior">Anterior</a>
+                   aria-label="{{ t('pagination.go_previous') }}">{{ t('pagination.previous') }}</a>
             {% else %}
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página anterior">Anterior</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_previous') }}">{{ t('pagination.previous') }}</button>
             {% endif %}
 
             {% for p in pagination.pages %}
@@ -5105,7 +5252,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                        data-focus-key="pagination-page-{{ p }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
+                       aria-label="{{ t('pagination.go_page', {'%page%': p}) }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
@@ -5116,17 +5263,17 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-next"
-                   aria-label="Página siguiente">Siguiente</a>
+                   aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</a>
                 {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-last"
-                   aria-label="Última página">Última</a>
+                   aria-label="{{ t('pagination.go_last') }}">{{ t('pagination.last') }}</a>
             {% else %}
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Última página">Última</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_last') }}">{{ t('pagination.last') }}</button>
             {% endif %}
         </nav>
 

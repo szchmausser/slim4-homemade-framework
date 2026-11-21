@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="{{ app_locale }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mi App{% endblock %}</title>
+    <title>{% block title %}{{ t('app.name') }}{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados: ver el partial. #}
     {% include 'layouts/parts/head.twig' with { with_sidebar: true, with_htmx: true, with_alpine: true } %}
@@ -291,7 +291,7 @@
 {# Primer elemento tabulable de la pagina. Sin esto, con teclado hay que atravesar
    hamburguesa, plegado, breadcrumb y toggle de tema en cada pagina antes de
    llegar al contenido. #}
-<a href="#contenido" class="skip-link">Saltar al contenido</a>
+<a href="#contenido" class="skip-link">{{ t('layout.skip_to_content') }}</a>
 {# Shell de la app: sidebar plegable + header + contenido + footer.
    El collapse lo gobierna Alpine con utilities estándar (w-16/w-64,
    translate-x, hidden): el browser build las compila al vuelo, incluso

@@ -9,17 +9,17 @@
        x-bind:inert="!sidebarOpen">
     <div class="sidebar-head flex h-16 shrink-0 items-center gap-2 border-b border-base-300 px-4" :class="sidebarMini && 'lg:justify-center lg:px-2'">
         {% include 'components/ui/logo.twig' %}
-        <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">Mi App</span>
+        <span class="sidebar-label font-bold" :class="sidebarMini && 'lg:hidden'">{{ t('app.name') }}</span>
         <button type="button"
                 class="btn btn-square btn-ghost btn-sm ml-auto lg:hidden"
                 @click="sidebarOpen = false"
-                aria-label="Cerrar menú"
-                title="Cerrar menú">
+                aria-label="{{ t('layout.close_menu') }}"
+                title="{{ t('layout.close_menu') }}">
             {% include 'components/ui/icon.twig' with {name: 'x', class: 'h-5 w-5'} %}
         </button>
     </div>
 
-    <nav class="min-h-0 w-full grow overflow-y-auto" aria-label="Navegación principal">
+    <nav class="min-h-0 w-full grow overflow-y-auto" aria-label="{{ t('layout.main_navigation') }}">
         <ul class="menu w-full gap-1 p-2">
             {% for item in navigation_items %}
                 {% set is_active = active is defined and active == item.key %}
@@ -48,7 +48,7 @@
             <form method="post" action="{{ url('/logout') }}" class="shrink-0"
                   :class="sidebarMini && 'lg:mx-auto'">
                 {% include 'components/form/csrf.twig' %}
-                <button type="submit" class="btn btn-ghost btn-sm btn-square" title="Cerrar sesión" aria-label="Cerrar sesión">
+                <button type="submit" class="btn btn-ghost btn-sm btn-square" title="{{ t('layout.logout') }}" aria-label="{{ t('layout.logout') }}">
                     {% include 'components/ui/icon.twig' with {name: 'power', class: 'h-5 w-5'} %}
                 </button>
             </form>

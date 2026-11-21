@@ -2,11 +2,11 @@
    navegacion a una ruta protegida, que sin sesion redirige de vuelta a este
    mismo formulario. #}
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="{{ app_locale }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Mi App{% endblock %}</title>
+    <title>{% block title %}{{ t('app.name') }}{% endblock %}</title>
 
     {# Favicon, pre-pintado de tema y assets vendorizados compartidos. #}
     {% include 'layouts/parts/head.twig' %}
@@ -81,9 +81,9 @@
 </head>
 <body class="bg-base-200 text-base-content">
     <main class="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
-        <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="Mi App, ir al inicio">
+        <a href="{{ url('/') }}" class="flex items-center gap-2" aria-label="{{ t('layout.brand_home', {'%app%': t('app.name')}) }}">
             {% include 'components/ui/logo.twig' %}
-            <span class="text-lg font-bold">Mi App</span>
+            <span class="text-lg font-bold">{{ t('app.name') }}</span>
         </a>
 
         {% block content %}{% endblock %}

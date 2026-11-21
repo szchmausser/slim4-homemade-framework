@@ -30,8 +30,8 @@
                 <button type="button"
                         class="btn btn-square btn-ghost btn-xs shrink-0 opacity-50 hover:opacity-100"
                         @click="remove(t.id)"
-                        aria-label="Cerrar aviso"
-                        title="Cerrar aviso">
+                        aria-label="{{ t('toast.close') }}"
+                        title="{{ t('toast.close') }}">
                     {% include 'components/ui/icon.twig' with {name: 'x', class: 'h-3.5 w-3.5'} %}
                 </button>
                 <span class="toast-progress" aria-hidden="true" @animationend="remove(t.id)"></span>

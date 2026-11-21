@@ -115,6 +115,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 
 - Respuestas HTMX devuelven HTML de la región, nunca redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
 - Toda URL de plantilla va por `url('/login')` (en PHP, `Framework\Http\Url::path()`), nunca un literal raíz-absoluto a mano: es lo único que permite servir la app desde una carpeta con `APP_BASE_PATH=/app` (vacío = raíz, sin cambios). Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo.
+- Los textos visibles del shell salen de `lang/{es,en}.php` con `{{ t('clave') }}` o `|trans`, con la clave en inglés (`pagination.showing`, `modal.close`). El idioma se cambia con `APP_LOCALE` (default `es`, fallback `en`); no se agregan literales españoles nuevos a layouts ni componentes.
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
 - Assets en `public/assets/` vendorizados con SRI, más `app.js` del shell (nada de CDN en runtime).
 - Clases daisyUI as-is; componentes compartidos a `components/` con params.
@@ -169,7 +170,7 @@ Los demos usan estas piezas como referencia real: tareas usa lista, paginación,
 ## Estructura
 
 ```
-framework/                       Infraestructura (Auth, Http, Validation, Docs)
+framework/                       Infraestructura (Auth, Http, Validation, I18n, Docs)
 framework/scaffolds/tasks/       Demo opcional de tareas (composer demo:tasks:install)
 framework/scaffolds/contacts/    Demo opcional de contactos + Tabulator (composer demo:contacts:install)
 framework/scaffolds/notes/       Demo opcional de notas (composer demo:notes:install)
@@ -181,6 +182,7 @@ bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
 resources/views/layouts/parts/  Head, sidebar, header, toasts y footer del shell
 resources/views/components/      Button, modal, alert, field, list, table y pagination
 database/migrations/ database/seeds/  Schema versionado + datos base
+lang/  Catálogos de traducción (es/en), clave => texto
 public/assets/  Frontend vendorizado + app.js del shell, con SRI
 tests/  Suite (unit + HTTP)
 scripts/  Herramientas CLI (backup, lint, verificación, demo)

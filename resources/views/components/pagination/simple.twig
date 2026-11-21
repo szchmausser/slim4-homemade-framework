@@ -14,11 +14,16 @@
 
    Sin `join`: Tabulator separa sus fichas con un gap de 8px y cada una conserva su borde y radio.
    El contenedor es un `<nav>` y no un `<div role="navigation">`: el rol era la forma de pedir
-   prestado lo que el elemento ya significa. #}
+   prestado lo que el elemento ya significa.
+
+   Los textos salen de `lang/<locale>.php` con `t()`: las claves son las de `pagination.*` y el
+   español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
+   sin él, el sustantivo del contador y del selector sale del catálogo. #}
 {% if pagination.total > 0 %}
+{% set unit = label|default(t('pagination.label')) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
-        Mostrando {{ pagination.from }} al {{ pagination.to }} de {{ pagination.total }} {{ label|default('registros') }}
+        {{ t('pagination.showing', {'%from%': pagination.from, '%to%': pagination.to, '%total%': pagination.total, '%label%': unit}) }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
@@ -34,9 +39,9 @@
            mismo tono del contador, y deja el select a tinta plena. #}
         <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
             <label class="flex items-center gap-2">
-                <span class="pagination-label">{{ label|default('registros')|capitalize }} por página</span>
+                <span class="pagination-label">{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}</span>
                 <select class="pagination-select" name="per_page"
-                        aria-label="{{ label|default('registros')|capitalize }} por página"
+                        aria-label="{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}"
                         data-focus-key="pagination-size"
                         hx-get="{{ pagination.base_url }}"
                         hx-target="{{ target }}"
@@ -49,12 +54,12 @@
                 </select>
             </label>
             <noscript>
-                <button type="submit" class="pagination-control">Aplicar</button>
+                <button type="submit" class="pagination-control">{{ t('pagination.apply') }}</button>
             </noscript>
         </form>
         {% endif %}
 
-        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="Paginación">
+        <nav class="flex flex-wrap items-center justify-center gap-2" aria-label="{{ t('pagination.nav') }}">
             {# Un `destino` por enlace y se imprime dos veces (href y hx-get):
                una sola fuente, así los dos no pueden apuntar a páginas
                distintas. Se imprime con `|raw` para que el `&` salga literal,
@@ -70,17 +75,17 @@
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-first"
-                   aria-label="Primera página">Primera</a>
+                   aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</a>
                 {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-prev"
-                   aria-label="Página anterior">Anterior</a>
+                   aria-label="{{ t('pagination.go_previous') }}">{{ t('pagination.previous') }}</a>
             {% else %}
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Primera página">Primera</button>
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página anterior">Anterior</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_previous') }}">{{ t('pagination.previous') }}</button>
             {% endif %}
 
             {% for p in pagination.pages %}
@@ -98,7 +103,7 @@
                        hx-get="{{ destino|raw }}"
                        hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                        data-focus-key="pagination-page-{{ p }}"
-                       aria-label="Página {{ p }}">{{ p }}</a>
+                       aria-label="{{ t('pagination.go_page', {'%page%': p}) }}">{{ p }}</a>
                 {% endif %}
             {% endfor %}
 
@@ -109,17 +114,17 @@
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-next"
-                   aria-label="Página siguiente">Siguiente</a>
+                   aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</a>
                 {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-last"
-                   aria-label="Última página">Última</a>
+                   aria-label="{{ t('pagination.go_last') }}">{{ t('pagination.last') }}</a>
             {% else %}
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Página siguiente">Siguiente</button>
-                <button class="pagination-control pagination-control--disabled" disabled aria-label="Última página">Última</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</button>
+                <button class="pagination-control pagination-control--disabled" disabled aria-label="{{ t('pagination.go_last') }}">{{ t('pagination.last') }}</button>
             {% endif %}
         </nav>
 

@@ -1,5 +1,7 @@
 {# Datos de ejecución del shell. La versión de PHP y el entorno salen del
-   container; el stack del producto vive en la portada. #}
+   container; el stack del producto vive en la portada. «entorno» sale del
+   catálogo (`footer.environment`) porque es una palabra, no un dato: el valor
+   de APP_ENV se interpola tal cual. #}
 <footer class="footer footer-center h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
-    <aside>PHP {{ php_version }} · SQLite · entorno {{ app_env }}</aside>
+    <aside>PHP {{ php_version }} · SQLite · {{ t('footer.environment', {'%env%': app_env}) }}</aside>
 </footer>

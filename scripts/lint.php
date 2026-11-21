@@ -5,7 +5,9 @@ declare(strict_types=1);
 // Lint de sintaxis sobre app/, framework/ y tests/. Uso: composer lint
 // Sale con 1 si algún archivo no parsea; no ejecuta la suite.
 
-$roots = [__DIR__ . '/../app', __DIR__ . '/../framework', __DIR__ . '/../tests'];
+$roots = [__DIR__ . '/../app', __DIR__ . '/../framework', __DIR__ . '/../lang', __DIR__ . '/../tests'];
+// lang/ son catálogos que devuelven arrays: si uno se rompe, Twig no encuentra la clave
+// y la vista muestra la clave cruda. El lint los parsea como cualquier otro PHP.
 $files = [];
 
 foreach ($roots as $root) {

@@ -24,6 +24,7 @@ parameters:
         - framework/Auth
         - framework/Docs
         - framework/Http
+        - framework/I18n
         - framework/Validation
         - routes
         - scripts

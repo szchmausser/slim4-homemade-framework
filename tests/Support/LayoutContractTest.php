@@ -238,7 +238,7 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/\saria-label="Abrir menú"/',
+            '/\saria-label="\{\{ t\(\'layout\.open_menu\'\) \}\}"/',
             $hamburger,
             'el hamburguesa no tiene aria-label estático: hasta que Alpine arranca, y sin JS, el botón no anuncia nada y el lector de pantalla dice sólo «botón».'
         );
@@ -250,7 +250,7 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/\saria-label="Plegar menú"/',
+            '/\saria-label="\{\{ t\(\'layout\.collapse_menu\'\) \}\}"/',
             $collapse,
             'el botón de plegar no tiene aria-label estático: con el menú desplegado, el control que lo pliega queda sin nombre hasta que Alpine arranca.'
         );
@@ -307,7 +307,7 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/:aria-label="sidebarOpen \? \'Cerrar menú\' : \'Abrir menú\'"/',
+            '/:aria-label="sidebarOpen \? \'\{\{ t\(\'layout\.close_menu\'\) \}\}\' : \'\{\{ t\(\'layout\.open_menu\'\) \}\}\'"/',
             $hamburger,
             'el hamburguesa perdió su :aria-label: el nombre tiene que seguir al estado abierto/cerrado en runtime.'
         );
@@ -325,7 +325,7 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/:aria-label="sidebarMini \? \'Desplegar menú\' : \'Plegar menú\'"/',
+            '/:aria-label="sidebarMini \? \'\{\{ t\(\'layout\.expand_menu\'\) \}\}\' : \'\{\{ t\(\'layout\.collapse_menu\'\) \}\}\'"/',
             $collapse,
             'el botón de plegar perdió su :aria-label: el nombre tiene que seguir al estado plegado/desplegado en runtime.'
         );
@@ -337,7 +337,7 @@ final class LayoutContractTest extends TestCase
         );
 
         self::assertPattern(
-            '/\saria-label="Cambiar entre tema claro y oscuro"/',
+            '/\saria-label="\{\{ t\(\'layout\.theme_toggle\'\) \}\}"/',
             $theme,
             'el toggle de tema perdió su aria-label estático y queda sin nombre accesible.'
         );
