@@ -160,24 +160,14 @@ La app responde, pero no tiene dónde guardar una nota: la primera escritura va 
 table`. En este proyecto el esquema se escribe en migraciones y no a mano en la base, así que el primer
 archivo de la entidad es el que crea la tabla y el que permite deshacerla.
 
-**Acción**: mira qué números de migración están libres:
-
-```bash
-ls database/migrations/
-```
-
-Vas a ver archivos como `001_create_users_table.php` y `002_create_remember_tokens_table.php`. La
-convención del proyecto es **numeración secuencial desde `001` y sin huecos**, no timestamps: los
-demos ocupan una banda aparte desde `900`, así que el rango bajo es de la app. El número no lo eliges
-a mano, lo asigna el comando del proyecto:
+**Acción**: crea el archivo con el comando del proyecto:
 
 ```bash
 composer make:migration CreateNotasTable
 ```
 
-Eso deja `006_create_notas_table.php` con el esqueleto. El aviso que imprime es esperado y no bloquea
-nada: el scaffold del demo de notas declara la misma clase, así que ese demo no puede instalarse
-mientras exista tu migración. Complétalo:
+Escribe `database/migrations/006_create_notas_table.php` con el número que le toca —no lo elijas a
+mano—. Complétalo:
 
 ```php
 <?php
@@ -200,26 +190,11 @@ final class CreateNotasTable extends AbstractMigration
 ```
 
 ```bash
-vendor/bin/phinx migrate
+composer migrate
 ```
 
-**Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
-`AAAAMMDDhhmmss_create_notas_table.php` —el timestamp del momento, nunca `006_`— con el esqueleto y el
-`change()` vacío. En este proyecto no lo uses: en PHP de 32 bits ese prefijo de catorce dígitos satura
-el entero, así que todas las migraciones colapsan a la misma versión. `composer make:migration` existe
-justo para eso: pone el `NNN_` del siguiente número libre y el nombre en snake case.
-
-> **Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notas` `910-919` y `contacts`
-> `920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
-> veas en `database/migrations/`: el instalador del demo los copia con esa versión. La app numera desde
-> `001` sin entrar nunca en esa banda, así que `composer make:migration` no puede darte un número que
-> choque con un scaffold, esté el demo instalado o no.
-
-El archivo son veinte líneas: el comando te deja el número y el nombre bien puestos —el que Phinx toma
-como versión— y vos completás el `change()`.
-
-**Comprobación**: ejecuta `vendor/bin/phinx status` (o vuelve a `composer migrate`). Tienes que ver tu
-migración listada como aplicada, sin pendientes.
+**Comprobación**: ejecuta `vendor/bin/phinx status`. Tienes que ver tu migración listada como aplicada,
+sin pendientes.
 
 **Falla si**:
 
@@ -237,11 +212,33 @@ que el esquema se puede crear y revertir.
 sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
 controlador es justo lo que el proyecto evita.
 
-**La marcha atrás, en concreto**: `phinx rollback` deshace la última migración aplicada, `-t 0` las
-deshace todas y `-t <versión>` baja hasta esa. No hace falta escribir nada extra porque el `change()`
-sólo usa operaciones que Phinx sabe invertir: `create()` vuelve a `drop()`, `addColumn` a
-`removeColumn`, `addIndex` a `removeIndex`; el `-x` muestra el SQL sin ejecutarlo. Cuando la migración
-hace algo que no tiene inversa —SQL directo con `execute()`, por ejemplo—, al revertir Phinx lanza
+### Cómo funciona Phinx aquí
+
+**El número sale del nombre del archivo.** Phinx toma la versión del prefijo numérico (`006`) y nada
+más: no mira la clase ni lleva una tabla de nombres. Por eso el nombre lo pone el comando y no vos.
+
+**El generador no se usa en este proyecto.** `vendor/bin/phinx create CreateNotasTable` escribe
+`AAAAMMDDhhmmss_create_notas_table.php` —el timestamp del momento, nunca `006_`— con el esqueleto y el
+`change()` vacío. En PHP de 32 bits ese prefijo de catorce dígitos satura el entero, así que todas las
+migraciones colapsan a la misma versión. `composer make:migration` existe justo para eso: pone el `NNN_`
+del siguiente número libre y el nombre en snake case.
+
+**El aviso del scaffold.** Al crear la tuya aparece un aviso sobre `910_create_notas_table.php`: el
+scaffold del demo de notas declara la misma clase, y Phinx deriva la clase del nombre del archivo. No
+bloquea nada; sólo significa que ese demo no puede instalarse mientras exista tu migración —son la
+misma entidad—.
+
+**Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notas` `910-919` y `contacts`
+`920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
+veas en `database/migrations/`: el instalador del demo los copia con esa versión. La app numera desde
+`001` sin entrar nunca en esa banda, así que `composer make:migration` no puede darte un número que
+choque con un scaffold, esté el demo instalado o no.
+
+**La marcha atrás.** `phinx rollback` deshace la última migración aplicada, `-t 0` las deshace todas y
+`-t <versión>` baja hasta esa. No hace falta escribir nada extra porque el `change()` sólo usa
+operaciones que Phinx sabe invertir: `create()` vuelve a `drop()`, `addColumn` a `removeColumn`,
+`addIndex` a `removeIndex`; el `-x` muestra el SQL sin ejecutarlo. Cuando la migración hace algo que no
+tiene inversa —SQL directo con `execute()`, por ejemplo—, al revertir Phinx lanza
 `IrreversibleMigrationException` («Cannot reverse a … command»), y ahí se escribe a mano con `up()` y
 `down()`, que es el estilo al que estás acostumbrado en Laravel. En este repo tenés los dos: casi todas
 las migraciones usan `change()`, y `902_drop_done_from_tasks.php` usa `up()`/`down()` porque el backfill
