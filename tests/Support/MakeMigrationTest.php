@@ -21,7 +21,7 @@ final class MakeMigrationTest extends TestCase
     /** @var array<string, string> ruta relativa => clase declarada */
     private array $band = [
         'framework/scaffolds/tasks/database/migrations/tasks/900_create_tasks_table.php' => 'ScaffoldTasksTable',
-        'framework/scaffolds/notas/database/migrations/notas/910_create_notas_table.php' => 'ScaffoldNotasTable',
+        'framework/scaffolds/notes/database/migrations/notes/910_create_notes_table.php' => 'ScaffoldNotesTable',
         'framework/scaffolds/contacts/database/migrations/contacts/920_create_contacts_table.php' => 'ScaffoldContactsTable',
     ];
 
@@ -108,20 +108,20 @@ final class MakeMigrationTest extends TestCase
 
     public function test_permite_una_clase_que_solo_existe_en_un_scaffold(): void
     {
-        // El scaffold de notas declara `CreateNotasTable`, pero no está en el
-        // espacio de Phinx hasta instalar el demo, y ese demo no puede convivir
-        // con tu propia `notas`. Bloquear el nombre dejaría el paso 2 del
-        // tutorial sin poder crear su migración.
+        // El scaffold de notes declara `CreateNotesTable`, pero no está en el
+        // espacio de Phinx hasta instalar el demo. Que un scaffold reserve el
+        // nombre no puede impedir crear tu migración: el script avisa y sigue,
+        // porque el choque real aparece recién al instalar el demo.
         $this->writeMigration(
-            'framework/scaffolds/notas/database/migrations/notas/910_create_notas_table.php',
-            'CreateNotasTable'
+            'framework/scaffolds/notes/database/migrations/notes/910_create_notes_table.php',
+            'CreateNotesTable'
         );
 
-        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotasTable']);
+        [$exit, $stdout, $stderr] = $this->runCommand(['CreateNotesTable']);
 
         self::assertSame(0, $exit, $stderr);
-        self::assertFileExists($this->root . '/database/migrations/006_create_notas_table.php');
-        self::assertStringContainsString('910_create_notas_table.php', $stdout);
+        self::assertFileExists($this->root . '/database/migrations/006_create_notes_table.php');
+        self::assertStringContainsString('910_create_notes_table.php', $stdout);
     }
 
     public function test_no_entra_en_la_banda_reservada_para_demos(): void

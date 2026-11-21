@@ -112,7 +112,7 @@ Familias de componentes: `ui` (presentación genérica: botón, icono, logo, bot
   (`components/ui/logo.twig`).
 
 Los componentes no llevan guion bajo y no incluyen desde `pages/` ni desde `layouts/`: el guion bajo es
-para fragmentos internos (`pages/notas/_panel.twig`, `pages/errors/_htmx.twig`). `partials/` ya no
+para fragmentos internos (`pages/notes/_panel.twig`, `pages/errors/_htmx.twig`). `partials/` ya no
 existe; si una pieza es reutilizable va en `components/`, y si es del shell va en `layouts/parts/`.
 
 **Capas:** `ui/`, `form/` y `feedback/` son base independiente; `list/`, `table/` y `pagination/` son compuestos opcionales. Las filas de tareas y las columnas/acciones de contactos son código de dominio del demo, no componentes universales. Un usuario puede usar sólo los botones y toasts, o sumar una lista simple, sin adoptar Tabulator ni la paginación server-side.

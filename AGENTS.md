@@ -40,7 +40,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
-| `framework/scaffolds/*` | Demos instalables (tasks, contacts, notas). |
+| `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |
 | `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. |
@@ -71,8 +71,8 @@ composer demo:tasks:install
 composer demo:tasks:remove
 composer demo:contacts:install
 composer demo:contacts:remove
-composer demo:notas:install
-composer demo:notas:remove
+composer demo:notes:install
+composer demo:notes:remove
 ```
 
 `composer verify` **no** instala demos: los tests de scaffold solo corren si el demo

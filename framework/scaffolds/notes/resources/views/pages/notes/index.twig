@@ -2,7 +2,7 @@
   Página del listado de Notas: el shell completo, el modal de alta y, cuando hay
   nota, el de edición.
 
-  La renderiza `NotaController::renderList()`. En una petición htmx ese mismo
+  La renderiza `NoteController::renderList()`. En una petición htmx ese mismo
   método devuelve sólo `_panel.twig`, que es lo que se reemplaza.
 
   Para tu entidad: copia la página y cambia textos, modales e `include` del panel.
@@ -25,7 +25,7 @@
                             {% include 'components/ui/button.twig' with {
                                 label: 'Agregar nota',
                                 icon: 'plus',
-                                data_modal_open: 'nota-create-modal'
+                                data_modal_open: 'note-create-modal'
                             } only %}
                         {% endblock %}
                     {% endembed %}
@@ -36,41 +36,41 @@
 
             {# El `include` y no un `embed`: el panel es la región que el
                controlador devuelve sola en una petición htmx. #}
-            {% include 'pages/notas/_panel.twig' %}
+            {% include 'pages/notes/_panel.twig' %}
         </div>
     </section>
 
     {% embed 'components/ui/modal.twig' with {
-        id: 'nota-create-modal',
+        id: 'note-create-modal',
         title: 'Nueva nota',
         subtitle: 'Pon un título; el cuerpo es opcional.',
         open: open_create_modal|default(false)
     } %}
         {% block body %}
-            {# `nota: null` corta la herencia del `include`: sin él, en
-               /notas/{id}/edit el alta se abriría con los datos de la nota que
+            {# `note: null` corta la herencia del `include`: sin él, en
+               /notes/{id}/edit el alta se abriría con los datos de la nota que
                estás editando. #}
-            {% include 'pages/notas/_form.twig' with {
-                action: url('/notas'),
+            {% include 'pages/notes/_form.twig' with {
+                action: url('/notes'),
                 submit_label: 'Crear nota',
                 submit_icon: 'plus',
-                nota: null
+                note: null
             } %}
         {% endblock %}
     {% endembed %}
 
-    {# El modal de edición sólo existe si el controlador pasó `nota`:
+    {# El modal de edición sólo existe si el controlador pasó `note`:
        `renderList()` la manda en `edit` y en el rechazo de `update`, y el
        listado suelto no la trae. #}
-    {% if nota is defined %}
+    {% if note is defined %}
         {% embed 'components/ui/modal.twig' with {
-            id: 'nota-edit-modal',
+            id: 'note-edit-modal',
             title: 'Editar nota',
             open: open_edit_modal|default(false)
         } %}
             {% block body %}
-                {% include 'pages/notas/_form.twig' with {
-                    action: url('/notas/' ~ nota.id),
+                {% include 'pages/notes/_form.twig' with {
+                    action: url('/notes/' ~ note.id),
                     submit_label: 'Guardar cambios',
                 } %}
             {% endblock %}

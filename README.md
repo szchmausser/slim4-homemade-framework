@@ -64,6 +64,8 @@ composer test               # suite completa (el conteo lo imprime el comando)
 | `composer demo:install` / `demo:remove` | Alias compatibles de `demo:tasks:install` / `demo:tasks:remove` |
 | `composer demo:contacts:install` | Instala el demo de contactos con listado Tabulator, migración, seed y tests |
 | `composer demo:contacts:remove` | Desinstala el demo de contactos, sus assets vendorizados y su tabla |
+| `composer demo:notes:install` | Instala el demo de notas: CRUD con modales, paginación del servidor, migración, seed y tests |
+| `composer demo:notes:remove` | Desinstala el demo de notas y limpia la tabla `notes` + sus filas de `phinxlog` |
 | `composer push` | Push a GitHub desde Termux (agente SSH fijo; ver `docs/git-push-termux.md`) |
 | `composer check:termux` | Imprime si el PHP es de 32 o 64 bits |
 | `composer check:32bit` | Sale 0 solo si `PHP_INT_SIZE === 4`; gate manual en Termux |
@@ -170,6 +172,7 @@ Los demos usan estas piezas como referencia real: tareas usa lista, paginación,
 framework/                       Infraestructura (Auth, Http, Validation, Docs)
 framework/scaffolds/tasks/       Demo opcional de tareas (composer demo:tasks:install)
 framework/scaffolds/contacts/    Demo opcional de contactos + Tabulator (composer demo:contacts:install)
+framework/scaffolds/notes/       Demo opcional de notas (composer demo:notes:install)
 app/Http/Controllers/            Controladores de la app (Auth/AuthController, ...)
 app/Http/Middleware/             Middleware propio de la app
 app/Models/                      Modelos de dominio (User, ...)

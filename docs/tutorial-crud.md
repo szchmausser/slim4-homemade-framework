@@ -62,20 +62,21 @@ la lista a un componente reusable, el 13 hace que la lista siga siendo usable cu
 crece, y el 14 te deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
-`composer demo:notas:install` (se quita con `composer demo:notas:remove`). Sirve para comparar, no para
-aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La diferencia concreta es de
-nombres —el demo vive en `App\Notas\…` porque tiene que ser removible; el recorrido usa
-`App\Models\Nota` y `App\Http\Controllers\NotaController`, que es donde va una entidad tuya—. El
-comportamiento y las vistas son los mismos.
+`composer demo:notes:install` (se quita con `composer demo:notes:remove`). Sirve para comparar, no para
+aprender: el demo te da el código hecho, el recorrido te hace escribirlo. La diferencia es el idioma de
+los nombres: el demo usa los identificadores convencionales en inglés —`Note`, tabla `notes`, `/notes`,
+`pages/notes/`, `Tests\Notes\`— y el recorrido los usa en castellano —`Nota`, tabla `notas`, `/notas`,
+`pages/notas/`—. El comportamiento y las vistas son los mismos.
 
 `remove` tiene una salvedad: si editaste alguno de los archivos del demo, aborta y pide
-`composer demo:notas:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.
+`composer demo:notes:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.
 El manifiesto en `storage/demo-state/` distingue lo que editaste de lo que sólo quedó viejo porque el
 scaffold avanzó.
 
-Míralo **antes** de empezar, en un clon limpio: el demo y tu `notas` son la misma entidad —misma tabla,
-misma clase de migración— y no pueden estar instalados a la vez. Si ya seguiste el recorrido, cópialo
-para comparar en lugar de instalarlo encima.
+El demo no comparte tabla ni clase de migración con tu entidad, así que podés instalarlo con el recorrido
+ya hecho: conviven en la misma app —`/notes` y `/notas`— sin pisarse. Lo único que no podés es tratarlo
+como si fuera la tuya: sus filas, su tabla y sus rutas son otras. Si querés comparar, instalalo antes de
+empezar o después de terminar, pero no lo edites esperando que sea tu código.
 
 ## 1. Arrancar la app hasta tener sesión
 
@@ -223,12 +224,13 @@ más: no mira la clase ni lleva una tabla de nombres. Por eso el nombre lo pone 
 migraciones colapsan a la misma versión. `composer make:migration` existe justo para eso: pone el `NNN_`
 del siguiente número libre y el nombre en snake case.
 
-**El aviso del scaffold.** Al crear la tuya aparece un aviso sobre `910_create_notas_table.php`: el
-scaffold del demo de notas declara la misma clase, y Phinx deriva la clase del nombre del archivo. No
-bloquea nada; sólo significa que ese demo no puede instalarse mientras exista tu migración —son la
-misma entidad—.
+**El aviso del scaffold.** Al crear la tuya puede aparecer un aviso porque la clase de tu migración
+coincide con la de un scaffold. No bloquea nada: Phinx deriva la clase del nombre del archivo, así que el
+choque aparecería recién al instalar ese demo. Con los demos en inglés ese aviso no sale para tu entidad
+en castellano: el demo de notas declara `910_create_notes_table.php` (`CreateNotesTable`) y la tuya es
+`CreateNotasTable`.
 
-**Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notas` `910-919` y `contacts`
+**Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notes` `910-919` y `contacts`
 `920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
 veas en `database/migrations/`: el instalador del demo los copia con esa versión. La app numera desde
 `001` sin entrar nunca en esa banda, así que `composer make:migration` no puede darte un número que
@@ -3150,15 +3152,13 @@ Para el icono del encabezado y del menú usa un nombre del registro compartido �
 que no existe no rompe nada pero **no pinta nada**, ni el svg del `<h1>` ni el del sidebar. Si necesitas
 un glifo nuevo, agrégalo ahí primero.
 
-**Sobre el demo como punto de comparación**: `composer demo:notas:install` instala una entidad `notas`
-con el mismo nombre de tabla y la misma clase de migración que acabas de escribir, así que **no convive
-con tu versión**: el instalador aborta porque `routes/notas.php`, `config/navigation/notas.php`,
-`tests/Notas/Http/NotaTest.php` y las vistas ya existen, y con `composer demo:notas:install -- --force`
-copia los archivos y la migración aborta igual, porque Phinx no puede declarar dos veces la clase
-`CreateNotasTable` —la tuya y la del demo—. Para comparar, usa un clon limpio sin la entidad —o el demo
-antes de empezar—: compara comportamiento, no ubicaciones, porque el demo agrupa el código en
-`app/Notas/` y el tuyo queda en `app/Models` y `app/Http/Controllers`. Es la misma entidad, no dos que
-puedan estar juntas.
+**Sobre el demo como punto de comparación**: `composer demo:notes:install` instala el demo en inglés y
+con el layout plano: `Note` en `app/Models`, `NoteController` en `app/Http/Controllers`, `routes/notes.php`,
+`pages/notes/`, tabla `notes` y migración `910_create_notes_table.php` (`CreateNotesTable`). No comparte
+tabla ni clase con tu entidad —la tuya es `Nota`, tabla `notas`, clase `CreateNotasTable`—, así que **sí
+convive con tu versión**: se instala al lado, con sus rutas `/notes`, sus datos y su pantalla. Lo único que
+no podés hacer es usarlo como si fuera tu entidad: no lee tu tabla ni responde en tus URLs. Para comparar,
+abrí las dos pantallas: el comportamiento es el mismo y el código se diferencia sólo en los nombres.
 
 **Comprobación**: elige otra entidad (por ejemplo `libros`, con `titulo` y `anio`) y recorre esa lista.
 Esperado: al terminar, la pantalla tiene botón de alta en un modal, acciones por fila, borrado con

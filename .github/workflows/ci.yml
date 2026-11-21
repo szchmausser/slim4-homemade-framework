@@ -47,8 +47,8 @@ jobs:
             files: "app/Tasks routes/tasks.php resources/views/tasks database/migrations/tasks database/seeds/tasks tests/Tasks config/navigation/tasks.php"
           - demo: contacts
             files: "app/Contacts routes/contacts.php resources/views/contacts database/migrations/contacts database/seeds/contacts tests/Contacts public/assets/css/contacts-tabulator.css public/assets/js/contacts-tabulator.js public/assets/vendor/tabulator config/navigation/contacts.php"
-          - demo: notas
-            files: "app/Notas routes/notas.php resources/views/notas database/migrations/notas database/seeds/notas tests/Notas config/navigation/notas.php"
+          - demo: notes
+            files: "app/Models/Note.php app/Http/Controllers/NoteController.php routes/notes.php resources/views/pages/notes database/migrations/notes database/seeds/notes tests/Notes config/navigation/notes.php"
 
     steps:
       - name: Checkout

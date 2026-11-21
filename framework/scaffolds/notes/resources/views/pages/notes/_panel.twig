@@ -2,15 +2,15 @@
   Panel del listado de Notas: la región que htmx reemplaza.
 
   Lo incluye `index.twig` en una navegación normal y lo devuelve solo
-  `NotaController::renderList()` cuando la petición trae `HX-Request`. Por eso su
+  `NoteController::renderList()` cuando la petición trae `HX-Request`. Por eso su
   raíz tiene id propio y el paginador apunta a ella.
 
   Para tu entidad: copia el panel, cambia el contenido de la fila y el `target`
   del paginador.
 #}
-<div id="notas-panel">
+<div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
-        items: notas,
+        items: notes,
         empty: 'No hay notas todavía.'
     } %}
         {% block row %}
@@ -18,7 +18,7 @@
                acciones como iconos con nombre accesible. #}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
                 <div class="min-w-0">
-                    <a class="font-semibold" href="{{ url('/notas/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
+                    <a class="font-semibold" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">{{ item.titulo }}</a>
                     {% if item.cuerpo %}
                         <p class="text-sm opacity-70">{{ item.cuerpo }}</p>
                     {% endif %}
@@ -30,11 +30,11 @@
                         size: 'sm',
                         icon: 'pencil',
                         aria_label: 'Editar ' ~ item.titulo,
-                        href: url('/notas/' ~ item.id ~ '/edit')
+                        href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
                     {# Borrar no es un POST directo desde la fila: abre el diálogo
-                       `nota-delete-<id>` que se emite en `after`, así la
+                       `note-delete-<id>` que se emite en `after`, así la
                        confirmación es HTML y no un `confirm()` del navegador. #}
                     {% include 'components/ui/button.twig' with {
                         label: '',
@@ -42,24 +42,24 @@
                         size: 'sm',
                         icon: 'trash',
                         aria_label: 'Borrar ' ~ item.titulo,
-                        data_modal_open: 'nota-delete-' ~ item.id
+                        data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
             </li>
         {% endblock %}
 
         {# Los diálogos van en `after`, fuera de la `<ul>`: un `<dialog>` no es
-           hijo válido de una lista. Recorren `notas` otra vez porque este bloque
+           hijo válido de una lista. Recorren `notes` otra vez porque este bloque
            se emite una vez, sin `item`. #}
         {% block after %}
-            {% for item in notas %}
+            {% for item in notes %}
                 {% embed 'components/ui/modal.twig' with {
-                    id: 'nota-delete-' ~ item.id,
+                    id: 'note-delete-' ~ item.id,
                     title: 'Borrar nota'
                 } %}
                     {% block body %}
                         <p class="py-3 opacity-70">¿Borrar «{{ item.titulo }}»? No se puede deshacer.</p>
-                        <form method="post" action="{{ url('/notas/' ~ item.id ~ '/delete') }}"
+                        <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                               onsubmit="this.querySelector('[type=submit]').disabled = true">
                             {% include 'components/form/csrf.twig' %}
                             <div class="modal-action">
@@ -86,6 +86,6 @@
 
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
-        target: '#notas-panel'
+        target: '#notes-panel'
     } %}
 </div>

@@ -2,30 +2,31 @@
 
 declare(strict_types=1);
 
-use App\Notas\Models\Nota;
+use App\Models\Note;
 use Phinx\Seed\AbstractSeed;
 
 /**
- * Sembrador del demo Notas: doce filas de ejemplo para que el listado tenga algo
+ * Sembrador del demo Notes: doce filas de ejemplo para que el listado tenga algo
  * que paginar.
  *
- * Phinx lo corre al instalar el demo y escribe por el modelo `Nota`. Es
+ * Phinx lo corre al instalar el demo y escribe por el modelo `Note`. Es
  * idempotente: si ya hay notas no escribe nada, así que reinstalar no duplica
  * filas.
  *
  * Para tu entidad: copia el archivo, cambia el modelo y los títulos.
  */
-final class NotaSeeder extends AbstractSeed
+final class NoteSeeder extends AbstractSeed
 {
     public function run(): void
     {
         // El seeder corre por CLI, fuera de la app: este require arranca el
         // bootstrap, que es lo que deja a Eloquent conectado antes de usar el
-        // modelo.
+        // modelo. La ruta sube tres niveles porque el archivo vive en
+        // database/seeds/notes/.
         require_once __DIR__ . '/../../../bootstrap/app.php';
 
-        if (Nota::query()->exists()) {
-            echo 'NotaSeeder: ya hay notas, no se toca nada.' . PHP_EOL;
+        if (Note::query()->exists()) {
+            echo 'NoteSeeder: ya hay notas, no se toca nada.' . PHP_EOL;
             return;
         }
 
@@ -49,12 +50,12 @@ final class NotaSeeder extends AbstractSeed
         foreach ($titulos as $indice => $titulo) {
             // Una de cada tres notas lleva cuerpo, así el listado muestra las
             // dos variantes de la fila.
-            Nota::create([
+            Note::create([
                 'titulo' => $titulo,
                 'cuerpo' => $indice % 3 === 0 ? 'Cuerpo de ejemplo para la nota ' . ($indice + 1) . '.' : null,
             ]);
         }
 
-        echo 'NotaSeeder: ' . count($titulos) . ' notas demo.' . PHP_EOL;
+        echo 'NoteSeeder: ' . count($titulos) . ' notas demo.' . PHP_EOL;
     }
 }

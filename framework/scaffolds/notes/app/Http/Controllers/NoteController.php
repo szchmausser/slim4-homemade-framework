@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Notas\Http;
+namespace App\Http\Controllers;
 
-use App\Notas\Models\Nota;
+use App\Models\Note;
 use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
@@ -18,13 +18,13 @@ use Slim\Exception\HttpNotFoundException;
  * Controlador de Notas: las cinco acciones de la entidad y las dos utilidades
  * que comparten.
  *
- * Lo llama Slim desde `routes/notas.php`, ya con sesión, CSRF y login resueltos.
- * Usa `Nota`, `Validator` y `Pagination`; responde por el `Controller` base.
+ * Lo llama Slim desde `routes/notes.php`, ya con sesión, CSRF y login resueltos.
+ * Usa `Note`, `Validator` y `Pagination`; responde por el `Controller` base.
  *
  * Para tu entidad: copia el archivo, cambia el modelo y cierra cada mutación
  * con `redirect()`.
  */
-final class NotaController extends Controller
+final class NoteController extends Controller
 {
     // Utilidades primero: no son acciones de ruta y las consumen las de abajo.
     // Las acciones siguen el recorrido —listado, alta, edición, guardado y
@@ -42,15 +42,15 @@ final class NotaController extends Controller
      */
     private function pageData(Request $request): array
     {
-        $paginacion = Pagination::fromRequest(
-            Nota::orderByDesc('id'),
+        $pagination = Pagination::fromRequest(
+            Note::orderByDesc('id'),
             $request,
-            Url::path('/notas')
+            Url::path('/notes')
         );
 
         return [
-            'notas'      => $paginacion['items'],
-            'pagination' => $paginacion,
+            'notes'      => $pagination['items'],
+            'pagination' => $pagination,
             // La miga la pinta el header del shell: Inicio como enlace y Notas
             // como página actual. Sin ella, el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
@@ -73,31 +73,31 @@ final class NotaController extends Controller
     {
         $data = $this->pageData($request);
 
-        $template = $request->hasHeader('HX-Request') ? 'pages/notas/_panel.twig' : 'pages/notas/index.twig';
+        $template = $request->hasHeader('HX-Request') ? 'pages/notes/_panel.twig' : 'pages/notes/index.twig';
 
         $rendered = $this->render($request, $response, $template, $data + $extra + [
-            'active' => 'notas',
+            'active' => 'notes',
         ])->withStatus($status);
 
         if ($status >= 400) {
             return $rendered;
         }
 
-        return $rendered->withHeader('HX-Push-Url', Url::path('/notas')
+        return $rendered->withHeader('HX-Push-Url', Url::path('/notes')
             . '?page=' . $data['pagination']['current_page']
             . '&per_page=' . $data['pagination']['per_page']);
     }
 
-    /* Acciones de ruta: las invoca Slim, una por cada ruta de `routes/notas.php`. */
+    /* Acciones de ruta: las invoca Slim, una por cada ruta de `routes/notes.php`. */
 
-    /** `GET /notas`: el listado. Delega en `renderList()`; el endpoint no arma datos. */
+    /** `GET /notes`: el listado. Delega en `renderList()`; el endpoint no arma datos. */
     public function index(Request $request, Response $response): Response
     {
         return $this->renderList($request, $response);
     }
 
     /**
-     * `POST /notas`: el alta.
+     * `POST /notes`: el alta.
      *
      * Valida el título y el cuerpo; si pasa, guarda y redirige al listado con el
      * aviso, y si falla devuelve 422 con el modal de alta abierto y lo tipeado.
@@ -120,47 +120,47 @@ final class NotaController extends Controller
             ], 422);
         }
 
-        Nota::create([
+        Note::create([
             'titulo' => (string) $data['titulo'],
             'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
         ]);
 
         Flash::set('success', 'Nota creada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 
     /**
-     * `GET /notas/{id}/edit`: el formulario de edición.
+     * `GET /notes/{id}/edit`: el formulario de edición.
      *
      * No abre una pantalla aparte: reusa el listado y muestra el modal de
      * edición con la nota cargada. Un id que no existe es un 404.
      */
     public function edit(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request);
         }
 
         return $this->renderList($request, $response, [
-            'nota'            => $nota,
+            'note'            => $note,
             'open_edit_modal' => true,
         ]);
     }
 
     /**
-     * `POST /notas/{id}`: guarda la edición.
+     * `POST /notes/{id}`: guarda la edición.
      *
      * Valida igual que el alta; si falla devuelve 422 con el modal de edición
      * abierto, y si pasa guarda y redirige al listado.
      */
     public function update(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request);
         }
 
@@ -173,40 +173,40 @@ final class NotaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            // `nota` no es opcional: `index.twig` envuelve el modal de edición en
-            // `{% if nota is defined %}`, así que sin la clave no se renderiza y lo
+            // `note` no es opcional: `index.twig` envuelve el modal de edición en
+            // `{% if note is defined %}`, así que sin la clave no se renderiza y lo
             // tipeado termina en el modal de alta.
             return $this->renderList($request, $response, [
                 'errors'          => $validator->errors(),
                 'form_values'     => $data,
-                'nota'            => $nota,
+                'note'            => $note,
                 'open_edit_modal' => true,
             ], 422);
         }
 
-        $nota->fill([
+        $note->fill([
             'titulo' => (string) $data['titulo'],
             'cuerpo' => $data['cuerpo'] !== '' ? $data['cuerpo'] : null,
         ])->save();
 
         Flash::set('success', 'Nota actualizada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 
-    /** `POST /notas/{id}/delete`: borra la nota y vuelve al listado con el aviso. */
+    /** `POST /notes/{id}/delete`: borra la nota y vuelve al listado con el aviso. */
     public function destroy(Request $request, Response $response, array $args): Response
     {
-        $nota = Nota::find((int) $args['id']);
+        $note = Note::find((int) $args['id']);
 
-        if ($nota === null) {
+        if ($note === null) {
             throw new HttpNotFoundException($request);
         }
 
-        $nota->delete();
+        $note->delete();
 
         Flash::set('success', 'Nota borrada.');
 
-        return $this->redirect($response, '/notas');
+        return $this->redirect($response, '/notes');
     }
 }

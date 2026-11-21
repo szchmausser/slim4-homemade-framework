@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 // Instala o elimina un scaffold demo. Uso:
-//   php scripts/demo.php install [tasks|contacts|notas]
-//   php scripts/demo.php remove  [tasks|contacts|notas]
-// Comandos Composer: demo:tasks:install/remove, demo:contacts:install/remove y demo:notas:install/remove.
+//   php scripts/demo.php install [tasks|contacts|notes]
+//   php scripts/demo.php remove  [tasks|contacts|notes]
+// Comandos Composer: demo:tasks:install/remove, demo:contacts:install/remove y demo:notes:install/remove.
 // demo:install/remove quedan como aliases compatibles de tasks.
 //
 // Cada demo vive en framework/scaffolds/<nombre>/ con la MISMA estructura
@@ -55,10 +55,10 @@ $demos = [
         'migrations' => 'database/migrations/contacts',
         'seeder' => 'ContactSeeder',
     ],
-    'notas' => [
-        'tables' => ['notas'],
-        'migrations' => 'database/migrations/notas',
-        'seeder' => 'NotaSeeder',
+    'notes' => [
+        'tables' => ['notes'],
+        'migrations' => 'database/migrations/notes',
+        'seeder' => 'NoteSeeder',
     ],
 ];
 
@@ -75,7 +75,7 @@ if (is_string($envDb) && $envDb !== '') {
 }
 
 if ($meta === null) {
-    fwrite(STDERR, "Demo desconocido: '{$name}'. Usa tasks, contacts o notas.\n");
+    fwrite(STDERR, "Demo desconocido: '{$name}'. Usa tasks, contacts o notes.\n");
     exit(1);
 }
 
@@ -85,7 +85,7 @@ if (!is_dir($scaffold)) {
 }
 
 if ($command !== 'install' && $command !== 'remove') {
-    fwrite(STDERR, "Uso: php scripts/demo.php install|remove [tasks|contacts] [--force] [--no-db] [--no-files]\n");
+    fwrite(STDERR, "Uso: php scripts/demo.php install|remove [tasks|contacts|notes] [--force] [--no-db] [--no-files]\n");
     exit(1);
 }
 

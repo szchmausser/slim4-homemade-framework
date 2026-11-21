@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Tests\Notas\Http;
+namespace Tests\Notes\Http;
 
-use App\Notas\Models\Nota;
+use App\Models\Note;
 use Tests\Support\HttpTestCase;
 
 /**
- * Tests HTTP del demo Notas: alta, edición, borrado, rechazos y paginación por
+ * Tests HTTP del demo Notes: alta, edición, borrado, rechazos y paginación por
  * región.
  *
  * Cada test pasa por la app completa (`HttpTestCase` arma el request) y comprueba
@@ -16,35 +16,35 @@ use Tests\Support\HttpTestCase;
  *
  * Para tu entidad: copia el archivo, cambia rutas, campos y avisos.
  */
-final class NotaTest extends HttpTestCase
+final class NoteTest extends HttpTestCase
 {
     protected function setUp(): void
     {
         // Cada test arranca con sesión y con la tabla vacía: los conteos de
         // abajo valen sin depender del orden de ejecución.
         self::loginAs();
-        Nota::query()->delete();
+        Note::query()->delete();
     }
 
     protected function tearDown(): void
     {
-        Nota::query()->delete();
+        Note::query()->delete();
         parent::tearDown();
     }
 
-    private function crear(array $datos = []): Nota
+    private function createNote(array $data = []): Note
     {
-        // `$datos` va primero: si el default quedara a la izquierda, el `+` de
+        // `$data` va primero: si el default quedara a la izquierda, el `+` de
         // PHP descartaría el título que pasa cada test y todas las filas se
         // llamarían «De prueba».
-        return Nota::create($datos + ['titulo' => 'De prueba']);
+        return Note::create($data + ['titulo' => 'De prueba']);
     }
 
     public function test_crea_una_nota_y_la_muestra_en_la_lista(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => 'Primera nota',
@@ -52,13 +52,13 @@ final class NotaTest extends HttpTestCase
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('/notas', $response->getHeaderLine('Location'));
-        self::assertSame(1, Nota::query()->count());
+        self::assertSame('/notes', $response->getHeaderLine('Location'));
+        self::assertSame(1, Note::query()->count());
 
-        $lista = self::app()->handle(self::request('GET', '/notas'));
-        self::assertStringContainsString('Primera nota', (string) $lista->getBody());
-        self::assertStringContainsString('aria-label="Miga de pan"', (string) $lista->getBody());
-        self::assertStringContainsString('aria-current="page">Notas', (string) $lista->getBody());
+        $list = self::app()->handle(self::request('GET', '/notes'));
+        self::assertStringContainsString('Primera nota', (string) $list->getBody());
+        self::assertStringContainsString('aria-label="Miga de pan"', (string) $list->getBody());
+        self::assertStringContainsString('aria-current="page">Notas', (string) $list->getBody());
     }
 
     public function test_el_aviso_de_exito_llega_al_host_de_toasts_por_defecto(): void
@@ -66,16 +66,16 @@ final class NotaTest extends HttpTestCase
         // No hace falta declarar nada: el default de `Controller` manda el flash
         // como toast del shell, que es lo que el layout pinta en una página
         // completa.
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        self::app()->handle(self::request('POST', '/notas', [
+        self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => 'Con aviso',
             'cuerpo'     => '',
         ]));
 
-        $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
 
         self::assertStringContainsString('toast-host', $html);
         self::assertStringContainsString('Nota creada.', $html);
@@ -83,9 +83,9 @@ final class NotaTest extends HttpTestCase
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => '',
@@ -94,46 +94,46 @@ final class NotaTest extends HttpTestCase
         $html = (string) $response->getBody();
 
         self::assertSame(422, $response->getStatusCode());
-        self::assertSame(0, Nota::query()->count());
+        self::assertSame(0, Note::query()->count());
         self::assertStringContainsString('Este campo es obligatorio.', $html);
         self::assertStringContainsString('Texto que quiero conservar', $html);
-        self::assertMatchesRegularExpression('/nota-create-modal[^>]*open/', $html);
+        self::assertMatchesRegularExpression('/note-create-modal[^>]*open/', $html);
     }
 
     public function test_edita_una_nota(): void
     {
-        $nota = $this->crear(['titulo' => 'Antes']);
-        $token = self::token('/notas');
+        $note = $this->createNote(['titulo' => 'Antes']);
+        $token = self::token('/notes');
 
         // El alta comparte `_form.twig` con la edición, así que en la página de
         // edición no tiene que heredar la nota que se está editando.
-        $paginaEdicion = (string) self::app()->handle(
-            self::request('GET', '/notas/' . $nota->id . '/edit')
+        $editPage = (string) self::app()->handle(
+            self::request('GET', '/notes/' . $note->id . '/edit')
         )->getBody();
-        self::assertStringContainsString('aria-label="Miga de pan"', $paginaEdicion);
-        self::assertStringContainsString('aria-current="page">Notas', $paginaEdicion);
+        self::assertStringContainsString('aria-label="Miga de pan"', $editPage);
+        self::assertStringContainsString('aria-current="page">Notas', $editPage);
         self::assertStringNotContainsString(
             'value="Antes"',
-            self::dialogHtml($paginaEdicion, 'nota-create-modal'),
+            self::dialogHtml($editPage, 'note-create-modal'),
             'El alta no tiene que heredar la nota que se está editando.'
         );
 
-        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id, [
+        $response = self::app()->handle(self::request('POST', '/notes/' . $note->id, [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => 'Después',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertSame('Después', (string) Nota::find($nota->id)?->titulo);
+        self::assertSame('Después', (string) Note::find($note->id)?->titulo);
     }
 
     public function test_el_rechazo_de_la_edicion_reabre_su_modal_y_no_el_del_alta(): void
     {
-        $nota = $this->crear(['titulo' => 'Actual']);
-        $token = self::token('/notas');
+        $note = $this->createNote(['titulo' => 'Actual']);
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id, [
+        $response = self::app()->handle(self::request('POST', '/notes/' . $note->id, [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => '',
@@ -141,29 +141,29 @@ final class NotaTest extends HttpTestCase
         $html = (string) $response->getBody();
 
         self::assertSame(422, $response->getStatusCode());
-        self::assertMatchesRegularExpression('/nota-edit-modal[^>]*open/', $html);
-        self::assertDoesNotMatchRegularExpression('/nota-create-modal[^>]*open/', $html);
+        self::assertMatchesRegularExpression('/note-edit-modal[^>]*open/', $html);
+        self::assertDoesNotMatchRegularExpression('/note-create-modal[^>]*open/', $html);
     }
 
     public function test_borra_una_nota_con_confirmacion(): void
     {
-        $nota = $this->crear();
-        $token = self::token('/notas');
+        $note = $this->createNote();
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas/' . $nota->id . '/delete', [
+        $response = self::app()->handle(self::request('POST', '/notes/' . $note->id . '/delete', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
         ]));
 
         self::assertSame(303, $response->getStatusCode());
-        self::assertNull(Nota::find($nota->id));
+        self::assertNull(Note::find($note->id));
     }
 
     public function test_el_422_no_empuja_la_url(): void
     {
-        $token = self::token('/notas');
+        $token = self::token('/notes');
 
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'csrf_name'  => $token['csrf_name'],
             'csrf_value' => $token['csrf_value'],
             'titulo'     => '',
@@ -180,31 +180,31 @@ final class NotaTest extends HttpTestCase
     {
         // El CSRF es global: sin token, el Guard corta antes del controlador y
         // manda al login. Por eso no se crea ninguna fila.
-        $response = self::app()->handle(self::request('POST', '/notas', [
+        $response = self::app()->handle(self::request('POST', '/notes', [
             'titulo' => 'Sin token',
         ]));
 
         self::assertSame(303, $response->getStatusCode());
         self::assertSame('/login', $response->getHeaderLine('Location'));
-        self::assertSame(0, Nota::query()->count());
+        self::assertSame(0, Note::query()->count());
     }
 
     public function test_pagina_por_region_y_expone_la_url_de_la_pagina_renderizada(): void
     {
         foreach (range(1, 12) as $i) {
-            $this->crear(['titulo' => 'Nota ' . $i]);
+            $this->createNote(['titulo' => 'Nota ' . $i]);
         }
 
         $response = self::app()->handle(self::request(
             'GET',
-            '/notas?page=2&per_page=5',
+            '/notes?page=2&per_page=5',
             [],
             ['HX-Request' => 'true']
         ));
         $html = (string) $response->getBody();
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertSame('/notas?page=2&per_page=5', $response->getHeaderLine('HX-Push-Url'));
+        self::assertSame('/notes?page=2&per_page=5', $response->getHeaderLine('HX-Push-Url'));
         // Región, no página entera: la respuesta no trae shell.
         self::assertStringNotContainsString('<aside', $html);
         self::assertStringNotContainsString('<header', $html);
@@ -213,24 +213,24 @@ final class NotaTest extends HttpTestCase
 
     public function test_los_formularios_deshabilitan_el_boton_para_no_duplicar(): void
     {
-        $nota = $this->crear(['titulo' => 'Con guarda']);
-        $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
-        $guarda = "this.querySelector('[type=submit]').disabled = true";
+        $note = $this->createNote(['titulo' => 'Con guarda']);
+        $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
+        $guard = "this.querySelector('[type=submit]').disabled = true";
 
         // El HTML entero también trae la guarda en cada modal de borrado. Si se
         // busca ahí, el test pasa aunque el alta y la edición la hayan perdido.
         self::assertStringContainsString(
-            $guarda,
-            self::dialogHtml($html, 'nota-create-modal'),
+            $guard,
+            self::dialogHtml($html, 'note-create-modal'),
             'Sin esta guarda, un doble clic en un POST plano crea dos filas.'
         );
 
-        $edicion = (string) self::app()->handle(
-            self::request('GET', '/notas/' . $nota->id . '/edit')
+        $edit = (string) self::app()->handle(
+            self::request('GET', '/notes/' . $note->id . '/edit')
         )->getBody();
         self::assertStringContainsString(
-            $guarda,
-            self::dialogHtml($edicion, 'nota-edit-modal'),
+            $guard,
+            self::dialogHtml($edit, 'note-edit-modal'),
             'La guarda también tiene que estar en el formulario de edición.'
         );
     }
@@ -243,18 +243,18 @@ final class NotaTest extends HttpTestCase
         // este esté instalado.
         self::assertSame(3, substr_count($html, 'Demo de '), 'La portada lista los tres módulos.');
         self::assertStringContainsString('Demo de notas', $html);
-        self::assertStringContainsString('composer demo:notas:remove', $html, 'Instalado: ofrece desinstalar.');
+        self::assertStringContainsString('composer demo:notes:remove', $html, 'Instalado: ofrece desinstalar.');
     }
 
     public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void
     {
-        $html = (string) self::app()->handle(self::request('GET', '/notas'))->getBody();
+        $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
         $item = self::navItemHtml($html, 'Notas');
 
-        self::assertStringContainsString('href="/notas"', $item, 'La entrada del menú tiene que apuntar a /notas.');
-        self::assertStringContainsString('aria-current="page"', $item, 'En /notas, su entrada va marcada como activa.');
+        self::assertStringContainsString('href="/notes"', $item, 'La entrada del menú tiene que apuntar a /notes.');
+        self::assertStringContainsString('aria-current="page"', $item, 'En /notes, su entrada va marcada como activa.');
 
-        // La entrada vive en config/navigation/notas.php, que instala y quita
+        // La entrada vive en config/navigation/notes.php, que instala y quita
         // el demo: no hay ninguna condición en la plantilla del sidebar.
         $sinNav = (string) self::app()->handle(self::request('GET', '/'))->getBody();
         self::assertStringContainsString('aria-label="Inicio"', $sinNav, 'Inicio es fijo.');

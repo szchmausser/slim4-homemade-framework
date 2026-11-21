@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-use App\Notas\Http\NotaController;
+use App\Http\Controllers\NoteController;
 use Framework\Http\Middleware\RequireAuthMiddleware;
 use Slim\App;
 use Slim\Routing\RouteCollectorProxy;
 
 /**
- * Rutas del demo Notas.
+ * Rutas del demo Notes.
  *
  * El archivo devuelve una función que recibe la aplicación de Slim. El bootstrap
  * carga todos los `routes/*.php` por convención —`web.php` primero, el resto en
@@ -24,11 +24,11 @@ return function (App $app) {
     // El middleware se monta sobre el grupo: protege las cinco rutas de una sola vez
     // en vez de repetirlo en cada una. Es el lugar natural para la autorización de
     // una entidad completa.
-    $app->group('/notas', function (RouteCollectorProxy $route) {
-        $route->get('', [NotaController::class, 'index']);       // listado paginado
-        $route->post('', [NotaController::class, 'store']);      // alta desde el modal
-        $route->get('/{id}/edit', [NotaController::class, 'edit']); // formulario de edición
-        $route->post('/{id}', [NotaController::class, 'update']); // guardar la edición
-        $route->post('/{id}/delete', [NotaController::class, 'destroy']); // borrar
+    $app->group('/notes', function (RouteCollectorProxy $route) {
+        $route->get('', [NoteController::class, 'index']);       // listado paginado
+        $route->post('', [NoteController::class, 'store']);      // alta desde el modal
+        $route->get('/{id}/edit', [NoteController::class, 'edit']); // formulario de edición
+        $route->post('/{id}', [NoteController::class, 'update']); // guardar la edición
+        $route->post('/{id}/delete', [NoteController::class, 'destroy']); // borrar
     })->add(RequireAuthMiddleware::class);
 };

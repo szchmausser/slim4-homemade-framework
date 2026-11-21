@@ -32,10 +32,10 @@ final class DatabaseSeeder extends AbstractSeed
             $seeds[] = ContactSeeder::class;
         }
 
-        $notaSeeder = __DIR__ . '/notas/NotaSeeder.php';
-        if (is_file($notaSeeder)) {
-            require_once $notaSeeder;
-            $seeds[] = NotaSeeder::class;
+        $noteSeeder = __DIR__ . '/notes/NoteSeeder.php';
+        if (is_file($noteSeeder)) {
+            require_once $noteSeeder;
+            $seeds[] = NoteSeeder::class;
         }
 
         foreach ($seeds as $class) {

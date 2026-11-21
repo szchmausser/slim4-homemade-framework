@@ -206,7 +206,7 @@ mi-app/
 
 El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Tasks/`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php` (la entrada del módulo en el menú). Sin ese comando, la app base queda limpia.
 
-Hay tres demos (`tasks`, `contacts` y `notas`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
+Hay tres demos (`tasks`, `contacts` y `notes`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
 ## 4. Dependencias del backend
 
@@ -333,8 +333,8 @@ composer require --dev phpunit/phpunit
         "demo:remove": "@php scripts/demo.php remove tasks",
         "demo:contacts:install": "@php scripts/demo.php install contacts",
         "demo:contacts:remove": "@php scripts/demo.php remove contacts",
-        "demo:notas:install": "@php scripts/demo.php install notas",
-        "demo:notas:remove": "@php scripts/demo.php remove notas",
+        "demo:notes:install": "@php scripts/demo.php install notes",
+        "demo:notes:remove": "@php scripts/demo.php remove notes",
         "verify": [
             "@lint",
             "@docs:check",
@@ -2810,7 +2810,7 @@ vendor/bin/phinx create CreateRememberTokensTable
 >    database/migrations/001_create_users_table.php
 > ```
 >
-> La app numera sin huecos desde `001`: hoy `001_create_users_table.php` hasta `005_add_rotated_at_to_remember_tokens.php`. Los demos viven en bandas reservadas desde `900` (`tasks` 900-909, `notas` 910-919, `contacts` 920-929), así que el crecimiento de la app nunca abre un hueco en `ls database/migrations/`. En este proyecto el renombrado no es manual: `composer make:migration <Nombre>` genera el archivo ya numerado con el siguiente libre, así que no elijas el número a mano.
+> La app numera sin huecos desde `001`: hoy `001_create_users_table.php` hasta `005_add_rotated_at_to_remember_tokens.php`. Los demos viven en bandas reservadas desde `900` (`tasks` 900-909, `notes` 910-919, `contacts` 920-929), así que el crecimiento de la app nunca abre un hueco en `ls database/migrations/`. En este proyecto el renombrado no es manual: `composer make:migration <Nombre>` genera el archivo ya numerado con el siguiente libre, así que no elijas el número a mano.
 
 `database/migrations/001_create_users_table.php`:
 
@@ -3006,10 +3006,10 @@ final class DatabaseSeeder extends AbstractSeed
             $seeds[] = ContactSeeder::class;
         }
 
-        $notaSeeder = __DIR__ . '/notas/NotaSeeder.php';
-        if (is_file($notaSeeder)) {
-            require_once $notaSeeder;
-            $seeds[] = NotaSeeder::class;
+        $noteSeeder = __DIR__ . '/notes/NoteSeeder.php';
+        if (is_file($noteSeeder)) {
+            require_once $noteSeeder;
+            $seeds[] = NoteSeeder::class;
         }
 
         foreach ($seeds as $class) {

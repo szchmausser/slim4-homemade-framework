@@ -187,26 +187,26 @@ final class DemoInstallerTest extends TestCase
 
     public function test_install_revierte_los_archivos_si_la_db_falla(): void
     {
-        // Una tabla `notas` preexistente hace fallar la migración del demo: el
+        // Una tabla `notes` preexistente hace fallar la migración del demo: el
         // install tiene que revertir los archivos, no dejarlos a medias.
-        $this->createLog([], withNotas: true);
-        $this->removeDemo('notas');
+        $this->createLog([], withNotes: true);
+        $this->removeDemo('notes');
 
         try {
-            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas']);
+            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes']);
 
             self::assertNotSame(0, $exit);
             self::assertStringContainsString('Install revertido', $stderr);
-            // No se fija el texto de Phinx: según qué otra migración de `notas`
+            // No se fija el texto de Phinx: según qué otra migración de `notes`
             // exista, el error es la tabla duplicada o el nombre de clase
             // duplicado. Lo que importa es que la DB falló y los archivos se
             // revirtieron.
             self::assertStringContainsString('La DB fallo:', $stderr);
-            foreach ($this->installedPaths('notas') as $relative) {
+            foreach ($this->installedPaths('notes') as $relative) {
                 self::assertFileDoesNotExist($this->root . '/' . $relative, 'Quedó residuo: ' . $relative);
             }
         } finally {
-            $this->removeDemo('notas');
+            $this->removeDemo('notes');
         }
     }
 
@@ -216,25 +216,25 @@ final class DemoInstallerTest extends TestCase
         // que avisar de los archivos ya instalados, no chocar contra la
         // migración del propio demo.
         $this->createLog([]);
-        $this->removeDemo('notas');
+        $this->removeDemo('notes');
 
         try {
-            [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+            [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
             self::assertSame(0, $exit);
 
-            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas']);
+            [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes']);
 
             self::assertNotSame(0, $exit);
             self::assertStringNotContainsString('Colisión de migraciones', $stderr);
             self::assertStringContainsString('ya tiene archivos instalados', $stderr);
         } finally {
-            $this->removeDemo('notas');
+            $this->removeDemo('notes');
         }
     }
 
     public function test_install_force_restaura_el_archivo_preexistente_si_la_db_falla(): void
     {
-        $relative = 'app/Notas/Models/Nota.php';
+        $relative = 'app/Models/Note.php';
         $path = $this->root . '/' . $relative;
         $original = "<?php // editado por el usuario
 ";
@@ -242,10 +242,10 @@ final class DemoInstallerTest extends TestCase
         @mkdir(dirname($path), 0755, true);
         file_put_contents($path, $original);
 
-        // La tabla notas preexistente hace fallar la migracion del demo.
-        $this->createLog([], withNotas: true);
+        // La tabla notes preexistente hace fallar la migracion del demo.
+        $this->createLog([], withNotes: true);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas', '--force']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes', '--force']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString('Install revertido', $stderr);
@@ -254,15 +254,15 @@ final class DemoInstallerTest extends TestCase
 
     public function test_remove_se_niega_a_borrar_archivos_editados_sin_force(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $relative = 'app/Notas/Models/Nota.php';
+        $relative = 'app/Models/Note.php';
         $path = $this->root . '/' . $relative;
         file_put_contents($path, "<?php // editado
 ");
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString('archivos editados', $stderr);
@@ -273,16 +273,16 @@ final class DemoInstallerTest extends TestCase
 
     public function test_remove_permite_el_scaffold_actualizado_sin_marcarlo_como_editado(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
         // El scaffold avanza después de instalar: el archivo instalado queda
         // viejo, pero nadie lo editó. El manifiesto lo prueba, así que ni el
         // remove ni el install deben pedir --force por eso.
-        $relative = 'routes/notas.php';
+        $relative = 'routes/notes.php';
         $this->advanceScaffold($relative);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('desactualizado', $stdout);
@@ -291,52 +291,52 @@ final class DemoInstallerTest extends TestCase
 
     public function test_install_actualiza_un_archivo_desactualizado_sin_force(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $relative = 'routes/notas.php';
+        $relative = 'routes/notes.php';
         $this->advanceScaffold($relative);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes', '--no-db']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertStringContainsString('Actualizados desde el scaffold', $stdout);
         self::assertSame(
-            file_get_contents($this->root . '/framework/scaffolds/notas/' . $relative),
+            file_get_contents($this->root . '/framework/scaffolds/notes/' . $relative),
             file_get_contents($this->root . '/' . $relative)
         );
     }
 
     public function test_remove_sin_manifiesto_sigue_pidiendo_force(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
         // Un demo instalado antes de este cambio no tiene manifiesto: sin él no
         // se puede distinguir «quedó viejo» de «lo editaron», así que remove
         // mantiene el comportamiento anterior.
-        $manifest = $this->root . '/storage/demo-state/notas.json';
+        $manifest = $this->root . '/storage/demo-state/notes.json';
         self::assertFileExists($manifest);
         self::assertTrue(unlink($manifest));
 
-        $this->advanceScaffold('routes/notas.php');
+        $this->advanceScaffold('routes/notes.php');
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString('archivos editados', $stderr);
-        self::assertFileExists($this->root . '/routes/notas.php');
+        self::assertFileExists($this->root . '/routes/notes.php');
     }
 
     public function test_remove_borra_el_manifiesto(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $manifest = $this->root . '/storage/demo-state/notas.json';
+        $manifest = $this->root . '/storage/demo-state/notes.json';
         self::assertFileExists($manifest);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertFileDoesNotExist($manifest);
@@ -348,7 +348,7 @@ final class DemoInstallerTest extends TestCase
      */
     private function advanceScaffold(string $relative): void
     {
-        $path = $this->root . '/framework/scaffolds/notas/' . $relative;
+        $path = $this->root . '/framework/scaffolds/notes/' . $relative;
         $content = (string) file_get_contents($path);
         file_put_contents($path, $content . "\n// linea nueva del scaffold\n");
     }
@@ -356,7 +356,7 @@ final class DemoInstallerTest extends TestCase
     /**
      * @param list<array{0: int, 1: string}> $rows
      */
-    private function createLog(array $rows, bool $withTasks = false, bool $withContacts = false, bool $withNotas = false): void
+    private function createLog(array $rows, bool $withTasks = false, bool $withContacts = false, bool $withNotes = false): void
     {
         $pdo = new PDO('sqlite:' . $this->db, null, null, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -382,10 +382,10 @@ final class DemoInstallerTest extends TestCase
             $pdo->exec("INSERT INTO contacts (name) VALUES ('demo')");
         }
 
-        if ($withNotas) {
+        if ($withNotes) {
             // Sin la columna `cuerpo`: la migración del demo no puede crearla y
             // falla, que es lo que el test de rollback necesita.
-            $pdo->exec('CREATE TABLE notas (id INTEGER PRIMARY KEY, titulo TEXT)');
+            $pdo->exec('CREATE TABLE notes (id INTEGER PRIMARY KEY, titulo TEXT)');
         }
 
         $pdo = null;
@@ -516,20 +516,20 @@ final class DemoInstallerTest extends TestCase
 
     public function test_install_con_un_editado_y_otro_desactualizado_sigue_pidiendo_force(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $stale = 'routes/notas.php';
-        $edited = 'app/Notas/Models/Nota.php';
+        $stale = 'routes/notes.php';
+        $edited = 'app/Models/Note.php';
         $this->advanceScaffold($stale);
 
         $editedPath = $this->root . '/' . $edited;
         file_put_contents($editedPath, "<?php // editado por el usuario\n");
 
-        $manifest = $this->root . '/storage/demo-state/notas.json';
+        $manifest = $this->root . '/storage/demo-state/notes.json';
         $manifestBefore = (string) file_get_contents($manifest);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes', '--no-db']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString($edited, $stderr);
@@ -540,15 +540,15 @@ final class DemoInstallerTest extends TestCase
 
     public function test_remove_con_un_editado_y_otro_desactualizado_no_borra_nada(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $this->advanceScaffold('routes/notas.php');
-        $edited = 'app/Notas/Models/Nota.php';
+        $this->advanceScaffold('routes/notes.php');
+        $edited = 'app/Models/Note.php';
         file_put_contents($this->root . '/' . $edited, "<?php // editado\n");
         $before = $this->installedHashes();
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString($edited, $stderr);
@@ -558,32 +558,32 @@ final class DemoInstallerTest extends TestCase
 
     public function test_remove_no_files_conserva_el_manifiesto(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $manifest = $this->root . '/storage/demo-state/notas.json';
+        $manifest = $this->root . '/storage/demo-state/notes.json';
         $before = (string) file_get_contents($manifest);
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notas', '--no-files', '--no-db']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-files', '--no-db']);
 
         self::assertSame(0, $exit, $stderr);
         self::assertSame($before, (string) file_get_contents($manifest));
-        self::assertFileExists($this->root . '/routes/notas.php');
+        self::assertFileExists($this->root . '/routes/notes.php');
     }
 
     public function test_install_revierte_el_manifiesto_si_la_db_falla(): void
     {
-        [$exit] = $this->runDemo(['install', 'notas', '--no-db']);
+        [$exit] = $this->runDemo(['install', 'notes', '--no-db']);
         self::assertSame(0, $exit);
 
-        $manifest = $this->root . '/storage/demo-state/notas.json';
+        $manifest = $this->root . '/storage/demo-state/notes.json';
         $before = (string) file_get_contents($manifest);
         $installed = $this->installedHashes();
 
-        $this->createLog([], withNotas: true);
-        $this->advanceScaffold('routes/notas.php');
+        $this->createLog([], withNotes: true);
+        $this->advanceScaffold('routes/notes.php');
 
-        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notas']);
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes']);
 
         self::assertNotSame(0, $exit);
         self::assertStringContainsString('Install revertido', $stderr);
@@ -595,7 +595,7 @@ final class DemoInstallerTest extends TestCase
     private function installedHashes(): array
     {
         $hashes = [];
-        foreach ($this->installedPaths('notas') as $relative) {
+        foreach ($this->installedPaths('notes') as $relative) {
             $path = $this->root . '/' . $relative;
             $hashes[$relative] = is_file($path) ? (string) hash_file('sha256', $path) : '-';
         }
