@@ -204,10 +204,10 @@ vendor/bin/phinx migrate
 ```
 
 **Phinx tiene un generador** y conviene conocerlo: `vendor/bin/phinx create CreateNotasTable` escribe
-`20261112180349_create_notas_table.php` con el esqueleto y el `change()` vacío. En este proyecto no lo
-uses: su versión es un **timestamp** y en PHP de 32 bits ese prefijo satura el entero, así que todas
-las migraciones colapsan a la misma versión. `composer make:migration` existe justo para eso: pone el
-`NNN_` del siguiente número libre y el nombre en snake case.
+`AAAAMMDDhhmmss_create_notas_table.php` —el timestamp del momento, nunca `006_`— con el esqueleto y el
+`change()` vacío. En este proyecto no lo uses: en PHP de 32 bits ese prefijo de catorce dígitos satura
+el entero, así que todas las migraciones colapsan a la misma versión. `composer make:migration` existe
+justo para eso: pone el `NNN_` del siguiente número libre y el nombre en snake case.
 
 > **Los demos viven en una banda reservada.** `tasks` ocupa `900-909`, `notas` `910-919` y `contacts`
 > `920-929`, y esos archivos están en `framework/scaffolds/*/database/migrations/<demo>/` aunque no los
@@ -236,6 +236,16 @@ que el esquema se puede crear y revertir.
 **Qué ganaste**: la tabla `notas` existe, con sus columnas y su marcha atrás —`phinx rollback` la baja
 sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
 controlador es justo lo que el proyecto evita.
+
+**La marcha atrás, en concreto**: `phinx rollback` deshace la última migración aplicada, `-t 0` las
+deshace todas y `-t <versión>` baja hasta esa. No hace falta escribir nada extra porque el `change()`
+sólo usa operaciones que Phinx sabe invertir: `create()` vuelve a `drop()`, `addColumn` a
+`removeColumn`, `addIndex` a `removeIndex`; el `-x` muestra el SQL sin ejecutarlo. Cuando la migración
+hace algo que no tiene inversa —SQL directo con `execute()`, por ejemplo—, al revertir Phinx lanza
+`IrreversibleMigrationException` («Cannot reverse a … command»), y ahí se escribe a mano con `up()` y
+`down()`, que es el estilo al que estás acostumbrado en Laravel. En este repo tenés los dos: casi todas
+las migraciones usan `change()`, y `902_drop_done_from_tasks.php` usa `up()`/`down()` porque el backfill
+y el `DROP COLUMN` no se pueden adivinar.
 
 **Pieza — migraciones Phinx con numeración secuencial**: resuelven el versionado del esquema sin
 depender de un ORM que lo adivine. Usalas siempre que cambie el esquema. Sin esta pieza tendrías que aplicar SQL
