@@ -19,9 +19,9 @@ Necesitas:
 **Lo que este recorrido no enseña**: instalar PHP, Composer ni Termux; el contenedor de dependencias;
 los middlewares; la autenticación; los assets y el sistema visual; la regionalización —resolver de
 locale, `?lang=`, sesión, `Accept-Language`, selector del pie—; el despliegue. Todo eso está en
-`docs/guia-stack-php-termux.md` y aquí se da por hecho que el framework ya arranca. Los catálogos sí se
-usan, porque el proyecto no admite textos escritos en la plantilla; qué son y cómo se piden se explica
-en 4.1 y 6.2, sin necesidad de leer nada antes.
+`docs/guia-stack-php-termux.md` y aquí se da por hecho que el framework ya arranca. El catálogo de
+textos aparece recién al cerrar el capítulo 6: hasta ahí el texto se escribe a mano y en 6.7 se pasa a
+claves. Qué es una clave y cómo se pide se explica ahí, una sola vez.
 
 ## Cómo leer cada paso
 
@@ -487,24 +487,8 @@ return [
 ```
 
 `label` es una **clave**, no el texto. `key` es lo que el sidebar compara con el `active` de la página
-para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
-
-> **Qué es una clave.** Los textos visibles no se escriben en el código: viven en dos catálogos,
-> `lang/es.php` y `lang/en.php`, con la misma clave y el texto de cada idioma. La clave es un
-> identificador estable, en inglés; el valor es lo que se ve.
->
-> ```php
-> // lang/es.php
-> 'nav.notes'    => 'Notas',
-> 'nav.tasks'    => 'Tareas',
-> ```
->
-> El sidebar pide `nav.notes` y recibe «Notas». Las dos mitades del proyecto piden la misma clave: la
-> plantilla con `t()`, el PHP con `Trans::t()` —es lo que usan el controlador para un flash y el header
-> para el breadcrumb—.
->
-> **Comprobación**: cambia el valor por «Mis notas», recarga y vuelve a dejarlo: el menú cambió sin
-> tocar la configuración. Cambiar de idioma es otra cosa y queda fuera de este recorrido.
+para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30). El
+sidebar traduce `label` al render; qué es un catálogo y cómo se pide se explica en 6.7.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -684,10 +668,9 @@ HTML;
 
 No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni plantilla.
 
-> **El texto visible no se escribe en la plantilla.** Es el mismo mecanismo que viste en 4.1: en la
-> plantilla la clave se pide con `t()` y el texto sale del catálogo —`notes.title`, `notes.empty`—, que
-> ya trae las dos. El HTML crudo de este paso es el último lugar del recorrido donde el texto va escrito
-> a mano.
+> **En este capítulo el texto se escribe a mano.** Ni el heredoc ni la plantilla piden la cadena: «Notas»
+> va tal cual en el marcado y ahí se queda hasta 6.7, cuando la pantalla ya está armada y el catálogo se
+> explica una sola vez.
 
 **Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
 párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
@@ -784,17 +767,16 @@ use App\Models\Note;
     <p>Aquí va a vivir el listado.</p>
 ```
 
-**Después**: reemplaza ese párrafo por la lista y pasa el texto del `<h1>` y el del vacío a sus claves
-del catálogo. `t()` no es de Twig: es el helper del proyecto, y resuelve la clave en el catálogo del
-idioma activo.
+**Después**: reemplaza ese párrafo por la lista. El texto sigue escrito a mano: el `<h1>` dice «Notas» y
+el vacío dice «No hay notas todavía.». En 6.7, al cerrar el capítulo, las dos pasan al catálogo.
 
 ```twig
-    <h1>{{ t('notes.title') }}</h1>
+    <h1>Notas</h1>
     <ul>
         {% for item in notes %}
             <li>{{ item.title }}</li>
         {% else %}
-            <li>{{ t('notes.empty') }}</li>
+            <li>No hay notas todavía.</li>
         {% endfor %}
     </ul>
 ```
@@ -835,15 +817,15 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 ```twig
 {% extends 'layouts/app.twig' %}
 
-{% block title %}{{ t('notes.title') }}{% endblock %}
+{% block title %}Notas{% endblock %}
 
 {% block content %}
-    <h1>{{ t('notes.title') }}</h1>
+    <h1>Notas</h1>
     <ul>
         {% for item in notes %}
             <li>{{ item.title }}</li>
         {% else %}
-            <li>{{ t('notes.empty') }}</li>
+            <li>No hay notas todavía.</li>
         {% endfor %}
     </ul>
 {% endblock %}
@@ -884,19 +866,19 @@ que se vea qué aportó el shell y qué aporta el diseño.
 ```twig
 {% extends 'layouts/app.twig' %}
 
-{% block title %}{{ t('notes.title') }}{% endblock %}
+{% block title %}Notas{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
-            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
+            <h1 class="text-2xl font-bold">Notas</h1>
             <ul class="space-y-2">
                 {% for item in notes %}
                     <li class="rounded-box border border-base-300 bg-base-100 p-3">
                         <span class="font-semibold">{{ item.title }}</span>
                     </li>
                 {% else %}
-                    <li class="opacity-60">{{ t('notes.empty') }}</li>
+                    <li class="opacity-60">No hay notas todavía.</li>
                 {% endfor %}
             </ul>
         </div>
@@ -940,7 +922,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
                 <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% else %}
-            <li class="opacity-60">{{ t('notes.empty') }}</li>
+            <li class="opacity-60">No hay notas todavía.</li>
         {% endfor %}
     </ul>
 </div>
@@ -951,7 +933,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 **Antes**:
 
 ```twig
-            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
+            <h1 class="text-2xl font-bold">Notas</h1>
             <ul class="space-y-2">
                 {# … el bucle completo … #}
             </ul>
@@ -961,7 +943,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 **Después**: cambia el `<ul>` por el include, **sin** envolverlo.
 
 ```twig
-            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
+            <h1 class="text-2xl font-bold">Notas</h1>
             {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
@@ -998,7 +980,7 @@ mano primero, para ver exactamente qué contiene.
 
 ```twig
         <div class="card-body gap-4">
-            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
+            <h1 class="text-2xl font-bold">Notas</h1>
             {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
@@ -1017,16 +999,16 @@ dentro del mismo `card-body`.
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
                         </span>
-                        {{ t('notes.title') }}
+                        Notas
                     </h1>
-                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
                 </div>
                 <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                    {{ t('notes.add') }}
+                    Agregar nota
                 </button>
             </div>
 
-            <h2 class="text-lg font-semibold">{{ t('notes.list_heading') }}</h2>
+            <h2 class="text-lg font-semibold">Todas las notas</h2>
 
             {% include 'pages/notes/_panel.twig' %}
         </div>
@@ -1052,8 +1034,8 @@ dentro del mismo `card-body`.
 - `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Su fallback es un
   único «Inicio» marcado como actual, así que sin esta clave el encabezado dice que estás en la
   portada aunque estés en `/notes`. Con dos migas pinta la ruta y marca la última con
-  `aria-current="page"`. La etiqueta es texto que el header imprime tal cual, así que sale del catálogo
-  con `Trans::t('nav.notes')`: suma `use Framework\I18n\Trans;` junto a los otros imports.
+  `aria-current="page"`. La etiqueta es texto que el header imprime tal cual, así que se escribe
+  completa: `'Notas'`. En 6.7, al cerrar el capítulo, se cambia por la clave del catálogo.
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -1061,7 +1043,7 @@ dentro del mismo `card-body`.
         return $this->render($request, $response, 'pages/notes/index.twig', [
             'notes'       => Note::orderByDesc('id')->get(),
             'active'      => 'notes',
-            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.notes'), 'list'),
+            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
         ]);
     }
 ```
@@ -1086,6 +1068,162 @@ vista, y ninguna habla de notas. Eso tiene arreglo, y llega en el capítulo 12, 
 funciona.
 
 ![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
+
+### 6.7 Las cadenas al catálogo
+
+**Objetivo**: sacar el texto de la plantilla y del controlador, y pedirlo por clave a los catálogos del
+proyecto.
+
+**Estado de partida**: 6.6 hecho; el título, el subtítulo, el botón, el encabezado de la lista y el vacío
+están escritos a mano en `index.twig` y `_panel.twig`, y el breadcrumb en `index()`.
+
+Los literales alcanzaron hasta acá y no alcanzan para lo que viene: el mismo texto se repite en cada
+vista que lo muestre, no hay un lugar único donde cambiarlo y nada impide que dos pantallas lo escriban
+distinto. El proyecto lo resuelve con un catálogo por idioma y una función para pedir la cadena. Las
+claves de esta pantalla ya están en los dos catálogos —las trae el proyecto, que las usa para el demo
+`notes`—, así que este paso no agrega archivos: cambia cómo se pide el texto.
+
+**Archivo**: `lang/es.php` y `lang/en.php`. Estas son las claves que usa el capítulo:
+
+`lang/es.php`:
+
+```php excerpt
+'nav.notes'       => 'Notas',
+'notes.title'     => 'Notas',
+'notes.subtitle'  => 'Tus notas, con alta y acciones por fila.',
+'notes.add'       => 'Agregar nota',
+```
+
+`lang/en.php`:
+
+```php excerpt
+'nav.notes'       => 'Notes',
+'notes.title'     => 'Notes',
+'notes.subtitle'  => 'Your notes, with creation and row actions.',
+'notes.add'       => 'Add note',
+```
+
+`notes.list_heading` («Todas las notas» / «All notes») y `notes.empty` («No hay notas todavía.» / «No
+notes yet.») están igual, una línea en cada archivo. **La clave es un identificador estable, en inglés;
+el valor es lo que se ve**: `notes.title` no se traduce ni se renombra, el texto sí. Y la misma clave
+tiene que estar en los dos archivos: una clave que existe en uno solo deja esa pantalla en el otro
+idioma. Para tu entidad, las claves se agregan a los dos a la vez, como se ve en el capítulo 16.
+
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`, y `_panel.twig` para el vacío.
+
+**Antes**: las cadenas escritas en el marcado (los `{# … #}` marcan lo que no cambia).
+
+```twig excerpt
+{% block title %}Notas{% endblock %}
+{# … #}
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        {# … el icono … #}
+                        Notas
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                </div>
+                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
+                    Agregar nota
+                </button>
+            </div>
+
+            <h2 class="text-lg font-semibold">Todas las notas</h2>
+{# … #}
+```
+
+**Después**: el mismo archivo, con las cadenas pedidas al catálogo.
+
+```twig excerpt
+{% extends 'layouts/app.twig' %}
+
+{% block title %}{{ t('notes.title') }}{% endblock %}
+
+{% block content %}
+    <section class="card border border-base-300 bg-base-100">
+        <div class="card-body gap-4">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        {{ t('notes.title') }}
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
+                </div>
+                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
+                    {{ t('notes.add') }}
+                </button>
+            </div>
+
+            <h2 class="text-lg font-semibold">{{ t('notes.list_heading') }}</h2>
+
+            {% include 'pages/notes/_panel.twig' %}
+        </div>
+    </section>
+{% endblock %}
+```
+
+En `_panel.twig` cambia una sola línea, la del vacío:
+
+```twig excerpt
+            <li class="opacity-60">{{ t('notes.empty') }}</li>
+```
+
+**Las dos mitades.** En la plantilla la clave se pide con `t()`; en PHP, con `Trans::t()`. Es la misma
+clave y el mismo catálogo: lo que cambia es quién pregunta.
+
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `index()`.
+
+**Antes**: la etiqueta del breadcrumb escrita completa.
+
+```php excerpt
+            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
+```
+
+**Después**: la clave, y el import que la resuelve junto a los otros `use`.
+
+```php excerpt
+use Framework\I18n\Trans;
+```
+
+```php excerpt
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.notes'), 'list'),
+```
+
+El breadcrumb no recibe la clave: el header imprime la etiqueta tal cual, así que la cadena se pide en el
+controlador y viaja ya traducida. La plantilla, en cambio, la pide sola con `t()`.
+
+**Comprobación**: recarga `/notes`: la pantalla se ve **idéntica** —el mismo título, el mismo subtítulo, el
+mismo botón, el mismo vacío, y la pestaña sigue diciendo «Notas»—. Después cambia el valor de
+`notes.title` por `'Mis notas'` en `lang/es.php`, recarga y vuelve a dejarlo: cambian el `<h1>` y el
+título de la pestaña a la vez, sin tocar la plantilla ni el controlador.
+
+**Qué no prueba**: que el sitio hable otro idioma. Probaste que la cadena sale del catálogo, no que el
+catálogo cambie solo. Elegir idioma —resolver de locale, `?lang=`, sesión, `Accept-Language`, selector
+del pie— queda fuera de este recorrido y está en `docs/guia-stack-php-termux.md` §15.3.
+
+**Falla si**:
+
+- Ves `notes.title` en la pantalla, o el texto desaparece: la clave está mal escrita o falta en el
+  catálogo del idioma activo. `t()` y `Trans::t()` devuelven la clave cuando no la encuentran: el error
+  se ve, no rompe.
+- El mismo texto cambia en un archivo y no en el otro: actualizaste un catálogo y no el otro. Cada
+  clave va en `lang/es.php` y en `lang/en.php`.
+- Error `Class "App\Http\Controllers\Trans" not found`: falta `use Framework\I18n\Trans;` junto a los
+  otros `use` del controlador.
+
+**Qué ganaste**: el texto de la pantalla vive en un solo lugar por idioma y la vista pide lo que necesita.
+El costo es una indirección: para saber qué dice el botón hay que abrir el catálogo. Lo que todavía no
+tienes es un segundo idioma funcionando: eso es configuración por petición, no texto.
+
+**Pieza — catálogos y `t()`/`Trans::t()`**: resuelven el texto visible de toda la app, con una clave
+estable por cadena y un archivo por idioma. Úsalos en cuanto haya texto que otra pantalla pueda repetir o
+traducir; evitan el literal copiado en cada vista y la cadena escrita en el controlador, que no se traduce
+y no se encuentra buscando. Sin ellos, cambiar «Agregar nota» en seis pantallas son seis ediciones, y una
+se olvida.
+
+![Los mismos textos, ahora pedidos al catálogo: la pantalla no cambia](tutorial-crud-images/06-7-encabezado.png)
 
 ## 7. El alta: del formulario crudo al modal del proyecto
 
@@ -3197,7 +3335,7 @@ escrito para que la segunda entidad no te obligue a releer los quince anteriores
 
 **Los textos del cromo no están en las vistas: salen de `lang/`.** Cuando tu entidad reusa el shell, el texto
 visible se agrega como clave en `lang/es.php` y `lang/en.php` con el mismo nombre en los dos; en la
-plantilla se pide con `t()` y desde PHP con `Trans::t()` (4.1 y 6.2). Lo que queda fuera de este
+plantilla se pide con `t()` y desde PHP con `Trans::t()` (6.7). Lo que queda fuera de este
 recorrido —resolver de locale, selector del pie, cambio de idioma— está en la guía, §15.3.
 
 **Los archivos a tocar**, en orden:
