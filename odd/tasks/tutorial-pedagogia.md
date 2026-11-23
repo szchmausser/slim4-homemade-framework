@@ -50,6 +50,17 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   no se difiere porque la invariante lo exige desde la primera página y `t()` ya está en 98 líneas del
   documento. Una sola explicación donde nace la primera clave (4.1), referencias cortas en 6.1 y 6.2, y
   el límite declarado en Prerrequisitos.
+- **S9 (literales primero)**: «en 6.2 en este momento, todavia sigo viendo "    <h1>{{ t('notes.title') }}</h1>
+    <ul>
+        {% for item in notes %}
+            <li>{{ item.title }}</li>
+        {% else %}
+            <li>{{ t('notes.empty') }}</li>
+        {% endfor %}
+    </ul>" y deberiamos usar literales ya que en este punto el usuario no sabe nada de regionalizacion».
+  Resolución (L11): el capítulo 6 entero (6.1-6.6) usa texto literal y el catálogo se enseña una sola vez
+  al cerrarlo, en 6.7, justo antes de que el cap. 7 lo necesite. El valor de cada literal es exactamente
+  el que hoy devuelve `lang/es.php`, para que ninguna captura cambie.
 
 ## Tasks
 
@@ -76,6 +87,13 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
 - **T5** — Cadenas (S8): explicación única del catálogo en 4.1 (clave/valor, comprobación de diez
   segundos), referencia corta en 6.1, `t()` nombrado como helper del proyecto en 6.2 y la regionalización
   declarada fuera de alcance en Prerrequisitos. Ruta: inline. Commit: `e78cd22`.
+- **T6** — Literales antes del catálogo (S9): en `docs/tutorial-crud.md`, (a) reemplazar por texto
+  literal las apariciones de `t(...)`/`Trans::t(...)` del capítulo 6 —incluido el breadcrumb— copiando el
+  valor exacto de `lang/es.php`; (b) quitar la caja «Qué es una clave» de 4.1 y dejar una sola línea con
+  puntero a 6.7; (c) reescribir la nota de 6.1 para que no adelante el catálogo; (d) agregar
+  «6.7 Las cadenas al catálogo» al final del capítulo 6 como explicación única; (e) ajustar
+  Prerrequisitos. No tocar los capítulos 7-17, que ya usan el catálogo, ni renumerar nada. Ruta: worker
+  (backstop de contexto). Commit: `e02c4ae`
 
 ## Log
 
@@ -126,3 +144,9 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
 - **L10**: tras T5 quedaba un puntero desactualizado en la sección de transferencia (cap. 16): remitía a la
   guía §15.3 para el `Trans::t()` del flash, que ahora se explica en 4.1. Se alinea: la transferencia
   apunta a 4.1 y 6.2 para el mecanismo y a la guía solo para el resolver de locale.
+- **L11**: el usuario insiste: en 6.2 el lector no sabe nada de i18n y `t()` no debe aparecer ahí. Se
+  acepta y se invierte la decisión de L9/T5: el capítulo 6 usa literales y el catálogo pasa a 6.7, una
+  sola vez y después de que la pantalla existe. Se conserva el límite pedido —regionalización fuera— y
+  la invariante se cumple en el estado final (caps. 7-17 y el demo usan el catálogo). Los literales deben
+  ser idénticos al valor actual de `lang/es.php` para que las capturas sigan siendo válidas. El
+  cap. 6 crece con 6.7 (≈70 líneas); el resto del libro no se toca ni se renumera.
