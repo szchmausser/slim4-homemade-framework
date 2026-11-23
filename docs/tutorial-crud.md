@@ -17,8 +17,11 @@ Necesitas:
   si prefieres ver los cuerpos crudos.
 
 **Lo que este recorrido no enseña**: instalar PHP, Composer ni Termux; el contenedor de dependencias;
-los middlewares; la autenticación; los assets y el sistema visual; el despliegue. Todo eso está en
-`docs/guia-stack-php-termux.md`. Aquí se da por hecho que el framework ya arranca.
+los middlewares; la autenticación; los assets y el sistema visual; la regionalización —resolver de
+locale, `?lang=`, sesión, `Accept-Language`, selector del pie—; el despliegue. Todo eso está en
+`docs/guia-stack-php-termux.md` y aquí se da por hecho que el framework ya arranca. Los catálogos sí se
+usan, porque el proyecto no admite textos escritos en la plantilla; qué son y cómo se piden se explica
+en 4.1 y 6.2, sin necesidad de leer nada antes.
 
 ## Cómo leer cada paso
 
@@ -483,10 +486,22 @@ return [
 ];
 ```
 
-`label` es una **clave**, no el texto: el sidebar la traduce al render con el resto de las etiquetas del
-menú, así que «Notas» y «Notes» salen de `lang/es.php` y `lang/en.php`. `key` es lo que el sidebar compara
-con el `active` de la página para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10,
-Contactos 20, Notas 30).
+`label` es una **clave**, no el texto. `key` es lo que el sidebar compara con el `active` de la página
+para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
+
+> **Qué es una clave.** Los textos visibles no se escriben en el código: viven en dos catálogos,
+> `lang/es.php` y `lang/en.php`, con la misma clave y el texto de cada idioma. La clave es un
+> identificador estable, en inglés; el valor es lo que se ve.
+>
+> ```php
+> // lang/es.php
+> 'nav.notes'    => 'Notas',
+> 'nav.tasks'    => 'Tareas',
+> ```
+>
+> El sidebar pide `nav.notes` y recibe «Notas». **Comprobación**: cambia el valor por «Mis notas»,
+> recarga y vuelve a dejarlo: el menú cambió sin tocar la configuración. Cambiar de idioma es otra
+> cosa y queda fuera de este recorrido.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -666,10 +681,10 @@ HTML;
 
 No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni plantilla.
 
-> **El texto visible no se escribe en la plantilla.** En la vista del proyecto, «Notas» y «No hay notas
-> todavía.» salen de `lang/es.php` y `lang/en.php` con la misma clave en los dos —`notes.title`,
-> `notes.empty`—, y la plantilla los pide con `t()`. El HTML crudo de este paso es un andamio; desde 6.2
-> cada texto del listado viene del catálogo. El cómo está en la guía, §15.3.
+> **El texto visible no se escribe en la plantilla.** Es el mismo mecanismo que viste en 4.1: en la
+> plantilla la clave se pide con `t()` y el texto sale del catálogo —`notes.title`, `notes.empty`—, que
+> ya trae las dos. El HTML crudo de este paso es el último lugar del recorrido donde el texto va escrito
+> a mano.
 
 **Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
 párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
@@ -767,7 +782,8 @@ use App\Models\Note;
 ```
 
 **Después**: reemplaza ese párrafo por la lista y pasa el texto del `<h1>` y el del vacío a sus claves
-del catálogo.
+del catálogo. `t()` no es de Twig: es el helper del proyecto, y resuelve la clave en el catálogo del
+idioma activo.
 
 ```twig
     <h1>{{ t('notes.title') }}</h1>
