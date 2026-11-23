@@ -227,7 +227,7 @@ que el esquema se puede crear y revertir.
 sin dejar restos—. Lo que todavía no existe es una forma de leerla desde PHP; escribir SQL a mano en cada
 controlador es justo lo que el proyecto evita.
 
-### Cómo funciona Phinx aquí
+### El generador: número, aviso y marcha atrás
 
 **El número sale del nombre del archivo.** Phinx toma la versión del prefijo numérico (`006`) y nada
 más: no mira la clase ni lleva una tabla de nombres. Por eso el nombre lo pone el comando y no vos.
