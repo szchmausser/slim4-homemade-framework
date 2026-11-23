@@ -31,10 +31,10 @@
     } only %}
 
     {# El aviso de opcional va dentro de la etiqueta y no con `optional: true`:
-       ese flag escribe `field.optional` en el idioma activo, y este demo está
-       en inglés por diseño, así que en español cambiaría el texto de la
-       pantalla. `notes.field_body` guarda la etiqueta completa en los dos
-       catálogos (L16 de `odd/tasks/demo-conventions.md`). #}
+       ese flag escribe `field.optional` («(opcional)» / «(optional)»), un texto
+       del componente que el demo no decide. `notes.field_body` guarda la
+       etiqueta completa en los dos catálogos, así que el render no depende de
+       cómo pinta la pista `components/form/field.twig`. #}
     {% include 'components/form/field.twig' with {
         name: 'body',
         label: t('notes.field_body'),

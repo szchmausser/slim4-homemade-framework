@@ -8,20 +8,20 @@ use App\Models\Note;
 use Tests\Support\HttpTestCase;
 
 /**
- * El demo Notes sale del catálogo sin cambiar de idioma.
+ * El demo Notes sale del catálogo y cambia de idioma.
  *
- * Este demo está en inglés por diseño (L16 de `odd/tasks/demo-conventions.md`:
- * «columnas title/body, datos de ejemplo, etiquetas, estados vacíos, diálogos,
- * flashes y aria-labels en inglés»), así que sus dos catálogos llevan el mismo
- * texto: lo que se externalizó es de dónde sale la cadena, no el idioma del
- * demo. Cambiar eso es una decisión de producto —traducir `notes.*` en
- * `lang/es.php`— y no un efecto colateral de esta unidad.
+ * El demo nació en inglés completo (L16 de `odd/tasks/demo-conventions.md`) y
+ * sus dos catálogos decían lo mismo, así que la pantalla era idéntica en `es` y
+ * `en`. L10 de `odd/tasks/i18n.md` revirtió esa decisión: era el único demo que
+ * no cambiaba de idioma y eso impedía que el tutorial —cuya entidad es `notes`—
+ * reusara sus claves. Hoy `notes.*` se traduce como `tasks.*` y `contacts.*`, y
+ * también su etiqueta de menú (`nav.notes`): en español el sidebar dice
+ * «Inicio · Tareas · Contactos · Notas».
  *
- * El test fija las dos cosas: que el texto es el mismo en los dos locales y que
- * ya no vive en la plantilla ni en el controlador (si vuelve un literal, la
- * clave desaparece del catálogo y `I18nDemosTest` lo frena; si el render deja
- * de pasar por `t()`, este archivo no puede distinguirlo, y por eso la
- * referencia de es/en es el contrato de S7).
+ * El caso en español corre sin `?lang=`: el default del proyecto es `es`, así
+ * que es lo que ve quien abre el demo sin elegir idioma. El caso en inglés pide
+ * `?lang=en` explícito, que además queda en la sesión (lo limpia el tearDown de
+ * `HttpTestCase`, así que no contamina al test siguiente).
  */
 final class I18nNotesTest extends HttpTestCase
 {
@@ -43,12 +43,55 @@ final class I18nNotesTest extends HttpTestCase
         return html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
-    /** S7: la pantalla dice lo mismo que decía antes del cambio. */
-    public function test_la_pantalla_conserva_el_texto_de_head(): void
+    /** El catálogo español: cada superficie de la pantalla sale en castellano. */
+    public function test_la_pantalla_sale_en_espanol_por_defecto(): void
     {
         $note = Note::create(['title' => 'Groceries', 'body' => 'Milk']);
 
         $html = self::texto((string) self::app()->handle(self::request('GET', '/notes'))->getBody());
+
+        self::assertStringContainsString('<title>Notas</title>', $html);
+        self::assertStringContainsString('Tus notas, con alta y acciones por fila.', $html);
+        self::assertStringContainsString('<span>Agregar nota</span>', $html);
+        self::assertStringContainsString('Todas las notas', $html);
+        self::assertStringContainsString('Nueva nota', $html);
+        self::assertStringContainsString('Ponle un título; el cuerpo es opcional.', $html);
+        self::assertStringContainsString('<span>Crear nota</span>', $html);
+        self::assertStringContainsString('Borrar nota', $html);
+        self::assertStringContainsString('¿Borrar «Groceries»? No se puede deshacer.', $html);
+        self::assertStringContainsString('aria-label="Editar Groceries"', $html);
+        self::assertStringContainsString('aria-label="Borrar Groceries"', $html);
+        self::assertMatchesRegularExpression('/for="title">\s*Título/', $html, 'La etiqueta del campo no salió del catálogo.');
+        self::assertStringContainsString('Cuerpo (opcional)', $html);
+
+        // Sidebar y miga: el nombre del módulo también sale del catálogo.
+        self::assertStringContainsString('>Notas<', $html, 'El sidebar en español no traduce el nombre del módulo.');
+        self::assertStringContainsString('aria-current="page">Notas', $html, 'La miga en español no traduce el nombre del módulo.');
+        self::assertStringNotContainsString('>Notes<', $html, 'El sidebar en español sigue mostrando el nombre en inglés.');
+
+        // El modal de edición vive en la página completa: el swap de htmx
+        // devuelve `_panel.twig`, que no lo incluye.
+        $edit = self::texto((string) self::app()->handle(
+            self::request('GET', '/notes/' . $note->id . '/edit')
+        )->getBody());
+
+        self::assertStringContainsString('Editar nota', $edit);
+        self::assertStringContainsString('<span>Guardar cambios</span>', $edit);
+        self::assertStringContainsString('<span>Cancelar</span>', $edit);
+        self::assertStringNotContainsString('Add note', $edit);
+    }
+
+    /**
+     * El mismo demo en inglés: la pantalla cambia con el locale.
+     *
+     * Las dos puntas del menú también: en español el sidebar dice «Notas» y en
+     * inglés «Notes», igual que `nav.tasks` dice «Tareas»/«Tasks».
+     */
+    public function test_el_demo_sale_en_ingles_con_lang_en(): void
+    {
+        $note = Note::create(['title' => 'Groceries', 'body' => 'Milk']);
+
+        $html = self::texto((string) self::app()->handle(self::request('GET', '/notes?lang=en'))->getBody());
 
         self::assertStringContainsString('<title>Notes</title>', $html);
         self::assertStringContainsString('Your notes, with creation and row actions.', $html);
@@ -61,45 +104,29 @@ final class I18nNotesTest extends HttpTestCase
         self::assertStringContainsString('Delete "Groceries"? This cannot be undone.', $html);
         self::assertStringContainsString('aria-label="Edit Groceries"', $html);
         self::assertStringContainsString('aria-label="Delete Groceries"', $html);
+        self::assertMatchesRegularExpression('/for="title">\s*Title/', $html, 'La etiqueta del campo no salió del catálogo.');
+        self::assertStringContainsString('Body (optional)', $html);
 
-        // El modal de edición vive en la página completa: el swap de htmx
-        // devuelve `_panel.twig`, que no lo incluye.
+        self::assertStringContainsString('>Notes<', $html, 'El sidebar en inglés no muestra el nombre del módulo.');
+        self::assertStringContainsString('aria-current="page">Notes', $html, 'La miga en inglés no muestra el nombre del módulo.');
+
+        self::assertStringNotContainsString('Agregar nota', $html, 'La pantalla sigue en español con `?lang=en`.');
+        self::assertStringNotContainsString('Todas las notas', $html, 'La pantalla sigue en español con `?lang=en`.');
+        self::assertStringNotContainsString('notes.subtitle', $html, 'La clave salió cruda: no se está traduciendo.');
+
         $edit = self::texto((string) self::app()->handle(
-            self::request('GET', '/notes/' . $note->id . '/edit')
+            self::request('GET', '/notes/' . $note->id . '/edit?lang=en')
         )->getBody());
 
         self::assertStringContainsString('Edit note', $edit);
         self::assertStringContainsString('<span>Save changes</span>', $edit);
         self::assertStringContainsString('<span>Cancel</span>', $edit);
-        self::assertStringContainsString('aria-label="Edit Groceries"', $edit);
     }
 
-    /**
-     * El demo no cambia de idioma: es inglés en los dos locales.
-     *
-     * La aserción del sidebar sí distingue: `nav.notes` es el nombre del módulo
-     * y también dice «Notes» en los dos catálogos.
-     */
-    public function test_el_demo_sale_en_ingles_en_los_dos_locales(): void
-    {
-        foreach (['', '?lang=en'] as $query) {
-            $html = self::texto((string) self::app()->handle(self::request('GET', '/notes' . $query))->getBody());
-
-            $idioma = $query === '' ? 'es' : 'en';
-
-            self::assertStringContainsString('<title>Notes</title>', $html, "La pantalla de notes cambió de idioma en {$idioma}.");
-            self::assertStringContainsString('Add note', $html);
-            self::assertStringContainsString('No notes yet.', $html);
-            self::assertStringContainsString('>Notes<', $html, 'El sidebar no muestra la etiqueta del módulo.');
-            self::assertStringNotContainsString('Notas', $html);
-            self::assertStringNotContainsString('notes.title', $html, 'La clave salió cruda: no se está traduciendo.');
-        }
-    }
-
-    /** El aviso del alta sale del catálogo, con el mismo texto en los dos locales. */
+    /** El aviso del alta sale del catálogo en el idioma de la petición. */
     public function test_el_aviso_del_alta_sale_del_catalogo(): void
     {
-        foreach (['', '?lang=en'] as $query) {
+        foreach (['' => 'Nota creada.', '?lang=en' => 'Note created.'] as $query => $aviso) {
             $token = self::token('/notes' . $query);
 
             self::app()->handle(self::request('POST', '/notes' . $query, [
@@ -113,7 +140,7 @@ final class I18nNotesTest extends HttpTestCase
 
             $idioma = $query === '' ? 'es' : 'en';
 
-            self::assertStringContainsString('Note created.', $html, "El aviso no llegó al host de toasts en {$idioma}.");
+            self::assertStringContainsString($aviso, $html, "El aviso no llegó al host de toasts en {$idioma}.");
 
             Note::query()->delete();
         }

@@ -13,11 +13,14 @@ use Twig\Environment;
  * las etiquetas de navegación.
  *
  * Qué fija acá, y por qué en la suite base:
- * - El catálogo español (S7): el texto de cada superficie nueva es el literal
- *   que ya se renderizaba. En `notes` ese literal está en inglés por diseño
- *   (L16 de `odd/tasks/demo-conventions.md`: «el demo deja de mezclar»), así
- *   que su «español» es el mismo inglés en los dos catálogos y el demo no
- *   cambia de idioma; lo que sí cambia es de dónde sale el texto.
+ * - El catálogo español: el texto de cada superficie es el literal que se
+ *   renderiza hoy. Los tres demos se traducen Y SE TRADUCE SU NOMBRE: `notes`
+ *   dejó de ser inglés en los dos catálogos (L10 de `odd/tasks/i18n.md`), así que
+ *   su español es una traducción real, sus 24 claves cambian con el locale como
+ *   las de `tasks` y `contacts`, y su etiqueta de menú dice «Notas» donde
+ *   `nav.tasks` dice «Tareas». Ya no hay ninguna excepción declarada de «clave
+ *   que dice lo mismo a propósito»: sólo quedan las palabras que se escriben
+ *   igual en los dos idiomas («Email», «#»).
  * - Los metadatos de los módulos son CLAVES y no texto: la portada y el sidebar
  *   los resuelven al render. Si alguien vuelve a escribir «Tareas» en
  *   `config/navigation/tasks.php`, la ficha de la portada deja de traducirse y
@@ -45,10 +48,10 @@ final class I18nDemosTest extends HttpTestCase
      * cambio. Es la referencia de S7: si alguien «mejora» una cadena en
      * `lang/es.php`, el usuario ve otro texto y este test lo frena.
      *
-     * Las claves de `notes.*` llevan el inglés del demo a propósito: nace en
-     * inglés (L16) y los dos catálogos dicen lo mismo. `notes.summary` y
-     * `notes.why` son la excepción porque los metadatos del módulo sí estaban en
-     * español y se traducen como cualquier ficha.
+     * `notes.*` lleva español de verdad: el demo nació en inglés (L16 de
+     * `odd/tasks/demo-conventions.md`) y L10 de `odd/tasks/i18n.md` revirtió esa
+     * decisión porque era el único demo que no cambiaba de idioma y bloqueaba
+     * reusar sus claves en el tutorial.
      *
      * Tiene que cubrir TODO el namespace de `tasks.`, `contacts.`, `notes.` y
      * `nav.`: una clave nueva que no entre acá deja su español sin protección.
@@ -59,7 +62,7 @@ final class I18nDemosTest extends HttpTestCase
         'nav.home'     => 'Inicio',
         'nav.tasks'    => 'Tareas',
         'nav.contacts' => 'Contactos',
-        'nav.notes'    => 'Notes',
+        'nav.notes'    => 'Notas',
 
         // Demo Tareas: pantalla, fila, estado, modal y flashes.
         'tasks.title'           => 'Tareas',
@@ -139,32 +142,33 @@ final class I18nDemosTest extends HttpTestCase
         'contacts.not_found'       => 'El contacto no existe.',
         'contacts.edit_crumb'      => 'Editar',
 
-        // Demo Notes: el texto del demo es inglés en los dos catálogos (L16);
-        // los metadatos del módulo, en cambio, se traducen.
-        'notes.title'             => 'Notes',
-        'notes.subtitle'          => 'Your notes, with creation and row actions.',
-        'notes.add'               => 'Add note',
-        'notes.list_heading'      => 'All notes',
-        'notes.create_title'      => 'New note',
-        'notes.create_subtitle'   => 'Give it a title; the body is optional.',
-        'notes.create_submit'     => 'Create note',
-        'notes.edit_title'        => 'Edit note',
-        'notes.save_changes'      => 'Save changes',
-        'notes.empty'             => 'No notes yet.',
-        'notes.edit_aria'         => 'Edit %title%',
-        'notes.delete_aria'       => 'Delete %title%',
-        'notes.delete_title'      => 'Delete note',
-        'notes.delete_question'   => 'Delete "%title%"? This cannot be undone.',
-        'notes.cancel'            => 'Cancel',
-        'notes.delete_confirm'    => 'Delete',
-        'notes.save'              => 'Save',
-        'notes.field_title'       => 'Title',
-        'notes.field_body'        => 'Body (optional)',
+        // Demo Notes: el vocabulario sigue al tutorial, que es quien va a
+        // reusar estas claves («Borrar nota», «¿Borrar «X»? No se puede
+        // deshacer.», «Nota creada.»).
+        'notes.title'             => 'Notas',
+        'notes.subtitle'          => 'Tus notas, con alta y acciones por fila.',
+        'notes.add'               => 'Agregar nota',
+        'notes.list_heading'      => 'Todas las notas',
+        'notes.create_title'      => 'Nueva nota',
+        'notes.create_subtitle'   => 'Ponle un título; el cuerpo es opcional.',
+        'notes.create_submit'     => 'Crear nota',
+        'notes.edit_title'        => 'Editar nota',
+        'notes.save_changes'      => 'Guardar cambios',
+        'notes.empty'             => 'No hay notas todavía.',
+        'notes.edit_aria'         => 'Editar %title%',
+        'notes.delete_aria'       => 'Borrar %title%',
+        'notes.delete_title'      => 'Borrar nota',
+        'notes.delete_question'   => '¿Borrar «%title%»? No se puede deshacer.',
+        'notes.cancel'            => 'Cancelar',
+        'notes.delete_confirm'    => 'Borrar',
+        'notes.save'              => 'Guardar',
+        'notes.field_title'       => 'Título',
+        'notes.field_body'        => 'Cuerpo (opcional)',
         'notes.summary'           => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
         'notes.why'               => 'Es el patrón del tutorial con el dominio en inglés (columnas title y body) y el layout plano en app/Models y app/Http/Controllers: compara comportamiento, no ubicación.',
-        'notes.created'           => 'Note created.',
-        'notes.updated'           => 'Note updated.',
-        'notes.deleted'           => 'Note deleted.',
+        'notes.created'           => 'Nota creada.',
+        'notes.updated'           => 'Nota actualizada.',
+        'notes.deleted'           => 'Nota eliminada.',
     ];
 
     /**
@@ -176,6 +180,7 @@ final class I18nDemosTest extends HttpTestCase
         'nav.home',
         'nav.tasks',
         'nav.contacts',
+        'nav.notes',
         'tasks.title',
         'tasks.heading',
         'tasks.empty',
@@ -196,19 +201,15 @@ final class I18nDemosTest extends HttpTestCase
     ];
 
     /**
-     * Claves que dicen lo MISMO en los dos idiomas a propósito: el texto del
-     * demo `notes` nace en inglés (L16) y el nombre del módulo es su propio
-     * nombre.
+     * Claves del catálogo que dicen lo mismo en los dos idiomas.
+     *
+     * Hoy no hay ninguna y la lista se queda vacía a propósito: era donde vivía
+     * `nav.notes` («el nombre del módulo es su propio nombre»), y L10 de
+     * `odd/tasks/i18n.md` también lo tradujo a «Notas». Si alguna clave vuelve a
+     * quedar igual en los dos catálogos, se declara acá con su motivo en vez de
+     * aflojar `TRADUCIDAS`.
      */
-    private const MISMO_TEXTO = [
-        'nav.notes',
-        'notes.title',
-        'notes.add',
-        'notes.empty',
-        'notes.cancel',
-        'notes.field_body',
-        'notes.created',
-    ];
+    private const MISMO_TEXTO = [];
 
     private static function twig(): Environment
     {
@@ -317,16 +318,63 @@ final class I18nDemosTest extends HttpTestCase
             );
         }
 
-        // Y la excepción documentada: `notes` es inglés por diseño, así que sus
-        // dos catálogos dicen lo mismo. Si alguien traduce sólo un lado, el
-        // demo empieza a cambiar de idioma sin que nadie lo haya decidido.
+        // Y ninguna excepción que sobreviva: la lista existe para declarar las
+        // claves que se repiten a propósito, y hoy está vacía (hasta el nombre
+        // del módulo se traduce). Recorrerla fija que la excepción, si vuelve,
+        // sea explícita y no un valor copiado de un catálogo al otro.
         foreach (self::MISMO_TEXTO as $clave) {
             self::assertSame(
                 $es[$clave],
                 $en[$clave],
-                "`{$clave}` cambió en un solo catálogo: `notes` dice lo mismo en los dos idiomas a propósito."
+                "`{$clave}` cambió en un solo catálogo: está declarada como igual en los dos idiomas a propósito."
             );
         }
+    }
+
+    /**
+     * El demo `notes` es bilingüe: sus 24 claves cambian con el locale.
+     *
+     * Reemplaza la excepción de L16 de `odd/tasks/demo-conventions.md` (el demo
+     * nació en inglés y sus dos catálogos decían lo mismo), revertida en L10 de
+     * `odd/tasks/i18n.md`. Se miran TODAS las claves del namespace y no una
+     * muestra: si alguien copia el español a `en.php` en una sola, el demo deja
+     * de cambiar de idioma en esa pantalla y la clave del tutorial vuelve a
+     * mentir.
+     */
+    public function test_el_demo_notes_cambia_de_idioma_en_todas_sus_claves(): void
+    {
+        $es = require self::LANG . '/es.php';
+        $en = require self::LANG . '/en.php';
+
+        $claves = array_values(array_filter(
+            array_keys($es),
+            static fn (string $clave): bool => str_starts_with($clave, 'notes.')
+        ));
+
+        self::assertNotSame([], $claves, 'lang/es.php no tiene claves `notes.*`: el test estaría pasando en vacío.');
+
+        $sinPareja = array_values(array_diff($claves, array_keys($en)));
+
+        self::assertSame(
+            [],
+            $sinPareja,
+            'Claves de `notes.*` que existen en un solo catálogo: la paridad la fija I18nTest, acá sobra una clave huérfana: '
+            . implode(', ', $sinPareja)
+        );
+
+        $iguales = [];
+        foreach ($claves as $clave) {
+            if ($es[$clave] === $en[$clave]) {
+                $iguales[] = $clave;
+            }
+        }
+
+        self::assertSame(
+            [],
+            $iguales,
+            'Estas claves de `notes` dicen lo mismo en los dos idiomas, así que el demo no cambia de idioma: '
+            . implode(', ', $iguales)
+        );
     }
 
     /**
@@ -369,11 +417,12 @@ final class I18nDemosTest extends HttpTestCase
             self::assertStringContainsString('>' . $etiqueta . '<', $ingles, "El sidebar en inglés no muestra «{$etiqueta}».");
         }
 
-        foreach (['Inicio', 'Tareas', 'Contactos', 'Notes'] as $etiqueta) {
+        foreach (['Inicio', 'Tareas', 'Contactos', 'Notas'] as $etiqueta) {
             self::assertStringContainsString('>' . $etiqueta . '<', $espanol, "El sidebar en español no muestra «{$etiqueta}».");
         }
 
         self::assertStringNotContainsString('>Inicio<', $ingles, 'El sidebar en inglés sigue mostrando la etiqueta española.');
+        self::assertStringNotContainsString('>Notes<', $espanol, 'El nombre del módulo no se traduce: el sidebar español sigue en inglés.');
         self::assertStringNotContainsString('>nav.home<', $espanol, 'La clave salió cruda: no se está traduciendo en el render.');
     }
 
@@ -393,6 +442,7 @@ final class I18nDemosTest extends HttpTestCase
         self::assertStringContainsString('Grilla Tabulator en modo remoto', $es);
         self::assertStringContainsString('CRUD mínimo y completo', $es);
         self::assertStringContainsString('Demo de tareas', $es);
+        self::assertStringContainsString('Demo de notas', $es, 'La ficha de `notes` no traduce el nombre del módulo.');
 
         $en = self::texto((string) self::app()->handle(self::request('GET', '/?lang=en'))->getBody());
 
@@ -401,6 +451,7 @@ final class I18nDemosTest extends HttpTestCase
         self::assertStringContainsString('Remote-mode Tabulator grid', $en);
         self::assertStringContainsString('A minimal, complete CRUD', $en);
         self::assertStringContainsString('tasks demo', $en);
+        self::assertStringContainsString('notes demo', $en, 'La ficha de `notes` no traduce el nombre del módulo.');
         self::assertStringNotContainsString('Lista con edición en línea', $en);
         self::assertStringNotContainsString('<span>Inicio</span>', $en);
         self::assertStringNotContainsString('tasks.summary', $en, 'La clave salió cruda: no se está traduciendo.');

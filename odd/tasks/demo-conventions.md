@@ -216,3 +216,17 @@ español a propósito: su prosa y sus textos visibles no siguen la convención d
   falla la mitad de «identificadores vigentes». Verificación: `composer lint` OK (97 archivos),
   `composer docs:check` OK (56 copias), `composer phpstan` OK, y la suite base queda verde salvo el guard de
   `LayoutContractTest` que fija el `:aria-label` sin `|e('js')` (pendiente, ver L5 de `i18n.md`).
+- L19 (agente, decisión del humano; enmienda L16 y L18): el demo `notes` deja de ser inglés por diseño y
+  pasa a ser bilingüe. L16 lo había llevado a inglés completo —dominio y textos— y L18 lo justificó como
+  espejo del recorrido; el costo, visto desde el frontend, era el único demo que no cambiaba de idioma con
+  el selector y una colección de claves (`notes.*`) que el tutorial, español y con la misma entidad, no
+  podía reusar. Hoy las 24 claves `notes.*` de `lang/es.php` son español (el vocabulario copia el del
+  tutorial: «Agregar nota», «Borrar nota», «Nota creada.») y `lang/en.php` no cambió ni un carácter.
+  Sigue en inglés lo que es del dominio y del dato: columnas `title`/`body`, ids de HTML y datos del
+  seeder. El nombre del módulo también se traduce (`nav.notes`: «Notas» / «Notes», como `nav.tasks`),
+  decisión que se sumó en la misma unidad: el sidebar y la miga quedaban a mitad de camino y el tutorial
+  los nombra en español. Los guards de igualdad de `I18nDemosTest` desaparecen —`MISMO_TEXTO` queda vacío—
+  y se reemplazan por uno más estricto: paridad de claves y las 24 `notes.*` distintas entre catálogos.
+  `AGENTS.md` (34-36) se corrigió en el mismo paso: decía que `notes` era inglés por diseño y repetía una
+  tarea de miga raíz ya hecha. Detalle, RED observado en los dos guardianes, render real en los dos idiomas
+  y gates en L10 de `odd/tasks/i18n.md`.

@@ -58,7 +58,7 @@ final class NoteTest extends HttpTestCase
         $list = self::app()->handle(self::request('GET', '/notes'));
         self::assertStringContainsString('First note', (string) $list->getBody());
         self::assertStringContainsString('aria-label="Miga de pan"', (string) $list->getBody());
-        self::assertStringContainsString('aria-current="page">Notes', (string) $list->getBody());
+        self::assertStringContainsString('aria-current="page">Notas', (string) $list->getBody());
     }
 
     public function test_el_aviso_de_exito_llega_al_host_de_toasts_por_defecto(): void
@@ -78,7 +78,10 @@ final class NoteTest extends HttpTestCase
         $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
 
         self::assertStringContainsString('toast-host', $html);
-        self::assertStringContainsString('Note created.', $html);
+        // El aviso sale del catálogo en el locale de la petición; este caso no
+        // pide `?lang=`, así que corre en el default del proyecto (`es`). El
+        // inglés lo cubre `I18nNotesTest`.
+        self::assertStringContainsString('Nota creada.', $html);
     }
 
     public function test_el_alta_invalida_reabre_el_modal_con_lo_tipeado(): void
@@ -113,7 +116,7 @@ final class NoteTest extends HttpTestCase
             self::request('GET', '/notes/' . $note->id . '/edit')
         )->getBody();
         self::assertStringContainsString('aria-label="Miga de pan"', $editPage);
-        self::assertStringContainsString('aria-current="page">Notes', $editPage);
+        self::assertStringContainsString('aria-current="page">Notas', $editPage);
         self::assertStringNotContainsString(
             'value="Before"',
             self::dialogHtml($editPage, 'note-create-modal'),
@@ -244,14 +247,14 @@ final class NoteTest extends HttpTestCase
         // El catálogo sale de los scaffolds, así que están los tres aunque solo
         // este esté instalado.
         self::assertSame(3, substr_count($html, 'Demo de '), 'La portada lista los tres módulos.');
-        self::assertStringContainsString('Demo de notes', $html);
+        self::assertStringContainsString('Demo de notas', $html);
         self::assertStringContainsString('composer demo:notes:remove', $html, 'Instalado: ofrece desinstalar.');
     }
 
     public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void
     {
         $html = (string) self::app()->handle(self::request('GET', '/notes'))->getBody();
-        $item = self::navItemHtml($html, 'Notes');
+        $item = self::navItemHtml($html, 'Notas');
 
         self::assertStringContainsString('href="/notes"', $item, 'La entrada del menú tiene que apuntar a /notes.');
         self::assertStringContainsString('aria-current="page"', $item, 'En /notes, su entrada va marcada como activa.');

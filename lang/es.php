@@ -49,7 +49,7 @@ return [
     // se traduce al render (`sidebar.twig`, `routes/web.php`).
     'nav.contacts' => 'Contactos',
     'nav.home'     => 'Inicio',
-    'nav.notes'    => 'Notes',
+    'nav.notes'    => 'Notas',
     'nav.tasks'    => 'Tareas',
 
     // Modal nativo: el ✕ del encabezado y el botón del backdrop.
@@ -176,10 +176,12 @@ return [
     // namespace con el shell. Los datos de ejemplo (títulos de tareas, nombres
     // de contactos) NO se traducen: son datos, no interfaz.
     //
-    // El demo `notes` está en inglés por diseño (L16 de
-    // `odd/tasks/demo-conventions.md`), así que sus claves de interfaz dicen lo
-    // mismo acá y en `en.php`: lo externalizado es de dónde sale el texto. Sus
-    // metadatos de módulo sí se traducen, porque estaban en español.
+    // El demo `notes` también se traduce, nombre del módulo incluido (L10 de
+    // `odd/tasks/i18n.md`): nació en inglés completo (L16 de
+    // `odd/tasks/demo-conventions.md`) y era el único demo que no cambiaba de
+    // idioma, así que sus claves decían lo mismo acá y en `en.php`. Sus textos
+    // siguen el vocabulario del tutorial («Agregar nota», «Borrar nota», «Nota
+    // creada.»), que es quien va a reusarlas.
 
     // Tareas.
     'tasks.title'            => 'Tareas',
@@ -259,31 +261,31 @@ return [
     'contacts.not_found'       => 'El contacto no existe.',
     'contacts.edit_crumb'      => 'Editar',
 
-    // Notas (en inglés por diseño: ver el comentario del bloque).
-    'notes.title'           => 'Notes',
-    'notes.subtitle'        => 'Your notes, with creation and row actions.',
-    'notes.add'             => 'Add note',
-    'notes.list_heading'    => 'All notes',
-    'notes.create_title'    => 'New note',
-    'notes.create_subtitle' => 'Give it a title; the body is optional.',
-    'notes.create_submit'   => 'Create note',
-    'notes.edit_title'      => 'Edit note',
-    'notes.save_changes'    => 'Save changes',
-    'notes.empty'           => 'No notes yet.',
-    'notes.edit_aria'       => 'Edit %title%',
-    'notes.delete_aria'     => 'Delete %title%',
-    'notes.delete_title'    => 'Delete note',
-    'notes.delete_question' => 'Delete "%title%"? This cannot be undone.',
-    'notes.cancel'          => 'Cancel',
-    'notes.delete_confirm'  => 'Delete',
-    'notes.save'            => 'Save',
-    'notes.field_title'     => 'Title',
-    'notes.field_body'      => 'Body (optional)',
+    // Notas.
+    'notes.title'           => 'Notas',
+    'notes.subtitle'        => 'Tus notas, con alta y acciones por fila.',
+    'notes.add'             => 'Agregar nota',
+    'notes.list_heading'    => 'Todas las notas',
+    'notes.create_title'    => 'Nueva nota',
+    'notes.create_subtitle' => 'Ponle un título; el cuerpo es opcional.',
+    'notes.create_submit'   => 'Crear nota',
+    'notes.edit_title'      => 'Editar nota',
+    'notes.save_changes'    => 'Guardar cambios',
+    'notes.empty'           => 'No hay notas todavía.',
+    'notes.edit_aria'       => 'Editar %title%',
+    'notes.delete_aria'     => 'Borrar %title%',
+    'notes.delete_title'    => 'Borrar nota',
+    'notes.delete_question' => '¿Borrar «%title%»? No se puede deshacer.',
+    'notes.cancel'          => 'Cancelar',
+    'notes.delete_confirm'  => 'Borrar',
+    'notes.save'            => 'Guardar',
+    'notes.field_title'     => 'Título',
+    'notes.field_body'      => 'Cuerpo (opcional)',
     'notes.summary'         => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
     'notes.why'             => 'Es el patrón del tutorial con el dominio en inglés (columnas title y body) y el layout plano en app/Models y app/Http/Controllers: compara comportamiento, no ubicación.',
-    'notes.created'         => 'Note created.',
-    'notes.updated'         => 'Note updated.',
-    'notes.deleted'         => 'Note deleted.',
+    'notes.created'         => 'Nota creada.',
+    'notes.updated'         => 'Nota actualizada.',
+    'notes.deleted'         => 'Nota eliminada.',
 
     // Auth: avisos del controlador, del Guard cuando falla el CSRF y de la
     // puerta de login.

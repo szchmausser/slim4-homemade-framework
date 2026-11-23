@@ -67,8 +67,9 @@ crece, y el 14 te deja el patrón para otra entidad tuya.
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notes:install` (se quita con `composer demo:notes:remove`). Sirve para comparar, no para
 aprender: el demo te da el código hecho, el recorrido te hace escribirlo. El demo es el mismo recorrido
-con los identificadores y los textos en inglés —`Note`, tabla `notes`, `/notes`, `pages/notes/`,
-`Tests\Notes\`, «Add note», «All notes»—; estas páginas dicen lo mismo en castellano.
+con los identificadores en inglés —`Note`, tabla `notes`, `/notes`, `pages/notes/`, `Tests\Notes\`— y
+los textos del catálogo, así que con la app en español dice «Agregar nota» y «Todas las notas», las
+mismas claves que usa este recorrido; los datos sembrados están en inglés.
 
 `remove` tiene una salvedad: si editaste alguno de los archivos del demo, aborta y pide
 `composer demo:notes:remove -- --force` —que respalda y borra— o `--no-files` —que toca sólo la base—.
@@ -478,7 +479,7 @@ declare(strict_types=1);
  * entradas entre sí.
  */
 return [
-    'label'    => 'Notas',
+    'label'    => 'nav.notes',
     'href'     => '/notes',
     'icon'     => 'list',
     'key'      => 'notes',
@@ -486,8 +487,10 @@ return [
 ];
 ```
 
-`key` es lo que el sidebar compara con el `active` de la página para marcarla; `position` ordena las
-entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
+`label` es una **clave**, no el texto: el sidebar la traduce al render con el resto de las etiquetas del
+menú, así que «Notas» y «Notes» salen de `lang/es.php` y `lang/en.php`. `key` es lo que el sidebar compara
+con el `active` de la página para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10,
+Contactos 20, Notas 30).
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -667,6 +670,11 @@ HTML;
 
 No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni plantilla.
 
+> **El texto visible no se escribe en la plantilla.** En la vista del proyecto, «Notas» y «No hay notas
+> todavía.» salen de `lang/es.php` y `lang/en.php` con la misma clave en los dos —`notes.title`,
+> `notes.empty`—, y la plantilla los pide con `t()`. El HTML crudo de 6.1 y 6.2 es un andamio de dos
+> pasos; desde 6.3 cada texto del listado viene del catálogo. El cómo está en la guía, §15.3.
+
 **Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
 párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
 
@@ -763,15 +771,16 @@ use App\Models\Note;
     <p>Aquí va a vivir el listado.</p>
 ```
 
-**Después**: reemplaza ese párrafo por la lista.
+**Después**: reemplaza ese párrafo por la lista y pasa el texto del `<h1>` y el del vacío a sus claves
+del catálogo.
 
 ```twig
-    <h1>Notas</h1>
+    <h1>{{ t('notes.title') }}</h1>
     <ul>
         {% for item in notes %}
             <li>{{ item.title }}</li>
         {% else %}
-            <li>No hay notas todavía.</li>
+            <li>{{ t('notes.empty') }}</li>
         {% endfor %}
     </ul>
 ```
@@ -812,15 +821,15 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 ```twig
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Notas{% endblock %}
+{% block title %}{{ t('notes.title') }}{% endblock %}
 
 {% block content %}
-    <h1>Notas</h1>
+    <h1>{{ t('notes.title') }}</h1>
     <ul>
         {% for item in notes %}
             <li>{{ item.title }}</li>
         {% else %}
-            <li>No hay notas todavía.</li>
+            <li>{{ t('notes.empty') }}</li>
         {% endfor %}
     </ul>
 {% endblock %}
@@ -861,19 +870,19 @@ que se vea qué aportó el shell y qué aporta el diseño.
 ```twig
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Notas{% endblock %}
+{% block title %}{{ t('notes.title') }}{% endblock %}
 
 {% block content %}
     <section class="card border border-base-300 bg-base-100">
         <div class="card-body gap-4">
-            <h1 class="text-2xl font-bold">Notas</h1>
+            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
             <ul class="space-y-2">
                 {% for item in notes %}
                     <li class="rounded-box border border-base-300 bg-base-100 p-3">
                         <span class="font-semibold">{{ item.title }}</span>
                     </li>
                 {% else %}
-                    <li class="opacity-60">No hay notas todavía.</li>
+                    <li class="opacity-60">{{ t('notes.empty') }}</li>
                 {% endfor %}
             </ul>
         </div>
@@ -917,7 +926,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
                 <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% else %}
-            <li class="opacity-60">No hay notas todavía.</li>
+            <li class="opacity-60">{{ t('notes.empty') }}</li>
         {% endfor %}
     </ul>
 </div>
@@ -928,7 +937,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 **Antes**:
 
 ```twig
-            <h1 class="text-2xl font-bold">Notas</h1>
+            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
             <ul class="space-y-2">
                 {# … el bucle completo … #}
             </ul>
@@ -938,7 +947,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
 **Después**: cambia el `<ul>` por el include, **sin** envolverlo.
 
 ```twig
-            <h1 class="text-2xl font-bold">Notas</h1>
+            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
             {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
@@ -975,7 +984,7 @@ mano primero, para ver exactamente qué contiene.
 
 ```twig
         <div class="card-body gap-4">
-            <h1 class="text-2xl font-bold">Notas</h1>
+            <h1 class="text-2xl font-bold">{{ t('notes.title') }}</h1>
             {% include 'pages/notes/_panel.twig' %}
         </div>
 ```
@@ -994,16 +1003,16 @@ dentro del mismo `card-body`.
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
                         </span>
-                        Notas
+                        {{ t('notes.title') }}
                     </h1>
-                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
                 </div>
                 <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                    Agregar nota
+                    {{ t('notes.add') }}
                 </button>
             </div>
 
-            <h2 class="text-lg font-semibold">Listado</h2>
+            <h2 class="text-lg font-semibold">{{ t('notes.list_heading') }}</h2>
 
             {% include 'pages/notes/_panel.twig' %}
         </div>
@@ -1029,7 +1038,8 @@ dentro del mismo `card-body`.
 - `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Su fallback es un
   único «Inicio» marcado como actual, así que sin esta clave el encabezado dice que estás en la
   portada aunque estés en `/notes`. Con dos migas pinta la ruta y marca la última con
-  `aria-current="page"`.
+  `aria-current="page"`. La etiqueta es texto que el header imprime tal cual, así que sale del catálogo
+  con `Trans::t('nav.notes')`: suma `use Framework\I18n\Trans;` junto a los otros imports.
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -1037,7 +1047,7 @@ dentro del mismo `card-body`.
         return $this->render($request, $response, 'pages/notes/index.twig', [
             'notes'       => Note::orderByDesc('id')->get(),
             'active'      => 'notes',
-            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.notes'), 'list'),
         ]);
     }
 ```
@@ -1082,12 +1092,12 @@ contenido.
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
                         </span>
-                        Notas
+                        {{ t('notes.title') }}
                     </h1>
-                    <p class="mt-1 text-sm opacity-70">Tus notas, con alta y acciones por fila.</p>
+                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
                 </div>
                 <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                    Agregar nota
+                    {{ t('notes.add') }}
                 </button>
             </div>
 ```
@@ -1098,12 +1108,12 @@ subtítulo desaparecen de tu vista; queda el hueco.
 ```twig
             {% embed 'components/ui/page-header.twig' with {
                 icon: 'list',
-                title: 'Notas',
-                subtitle: 'Tus notas, con alta y acciones por fila.'
+                title: t('notes.title'),
+                subtitle: t('notes.subtitle')
             } %}
                 {% block actions %}
                     <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                        Agregar nota
+                        {{ t('notes.add') }}
                     </button>
                 {% endblock %}
             {% endembed %}
@@ -1154,7 +1164,7 @@ ya lo tiene. Usémoslo.
 ```twig
                 {% block actions %}
                     <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                        Agregar nota
+                        {{ t('notes.add') }}
                     </button>
                 {% endblock %}
 ```
@@ -1171,7 +1181,7 @@ la separación.
                     {% embed 'components/ui/action-bar.twig' %}
                         {% block controls %}
                             <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                                Agregar nota
+                                {{ t('notes.add') }}
                             </button>
                         {% endblock %}
                     {% endembed %}
@@ -1200,13 +1210,13 @@ la separación.
 {% embed 'components/ui/action-bar.twig' %}
     {% block controls %}
         {% include 'components/ui/button.twig' with {
-            label: 'Volver',
+            label: t('nav.home'),
             variant: 'ghost',
             icon: 'arrow-left',
             href: url('/')
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: 'Agregar nota',
+            label: t('notes.add'),
             icon: 'plus',
             data_modal_open: 'note-create-modal'
         } only %}
@@ -1214,9 +1224,9 @@ la separación.
 {% endembed %}
 ```
 
-Cuidado con el primero: en un listado, «Volver» duplica el sidebar y el botón del navegador, y gana su
-lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican son «Exportar»,
-«Filtros» o «Actualizar».
+Cuidado con el primero: en un listado, un botón que lleva a la portada duplica el sidebar y el botón del
+navegador, y gana su lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican
+son «Exportar», «Filtros» o «Actualizar».
 
 **Qué ganaste**: la botonera es dueña del `flex`, el `wrap` y la separación; tu vista pone los controles
 y su orden. El día que aparezca el segundo botón no hay espacios que ajustar ni clases que recordar.
@@ -1316,20 +1326,20 @@ salir del listado, y por eso el proyecto la conserva.
 ```twig
 <dialog id="note-create-modal" class="modal">
     <div class="modal-box">
-        <h3 class="text-lg font-bold">Nueva nota</h3>
+        <h3 class="text-lg font-bold">{{ t('notes.create_title') }}</h3>
         <form method="post" action="{{ url('/notes') }}" class="space-y-4">
             <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
             <input type="hidden" name="csrf_value" value="{{ csrf_value }}">
 
-            <label class="label" for="title">Título</label>
+            <label class="label" for="title">{{ t('notes.field_title') }}</label>
             <input id="title" name="title" class="input w-full" required maxlength="120">
 
-            <label class="label" for="body">Cuerpo</label>
+            <label class="label" for="body">{{ t('notes.field_body') }}</label>
             <input id="body" name="body" class="input w-full" maxlength="2000">
 
             <div class="modal-action">
-                <button type="button" class="btn btn-ghost" data-modal-close>Cancelar</button>
-                <button type="submit" class="btn btn-primary">Crear nota</button>
+                <button type="button" class="btn btn-ghost" data-modal-close>{{ t('notes.cancel') }}</button>
+                <button type="submit" class="btn btn-primary">{{ t('notes.create_submit') }}</button>
             </div>
         </form>
     </div>
@@ -1382,7 +1392,7 @@ use Framework\Validation\Validator;
             'body'  => $data['body'] !== '' ? $data['body'] : null,
         ]);
 
-        Flash::set('success', 'Nota creada.');
+        Flash::set('success', Trans::t('notes.created'));
 
         return $this->redirect($response, '/notes');
     }
@@ -1421,27 +1431,26 @@ repinta la página y **pierde lo tipeado y el modal abierto**: eso es el paso 7.
 
 **Qué ganaste**: el alta funciona de punta a punta: el diálogo abre, el servidor valida, la nota aparece
 en la lista y el aviso sale abajo a la derecha. Y mira el costo: dos `label` y dos `input` escritos a
-mano, sin marca de opcional, sin un lugar donde el error caiga al lado del campo y con el par de CSRF
-repetido en cada formulario.
+mano, sin un lugar donde el error caiga al lado del campo y con el par de CSRF repetido en cada
+formulario.
 
 ![Después de guardar: la nota en la lista y el aviso de éxito](tutorial-crud-images/07-2-guardada.png)
 
 ### 7.3 Sustituir los campos a mano por el del proyecto
 
 El formulario se envía, pero no se puede rechazar bien: no hay dónde poner el error y, cuando lo haya, no
-estará pegado al campo que lo causó. El componente del proyecto resuelve el campo entero —label, marca de
-opcional, mensaje y atributos de accesibilidad—, y ese contrato es el que 7.6 necesita para mostrar un
-rechazo.
+estará pegado al campo que lo causó. El componente del proyecto resuelve el campo entero —label, mensaje y
+atributos de accesibilidad—, y ese contrato es el que 7.6 necesita para mostrar un rechazo.
 
 **Archivo**: `resources/views/pages/notes/index.twig`, dentro del `<form>` del diálogo de 7.1.
 
 **Antes**: los dos pares `label` + `input` y los dos `hidden` de CSRF.
 
 ```twig
-            <label class="label" for="title">Título</label>
+            <label class="label" for="title">{{ t('notes.field_title') }}</label>
             <input id="title" name="title" class="input w-full" maxlength="120">
 
-            <label class="label" for="body">Cuerpo</label>
+            <label class="label" for="body">{{ t('notes.field_body') }}</label>
             <input id="body" name="body" class="input w-full" maxlength="2000">
 
             <input type="hidden" name="csrf_name" value="{{ csrf_name }}">
@@ -1456,7 +1465,7 @@ atributos de accesibilidad.
 
 {% include 'components/form/field.twig' with {
     name: 'title',
-    label: 'Título',
+    label: t('notes.field_title'),
     value: values ? values.title : '',
     required: true,
     maxlength: 120,
@@ -1465,9 +1474,8 @@ atributos de accesibilidad.
 
 {% include 'components/form/field.twig' with {
     name: 'body',
-    label: 'Cuerpo',
+    label: t('notes.field_body'),
     value: values ? values.body : '',
-    optional: true,
     maxlength: 2000,
     error: errors.body|default(null)
 } only %}
@@ -1494,15 +1502,17 @@ el usuario vería el dato viejo en el campo que acaba de borrar.
 
 **Comprobación**: los campos quedan en el mismo lugar y el input mide lo mismo, pero el label pasa a
 `label.fieldset-legend` (12px semibold en vez de 16px normal) y el HTML ahora es un `fieldset` con su
-label asociado por `for`/`id`. El campo opcional dice «(opcional)» y se mantienen `required` y
-`maxlength`. Mira el HTML con el inspector: `label for` coincide con el `id` del input.
+label asociado por `for`/`id`. El campo opcional dice «(opcional)» porque la etiqueta del catálogo lo
+incluye —`notes.field_body` es «Cuerpo (opcional)»—, y se mantienen `required` y `maxlength`. Mira el HTML
+con el inspector: `label for` coincide con el `id` del input.
 
 > Los atributos `aria-invalid` y `aria-describedby` que agrega el componente **recién se ven cuando hay
 > error**, y eso llega en el paso 7.6, cuando el controlador empieza a devolver `errors`. En este paso
 > el formulario todavía no tiene cómo producirlos.
 
-**Qué ganaste**: el campo como una unidad con su label, su marca de opcional y el lugar donde irá el
-mensaje. Eso antes no existía: tenías un `label` y un `input` sueltos que se podían desincronizar.
+**Qué ganaste**: el campo como una unidad con su label, la marca de opcional y el lugar donde irá el
+mensaje. Eso antes no existía: tenías un `label` y un `input` sueltos que se podían desincronizar. El
+texto de la etiqueta no se decide acá: sale del catálogo, igual que el resto de la página.
 
 **Pieza — `components/form/field.twig`**: resuelve el campo con su label, su mensaje y sus atributos
 de accesibilidad. Úsalo en vez de `<input>` sueltos. Evita el error que no queda pegado al campo que lo
@@ -1548,7 +1558,7 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
        pasa, y el campo es quien lo ata al input. #}
     {% include 'components/form/field.twig' with {
         name: 'title',
-        label: 'Título',
+        label: t('notes.field_title'),
         value: values ? values.title : '',
         required: true,
         maxlength: 120,
@@ -1557,23 +1567,22 @@ otro `action` y otros textos; separarlo ahora cuesta menos que unificar dos copi
 
     {% include 'components/form/field.twig' with {
         name: 'body',
-        label: 'Cuerpo',
+        label: t('notes.field_body'),
         value: values ? values.body : '',
-        optional: true,
         maxlength: 2000,
         error: errors.body|default(null)
     } only %}
 
     <div class="modal-action">
         {% include 'components/ui/button.twig' with {
-            label: 'Cancelar',
+            label: t('notes.cancel'),
             variant: 'ghost',
             type: 'button',
             icon: 'x',
             data_modal_close: true
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: submit_label|default('Guardar'),
+            label: submit_label|default(t('notes.save')),
             type: 'submit',
             icon: submit_icon|default('check')
         } only %}
@@ -1600,10 +1609,10 @@ icono y cierre.
 conservan.
 
 ```twig
-            <h3 class="text-lg font-bold">Nueva nota</h3>
+            <h3 class="text-lg font-bold">{{ t('notes.create_title') }}</h3>
             {% include 'pages/notes/_form.twig' with {
                 action: url('/notes'),
-                submit_label: 'Crear nota',
+                submit_label: t('notes.create_submit'),
                 submit_icon: 'plus',
                 note: null
             } %}
@@ -1655,14 +1664,14 @@ modal tendría que repetir sus clases.
 ```twig
     {% embed 'components/ui/modal.twig' with {
         id: 'note-create-modal',
-        title: 'Nueva nota',
-        subtitle: 'Pon un título; el cuerpo es opcional.',
+        title: t('notes.create_title'),
+        subtitle: t('notes.create_subtitle'),
         open: false
     } %}
         {% block body %}
             {% include 'pages/notes/_form.twig' with {
                 action: url('/notes'),
-                submit_label: 'Crear nota',
+                submit_label: t('notes.create_submit'),
                 submit_icon: 'plus',
                 note: null
             } %}
@@ -1676,7 +1685,7 @@ modal tendría que repetir sus clases.
 
 ```twig
                 <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                    Agregar nota
+                    {{ t('notes.add') }}
                 </button>
 ```
 
@@ -1684,7 +1693,7 @@ modal tendría que repetir sus clases.
 
 ```twig
                 {% include 'components/ui/button.twig' with {
-                    label: 'Agregar nota',
+                    label: t('notes.add'),
                     icon: 'plus',
                     data_modal_open: 'note-create-modal'
                 } only %}
@@ -1886,7 +1895,7 @@ rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Editar ' ~ item.title,
+                        aria_label: t('notes.edit_aria', {'%title%': item.title}),
                         href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
@@ -1895,7 +1904,7 @@ rutas que faltan, para que el lápiz ya no apunte a una URL que no existe.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.title,
+                        aria_label: t('notes.delete_aria', {'%title%': item.title}),
                         data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
@@ -1999,13 +2008,13 @@ Ahora agrega el segundo modal. Sólo se renderiza cuando hay `note`:
     {% if note is defined %}
         {% embed 'components/ui/modal.twig' with {
             id: 'note-edit-modal',
-            title: 'Editar nota',
+            title: t('notes.edit_title'),
             open: open_edit_modal|default(false)
         } %}
             {% block body %}
                 {% include 'pages/notes/_form.twig' with {
                     action: url('/notes/' ~ note.id),
-                    submit_label: 'Guardar cambios',
+                    submit_label: t('notes.save_changes'),
                 } %}
             {% endblock %}
         {% endembed %}
@@ -2082,7 +2091,7 @@ la lista con el aviso, o rechazar sin perder lo escrito.
             'body'  => $data['body'] !== '' ? $data['body'] : null,
         ])->save();
 
-        Flash::set('success', 'Nota actualizada.');
+        Flash::set('success', Trans::t('notes.updated'));
 
         return $this->redirect($response, '/notes');
     }
@@ -2140,14 +2149,14 @@ papelera del paso 8.
 
 ```twig
 <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
-      class="inline" onsubmit="return confirm('¿Borrar esta nota?')">
+      class="inline" onsubmit="return confirm('{{ t('notes.delete_title') }}')">
     {% include 'components/form/csrf.twig' %}
     {% include 'components/ui/button.twig' with {
         label: '',
         variant: 'ghost',
         size: 'sm',
         icon: 'trash',
-        aria_label: 'Borrar ' ~ item.title,
+        aria_label: t('notes.delete_aria', {'%title%': item.title}),
         type: 'submit'
     } only %}
 </form>
@@ -2168,20 +2177,20 @@ papelera del paso 8.
 
         $note->delete();
 
-        Flash::set('success', 'Nota borrada.');
+        Flash::set('success', Trans::t('notes.deleted'));
 
         return $this->redirect($response, '/notes');
     }
 ```
 
-**Comprobación**: toca la papelera. Aparece el cartel del navegador «¿Borrar esta nota?». Si aceptas,
-la fila desaparece y el aviso «Nota borrada.» sale abajo a la derecha.
+**Comprobación**: toca la papelera. Aparece el cartel del navegador «Borrar nota». Si aceptas,
+la fila desaparece y el aviso «Nota eliminada.» sale abajo a la derecha.
 
 **Qué ganaste**: borrar funciona de punta a punta, y sabes exactamente por qué no alcanza. **Y sin
 embargo no se queda**: `confirm()` es un cartel del sistema, no se puede estilar, no respeta el tema, no
 dice **qué** nota estás borrando y bloquea el hilo del navegador. Por eso el proyecto usa un diálogo.
 
-Sin captura: el `confirm()` es un diálogo del sistema y no se puede fotografiar desde el navegador; su texto es «¿Borrar esta nota?».
+Sin captura: el `confirm()` es un diálogo del sistema y no se puede fotografiar desde el navegador; su texto es «Borrar nota».
 
 ### 10.2 Ahora, el diálogo de confirmación
 
@@ -2208,7 +2217,7 @@ el diálogo. La fila queda así:
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.title,
+                        aria_label: t('notes.delete_aria', {'%title%': item.title}),
                         data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
@@ -2224,23 +2233,23 @@ fila la descoloca. Recorre las notas otra vez porque este bloque se emite una so
     {% for item in notes %}
             {% embed 'components/ui/modal.twig' with {
                 id: 'note-delete-' ~ item.id,
-                title: 'Borrar nota'
+                title: t('notes.delete_title')
             } %}
                 {% block body %}
-                    <p class="py-3 opacity-70">¿Borrar «{{ item.title }}»? No se puede deshacer.</p>
+                    <p class="py-3 opacity-70">{{ t('notes.delete_question', {'%title%': item.title}) }}</p>
                     <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                           onsubmit="this.querySelector('[type=submit]').disabled = true">
                         {% include 'components/form/csrf.twig' %}
                         <div class="modal-action">
                             {% include 'components/ui/button.twig' with {
-                                label: 'Cancelar',
+                                label: t('notes.cancel'),
                                 variant: 'ghost',
                                 type: 'button',
                                 icon: 'x',
                                 data_modal_close: true
                             } only %}
                             {% include 'components/ui/button.twig' with {
-                                label: 'Borrar',
+                                label: t('notes.delete_confirm'),
                                 variant: 'error',
                                 type: 'submit',
                                 icon: 'trash'
@@ -2563,7 +2572,7 @@ Para verlo sin el ruido de los botones, toma la fila mínima de 6.6:
                 <span class="font-semibold">{{ item.title }}</span>
             </li>
         {% else %}
-            <li class="opacity-60">No hay notas todavía.</li>
+            <li class="opacity-60">{{ t('notes.empty') }}</li>
         {% endfor %}
     </ul>
 </div>
@@ -2575,7 +2584,7 @@ El equivalente con el componente es:
 <div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
         items: notes,
-        empty: 'No hay notas todavía.'
+        empty: t('notes.empty')
     } %}
         {% block row %}
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
@@ -2632,7 +2641,7 @@ el componente. Los diálogos, por ahora, se quedan donde están.
 <div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
         items: notes,
-        empty: 'No hay notas todavía.'
+        empty: t('notes.empty')
     } %}
         {% block row %}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
@@ -2643,7 +2652,7 @@ el componente. Los diálogos, por ahora, se quedan donde están.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Editar ' ~ item.title,
+                        aria_label: t('notes.edit_aria', {'%title%': item.title}),
                         href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
@@ -2652,7 +2661,7 @@ el componente. Los diálogos, por ahora, se quedan donde están.
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Borrar ' ~ item.title,
+                        aria_label: t('notes.delete_aria', {'%title%': item.title}),
                         data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
@@ -2663,23 +2672,23 @@ el componente. Los diálogos, por ahora, se quedan donde están.
     {% for item in notes %}
         {% embed 'components/ui/modal.twig' with {
             id: 'note-delete-' ~ item.id,
-            title: 'Borrar nota'
+            title: t('notes.delete_title')
         } %}
             {% block body %}
-                <p class="py-3 opacity-70">¿Borrar «{{ item.title }}»? No se puede deshacer.</p>
+                <p class="py-3 opacity-70">{{ t('notes.delete_question', {'%title%': item.title}) }}</p>
                 <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                       onsubmit="this.querySelector('[type=submit]').disabled = true">
                     {% include 'components/form/csrf.twig' %}
                     <div class="modal-action">
                         {% include 'components/ui/button.twig' with {
-                            label: 'Cancelar',
+                            label: t('notes.cancel'),
                             variant: 'ghost',
                             type: 'button',
                             icon: 'x',
                             data_modal_close: true
                         } only %}
                         {% include 'components/ui/button.twig' with {
-                            label: 'Borrar',
+                            label: t('notes.delete_confirm'),
                             variant: 'error',
                             type: 'submit',
                             icon: 'trash'
@@ -2737,7 +2746,7 @@ necesario.
             {% for item in notes %}
                 {% embed 'components/ui/modal.twig' with {
                     id: 'note-delete-' ~ item.id,
-                    title: 'Borrar nota'
+                    title: t('notes.delete_title')
                 } %}
                     {# … el cuerpo del modal, igual que en 10.2 … #}
                 {% endembed %}
@@ -2841,7 +2850,7 @@ sobre la consulta, y este paso la agrega sin tocar todavía la vista.
         return [
             'notes'       => $pagination['items'],
             'pagination'  => $pagination,
-            'breadcrumbs' => $this->breadcrumbs('Notas', 'list'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.notes'), 'list'),
         ];
     }
 ```
@@ -3159,6 +3168,8 @@ flash desde el controlador— está en la guía, §15.3.
 4. `app/Http/Controllers/<Entidad>Controller.php`
 5. `resources/views/pages/<entidad>/index.twig`, `_panel.twig`, `_form.twig`
 6. `tests/<Entidad>/Http/<Entidad>Test.php`, con `namespace Tests\<Entidad>\Http`
+7. `lang/es.php` y `lang/en.php`, con la misma clave en los dos: el texto visible de las vistas y el de
+   los flashes (`Trans::t()`), porque una cadena escrita en la plantilla o en el controlador no se traduce.
 
 Para el icono del encabezado y del menú usa un nombre del registro compartido —los de
 `resources/views/components/ui/icon.twig`, que ya incluyen `list`, `contacts`, `pencil` y `trash`—: un nombre

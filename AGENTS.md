@@ -31,9 +31,10 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   una clave nueva va en los dos catálogos con el mismo nombre. Los metadatos de
   cada módulo (`label`, `summary`, `why` en `config/navigation/<demo>.php`) son
   CLAVES que se traducen al render, y un JS de scaffold no lleva texto visible:
-  el servidor le manda el diccionario (`data-*` con JSON). El demo `notes` es
-  inglés por diseño, así que sus claves dicen lo mismo en los dos catálogos. Lo
-  único que falta es la miga raíz del shell (guía §15.3.2).
+  el servidor le manda el diccionario (`data-*` con JSON). Los tres demos se
+  traducen, nombre del módulo incluido (`nav.tasks`/`nav.contacts`/`nav.notes`
+  dicen «Tareas»/«Contactos»/«Notas»): ningún demo deja su texto en un solo
+  idioma, salvo las palabras que se escriben igual en los dos («Email», «#»).
 - **El locale se resuelve por petición.** Precedencia: `?lang=` > sesión >
   `Accept-Language` > `APP_LOCALE` (default `es`; fallback de catálogo
   `APP_FALLBACK_LOCALE`, default `en`). El orden vive en

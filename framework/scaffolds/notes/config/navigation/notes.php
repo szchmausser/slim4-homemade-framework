@@ -21,9 +21,9 @@ declare(strict_types=1);
 return [
     // Las tres son CLAVES del catálogo, no texto: el menú y la portada se arman
     // una vez por proceso y el locale es por request, así que la traducción
-    // ocurre al render (`sidebar.twig`, `pages/home.twig`). El idioma del demo
-    // no cambia (`notes.*` dice lo mismo en los dos catálogos), pero sus
-    // metadatos sí son texto de la portada y se traducen.
+    // ocurre al render (`sidebar.twig`, `pages/home.twig`). `label` es el nombre
+    // del módulo y también se traduce («Notas» / «Notes»); `summary` y `why` son
+    // texto de la portada y se traducen como las otras fichas.
     'label'    => 'nav.notes',
     'href'     => '/notes',
     'icon'     => 'list',
