@@ -2350,8 +2350,9 @@ subtítulo desaparecen de tu vista; queda el hueco.
   formulario entero. Es el mismo hueco que `body` en el modal; la lista lo usa en el capítulo siguiente.
   Se pinta **una sola vez** y no recibe variables: lo que uses, se lo pasas tú.
 
-**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
-derecha— y el botón sigue abriendo el modal de alta.
+**Comprobación**: el encabezado se ve **idéntico** al que tienes desde 6.6 —título con icono, subtítulo
+y botón a la derecha—, y el botón sigue abriendo el modal de alta. Lo único que cambió es quién escribe
+ese markup.
 
 **Falla si**:
 
@@ -2369,7 +2370,7 @@ cada vista invente su variante —una con icono, otra sin, una con la acción a 
 acción— y que el encabezado deje de ser reconocible entre pantallas. El botón ya cambió en 7.5 sin tocar
 el encabezado.
 
-![La pantalla no cambia: el encabezado viene del componente](tutorial-crud-images/06-7-encabezado.png)
+![La pantalla no cambia: el encabezado viene del componente y la fila conserva sus acciones](tutorial-crud-images/08-2-acciones.png)
 
 ### 12.2 La botonera a su componente
 
@@ -2461,7 +2462,7 @@ y su orden. El día que aparezca el segundo botón no hay espacios que ajustar n
 tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
 cada pantalla elige su `gap` y su alineación.
 
-![La pantalla no cambia: la botonera agrupa el control de la esquina](tutorial-crud-images/06-7-encabezado.png)
+![La misma pantalla: la botonera agrupa el control de la esquina](tutorial-crud-images/08-2-acciones.png)
 
 ### 12.3 Anatomía del encabezado
 
@@ -2520,7 +2521,7 @@ encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una
 hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
 contenido.
 
-![La pantalla no cambia: la anatomía explica cómo se compone](tutorial-crud-images/06-7-encabezado.png)
+![La misma pantalla: la anatomía explica cómo se compone el encabezado](tutorial-crud-images/08-2-acciones.png)
 
 ---
 
