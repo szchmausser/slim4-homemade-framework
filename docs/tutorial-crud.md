@@ -478,7 +478,7 @@ declare(strict_types=1);
  * entradas entre sí.
  */
 return [
-    'label'    => 'nav.notes',
+    'label'    => 'Notas',
     'href'     => '/notes',
     'icon'     => 'list',
     'key'      => 'notes',
@@ -486,9 +486,9 @@ return [
 ];
 ```
 
-`label` es una **clave**, no el texto. `key` es lo que el sidebar compara con el `active` de la página
-para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30). El
-sidebar traduce `label` al render; qué es un catálogo y cómo se pide se explica en 6.7.
+`label` es el texto que imprime el sidebar. `key` es lo que el sidebar compara con el `active` de la
+página para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
+El sidebar imprime `label` tal cual; la conversión a clave del catálogo llega en 6.7.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -1071,43 +1071,66 @@ funciona.
 
 ### 6.7 Las cadenas al catálogo
 
-**Objetivo**: sacar el texto de la plantilla y del controlador, y pedirlo por clave a los catálogos del
-proyecto.
+**Objetivo**: sacar el texto de la plantilla, del controlador y del menú, y pedirlo por clave a los
+catálogos del proyecto.
 
 **Estado de partida**: 6.6 hecho; el título, el subtítulo, el botón, el encabezado de la lista y el vacío
-están escritos a mano en `index.twig` y `_panel.twig`, y el breadcrumb en `index()`.
+están escritos a mano en `index.twig` y `_panel.twig`, el breadcrumb en `index()` y la etiqueta del menú
+en `config/navigation/notes.php`.
 
 Los literales alcanzaron hasta acá y no alcanzan para lo que viene: el mismo texto se repite en cada
 vista que lo muestre, no hay un lugar único donde cambiarlo y nada impide que dos pantallas lo escriban
 distinto. El proyecto lo resuelve con un catálogo por idioma y una función para pedir la cadena. Las
-claves de esta pantalla ya están en los dos catálogos —las trae el proyecto, que las usa para el demo
-`notes`—, así que este paso no agrega archivos: cambia cómo se pide el texto.
+claves de esta pantalla las agregás vos: una línea por cadena en `lang/es.php` y la misma clave en
+`lang/en.php`, el catálogo base que ya trae el cromo. Este paso no agrega archivos nuevos: agrega claves
+a los que ya existen y cambia cómo se pide el texto.
 
-**Archivo**: `lang/es.php` y `lang/en.php`. Estas son las claves que usa el capítulo:
+**Archivo**: `lang/es.php` y `lang/en.php`. Estas son las seis claves que agrega el capítulo, completas
+en los dos archivos:
 
 `lang/es.php`:
 
 ```php excerpt
-'nav.notes'       => 'Notas',
-'notes.title'     => 'Notas',
-'notes.subtitle'  => 'Tus notas, con alta y acciones por fila.',
-'notes.add'       => 'Agregar nota',
+'nav.notes'          => 'Notas',
+'notes.title'        => 'Notas',
+'notes.subtitle'     => 'Tus notas, con alta y acciones por fila.',
+'notes.add'          => 'Agregar nota',
+'notes.list_heading' => 'Todas las notas',
+'notes.empty'        => 'No hay notas todavía.',
 ```
 
 `lang/en.php`:
 
 ```php excerpt
-'nav.notes'       => 'Notes',
-'notes.title'     => 'Notes',
-'notes.subtitle'  => 'Your notes, with creation and row actions.',
-'notes.add'       => 'Add note',
+'nav.notes'          => 'Notes',
+'notes.title'        => 'Notes',
+'notes.subtitle'     => 'Your notes, with creation and row actions.',
+'notes.add'          => 'Add note',
+'notes.list_heading' => 'All notes',
+'notes.empty'        => 'No notes yet.',
 ```
 
-`notes.list_heading` («Todas las notas» / «All notes») y `notes.empty` («No hay notas todavía.» / «No
-notes yet.») están igual, una línea en cada archivo. **La clave es un identificador estable, en inglés;
-el valor es lo que se ve**: `notes.title` no se traduce ni se renombra, el texto sí. Y la misma clave
-tiene que estar en los dos archivos: una clave que existe en uno solo deja esa pantalla en el otro
-idioma. Para tu entidad, las claves se agregan a los dos a la vez, como se ve en el capítulo 16.
+**La clave es un identificador estable, en inglés; el valor es lo que se ve**: `notes.title` no se
+traduce ni se renombra, el texto sí. Y la misma clave tiene que estar en los dos archivos: una clave que
+existe en uno solo deja esa pantalla en el otro idioma. Es el mismo bloque en los dos; para tu entidad,
+las claves se agregan a la vez a `lang/es.php` y `lang/en.php`, como se ve en el capítulo 16.
+
+**Archivo**: `config/navigation/notes.php`, la etiqueta del menú que el capítulo 4 dejó escrita a mano.
+
+**Antes**:
+
+```php excerpt
+    'label'    => 'Notas',
+```
+
+**Después**:
+
+```php excerpt
+    'label'    => 'nav.notes',
+```
+
+El sidebar resuelve `label` al render, igual que la miga: la entrada del menú pasa a cambiar de idioma
+con el resto. La `key` no se toca: es lo que el sidebar compara con el `active`, no texto.
 
 **Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`, y `_panel.twig` para el vacío.
 
@@ -1210,6 +1233,8 @@ del pie— queda fuera de este recorrido y está en `docs/guia-stack-php-termux.
   se ve, no rompe.
 - El mismo texto cambia en un archivo y no en el otro: actualizaste un catálogo y no el otro. Cada
   clave va en `lang/es.php` y en `lang/en.php`.
+- El menú muestra `nav.notes` literal: falta la clave en el catálogo base del idioma activo, o la
+  agregaste en uno solo.
 - Error `Class "App\Http\Controllers\Trans" not found`: falta `use Framework\I18n\Trans;` junto a los
   otros `use` del controlador.
 
@@ -3334,9 +3359,12 @@ escrito para que la segunda entidad no te obligue a releer los quince anteriores
 | El icono y el subtítulo del encabezado | Los seis casos del cierre |
 
 **Los textos del cromo no están en las vistas: salen de `lang/`.** Cuando tu entidad reusa el shell, el texto
-visible se agrega como clave en `lang/es.php` y `lang/en.php` con el mismo nombre en los dos; en la
-plantilla se pide con `t()` y desde PHP con `Trans::t()` (6.7). Lo que queda fuera de este
-recorrido —resolver de locale, selector del pie, cambio de idioma— está en la guía, §15.3.
+visible se agrega como clave en `lang/es.php` y `lang/en.php` con el mismo nombre en los dos —las claves de
+tu entidad las agregás vos en los dos catálogos base—; en la plantilla se pide con `t()` y desde PHP con
+`Trans::t()` (6.7). Los demos no ensucian ese catálogo: cada uno trae el suyo en su scaffold
+(`framework/scaffolds/<demo>/lang/<locale>/<demo>.php`) e instalarlo es lo que enciende sus claves; si no
+está instalado, no existen. Lo que queda fuera de este recorrido —resolver de locale, selector del pie,
+cambio de idioma— está en la guía, §15.3.
 
 **Los archivos a tocar**, en orden:
 

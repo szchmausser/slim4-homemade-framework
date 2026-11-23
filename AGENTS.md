@@ -27,14 +27,21 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   sale con `Framework\I18n\Trans::t('clave')` (`t()` y `|trans` son sólo de
   Twig), que es lo que usa un controlador para un flash y lo que usa el validador
   para sus mensajes. No se agregan literales españoles nuevos a layouts,
-  componentes, páginas, controladores ni a los demos (`framework/scaffolds/**`):
-  una clave nueva va en los dos catálogos con el mismo nombre. Los metadatos de
-  cada módulo (`label`, `summary`, `why` en `config/navigation/<demo>.php`) son
-  CLAVES que se traducen al render, y un JS de scaffold no lleva texto visible:
-  el servidor le manda el diccionario (`data-*` con JSON). Los tres demos se
-  traducen, nombre del módulo incluido (`nav.tasks`/`nav.contacts`/`nav.notes`
-  dicen «Tareas»/«Contactos»/«Notas»): ningún demo deja su texto en un solo
-  idioma, salvo las palabras que se escriben igual en los dos («Email», «#»).
+  componentes, páginas, controladores ni a los demos (`framework/scaffolds/**`).
+  El catálogo base `lang/<locale>.php` es del cromo y de la app. Cada demo aporta
+  el suyo en `framework/scaffolds/<demo>/lang/<locale>/<demo>.php`, que el
+  instalador copia a `lang/<locale>/<demo>.php`: sus claves existen **sólo**
+  mientras el demo está instalado, y una clave de demo (`tasks.*`, `contacts.*`,
+  `notes.*`, `nav.<demo>`) nunca se escribe en el catálogo base. Una clave nueva
+  va en los dos idiomas, y la paridad es/en se mantiene **por archivo**:
+  `lang/<locale>.php` contra `lang/<locale>.php` y cada catálogo de demo contra
+  su pareja. Los metadatos de cada módulo (`label`, `summary`, `why` en
+  `config/navigation/<demo>.php`) son CLAVES del catálogo de ese demo que se
+  traducen al render, y un JS de scaffold no lleva texto visible: el servidor le
+  manda el diccionario (`data-*` con JSON). Los tres demos se traducen, nombre
+  del módulo incluido (`nav.tasks`/`nav.contacts`/`nav.notes` dicen
+  «Tareas»/«Contactos»/«Notas»): ningún demo deja su texto en un solo idioma,
+  salvo las palabras que se escriben igual en los dos («Email», «#»).
 - **El locale se resuelve por petición.** Precedencia: `?lang=` > sesión >
   `Accept-Language` > `APP_LOCALE` (default `es`; fallback de catálogo
   `APP_FALLBACK_LOCALE`, default `en`). El orden vive en
@@ -71,7 +78,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |
-| `lang/{es,en}.php` | Catálogos planos `clave => texto`; el español del shell sale de ahí. |
+| `lang/{es,en}.php` | Catálogo base del cromo y de la app (`clave => texto`); cada demo trae el suyo en `lang/<locale>/<demo>.php` y sólo existe instalado. |
 | `database/migrations` | Esquema (Phinx). `database/seeds` datos iniciales. Las migraciones de cada demo viven en `database/migrations/<demo>/`: es la única excepción al layout plano, para reservar la banda de versiones. |
 | `tests/` | Tests de la app y de tus entidades: contratos del framework, comportamiento HTTP y scripts. Una carpeta por entidad (`tests/<Entidad>/Http/`, `namespace Tests\<Entidad>\Http`); los tests de cada demo viajan en su scaffold. |
 | `scripts/` | `lint`, `docs-check/sync`, `phpstan`, `migrate-fresh`, `demo`, `serve`, backup. |

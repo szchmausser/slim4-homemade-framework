@@ -4284,16 +4284,19 @@ Esto es lo que hay; después, cómo se usa cuando agregás algo tuyo.
 
 | Pieza | Archivo | Qué hace |
 |---|---|---|
-| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve default/fallback y carga **todos** los catálogos |
+| Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve default/fallback y carga el catálogo base de cada locale más los catálogos de demo que haya |
 | Resolutor | `framework/I18n/LocaleResolver.php` | Función pura que elige el locale de una petición |
 | Middleware | `framework/Http/Middleware/LocaleMiddleware.php` | Adaptador HTTP: resuelve, fija el locale, recuerda y agrega `Vary` |
 | Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` en las plantillas |
 | Accesor PHP | `framework/I18n/Trans.php` | `Trans::t()` para controladores, comandos y scripts |
-| Catálogos | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto`; `locale.name` es el nombre nativo |
+| Catálogos base | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto` del cromo y de la app; `locale.name` es el nombre nativo |
+| Catálogos de demo | `lang/<locale>/<demo>.php` | Los copia el scaffold al instalar el demo; existen sólo mientras está puesto |
 | Selector | `routes/web.php` + `layouts/parts/footer.twig` | `POST /locale` con CSRF y el `<select>` del pie |
 | Registro | `config/container.php` y `config/middleware.php` | `TranslatorInterface` y `Trans`; extensión y globals de Twig; orden del pipeline |
 
 El contenedor expone `Symfony\Contracts\Translation\TranslatorInterface` (la interfaz de contratos, no la clase concreta), así que cualquier código propio pide el traductor por tipo y no por implementación. La extensión se registra **una sola vez**, en el `Twig::class` del contenedor: `t()` está disponible en layouts, componentes y scaffolds sin tocar cada vista. Además publica los globals `app_locale` (el `lang="..."` del `<html>`) y `locale_names` (el selector del pie).
+
+**Un catálogo base y un catálogo por demo.** `lang/<locale>.php` es el catálogo base: el del cromo y la app, el que existe siempre. Cada demo suma el suyo en `framework/scaffolds/<demo>/lang/<locale>/<demo>.php` y el instalador lo copia a `lang/<locale>/<demo>.php` con el resto de sus archivos; como el `remove` borra lo que instaló, las claves del demo existen **sólo** mientras el demo está puesto. `TranslatorFactory::create()` escanea en cada petición el catálogo base y, después, todos los `lang/<locale>/*.php` de ese locale en orden alfabético, sin caché: instalar o quitar el demo se ve en la petición siguiente. `availableLocales()` y `localeNames()` miran sólo `lang/<locale>.php`: un directorio de demo no crea un idioma y el selector del pie no cambia. El efecto es directo: `composer demo:<demo>:install` enciende las claves del demo y `composer demo:<demo>:remove` las apaga. Por eso una clave de demo nunca se escribe en el catálogo base: sería texto que la app arrastra aunque el demo no esté.
 
 **El idioma es por petición, no por despliegue.** `LocaleMiddleware` resuelve el locale en cada request y lo fija en el traductor antes de que se renderice ninguna vista, así que el `t()` de Twig y el `Trans::t()` de un controlador de la MISMA petición no pueden quedar en idiomas distintos. El locale no se resuelve una vez al construir el contenedor: el traductor es un singleton y `php -S` o un worker de FPM atienden varias peticiones con el mismo proceso, así que el valor anterior contaminaría la siguiente.
 
@@ -4374,7 +4377,7 @@ Flash::set('success', Trans::t('note.created_named', ['%name%' => $note->title])
 
 **Por qué un accesor y no un servicio inyectado.** Los controladores de este proyecto no tienen constructor (Slim los resuelve por nombre de clase desde el archivo de rutas) y `Flash::set()`/`Url::path()` ya son estáticos: `Trans::t()` sigue ese patrón en vez de forzar un cambio de arquitectura para traducir un flash. El traductor no es una copia: `config/container.php` lo registra en `Trans` en el único lugar donde se construye, así que el controlador y la plantilla del mismo request no pueden quedar en idiomas distintos. Si nadie lo registró todavía —un script, un comando de consola—, la primera llamada arma el traductor por defecto con `APP_LOCALE` y lo cachea: no hay fatal por falta de registro.
 
-**Dónde va una clave nueva.** En los dos catálogos, con la misma clave y el mismo nombre de parámetro. Las claves van en inglés y nombran el concepto por superficie (`note.created`, `pagination.showing`, `modal.close`); el valor es lo que se traduce. `lang/es.php`:
+**Dónde va una clave nueva.** En los dos catálogos, con la misma clave y el mismo nombre de parámetro. Las claves van en inglés y nombran el concepto por superficie (`note.created`, `pagination.showing`, `modal.close`); el valor es lo que se traduce. Si la clave es de un demo, va en el catálogo del scaffold (`framework/scaffolds/<demo>/lang/es/<demo>.php` y su pareja `en`), no en el base: así existe sólo con el demo instalado. `lang/es.php`:
 
 ```php excerpt
 'note.created'       => 'Nota creada.',
@@ -4413,29 +4416,29 @@ Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` pa
 
 ### 15.3.2 Qué superficies están externalizadas (y cuáles no)
 
-Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en `lang/es.php` y `lang/en.php` (217 claves cada uno, con las mismas claves en el mismo orden).
+Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en los catálogos base (`lang/es.php` y `lang/en.php`, 117 claves cada uno, con las mismas claves en el mismo orden) y en los catálogos que cada demo trae en su scaffold (101 claves por idioma: `tasks` 29, `contacts` 47, `notes` 25).
 
 | Superficie | Dónde | Claves |
 |---|---|---|
 | Cromo del shell: header, sidebar, migas, pie, toasts | `resources/views/layouts/**` | `layout.*`, `footer.*`, `toast.close`, `app.name` |
 | Paginador, modal y pista de campo | `components/pagination`, `components/ui/modal.twig`, `components/form/field.twig` | `pagination.*`, `modal.close`, `field.optional` |
-| Portada | `resources/views/pages/home.twig` | `home.*` (57 claves) |
+| Portada | `resources/views/pages/home.twig` | `home.*` (58 claves) |
 | Login | `resources/views/pages/auth/login.twig` | `login.*` |
 | Páginas de error y partial de HTMX | `resources/views/pages/errors/**` | `error.*` |
 | Flashes del controlador de auth | `app/Http/Controllers/Auth/AuthController.php` | `auth.invalid_credentials`, `auth.logged_out` |
 | Aviso del Guard cuando falla el CSRF | `config/container.php` | `auth.csrf_reload` (HTMX), `auth.csrf_login` (flash) |
 | Mensajes del validador | `framework/Validation/Validator.php` | `validation.*` |
 | Página de error con locale | `config/middleware.php` + `pages/errors/**` | `error.title`, `error.badge`, `error.*` |
-| Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.*` (4 claves) |
-| Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why` |
-| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` (28 claves) |
-| Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` (46 claves) |
-| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` (24 claves) |
+| Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.home` en el base; `nav.<demo>` viaja con cada demo |
+| Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why`, en el catálogo de cada demo |
+| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (29 claves, en `lang/<locale>/tasks.php`) |
+| Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` + `nav.contacts` (47 claves, en `lang/<locale>/contacts.php`) |
+| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (25 claves, en `lang/<locale>/notes.php`) |
 | Puerta de login | `framework/Http/Middleware/RequireAuthMiddleware.php` | `auth.login_required` |
 
 **Cómo recibe sus textos un JS de demo.** `contacts-tabulator.js` no tiene una sola cadena de interfaz: `ContactController::tableStrings()` arma el diccionario del locale activo con `Trans::t()`, `pages/contacts/index.twig` lo publica en `data-strings` de un nodo oculto (`#contacts-table-i18n`) y el script hace `JSON.parse(...dataset.strings)`. El `data-*` no es casual: el parser decodifica las entidades del atributo, así que el JSON llega intacto y la vista no necesita `|raw` (un `<script type="application/json">` no decodifica nada y obligaría a abrirlo). Si falta el nodo, la tabla no se inicializa —misma regla que la URL del endpoint—: mejor ninguna tabla que una con nombres accesibles vacíos.
 
-**Los tres demos se traducen.** `notes` es la excepción que se corrigió: nació en inglés completo (L16 de `odd/tasks/demo-conventions.md`) y sus dos catálogos decían lo mismo, así que era el único demo que no cambiaba de idioma al cambiar el locale. L10 de `odd/tasks/i18n.md` revirtió esa decisión —la tomó el humano, no un efecto colateral del mecanismo— porque era la única pantalla que no respondía al selector y porque el tutorial, cuya entidad es `notes`, no podía reusar sus claves. Traducirlo fue una línea por clave en `lang/es.php`: el vocabulario español sigue al tutorial («Agregar nota», «Borrar nota», «Nota creada.»), que es quien va a reusarlas, y `lang/en.php` no cambió ni un carácter. Con el nombre del módulo pasa lo mismo: `nav.notes` dice «Notas» en español y «Notes» en inglés, así que el sidebar queda «Inicio · Tareas · Contactos · Notas» / «Home · Tasks · Contacts · Notes». No queda ningún texto de demo en un solo idioma, salvo las palabras que se escriben igual en los dos («Email», «#»).
+**Los tres demos se traducen.** `notes` es la excepción que se corrigió: nació en inglés completo (L16 de `odd/tasks/demo-conventions.md`) y sus dos catálogos decían lo mismo, así que era el único demo que no cambiaba de idioma al cambiar el locale. L10 de `odd/tasks/i18n.md` revirtió esa decisión —la tomó el humano, no un efecto colateral del mecanismo— porque era la única pantalla que no respondía al selector y porque el tutorial, cuya entidad es `notes`, no podía reusar sus claves. Traducirlo fue una línea por clave en `framework/scaffolds/notes/lang/es/notes.php`: el vocabulario español sigue al tutorial («Agregar nota», «Borrar nota», «Nota creada.»), que es quien va a reusarlas, y el catálogo inglés del demo no cambió ni un carácter. Con el nombre del módulo pasa lo mismo: `nav.notes` dice «Notas» en español y «Notes» en inglés, así que el sidebar queda «Inicio · Tareas · Contactos · Notas» / «Home · Tasks · Contacts · Notes». No queda ningún texto de demo en un solo idioma, salvo las palabras que se escriben igual en los dos («Email», «#»).
 
 **La miga raíz también sale del catálogo.** `Controller::breadcrumbs()`/`breadcrumbsFor()` (`framework/Http/Controller.php`) arman el primer crumb con `Trans::t('nav.home')` y `layouts/parts/topbar.twig` repite esa clave en su fallback de una sola miga. Acá va el TEXTO y no la clave: el header imprime `crumb.label` tal cual, y el controlador corre en cada petición con el locale ya resuelto. Es la contracara del menú: ver la nota siguiente.
 
@@ -4852,11 +4855,14 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                 </div>
             </div>
 
-            {# Columna derecha: Demos, Scaffolds y Requisitos. El nombre y el
-               resumen de cada demo vienen de los metadatos del scaffold
-               (`label`, `summary`, `why`), que son CLAVES del catálogo: se
-               traducen acá, en el render, porque el array de módulos se arma
-               una vez por proceso y el locale es por request. #}
+            {# Columna derecha: Demos, Scaffolds y Requisitos. La ficha tiene dos
+               estados y NINGUNO resuelve claves de demo sin instalar: con el demo
+               puesto se traducen sus metadatos (`label`, `summary`, `why`, CLAVES
+               de su catálogo, `lang/<locale>/<demo>.php`); sin instalar se usa
+               `home.demo_available` del catálogo base y no se piden `summary` ni
+               `why`, porque esas claves todavía no existen en el proyecto (S1).
+               Se traduce acá, en el render, porque el array de módulos se arma una
+               vez por proceso y el locale es por request. #}
             <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
@@ -4876,11 +4882,17 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                                     <span class="opacity-70" aria-hidden="true">
                                         {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
-                                    {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
+                                    {% if module.installed %}
+                                        {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
+                                    {% else %}
+                                        {{ t('home.demo_available', {'%name%': module.demo}) }}
+                                    {% endif %}
                                 </h3>
-                                <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
-                                {% if module.why is defined and module.why %}
-                                    <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
+                                {% if module.installed %}
+                                    <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
+                                    {% if module.why is defined and module.why %}
+                                        <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             {% if module.installed %}
