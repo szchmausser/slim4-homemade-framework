@@ -38,6 +38,18 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   existe. El defecto era la referencia: las tres secciones apuntaban a `06-7-encabezado.png`, retrato
   del cap. 6 sin acciones de fila, y afirmaban «la pantalla no cambia» sobre una pantalla que el
   lector ya no tiene.
+- **S8 (precedencia de las cadenas)**: «fijate algo, hay un choque en lo que enseñamos en apenas la
+  seccion "6.2 Ahora sí, las notas desde el modelo" y es que ya empezamos a usar la internacionalizacion,
+  sin poner en contexto o explicar que siginifican lineas como est "<h1>{{ t('notes.title') }}</h1>"
+  Deberias mantener la progresion sencilla a estas alturas del tutorial, y empezar a promover estas
+  modificaciones para soportar regionalizacion cuando corresponda, o de plano, ir metiendo esa
+  informacion aqui... yo recomiendo dejar la regionalizacion como algo para despues, y mantenerlo
+  sencillo en estas primeras explicaciones... que propones para solucionar este tema de precedencia
+  pedagogica en el tutorial respecto a las cadenas de texto y su regionalizacion?»
+  Resolución (L9): se respeta el criterio —regionalización fuera— y se corrige la aplicación: el catálogo
+  no se difiere porque la invariante lo exige desde la primera página y `t()` ya está en 98 líneas del
+  documento. Una sola explicación donde nace la primera clave (4.1), referencias cortas en 6.1 y 6.2, y
+  el límite declarado en Prerrequisitos.
 
 ## Tasks
 
@@ -61,6 +73,9 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   nuevo que fotografiar ni comportamiento que este cambio toque, y la cobertura del estado final la da el
   round-trip del demo. Ruta: inline. Commit: `a338869` (capturas y comprobación de 12.1) y `6cceae3`
   (heading del cap. 2).
+- **T5** — Cadenas (S8): explicación única del catálogo en 4.1 (clave/valor, comprobación de diez
+  segundos), referencia corta en 6.1, `t()` nombrado como helper del proyecto en 6.2 y la regionalización
+  declarada fuera de alcance en Prerrequisitos. Ruta: inline. Commit: `e78cd22`.
 
 ## Log
 
@@ -102,3 +117,9 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   la referencia y la comprobación de 12.1, que comparaba contra la pantalla de 6.6 en vez de contra la
   que el lector tiene. Retoque: el heading del cap. 2 ya no repite el título del apéndice. Revisión de
   cross-refs del renumbering: los 20 «capítulo N» del documento apuntan al capítulo correcto.
+- **L9**: el usuario eligió «literales primero y catálogo después» para S8. Verificación de alcance
+  antes de aplicarlo: el literal ya existe (6.1 es HTML crudo con «Notas» escrito a mano) y `t()` aparece
+  98 veces entre 6.2 y el cap. 15; diferir el catálogo exigía reescribir esas 98 líneas o enseñar código
+  que viola la invariante durante diez capítulos. Aplicación acordada: explicarlo una vez en 4.1 (donde
+  aparece `'label' => 'nav.notes'` y no había explicación del helper), dejar 6.1 y 6.2 como referencias,
+  y declarar la regionalización fuera de alcance. Sin capítulo nuevo y sin renumeración.
