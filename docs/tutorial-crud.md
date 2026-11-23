@@ -1507,6 +1507,11 @@ cerrado, así que un 422 deja el error en una página sin contexto.
 para todo modal del proyecto. Evita rearmar el mismo diálogo a mano en cada vista. Sin él,
 cada pantalla inventa su forma de abrir y cerrar, y el foco se comporta distinto en cada una.
 
+**Pieza — `components/ui/button.twig`**: resuelve el botón con su variante, icono y nombre accesible.
+Úsalo en vez de `<button>` sueltos: con `href` emite un `<a>`, y `data_modal_open` le pide al shell que
+abra el diálogo. Evita repetir clases y que un control quede sin nombre para el lector de pantalla. En
+8.2 lo usas con `aria_label` y `size` para las acciones por fila.
+
 ![El modal del proyecto, con telón, tema y botones del componente](tutorial-crud-images/07-4-modal.png)
 
 ### 7.6 Reabrir el modal con errores 422
@@ -1563,9 +1568,14 @@ tipeado; `errors` hace que cada campo muestre su mensaje.
 
 **Comprobación**: el servidor ya sabe rechazar, pero la pantalla no lo deja llegar: el campo lleva
 `required`, así que el navegador bloquea el envío con su propio globo y el POST nunca sale. Para ver el
-422 hay que mandar el formulario sin pasar por esa validación, y para eso hace falta una sesión. El
-bloque completo, de la nada al 422: los tres pasos van en el mismo shell porque comparten el archivo
-de cookies.
+422 sin tocar código, abre el inspector, quita el atributo `required` del input de título, escribe algo
+en «Cuerpo», deja «Título» vacío y envía. Esperado: la página vuelve con el modal abierto, «Este campo
+es obligatorio.» junto al título y lo que escribiste en el cuerpo conservado. El `required` sigue en la
+plantilla: lo quitaste sólo en el DOM de esa pestaña.
+
+> **Con `curl` (opcional)**: el mismo caso se comprueba contra el cuerpo crudo, sin navegador. Hay que
+> iniciar sesión, sacar el par CSRF del listado y hacer el POST con el título vacío; los tres pasos van
+> en el mismo shell porque comparten el archivo de cookies:
 
 ```bash
 J=/tmp/notes-cookies.txt
@@ -1888,9 +1898,8 @@ de alta. `form_values` repinta lo que el usuario escribió; `errors` muestra el 
 
 **Comprobación**: abre el lápiz de una nota, cambia el título y guarda. Esperado: vuelves a la lista,
 la fila muestra el título nuevo y aparece el aviso «Nota actualizada.». El rechazo se comprueba igual
-que en 7.6 —el campo también lleva `required`, así que el navegador no deja enviarlo vacío—: con el
-mismo POST por `curl` contra `/notes/{id}`, esperando 422, el modal de edición abierto, el error y el
-cuerpo conservado.
+que en 7.6: quita `required` del input en el inspector y envía el título vacío contra `/notes/{id}`;
+esperado 422, el modal de edición abierto, el error y el cuerpo conservado.
 
 **Falla si**:
 
@@ -2622,15 +2631,10 @@ El equivalente con el componente es:
 </div>
 ```
 
-**Qué hace cada línea del `embed`**:
-
-- `embed 'components/list/simple.twig'`: incluye el componente y te deja reemplazar sus bloques. Un
-  `include` común no puede: copia el componente tal cual y el bloque `row` quedaría vacío.
-- `with { items: notes, empty: '…' }`: pasa variables al scope del componente. `items` alimenta su
-  `for`; `empty` es el texto de su `else`.
-- `{% block row %}`: rellena el bloque vacío. Se renderiza **donde el componente lo invoca**, o sea
-  dentro de `{% for item in items %}`; por eso `item` es la nota de esa vuelta.
-- `{% endembed %}`: cierra el `embed`, no un `include`.
+**Qué cambia respecto del modal**: el `embed`, el `with` y el `block` ya los usaste en 7.5 y 12.1. Lo
+nuevo es dónde se renderiza el bloque: `row` está dentro del `{% for %}` del componente, así que se
+pinta una vez por item y recibe el `item` de esa vuelta. `after`, en cambio, se pinta una sola vez
+después del `</ul>`.
 
 **La inversión**: compara los dos bloques. Producen el mismo HTML, pero en el segundo tu archivo no
 tiene el `<ul>`, ni el `for`, ni el `else`, y aun así el `<li>` se repite una vez por nota. El
