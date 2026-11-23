@@ -239,11 +239,14 @@
                 </div>
             </div>
 
-            {# Columna derecha: Demos, Scaffolds y Requisitos. El nombre y el
-               resumen de cada demo vienen de los metadatos del scaffold
-               (`label`, `summary`, `why`), que son CLAVES del catálogo: se
-               traducen acá, en el render, porque el array de módulos se arma
-               una vez por proceso y el locale es por request. #}
+            {# Columna derecha: Demos, Scaffolds y Requisitos. La ficha tiene dos
+               estados y NINGUNO resuelve claves de demo sin instalar: con el demo
+               puesto se traducen sus metadatos (`label`, `summary`, `why`, CLAVES
+               de su catálogo, `lang/<locale>/<demo>.php`); sin instalar se usa
+               `home.demo_available` del catálogo base y no se piden `summary` ni
+               `why`, porque esas claves todavía no existen en el proyecto (S1).
+               Se traduce acá, en el render, porque el array de módulos se arma una
+               vez por proceso y el locale es por request. #}
             <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
@@ -263,11 +266,17 @@
                                     <span class="opacity-70" aria-hidden="true">
                                         {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
-                                    {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
+                                    {% if module.installed %}
+                                        {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
+                                    {% else %}
+                                        {{ t('home.demo_available', {'%name%': module.demo}) }}
+                                    {% endif %}
                                 </h3>
-                                <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
-                                {% if module.why is defined and module.why %}
-                                    <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
+                                {% if module.installed %}
+                                    <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
+                                    {% if module.why is defined and module.why %}
+                                        <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                             {% if module.installed %}

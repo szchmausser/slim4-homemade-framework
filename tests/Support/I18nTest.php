@@ -32,6 +32,8 @@ final class I18nTest extends HttpTestCase
 {
     private const LANG = __DIR__ . '/../../lang';
 
+    private const SCAFFOLDS = __DIR__ . '/../../framework/scaffolds';
+
     /**
      * Catálogo en español del cromo migrado, tal como estaba escrito a mano en
      * los templates. Es la referencia de S7: el render tiene que decir esto
@@ -143,6 +145,7 @@ final class I18nTest extends HttpTestCase
         'home.modules.title'           => 'Módulos y demos',
         'home.modules.subtitle'        => 'Scaffolds opcionales para explorar el stack o usar como base.',
         'home.demo.title'              => 'Demo de %name%',
+        'home.demo_available'          => 'Demo %name%: no instalado',
         'home.demo.installed'          => 'Instalado',
         'home.demo.optional'           => 'Opcional',
         'home.demo.uninstall'          => 'Desinstalar módulo:',
@@ -277,7 +280,17 @@ final class I18nTest extends HttpTestCase
         }
     }
 
-    /** S4: los dos catálogos existen, son arrays planos y declaran las mismas claves. */
+    /**
+     * S4: los dos catálogos base existen, son arrays planos y declaran las
+     * mismas claves.
+     *
+     * La paridad es POR ARCHIVO: el catálogo base dice lo que dice el otro, y
+     * cada catálogo de demo (`lang/<locale>/<demo>.php` instalado) tiene que
+     * tener su pareja en el otro idioma con el mismo juego de claves. El
+     * scaffold se revisa también porque el archivo instalado existe sólo
+     * mientras el demo está puesto: sin esto la paridad de los demos se
+     * verificaría únicamente en la matriz con demos instalados.
+     */
     public function test_los_catalogos_es_y_en_declaran_las_mismas_claves(): void
     {
         $es = require self::LANG . '/es.php';
@@ -305,6 +318,85 @@ final class I18nTest extends HttpTestCase
             $clavesEn,
             'Los catálogos se desincronizaron: una clave que existe en un idioma y no en el otro se ve como texto en el idioma equivocado.'
         );
+
+        // Paridad por archivo de los catálogos de demo ya instalados.
+        self::assertParidadPorArchivo(
+            self::catalogosDeDirectorio(self::LANG . '/es'),
+            self::catalogosDeDirectorio(self::LANG . '/en'),
+            'lang/<locale>/'
+        );
+
+        // Y la del scaffold, que es la fuente de esos archivos y existe siempre.
+        $scaffold = dirname(self::LANG) . '/framework/scaffolds';
+
+        $demosEs = [];
+        foreach (glob($scaffold . '/*/lang/es/*.php') ?: [] as $archivo) {
+            $demosEs[basename(dirname($archivo, 3)) . '/' . basename($archivo)] = require $archivo;
+        }
+
+        $demosEn = [];
+        foreach (glob($scaffold . '/*/lang/en/*.php') ?: [] as $archivo) {
+            $demosEn[basename(dirname($archivo, 3)) . '/' . basename($archivo)] = require $archivo;
+        }
+
+        self::assertNotSame([], $demosEs, 'Ningún scaffold trae catálogo `es`: la paridad por archivo estaría pasando en vacío.');
+
+        self::assertParidadPorArchivo($demosEs, $demosEn, 'framework/scaffolds/<demo>/lang/');
+    }
+
+    /**
+     * Catálogos `lang/<locale>/*.php` de un directorio, indexados por archivo.
+     *
+     * Un directorio inexistente (no hay demos instalados) devuelve `[]`: no es
+     * un error, es el estado normal de un clon limpio (S1).
+     *
+     * @return array<string, array<mixed>>
+     */
+    private static function catalogosDeDirectorio(string $directorio): array
+    {
+        if ($directorio === '' || !is_dir($directorio)) {
+            return [];
+        }
+
+        $catalogos = [];
+
+        foreach (glob($directorio . '/*.php') ?: [] as $archivo) {
+            $catalogo = require $archivo;
+
+            self::assertIsArray($catalogo, $archivo . ' tiene que devolver un array plano.');
+            $catalogos[basename($archivo)] = $catalogo;
+        }
+
+        return $catalogos;
+    }
+
+    /**
+     * Los dos juegos de archivos tienen los mismos nombres y cada pareja declara
+     * las mismas claves.
+     *
+     * @param array<string, array<mixed>> $es
+     * @param array<string, array<mixed>> $en
+     */
+    private static function assertParidadPorArchivo(array $es, array $en, string $origen): void
+    {
+        self::assertSame(
+            array_keys($es),
+            array_keys($en),
+            "{$origen}: los archivos de catálogo no coinciden entre `es` y `en`."
+        );
+
+        foreach ($es as $archivo => $catalogoEs) {
+            $clavesEs = array_keys($catalogoEs);
+            $clavesEn = array_keys($en[$archivo]);
+            sort($clavesEs);
+            sort($clavesEn);
+
+            self::assertSame(
+                $clavesEs,
+                $clavesEn,
+                "{$origen}{$archivo} no declara las mismas claves en `es` y `en`."
+            );
+        }
     }
 
     /** S7: el catálogo en español conserva el texto que el usuario ya veía. */
@@ -426,6 +518,137 @@ final class I18nTest extends HttpTestCase
         self::assertSame('fr', $traductor->getLocale());
         self::assertSame('First', $traductor->trans('pagination.first'));
         self::assertSame('Showing %from% to %to% of %total% %label%', $traductor->trans('pagination.showing'));
+    }
+
+    /**
+     * S3: el loader suma `lang/<locale>/*.php` y no deja residuos.
+     *
+     * La fixture se llama `_loader_test_tmp.php` y no como un demo real: el caso
+     * no depende de qué demos están instalados y no pisa ni restaura el catálogo
+     * de ninguno. Declara las claves del demo `notes` (para probar el texto
+     * real) más un marcador propio (`notes.loader_probe`), que no existe en
+     * ningún catálogo del repo: cuando la fixture se va, esa clave tiene que
+     * volver cruda aunque el demo `notes` esté instalado.
+     *
+     * El test verifica que la fixture no existía antes y que no queda después;
+     * el `finally` borra archivo y —si lo creó— el directorio del locale. Un
+     * `lang/<locale>/` que ya existía (un demo instalado) no se toca: sus
+     * archivos no son de este caso.
+     *
+     * Además, `lang/es/` es un directorio y no crea un locale: un idioma existe
+     * sólo si tiene catálogo base, así que el selector del pie no cambia.
+     */
+    public function test_el_loader_suma_los_catalogos_por_locale_y_no_deja_residuos(): void
+    {
+        $fixture = '_loader_test_tmp.php';
+        $rutas = [
+            'es' => self::LANG . '/es/' . $fixture,
+            'en' => self::LANG . '/en/' . $fixture,
+        ];
+
+        foreach ($rutas as $ruta) {
+            self::assertFileDoesNotExist($ruta, "La fixture tiene que empezar ausente: '{$ruta}'.");
+        }
+
+        try {
+            foreach ($rutas as $locale => $ruta) {
+                $dir = dirname($ruta);
+                if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+                    self::fail("No se pudo crear '{$dir}'.");
+                }
+
+                $catalogo = require self::SCAFFOLDS . '/notes/lang/' . $locale . '/notes.php';
+                $catalogo['notes.loader_probe'] = 'Cargado';
+
+                file_put_contents(
+                    $ruta,
+                    "<?php\n\ndeclare(strict_types=1);\n\n// Fixture temporal de I18nTest: el test la borra en el finally.\nreturn "
+                    . var_export($catalogo, true) . ";\n"
+                );
+            }
+
+            self::assertSame(
+                'Notas',
+                TranslatorFactory::create('es')->trans('notes.title'),
+                'El catálogo base no alcanza: falta cargar `lang/<locale>/*.php`.'
+            );
+            self::assertSame('Notes', TranslatorFactory::create('en')->trans('notes.title'));
+            self::assertSame('Cargado', TranslatorFactory::create('es')->trans('notes.loader_probe'));
+            self::assertSame('Cargado', TranslatorFactory::create('en')->trans('notes.loader_probe'));
+            self::assertSame(
+                ['en', 'es'],
+                TranslatorFactory::availableLocales(),
+                'Un catálogo de demo creó un locale: `lang/<locale>/` es un directorio, no un idioma.'
+            );
+
+            foreach ($rutas as $ruta) {
+                self::assertTrue(unlink($ruta), "No se pudo quitar '{$ruta}'.");
+            }
+
+            self::assertSame(
+                'notes.loader_probe',
+                TranslatorFactory::create('es')->trans('notes.loader_probe'),
+                'Quitar la fixture dejó su marcador cargado.'
+            );
+            self::assertSame(
+                'Módulos y demos',
+                TranslatorFactory::create('es')->trans('home.modules.title'),
+                'El catálogo base tiene que seguir resolviendo sin demos.'
+            );
+        } finally {
+            foreach ($rutas as $ruta) {
+                if (is_file($ruta)) {
+                    unlink($ruta);
+                }
+
+                $dir = dirname($ruta);
+
+                if (is_dir($dir) && (scandir($dir) ?: []) === ['.', '..']) {
+                    rmdir($dir);
+                }
+            }
+
+            foreach ($rutas as $ruta) {
+                self::assertFileDoesNotExist($ruta, 'El test dejó la fixture en `lang/`: ' . $ruta);
+            }
+        }
+    }
+
+    /**
+     * S4: una clave de demo resuelve sólo si el demo está instalado.
+     *
+     * Mira el estado real del repo en vez de suponer que no hay demos: sin el
+     * demo la clave se devuelve cruda, y con el demo resuelve el texto de su
+     * catálogo. Así el caso cubre el clon limpio y la matriz con demos, sin
+     * pasar en vacío en ninguno de los dos.
+     */
+    public function test_las_claves_de_demo_resuelven_solo_si_el_demo_esta_instalado(): void
+    {
+        foreach (['tasks', 'contacts', 'notes'] as $demo) {
+            foreach (['es', 'en'] as $locale) {
+                $clave = $demo . '.title';
+                $ruta = self::LANG . '/' . $locale . '/' . $demo . '.php';
+                $traductor = TranslatorFactory::create($locale);
+
+                if (!is_file($ruta)) {
+                    self::assertSame(
+                        $clave,
+                        $traductor->trans($clave),
+                        "Sin el demo `{$demo}` instalado, `{$clave}` no puede resolver en `{$locale}`."
+                    );
+                    continue;
+                }
+
+                $catalogo = require $ruta;
+
+                self::assertArrayHasKey($clave, $catalogo, "El catálogo instalado de `{$demo}` no declara `{$clave}`.");
+                self::assertSame(
+                    $catalogo[$clave],
+                    $traductor->trans($clave),
+                    "El demo instalado `{$demo}` no resuelve `{$clave}` en `{$locale}`."
+                );
+            }
+        }
     }
 
     /** S5: una clave inexistente no rompe: devuelve la clave. */
@@ -762,6 +985,32 @@ final class I18nTest extends HttpTestCase
         // La ficha de cada módulo muestra el comando de instalación o el de
         // desinstalación según esté instalado: la aserción no puede fijar uno
         // solo, porque la suite corre en los dos estados (con y sin demos).
+        // La ficha de cada módulo tiene dos estados y ninguno resuelve claves de
+        // demo sin instalar (S1-S5): con el demo puesto, sus metadatos; sin
+        // instalar, `home.demo_available` del catálogo base. En la suite base no
+        // hay demos, así que las tres fichas tienen que salir del catálogo base.
+        $sinInstalar = array_values(array_filter(
+            ['tasks', 'contacts', 'notes'],
+            static fn (string $demo): bool => !is_file(__DIR__ . '/../../routes/' . $demo . '.php')
+        ));
+
+        self::assertNotSame(
+            [],
+            $sinInstalar,
+            'Los tres demos están instalados: el estado «no instalado» de la portada no se ve en este árbol.'
+        );
+
+        foreach ($sinInstalar as $demo) {
+            self::assertStringContainsString(
+                'Demo ' . $demo . ': no instalado',
+                $portada,
+                "La ficha de `{$demo}` sin instalar no sale del catálogo base."
+            );
+        }
+
+        self::assertStringNotContainsString('home.demo_available', $portada, 'La clave salió cruda: no se está traduciendo.');
+        self::assertStringNotContainsString('tasks.summary', $portada, 'La clave de un demo salió cruda: no existe sin instalar.');
+
         self::assertTrue(
             str_contains($portada, 'Comando de instalación:') || str_contains($portada, 'Desinstalar módulo:'),
             'La portada no muestra ni el comando de instalación ni el de desinstalación de los módulos.'

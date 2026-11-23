@@ -13,14 +13,17 @@ use Twig\Environment;
  * las etiquetas de navegación.
  *
  * Qué fija acá, y por qué en la suite base:
- * - El catálogo español: el texto de cada superficie es el literal que se
- *   renderiza hoy. Los tres demos se traducen Y SE TRADUCE SU NOMBRE: `notes`
- *   dejó de ser inglés en los dos catálogos (L10 de `odd/tasks/i18n.md`), así que
- *   su español es una traducción real, sus 24 claves cambian con el locale como
- *   las de `tasks` y `contacts`, y su etiqueta de menú dice «Notas» donde
- *   `nav.tasks` dice «Tareas». Ya no hay ninguna excepción declarada de «clave
- *   que dice lo mismo a propósito»: sólo quedan las palabras que se escriben
- *   igual en los dos idiomas («Email», «#»).
+ * - El catálogo español de los demos: el texto de cada superficie es el literal
+ *   que se renderiza hoy. La referencia se lee del SCAFFOLD
+ *   (`framework/scaffolds/<demo>/lang/es/<demo>.php`) y no del repo: el catálogo
+ *   de un demo existe en `lang/<locale>/` sólo mientras el demo está instalado
+ *   (S1-S2), y esta suite corre sin demos. Los tres demos se traducen Y SE
+ *   TRADUCE SU NOMBRE: `notes` dejó de ser inglés en los dos catálogos (L10 de
+ *   `odd/tasks/i18n.md`), así que su español es una traducción real, sus 24
+ *   claves cambian con el locale como las de `tasks` y `contacts`, y su
+ *   etiqueta de menú dice «Notas» donde `nav.tasks` dice «Tareas». Ya no hay
+ *   ninguna excepción declarada de «clave que dice lo mismo a propósito»: sólo
+ *   quedan las palabras que se escriben igual en los dos idiomas («Email», «#»).
  * - Los metadatos de los módulos son CLAVES y no texto: la portada y el sidebar
  *   los resuelven al render. Si alguien vuelve a escribir «Tareas» en
  *   `config/navigation/tasks.php`, la ficha de la portada deja de traducirse y
@@ -45,8 +48,8 @@ final class I18nDemosTest extends HttpTestCase
 
     /**
      * Español de las superficies de esta unidad, copiado del render anterior al
-     * cambio. Es la referencia de S7: si alguien «mejora» una cadena en
-     * `lang/es.php`, el usuario ve otro texto y este test lo frena.
+     * cambio. Es la referencia de S7: si alguien «mejora» una cadena en el
+     * catálogo de un demo, el usuario ve otro texto y este test lo frena.
      *
      * `notes.*` lleva español de verdad: el demo nació en inglés (L16 de
      * `odd/tasks/demo-conventions.md`) y L10 de `odd/tasks/i18n.md` revirtió esa
@@ -245,28 +248,118 @@ final class I18nDemosTest extends HttpTestCase
         return $modules;
     }
 
+    /**
+     * Catálogo de un demo en un idioma, tal como lo instala el scaffold.
+     *
+     * El destino instalado (`lang/<locale>/<demo>.php`) no sirve de referencia:
+     * existe sólo mientras el demo está instalado. El scaffold es la fuente que
+     * el instalador copia, así que su texto es el mismo en los dos estados.
+     *
+     * @return array<string, string>
+     */
+    private static function catalogoDelDemo(string $demo, string $locale): array
+    {
+        $file = self::SCAFFOLDS . '/' . $demo . '/lang/' . $locale . '/' . $demo . '.php';
+
+        self::assertFileExists($file, "Falta el catálogo `{$locale}` del demo `{$demo}`.");
+
+        $catalogo = require $file;
+
+        self::assertIsArray($catalogo, $file . ' tiene que devolver un array plano.');
+
+        return $catalogo;
+    }
+
+    /**
+     * Claves que aportan los tres scaffolds para un idioma.
+     *
+     * @return array<string, string>
+     */
+    private static function catalogoDeDemos(string $locale): array
+    {
+        $catalogo = [];
+
+        foreach (self::modules() as $demo => $meta) {
+            $catalogo = array_merge($catalogo, self::catalogoDelDemo($demo, $locale));
+        }
+
+        self::assertNotSame([], $catalogo, "Ningún scaffold trae catálogo `{$locale}`: el test estaría pasando en vacío.");
+
+        return $catalogo;
+    }
+
+    /**
+     * Catálogo de referencia de un idioma: el base del shell más el de cada demo.
+     *
+     * Es lo que resolvería el traductor con los tres demos instalados, armado
+     * desde los archivos y no desde el repo instalado, para que el test no
+     * dependa de qué demos están puestos.
+     *
+     * @return array<string, string>
+     */
+    private static function catalogo(string $locale): array
+    {
+        $base = require self::LANG . '/' . $locale . '.php';
+
+        self::assertIsArray($base, "lang/{$locale}.php tiene que devolver un array plano.");
+
+        return array_merge($base, self::catalogoDeDemos($locale));
+    }
+
+    /** ¿El demo está instalado en este repo? */
+    private static function instalado(string $demo): bool
+    {
+        return is_file(__DIR__ . '/../../routes/' . $demo . '.php');
+    }
+
     /** S7: el catálogo en español de los demos conserva el texto que ya se renderizaba. */
     public function test_el_catalogo_es_de_los_demos_conserva_el_texto_de_head(): void
     {
-        $es = require self::LANG . '/es.php';
+        $es = self::catalogo('es');
 
         foreach (self::ESPANOL_DEMOS as $clave => $texto) {
-            self::assertArrayHasKey($clave, $es, "Falta la clave `{$clave}` en lang/es.php.");
+            self::assertArrayHasKey($clave, $es, "Falta la clave `{$clave}` en el catálogo español.");
             self::assertSame($texto, $es[$clave], "El texto de `{$clave}` cambió para el usuario.");
         }
     }
 
-    /** S7: la referencia no se queda corta cuando un demo suma una clave. */
-    public function test_la_referencia_cubre_las_claves_de_los_demos_y_la_navegacion(): void
+    /**
+     * S4: los catálogos base no tienen ninguna clave de demo.
+     *
+     * Es el guard inverso al que protegía la referencia: las claves de demo
+     * vivían en `lang/<locale>.php` y hoy las trae el scaffold
+     * (`framework/scaffolds/<demo>/lang/<locale>/<demo>.php`), que el instalador
+     * copia a `lang/<locale>/<demo>.php` con el resto del demo. Una clave de
+     * demo que vuelva al catálogo base queda en el proyecto de quien nunca
+     * instaló el demo, que es lo que S1 prohíbe.
+     */
+    public function test_los_catalogos_base_no_tienen_claves_de_los_demos(): void
     {
-        $es = require self::LANG . '/es.php';
+        foreach (['es', 'en'] as $locale) {
+            $base = require self::LANG . '/' . $locale . '.php';
 
-        $deDemos = array_values(array_filter(
-            array_keys($es),
-            static fn (string $clave): bool => (bool) preg_match('/^(tasks|contacts|notes|nav)\./', $clave)
-        ));
+            self::assertIsArray($base, "lang/{$locale}.php tiene que devolver un array plano.");
 
-        self::assertNotSame([], $deDemos, 'lang/es.php no tiene claves de los demos: el test estaría pasando en vacío.');
+            $deDemos = array_values(array_filter(
+                array_map('strval', array_keys($base)),
+                static fn (string $clave): bool => preg_match('/^(tasks|contacts|notes|nav\.(tasks|contacts|notes))\.?/', $clave) === 1
+            ));
+
+            self::assertSame(
+                [],
+                $deDemos,
+                "lang/{$locale}.php tiene claves de demo; viven en framework/scaffolds/<demo>/lang/{$locale}/<demo>.php: "
+                . implode(', ', $deDemos)
+            );
+        }
+    }
+
+    /** S6: la referencia no se queda corta cuando un scaffold suma una clave. */
+    public function test_la_referencia_cubre_las_claves_de_los_demos(): void
+    {
+        $deDemos = array_keys(self::catalogoDeDemos('es'));
+
+        self::assertNotSame([], $deDemos, 'Los scaffolds no tienen claves de demo: el test estaría pasando en vacío.');
 
         $faltan = array_values(array_diff($deDemos, array_keys(self::ESPANOL_DEMOS)));
 
@@ -281,24 +374,34 @@ final class I18nDemosTest extends HttpTestCase
      * Los metadatos de cada módulo son claves, no texto.
      *
      * Es la mitad del contrato: `label`, `summary` y `why` tienen que existir en
-     * los dos catálogos. Si alguien escribe el texto directamente en
-     * `config/navigation/<demo>.php`, la portada vuelve a mostrar español en
-     * inglés y la clave no aparece en ningún catálogo.
+     * el catálogo de SU demo, en los dos idiomas. Si alguien escribe el texto
+     * directamente en `config/navigation/<demo>.php`, la portada vuelve a
+     * mostrar español en inglés y la clave no aparece en ningún catálogo.
      */
-    public function test_los_metadatos_de_los_modulos_son_claves_de_los_dos_catalogos(): void
+    public function test_los_metadatos_de_los_modulos_son_claves_del_catalogo_de_su_demo(): void
     {
-        $es = require self::LANG . '/es.php';
-        $en = require self::LANG . '/en.php';
-
         foreach (self::modules() as $demo => $meta) {
+            // El catálogo de un demo sólo existe cuando está instalado, así que
+            // el vocabulario del scaffold se lee del propio scaffold.
+            $catalogos = [
+                'es' => self::catalogoDelDemo($demo, 'es'),
+                'en' => self::catalogoDelDemo($demo, 'en'),
+            ];
+
             foreach (['label', 'summary', 'why'] as $campo) {
                 self::assertArrayHasKey($campo, $meta, "El módulo `{$demo}` no declara `{$campo}`.");
 
                 $clave = $meta[$campo];
 
                 self::assertIsString($clave, "`{$campo}` de `{$demo}` tiene que ser una clave, no texto.");
-                self::assertArrayHasKey($clave, $es, "La clave `{$clave}` de `{$demo}` no está en lang/es.php.");
-                self::assertArrayHasKey($clave, $en, "La clave `{$clave}` de `{$demo}` no está en lang/en.php.");
+
+                foreach ($catalogos as $locale => $catalogo) {
+                    self::assertArrayHasKey(
+                        $clave,
+                        $catalogo,
+                        "La clave `{$clave}` de `{$demo}` no está en el catálogo `{$locale}` de ese demo."
+                    );
+                }
             }
         }
     }
@@ -306,11 +409,11 @@ final class I18nDemosTest extends HttpTestCase
     /** El catálogo inglés es una traducción, no el español copiado. */
     public function test_el_catalogo_en_traduce_las_superficies_nuevas(): void
     {
-        $es = require self::LANG . '/es.php';
-        $en = require self::LANG . '/en.php';
+        $es = self::catalogo('es');
+        $en = self::catalogo('en');
 
         foreach (self::TRADUCIDAS as $clave) {
-            self::assertArrayHasKey($clave, $en, "Falta la clave `{$clave}` en lang/en.php.");
+            self::assertArrayHasKey($clave, $en, "Falta la clave `{$clave}` en el catálogo inglés.");
             self::assertNotSame(
                 $es[$clave],
                 $en[$clave],
@@ -336,22 +439,22 @@ final class I18nDemosTest extends HttpTestCase
      *
      * Reemplaza la excepción de L16 de `odd/tasks/demo-conventions.md` (el demo
      * nació en inglés y sus dos catálogos decían lo mismo), revertida en L10 de
-     * `odd/tasks/i18n.md`. Se miran TODAS las claves del namespace y no una
-     * muestra: si alguien copia el español a `en.php` en una sola, el demo deja
-     * de cambiar de idioma en esa pantalla y la clave del tutorial vuelve a
-     * mentir.
+     * `odd/tasks/i18n.md`. Se miran TODAS las claves del `namespace` y no una
+     * muestra: si alguien copia el español al catálogo inglés en una sola, el
+     * demo deja de cambiar de idioma en esa pantalla y la clave del tutorial
+     * vuelve a mentir.
      */
     public function test_el_demo_notes_cambia_de_idioma_en_todas_sus_claves(): void
     {
-        $es = require self::LANG . '/es.php';
-        $en = require self::LANG . '/en.php';
+        $es = self::catalogo('es');
+        $en = self::catalogo('en');
 
         $claves = array_values(array_filter(
-            array_keys($es),
+            array_map('strval', array_keys($es)),
             static fn (string $clave): bool => str_starts_with($clave, 'notes.')
         ));
 
-        self::assertNotSame([], $claves, 'lang/es.php no tiene claves `notes.*`: el test estaría pasando en vacío.');
+        self::assertNotSame([], $claves, 'Los catálogos no tienen claves `notes.*`: el test estaría pasando en vacío.');
 
         $sinPareja = array_values(array_diff($claves, array_keys($en)));
 
@@ -380,22 +483,26 @@ final class I18nDemosTest extends HttpTestCase
     /**
      * El sidebar traduce las etiquetas de la navegación al render.
      *
-     * Se arma la lista como la deja el contenedor (la clave, no el texto) y se
-     * renderiza la plantilla en los dos idiomas. Se fija el locale en el
-     * traductor del contenedor y se restaura en `finally`: es estado del
-     * proceso, y el middleware lo reescribe en cada request.
+     * Se renderiza el menú REAL del contenedor (`navigation_items`) y no uno
+     * armado acá: con los tres demos instalados tiene las cuatro entradas; sin
+     * demos, sólo Inicio. La clave de un demo existe sólo mientras el demo está
+     * instalado (S1-S2), así que su etiqueta se exige únicamente cuando la
+     * entrada está en el menú; cada scaffold fija la suya en sus propios tests.
+     *
+     * Se fija el locale en el traductor del contenedor y se restaura en
+     * `finally`: es estado del proceso, y el middleware lo reescribe en cada
+     * request.
      */
-    public function test_el_sidebar_traduce_las_etiquetas_de_los_tres_demos(): void
+    public function test_el_sidebar_traduce_las_etiquetas_del_menu(): void
     {
-        $navigation = [['label' => 'nav.home', 'href' => '/', 'icon' => 'home', 'key' => 'home']];
-
-        foreach (self::modules() as $demo => $meta) {
-            $navigation[] = ['label' => $meta['label'], 'href' => $meta['href'], 'icon' => $meta['icon'], 'key' => $demo];
-        }
-
         $container = self::app()->getContainer();
         $translator = $container->get(LocaleAwareInterface::class);
         $twig = self::twig();
+
+        $navigation = $twig->getGlobals()['navigation_items'] ?? null;
+
+        self::assertIsArray($navigation, 'El contenedor no expone `navigation_items`.');
+        self::assertNotSame([], $navigation, 'El menú está vacío: Inicio tiene que estar siempre.');
 
         try {
             $translator->setLocale('en');
@@ -413,48 +520,159 @@ final class I18nDemosTest extends HttpTestCase
             $translator->setLocale('es');
         }
 
-        foreach (['Home', 'Tasks', 'Contacts', 'Notes'] as $etiqueta) {
-            self::assertStringContainsString('>' . $etiqueta . '<', $ingles, "El sidebar en inglés no muestra «{$etiqueta}».");
-        }
-
-        foreach (['Inicio', 'Tareas', 'Contactos', 'Notas'] as $etiqueta) {
-            self::assertStringContainsString('>' . $etiqueta . '<', $espanol, "El sidebar en español no muestra «{$etiqueta}».");
-        }
-
+        self::assertStringContainsString('>Inicio<', $espanol, 'El sidebar en español no muestra «Inicio».');
+        self::assertStringContainsString('>Home<', $ingles, 'El sidebar en inglés no muestra «Home».');
         self::assertStringNotContainsString('>Inicio<', $ingles, 'El sidebar en inglés sigue mostrando la etiqueta española.');
-        self::assertStringNotContainsString('>Notes<', $espanol, 'El nombre del módulo no se traduce: el sidebar español sigue en inglés.');
         self::assertStringNotContainsString('>nav.home<', $espanol, 'La clave salió cruda: no se está traduciendo en el render.');
+
+        $enMenu = array_column($navigation, 'label');
+
+        foreach (['nav.tasks' => ['Tareas', 'Tasks'], 'nav.contacts' => ['Contactos', 'Contacts'], 'nav.notes' => ['Notas', 'Notes']] as $clave => [$textoEs, $textoEn]) {
+            if (!in_array($clave, $enMenu, true)) {
+                continue;
+            }
+
+            self::assertStringContainsString('>' . $textoEs . '<', $espanol, "El sidebar en español no muestra «{$textoEs}».");
+            self::assertStringContainsString('>' . $textoEn . '<', $ingles, "El sidebar en inglés no muestra «{$textoEn}».");
+            self::assertStringNotContainsString('>' . $clave . '<', $espanol, "La etiqueta \`{$clave}\` salió cruda.");
+        }
     }
 
     /**
-     * La portada resuelve las fichas de los módulos en el idioma de la petición.
+     * La portada resuelve la ficha de cada demo en el idioma de la petición y
+     * en sus DOS estados, sin pedir nunca una clave de demo que no exista.
      *
-     * `demo_modules` lista los tres scaffolds aunque no estén instalados, así
-     * que este caso corre en la suite base: es la superficie donde hoy se ve
-     * más español en una visita en inglés.
+     * - Con el demo instalado: `label`, `summary` y `why` de su catálogo
+     *   (existe en `lang/<locale>/<demo>.php`). El esperado se lee del scaffold
+     *   —lo que el instalador copia— para que valga instalado o no.
+     * - Sin instalar: `home.demo_available` del catálogo base y el comando de
+     *   instalación, sin `summary` ni `why`: esas claves todavía no existen
+     *   (S1) y el HTML tiene que mostrar texto, no la clave cruda.
      */
-    public function test_la_portada_traduce_las_fichas_de_los_modulos(): void
+    public function test_la_portada_traduce_las_fichas_de_los_demos_en_sus_dos_estados(): void
     {
         $es = self::texto((string) self::app()->handle(self::request('GET', '/'))->getBody());
-
-        self::assertStringContainsString('<span>Inicio</span>', $es);
-        self::assertStringContainsString('Lista con edición en línea y cambio de estado', $es);
-        self::assertStringContainsString('Grilla Tabulator en modo remoto', $es);
-        self::assertStringContainsString('CRUD mínimo y completo', $es);
-        self::assertStringContainsString('Demo de tareas', $es);
-        self::assertStringContainsString('Demo de notas', $es, 'La ficha de `notes` no traduce el nombre del módulo.');
-
         $en = self::texto((string) self::app()->handle(self::request('GET', '/?lang=en'))->getBody());
 
+        self::assertStringContainsString('<span>Inicio</span>', $es);
         self::assertStringContainsString('<span>Home</span>', $en);
-        self::assertStringContainsString('inline editing and status toggling', $en);
-        self::assertStringContainsString('Remote-mode Tabulator grid', $en);
-        self::assertStringContainsString('A minimal, complete CRUD', $en);
-        self::assertStringContainsString('tasks demo', $en);
-        self::assertStringContainsString('notes demo', $en, 'La ficha de `notes` no traduce el nombre del módulo.');
-        self::assertStringNotContainsString('Lista con edición en línea', $en);
+        self::assertStringContainsString('Módulos y demos', $es);
+        self::assertStringContainsString('Modules and demos', $en);
         self::assertStringNotContainsString('<span>Inicio</span>', $en);
-        self::assertStringNotContainsString('tasks.summary', $en, 'La clave salió cruda: no se está traduciendo.');
+        self::assertStringNotContainsString('home.modules.title', $en, 'La clave salió cruda: no se está traduciendo.');
+
+        $baseEs = require self::LANG . '/es.php';
+        $baseEn = require self::LANG . '/en.php';
+
+        foreach (self::modules() as $demo => $meta) {
+            self::assertStringNotContainsString(
+                'home.demo_available',
+                $es,
+                'La clave de la ficha «no instalado» salió cruda: no se está traduciendo.'
+            );
+
+            if (!self::instalado($demo)) {
+                self::assertStringContainsString(
+                    str_replace('%name%', $demo, $baseEs['home.demo_available']),
+                    $es,
+                    "La ficha de `{$demo}` sin instalar no sale del catálogo base."
+                );
+                self::assertStringContainsString(
+                    str_replace('%name%', $demo, $baseEn['home.demo_available']),
+                    $en,
+                    "La ficha de `{$demo}` sin instalar no sale del catálogo base en inglés."
+                );
+                self::assertStringContainsString('composer demo:' . $demo . ':install', $es);
+
+                // Sin `summary` ni `why`: sus claves viven en el catálogo del
+                // demo y no existen sin instalar. Ni el texto ni la clave
+                // pueden aparecer.
+                foreach (['summary', 'why'] as $campo) {
+                    $clave = $demo . '.' . $campo;
+
+                    self::assertStringNotContainsString($clave, $es, "La clave `{$clave}` salió cruda en la portada.");
+                    self::assertStringNotContainsString($clave, $en, "La clave `{$clave}` salió cruda en la portada en inglés.");
+                }
+
+                continue;
+            }
+
+            $esDemo = self::catalogoDelDemo($demo, 'es');
+            $enDemo = self::catalogoDelDemo($demo, 'en');
+
+            // El nombre del módulo también se traduce: la ficha de `notes` dice
+            // «Demo de notas» en español y «notes demo» en inglés.
+            self::assertStringContainsString(
+                'Demo de ' . mb_strtolower($esDemo['nav.' . $demo]),
+                $es,
+                "La ficha de `{$demo}` no traduce el nombre del módulo en español."
+            );
+            self::assertStringContainsString(
+                mb_strtolower($enDemo['nav.' . $demo]) . ' demo',
+                $en,
+                "La ficha de `{$demo}` no traduce el nombre del módulo en inglés."
+            );
+
+            self::assertStringContainsString($esDemo[$demo . '.summary'], $es, "La ficha de `{$demo}` no traduce el resumen.");
+            self::assertStringContainsString($enDemo[$demo . '.summary'], $en, "La ficha de `{$demo}` no traduce el resumen en inglés.");
+            self::assertStringContainsString($esDemo[$demo . '.why'], $es, "La ficha de `{$demo}` no traduce el porqué.");
+            self::assertStringContainsString($enDemo[$demo . '.why'], $en, "La ficha de `{$demo}` no traduce el porqué en inglés.");
+            self::assertStringContainsString('composer demo:' . $demo . ':remove', $es);
+
+            self::assertStringNotContainsString($demo . '.summary', $en, 'La clave salió cruda: no se está traduciendo.');
+            self::assertStringNotContainsString($esDemo[$demo . '.summary'], $en, "La ficha de `{$demo}` sigue en español en la visita en inglés.");
+            self::assertStringNotContainsString(
+                str_replace('%name%', $demo, $baseEs['home.demo_available']),
+                $es,
+                "La ficha de `{$demo}` está instalada y no puede salir como «no instalado»."
+            );
+        }
+    }
+
+    /**
+     * S5: sin demos instalados, las TRES fichas de la portada salen del catálogo
+     * base (`home.demo_available` + el comando de instalación), sin una sola
+     * clave de demo.
+     *
+     * Es el estado de un clon limpio. Si el caso corre con algún demo instalado,
+     * exige lo mismo para las fichas que faltan —nunca queda vacío— y reserva la
+     * cuenta de «las tres» para cuando no hay ninguna.
+     */
+    public function test_la_portada_muestra_las_fichas_sin_instalar_con_el_catalogo_base(): void
+    {
+        $es = self::texto((string) self::app()->handle(self::request('GET', '/'))->getBody());
+        $baseEs = require self::LANG . '/es.php';
+        $sinInstalar = [];
+
+        foreach (self::modules() as $demo => $meta) {
+            if (self::instalado($demo)) {
+                continue;
+            }
+
+            $sinInstalar[] = $demo;
+
+            self::assertStringContainsString(
+                str_replace('%name%', $demo, $baseEs['home.demo_available']),
+                $es,
+                "La ficha de `{$demo}` sin instalar no sale del catálogo base."
+            );
+            self::assertStringContainsString('composer demo:' . $demo . ':install', $es);
+            self::assertStringNotContainsString($meta['label'], $es, "La clave `{$meta['label']}` salió cruda en la portada.");
+            self::assertStringNotContainsString($meta['summary'], $es, "La clave `{$meta['summary']}` salió cruda en la portada.");
+            self::assertStringNotContainsString($meta['why'], $es, "La clave `{$meta['why']}` salió cruda en la portada.");
+        }
+
+        self::assertNotSame([], $sinInstalar, 'Los tres demos están instalados: no hay ficha «no instalado» que revisar.');
+        self::assertStringNotContainsString('home.demo_available', $es, 'La clave salió cruda: no se está traduciendo.');
+
+        if (count($sinInstalar) === 3) {
+            self::assertSame(
+                3,
+                substr_count($es, ': no instalado'),
+                'Sin demos, la portada tiene que mostrar las tres fichas en estado «no instalado».'
+            );
+            self::assertStringNotContainsString('Demo de ', $es, 'Sin demos no hay ninguna ficha en estado instalado.');
+        }
     }
 
     /**

@@ -46,6 +46,7 @@ final class DemoInstallerTest extends TestCase
             'database/migrations',
             'database/seeds',
             'config/navigation',
+            'lang',
             'storage/cache/twig',
             'app',
             'routes',
@@ -67,6 +68,12 @@ final class DemoInstallerTest extends TestCase
 
         foreach (glob($this->projectRoot . '/database/migrations/*.php') ?: [] as $migration) {
             copy($migration, $this->root . '/database/migrations/' . basename($migration));
+        }
+
+        // Catálogos base: el fixture tiene el `lang/` del esqueleto, así que
+        // instalar y quitar un demo se prueba contra el mismo layout del repo.
+        foreach (glob($this->projectRoot . '/lang/*.php') ?: [] as $catalog) {
+            copy($catalog, $this->root . '/lang/' . basename($catalog));
         }
 
         copy($this->projectRoot . '/phinx.php', $this->root . '/phinx.php');
@@ -381,6 +388,189 @@ final class DemoInstallerTest extends TestCase
 
         self::assertSame(0, $exit, $stderr);
         self::assertFileDoesNotExist($manifest);
+    }
+
+    /**
+     * S2: el catálogo de cada demo viaja con sus archivos.
+     *
+     * Instalar copia `lang/es/<demo>.php` y `lang/en/<demo>.php`, y el
+     * manifiesto los describe con su sha256 como a cualquier otro archivo del
+     * scaffold: no hay lista paralela que mantener. Quitarlo borra los dos
+     * archivos y el directorio del locale, pero `lang/` se queda, porque es el
+     * destino de los catálogos base.
+     */
+    public function test_install_y_remove_mueven_los_catalogos_del_demo(): void
+    {
+        $files = ['lang/es/tasks.php', 'lang/en/tasks.php'];
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'tasks', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+
+        $manifest = json_decode((string) file_get_contents($this->root . '/storage/demo-state/tasks.json'), true);
+
+        self::assertIsArray($manifest, 'El install no escribió el manifiesto.');
+        self::assertIsArray($manifest['files'] ?? null, 'El manifiesto no describe archivos.');
+
+        foreach ($files as $relative) {
+            $path = $this->root . '/' . $relative;
+
+            self::assertFileExists($path, 'La instalación no copió ' . $relative);
+            self::assertSame(
+                (string) hash_file('sha256', $this->root . '/framework/scaffolds/tasks/' . $relative),
+                (string) hash_file('sha256', $path),
+                'El catálogo instalado no coincide con el del scaffold: ' . $relative
+            );
+            self::assertSame(
+                (string) hash_file('sha256', $path),
+                $manifest['files'][$relative] ?? null,
+                'El manifiesto no describe ' . $relative . ' con su sha256.'
+            );
+        }
+
+        // Y el catálogo base sigue donde estaba.
+        self::assertFileExists($this->root . '/lang/es.php');
+        self::assertFileExists($this->root . '/lang/en.php');
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'tasks', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertStringContainsString('removido', $stdout);
+
+        foreach ($files as $relative) {
+            self::assertFileDoesNotExist($this->root . '/' . $relative, 'Quedó residuo: ' . $relative);
+        }
+
+        self::assertDirectoryDoesNotExist($this->root . '/lang/es', 'El remove dejó el directorio del locale vacío.');
+        self::assertDirectoryDoesNotExist($this->root . '/lang/en');
+        self::assertFileExists($this->root . '/lang/es.php', 'El remove se llevó lang/es.php.');
+        self::assertFileExists($this->root . '/lang/en.php', 'El remove se llevó lang/en.php.');
+    }
+
+    /**
+     * S6: instalar el demo hace resolver sus claves; quitarlo las vuelve crudas.
+     *
+     * El instalador corre contra un `DEMO_ROOT` temporal y `TranslatorFactory`
+     * resuelve `lang/` con `dirname(__DIR__, 2)`, así que el sondeo carga
+     * `Framework\` desde el árbol temporal y el `lang/` que lee el loader es el
+     * que acaba de escribir el instalador. No se toca el repo.
+     *
+     * Lo que se mide es el contrato de S6 de punta a punta: el archivo que
+     * copia el install es el que el loader encuentra, y el que borra el remove
+     * es el que deja de existir.
+     */
+    public function test_las_claves_del_demo_resuelven_al_instalar_y_no_al_quitar(): void
+    {
+        $probe = $this->crearSondeoDeCatalogos();
+
+        self::assertSame(
+            "locales=en,es\nes=notes.title\nen=notes.title\n",
+            $this->runProbe($probe),
+            'Sin el demo instalado no puede resolver ninguna clave suya.'
+        );
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['install', 'notes', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertSame(
+            "locales=en,es\nes=Notas\nen=Notes\n",
+            $this->runProbe($probe),
+            'El catálogo que instaló el demo no llega al loader.'
+        );
+
+        [$exit, $stdout, $stderr] = $this->runDemo(['remove', 'notes', '--no-db']);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertSame(
+            "locales=en,es\nes=notes.title\nen=notes.title\n",
+            $this->runProbe($probe),
+            'Quitar el demo tiene que quitar sus claves, no sólo sus archivos.'
+        );
+    }
+
+    /**
+     * Copia `Framework\I18n` y `Framework\Support` al árbol temporal y escribe
+     * un sondeo que carga el loader desde ahí.
+     *
+     * `TranslatorFactory` deriva `lang/` de su propia ruta (`dirname(__DIR__, 2)`),
+     * así que la copia es lo que hace que apunte al `DEMO_ROOT` del test. El
+     * autoloader se registra antes del de `vendor/` y con `prepend`: gana para
+     * las clases que el sondeo todavía no cargó.
+     */
+    private function crearSondeoDeCatalogos(): string
+    {
+        foreach (['I18n/TranslatorFactory.php', 'Support/Env.php'] as $class) {
+            $target = $this->root . '/framework/' . $class;
+
+            if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0755, true) && !is_dir(dirname($target))) {
+                throw new \RuntimeException('No se pudo crear ' . dirname($target));
+            }
+
+            if (!copy($this->projectRoot . '/framework/' . $class, $target)) {
+                throw new \RuntimeException('No se pudo copiar ' . $class);
+            }
+        }
+
+        $probe = $this->root . '/sondeo-catalogos.php';
+
+        $script = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+// `vendor/autoload.php` registra el autoloader de Composer al frente, así que
+// el de este árbol se registra DESPUÉS y con `prepend` para ganarle: lo que el
+// sondeo no cargó todavía se resuelve desde la copia temporal.
+require __DIR__ . '/vendor/autoload.php';
+
+spl_autoload_register(static function (string $class): void {
+    if (!str_starts_with($class, 'Framework\\')) {
+        return;
+    }
+
+    $file = __DIR__ . '/framework/' . str_replace('\\', '/', substr($class, strlen('Framework\\'))) . '.php';
+
+    if (is_file($file)) {
+        require $file;
+    }
+}, true, true);
+
+echo 'locales=' . implode(',', \Framework\I18n\TranslatorFactory::availableLocales()) . PHP_EOL;
+
+foreach (['es', 'en'] as $locale) {
+    echo $locale . '=' . \Framework\I18n\TranslatorFactory::create($locale)->trans('notes.title') . PHP_EOL;
+}
+PHP;
+
+        file_put_contents($probe, $script);
+
+        return $probe;
+    }
+
+    /**
+     * @return string stdout del sondeo
+     */
+    private function runProbe(string $probe): string
+    {
+        $process = proc_open(
+            [PHP_BINARY, $probe],
+            [1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
+            $pipes,
+            $this->root
+        );
+        self::assertIsResource($process);
+
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+
+        self::assertSame(0, proc_close($process), 'El sondeo del loader falló: ' . $stderr);
+        self::assertSame('', $stderr);
+
+        // Los saltos se normalizan: `PHP_EOL` es `\r\n` en Windows y el test
+        // compara el texto, no el fin de línea del sistema.
+        return str_replace(["\r\n", "\r"], "\n", $stdout);
     }
 
     /**

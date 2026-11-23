@@ -244,11 +244,16 @@ final class NoteTest extends HttpTestCase
     {
         $html = (string) self::app()->handle(self::request('GET', '/'))->getBody();
 
-        // El catálogo sale de los scaffolds, así que están los tres aunque solo
-        // este esté instalado.
-        self::assertSame(3, substr_count($html, 'Demo de '), 'La portada lista los tres módulos.');
+        // La portada lista los tres módulos, pero sólo el instalado trae la
+        // ficha completa de su catálogo: los otros dos se anuncian con
+        // `home.demo_available` del catálogo base, porque las claves de demo
+        // (`nav.<demo>`, `summary`, `why`) existen sólo con el demo instalado.
+        self::assertSame(1, substr_count($html, 'Demo de '), 'Sólo el demo instalado trae ficha completa.');
         self::assertStringContainsString('Demo de notas', $html);
         self::assertStringContainsString('composer demo:notes:remove', $html, 'Instalado: ofrece desinstalar.');
+        self::assertSame(2, substr_count($html, ': no instalado'), 'Los otros dos módulos se anuncian como no instalados.');
+        self::assertStringContainsString('composer demo:tasks:install', $html);
+        self::assertStringContainsString('composer demo:contacts:install', $html);
     }
 
     public function test_el_menu_muestra_la_entrada_de_notas_y_la_marca_activa(): void

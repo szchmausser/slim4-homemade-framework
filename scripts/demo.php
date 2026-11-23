@@ -718,6 +718,10 @@ function removeEmptyParents(string $dir, string $root): void
         $root . '/database',
         $root . '/database/migrations',
         $root . '/database/seeds',
+        // Catálogos base del shell. El demo instala `lang/<locale>/<demo>.php`,
+        // así que al quitar el último demo se va también el directorio del
+        // locale; `lang/` se queda porque es el destino de los catálogos base.
+        $root . '/lang',
         $root . '/public',
         $root . '/public/assets',
         $root . '/resources',
