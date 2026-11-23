@@ -32,6 +32,12 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
 - **S7 (capturas)**: «si necesitas actualizar las capturas usa ego browser para que hagas las nuevas
   tomas de las secciones mejoradas que propones». Nuevas capturas del cap. 12 (encabezado sobre lista
   poblada con acciones) y de toda sección cuyo estado visual cambie por la reestructura.
+  Resolución (L7): no hace falta captura nueva. `08-2-acciones.png` ya retrata el estado exacto del
+  cap. 12 —encabezado con icono, subtítulo y botón, una fila con lápiz y papelera, sin paginador—;
+  el demo `notes` como fuente habría mostrado el paginador del cap. 14, que en el cap. 12 todavía no
+  existe. El defecto era la referencia: las tres secciones apuntaban a `06-7-encabezado.png`, retrato
+  del cap. 6 sin acciones de fila, y afirmaban «la pantalla no cambia» sobre una pantalla que el
+  lector ya no tiene.
 
 ## Tasks
 
@@ -39,17 +45,22 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   fusionar viejos 6.1+6.2; renumerar cap. 6; mover viejos 6.8-6.10 → cap. 12; viejo 12 → 13; viejo
   13 (sin 13.5) → 14; viejo 13.5 → 15; viejo 14 → 16; Índice en fases; actualizar TODAS las
   cross-referencias; reescribir Antes/Después y prosa de las secciones movidas al estado post-CRUD;
-  preservar la única copia verificada (page-header-title.twig, viejo 6.10). Ruta: inline. Commit: —.
+  preservar la única copia verificada (page-header-title.twig, viejo 6.10). Ruta: inline. Commit: `4c1e901`.
 - **T2** — Checks y piezas (S3, S4): caja Pieza de `button.twig` en 7.5; recortar re-enseñanza de
   `embed` en nuevo 13.1; camino de navegador para el 422 en 7.6 y 9.2 con `curl` opcional. Ruta:
-  inline. Commit: —.
+  inline. Commit: `0ac12ff`.
 - **T3** — Apéndice Phinx (S6): mover «Cómo funciona Phinx aquí» (viejo 2, líneas 219-250) a un
   apéndice tras Problemas frecuentes; dejar en cap. 2 solo lo operativo (número por comando, aviso
-  del scaffold, rollback one-liner). Ruta: inline. Commit: —.
-- **T4** — Verificación y capturas (S1-S7): `composer verify`; re-walk de los capítulos afectados
-  (6, 7.5, 7.6, 12, 13, 14, 15) en worktree limpio con ego-browser; nuevas capturas de las secciones
-  movidas; diff del estado final contra `framework/scaffolds/notes/`; `composer docs:check` verde.
-  Ruta: inline (delegación no disponible en este runtime). Commit: —.
+  del scaffold, rollback one-liner). Ruta: inline. Commit: `977e8dc`.
+- **T4** — Verificación y capturas (S1-S7): cerrado. `composer docs:check` OK (24 md, 50 fuentes, 57
+  copias). `composer verify` verde: lint, docs, PHPStan sin errores, 271 tests / 5699 assertions,
+  migrate:fresh OK. Round-trip del demo `notes` (el estado final que el tutorial produce) verde: install +
+  migrate + seeder de 12 notas, 286 tests / 5812 assertions, y `remove` sin dejar restos en el árbol.
+  Capturas: resueltas por referencia y no por recaptura (S7/L7): las tres secciones del cap. 12 apuntan a
+  `08-2-acciones.png` y sus epígrafes nombran la pantalla real. Sin re-walk en navegador: no hay estado
+  nuevo que fotografiar ni comportamiento que este cambio toque, y la cobertura del estado final la da el
+  round-trip del demo. Ruta: inline. Commit: `a338869` (capturas y comprobación de 12.1) y `6cceae3`
+  (heading del cap. 2).
 
 ## Log
 
@@ -80,3 +91,14 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
 - **L6**: la renumeración es atómica (no se puede renumerar a medias un doc con cross-refs); el commit
   de T1 puede superar las ~400 líneas del heuristic por ser un slice mecánico coherente. Se explica en
   el mensaje de commit.
+- **L7**: el usuario pidió verificar la auditoría de un tercero y cerrar lo pendiente. Verificación
+  propia contra `68d5b33`: los hallazgos son exactos (cap. 6 = 636 líneas y 10 subsecciones en el
+  baseline; `INSERT` manual en 788-789; 13.5 en 3055; promesa del navegador en la línea 16; `button.twig`
+  con 17 menciones y 0 cajas Pieza; Phinx en 219). Correcciones menores al informe: la primera recompensa
+  cae al 42%, no al 44%; el `curl` del 422 mide 36 líneas, no 20; la sección 10.1 mide 56 líneas aunque el
+  wrapper son ~12; y 6.6 no es un paso «sin cambio visual» sino donde aparece el encabezado que las otras
+  tres secciones reutilizan como captura.
+- **L8**: cierre de T4. Se descarta recapturar (S7/L7) porque la captura correcta ya existe; se corrigen
+  la referencia y la comprobación de 12.1, que comparaba contra la pantalla de 6.6 en vez de contra la
+  que el lector tiene. Retoque: el heading del cap. 2 ya no repite el título del apéndice. Revisión de
+  cross-refs del renumbering: los 20 «capítulo N» del documento apuntan al capítulo correcto.
