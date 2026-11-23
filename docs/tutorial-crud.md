@@ -43,26 +43,37 @@ del shell. El código y las rutas de cada paso son los que mandan.
 
 ## Índice
 
+**Parte I — Fundamentos**
+
 1. [Arrancar la app hasta tener sesión](#1-arrancar-la-app-hasta-tener-sesión)
 2. [La migración de `notes`](#2-la-migración-de-notes)
 3. [El modelo `Note`](#3-el-modelo-note)
 4. [Registrar la entidad en las rutas y en el menú](#4-registrar-la-entidad-en-las-rutas-y-en-el-menú)
 5. [La primera ruta: JSON verificable](#5-la-primera-ruta-json-verificable)
+
+**Parte II — El CRUD completo**
+
 6. [La pantalla del listado: del HTML crudo al shell](#6-la-pantalla-del-listado-del-html-crudo-al-shell)
 7. [El alta: del formulario crudo al modal del proyecto](#7-el-alta-del-formulario-crudo-al-modal-del-proyecto)
 8. [Las acciones por fila: del icono mudo al botón accesible](#8-las-acciones-por-fila-del-icono-mudo-al-botón-accesible)
 9. [Editar en el mismo modal](#9-editar-en-el-mismo-modal)
 10. [Borrar: del confirm del navegador al diálogo del proyecto](#10-borrar-del-confirm-del-navegador-al-diálogo-del-proyecto)
 11. [Tests que reemplazan lo que hacías a mano](#11-tests-que-reemplazan-lo-que-hacías-a-mano)
-12. [Extraer la lista a un componente](#12-extraer-la-lista-a-un-componente)
-13. [Paginación del servidor](#13-paginación-del-servidor)
-14. [Repetir el patrón con otra entidad](#14-repetir-el-patrón-con-otra-entidad)
+
+**Parte III — Piezas reutilizables**
+
+12. [El encabezado a componentes](#12-el-encabezado-a-componentes)
+13. [La lista a un componente](#13-la-lista-a-un-componente)
+14. [Paginación del servidor](#14-paginación-del-servidor)
+15. [Un solo camino de render](#15-un-solo-camino-de-render)
+16. [Repetir el patrón con otra entidad](#16-repetir-el-patrón-con-otra-entidad)
 
 Cada pieza de UI aparece dos veces: primero en su versión básica —HTML crudo, `<dialog>` nativo,
 `confirm()` del navegador, iconos sin nombre— y después sustituida por el componente del proyecto, con
-lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa y probada; el 12 extrae
-la lista a un componente reusable, el 13 hace que la lista siga siendo usable cuando
-crece, y el 14 te deja el patrón para otra entidad tuya.
+lo que se gana y lo que se evita. Los pasos 1 a 11 dejan la entidad completa y probada. La parte III
+consolida las piezas reutilizables: el 12 pasa el encabezado a componentes, el 13 la lista, el 14 hace
+que la lista siga siendo usable cuando crece, el 15 unifica los renders en un solo método, y el 16 te
+deja el patrón para otra entidad tuya.
 
 **¿Quieres ver el resultado antes de empezar?** El mismo recorrido existe como demo instalable:
 `composer demo:notes:install` (se quita con `composer demo:notes:remove`). Sirve para comparar, no para
@@ -640,7 +651,7 @@ básico y sin mezclar capas.
 **Estado de partida**: paso 5 hecho; `/notes` devuelve el JSON de prueba y el menú ya muestra la
 entrada. Ahora `index()` deja de devolver JSON.
 
-### 6.1 Primero, un HTML mínimo desde el controlador
+### 6.1 Primero, un HTML mínimo y su plantilla Twig
 
 El JSON se compara de un vistazo, pero no es una pantalla: no tiene `<head>`, ni tema, ni menú, y no hay
 dónde poner una lista. `index()` tiene que devolver HTML. Escríbelo a mano dentro del método para ver qué
@@ -672,8 +683,8 @@ No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni pla
 
 > **El texto visible no se escribe en la plantilla.** En la vista del proyecto, «Notas» y «No hay notas
 > todavía.» salen de `lang/es.php` y `lang/en.php` con la misma clave en los dos —`notes.title`,
-> `notes.empty`—, y la plantilla los pide con `t()`. El HTML crudo de 6.1 y 6.2 es un andamio de dos
-> pasos; desde 6.3 cada texto del listado viene del catálogo. El cómo está en la guía, §15.3.
+> `notes.empty`—, y la plantilla los pide con `t()`. El HTML crudo de este paso es un andamio; desde 6.2
+> cada texto del listado viene del catálogo. El cómo está en la guía, §15.3.
 
 **Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
 párrafo, **sin sidebar, sin header y sin tema**. Es HTML del controlador, no del proyecto.
@@ -691,7 +702,6 @@ cada línea nueva lo vuelve más difícil de leer.
 
 ![HTML del controlador: sin sidebar, header ni tema](tutorial-crud-images/06-1-html-crudo.png)
 
-### 6.2 Mover ese HTML a una plantilla Twig
 
 Ese HTML vive donde no debería: mezcla la respuesta con la presentación y no hay dónde poner un bucle sin
 retorcer el heredoc. Twig resuelve las dos cosas a la vez —un archivo para la vista y el escapado de los
@@ -719,7 +729,7 @@ Y cambia el cuerpo de `index()` para renderizarla:
     }
 ```
 
-**Comprobación**: la página se ve **idéntica** a la de 6.1. Cambió dónde vive el HTML, no lo que
+**Comprobación**: la página se ve **idéntica**. Cambió dónde vive el HTML, no lo que
 devuelve.
 
 **Qué ganaste**: la vista está en un archivo Twig y el controlador ya no concatena HTML. Twig se va a
@@ -737,7 +747,7 @@ flash) y devuelve una respuesta PSR-7. Úsalo en toda acción que devuelva HTML;
 
 ![La misma página desde Twig: cambia dónde vive el HTML](tutorial-crud-images/06-2-twig.png)
 
-### 6.3 Ahora sí, las notas desde el modelo
+### 6.2 Ahora sí, las notas desde el modelo
 
 La vista ya se renderiza, pero el controlador no consulta nada: el `<h1>` y el párrafo son fijos. Este
 paso conecta las tres piezas que hasta aquí estaban sueltas —modelo, controlador y plantilla— y es el
@@ -762,7 +772,7 @@ use App\Models\Note;
     }
 ```
 
-**Archivo**: `resources/views/pages/notes/index.twig`, el archivo estático de 6.2.
+**Archivo**: `resources/views/pages/notes/index.twig`, el archivo estático de 6.1.
 
 **Antes**: el párrafo que estaba debajo del título.
 
@@ -809,7 +819,7 @@ sabe a qué tabla mapear y qué columnas exponer; la vista solo recibe objetos y
 
 ![La lista con una nota, ya escapada por Twig](tutorial-crud-images/06-3-lista.png)
 
-### 6.4 Ahora, el shell del proyecto
+### 6.3 Ahora, el shell del proyecto
 
 Una página suelta no se distingue de una app: le falta el sidebar, el header y el tema, y todo eso ya
 existe en una plantilla del proyecto. Heredar de ella es también la forma de no repetir los assets ni el
@@ -837,13 +847,13 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 
 **Comprobación**: recarga `/notes`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
 header y el tema. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
-como en 6.3: un título y una lista sin estilos propios. No tiene que haber tarjeta, ni filas con borde, ni
+como en 6.2: un título y una lista sin estilos propios. No tiene que haber tarjeta, ni filas con borde, ni
 espaciado entre los ítems; si ves una tarjeta, estás mirando el paso siguiente.
 
 **Falla si**:
 
 - Ves la página sin sidebar: falta el `{% extends %}` o la plantilla no es `layouts/app.twig`.
-- Ves el contenido dos veces: quedó el `<!DOCTYPE html>` de 6.3 además de los bloques.
+- Ves el contenido dos veces: quedó el `<!DOCTYPE html>` de 6.2 además de los bloques.
 - El título de la pestaña no cambia por página: falta el `{% block title %}`.
 
 **Qué no prueba**: que el contenido quede legible. Heredar el tema no estiliza tu marcado: eso es el paso
@@ -857,9 +867,9 @@ reemplazar por separado.
 rearmar el shell en cada pantalla y quedar desincronizado del resto. Sin él, cada vista repetiría el
 header, y el tema se rompería en la que te olvidaras.
 
-![La misma página de 6.3 dentro del shell: sin tarjeta, sin filas con borde, sin estilos propios](tutorial-crud-images/06-4-shell-sin-estilos.png)
+![La misma página de 6.2 dentro del shell: sin tarjeta, sin filas con borde, sin estilos propios](tutorial-crud-images/06-4-shell-sin-estilos.png)
 
-### 6.5 El diseño de la vista
+### 6.4 El diseño de la vista
 
 La página ya vive en el shell, pero el contenido sigue siendo marcado pelado: un `h1` y una lista. El
 proyecto tiene un idioma visual —tarjeta, espaciado, filas con borde— y aplicarlo es un paso aparte, para
@@ -894,7 +904,7 @@ que se vea qué aportó el shell y qué aporta el diseño.
 `rounded-box`, `border` y `p-3` hacen la fila; `font-semibold` pesa el título y `opacity-60` apaga el
 vacío. Son clases de daisyUI y de Tailwind, que en este proyecto corre en el navegador.
 
-**Comprobación**: la misma pantalla de 6.4, ahora con la tarjeta del proyecto y filas separadas y
+**Comprobación**: la misma pantalla de 6.3, ahora con la tarjeta del proyecto y filas separadas y
 legibles. Nada de lo que ves es CSS tuyo: todo viene de las clases.
 
 **Falla si**:
@@ -902,7 +912,7 @@ legibles. Nada de lo que ves es CSS tuyo: todo viene de las clases.
 - Todo se ve sin bordes ni espaciado: Tailwind no arrancó, o las clases faltan en el marcado.
 - La tarjeta no aparece: falta `card`, o el contenido quedó fuera del `card-body`.
 
-**Qué no prueba**: que la fila sea reutilizable. Todavía es marcado de esta pantalla; el capítulo 12 la
+**Qué no prueba**: que la fila sea reutilizable. Todavía es marcado de esta pantalla; el capítulo 13 la
 pasa a un componente.
 
 **Qué ganaste**: la vista se ve como el resto de la app y el marcado dice qué es cada cosa. Lo que sigue
@@ -910,12 +920,12 @@ es separar el panel del resto de la página para poder refrescarlo solo.
 
 ![La vista con el diseño del proyecto: tarjeta, filas y vacío](tutorial-crud-images/06-5-estilos.png)
 
-### 6.6 El panel a su propio archivo
+### 6.5 El panel a su propio archivo
 
 El panel es la región que más adelante se va a refrescar sola. Sepáralo del resto de la página ahora,
 todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para tenerla ordenada.
 
-**Acción**: mueve el `<ul>` completo de 6.5 a un parcial nuevo,
+**Acción**: mueve el `<ul>` completo de 6.4 a un parcial nuevo,
 `resources/views/pages/notes/_panel.twig`, sin cambiarle nada. El parcial se envuelve a sí mismo:
 
 ```twig excerpt
@@ -952,7 +962,7 @@ todavía con el `<ul>` a mano: la lista funciona y no hace falta tocar Twig para
         </div>
 ```
 
-**Comprobación**: la lista se ve **idéntica** a la de 6.5, con y sin notas.
+**Comprobación**: la lista se ve **idéntica** a la de 6.4, con y sin notas.
 
 **Por qué el `div` va adentro**: cuando más adelante el panel se intercambie con HTMX y `outerHTML`,
 la respuesta **reemplaza** al elemento apuntado. Si el `div` viviera en `index.twig`, el primer swap
@@ -967,12 +977,12 @@ no existe.
 **Qué ganaste**: el panel es ahora una unidad que se puede reemplazar sin tocar el resto de la
 página. Los pasos siguientes cambian su interior y `index.twig` no se entera.
 
-> El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 12. Recién ahí, con la entidad ya
+> El `<ul>` y el `{% for %}` se quedan a la vista hasta el capítulo 13. Recién ahí, con la entidad ya
 > probada, la lista se extrae al componente del proyecto.
 
 ![La pantalla no cambia: la lista vive ahora en su propio parcial](tutorial-crud-images/06-5-estilos.png)
 
-### 6.7 El encabezado con la acción
+### 6.6 El encabezado con la acción
 
 La pantalla ya lista, pero no ofrece nada: para crear una nota todavía no hay ninguna acción, porque el
 alta llega en 7.2. Necesita un encabezado que diga qué es y ofrezca la acción principal. Escribámoslo a
@@ -980,7 +990,7 @@ mano primero, para ver exactamente qué contiene.
 
 **Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
 
-**Antes**: después de 6.6, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
+**Antes**: después de 6.5, el `<h1>` sigue en `index.twig` y el panel se incluye debajo.
 
 ```twig
         <div class="card-body gap-4">
@@ -1068,235 +1078,10 @@ todavía no abre nada: el modal es el paso 7.
 
 **Qué ganaste**: la pantalla ya dice qué es y ofrece la acción. Y mira el costo: el
 encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
-vista, y ninguna habla de notas. Eso tiene arreglo, y es el paso siguiente.
+vista, y ninguna habla de notas. Eso tiene arreglo, y llega en el capítulo 12, cuando la entidad ya
+funciona.
 
 ![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
-
-### 6.8 El encabezado a su componente
-
-Fijate en lo que acabas de escribir. Esas líneas no tienen nada que ver con las notas: son la forma del
-encabezado —el icono, el título, el subtítulo, la fila que alinea la acción—. Si mañana otra pantalla
-necesita lo mismo, las copiarías; a la segunda copia una se vería distinta, y a la tercera ya no sabrías
-cuál es la buena. Es el mismo caso del panel en 6.6, y el proyecto ya lo tiene resuelto:
-`components/ui/page-header.twig`. Usémoslo: la vista deja de describir la forma y pasa a declarar el
-contenido.
-
-**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
-
-**Antes**: el armazón de 6.7, con el botón todavía crudo.
-
-```twig
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h1 class="flex items-center gap-2 text-2xl font-bold">
-                        <span class="opacity-60" aria-hidden="true">
-                            {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
-                        </span>
-                        {{ t('notes.title') }}
-                    </h1>
-                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
-                </div>
-                <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                    {{ t('notes.add') }}
-                </button>
-            </div>
-```
-
-**Después**: el mismo contenido en `components/ui/page-header.twig`. El `<div>`, el `<h1>` y el
-subtítulo desaparecen de tu vista; queda el hueco.
-
-```twig
-            {% embed 'components/ui/page-header.twig' with {
-                icon: 'list',
-                title: t('notes.title'),
-                subtitle: t('notes.subtitle')
-            } %}
-                {% block actions %}
-                    <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                        {{ t('notes.add') }}
-                    </button>
-                {% endblock %}
-            {% endembed %}
-```
-
-**Qué hace cada pieza**:
-
-- `title` y `subtitle`: los mismos textos de antes. Se escapan solos. `subtitle` es opcional: si no lo
-  pasas, no queda un `<p>` vacío.
-- `icon`: opcional; el svg sale del registro compartido y un nombre inexistente no pinta nada.
-- `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
-  formulario entero. Es el mismo hueco que `body` en el modal y `row` en la lista. Se pinta **una sola
-  vez** y no recibe variables: lo que uses, se lo pasas tú.
-
-**Comprobación**: el encabezado se ve **idéntico** al de 6.7 —título con icono, subtítulo y botón a la
-derecha— y el botón sigue sin abrir nada, porque el modal llega en el paso 7.
-
-**Falla si**:
-
-- El título sale vacío: `title` no está llegando o la prop se llama distinto.
-- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
-- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
-- El icono desaparece: el nombre no está en `components/ui/icon.twig`.
-
-**Qué ganaste**: el armazón del encabezado ya no vive en tu vista. Si mañana cambia el espaciado, el
-tamaño del título o la posición del icono, cambia una vez y todas las pantallas que lo usan se enteran.
-
-**Pieza — `components/ui/page-header.twig`**: resuelve la disposición del encabezado: el título a la
-izquierda, el hueco de las acciones a la derecha. No repite el markup del título, lo incluye. Evita que
-cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
-acción— y que el encabezado deje de ser reconocible entre pantallas. El botón cambia en 7.5 sin tocar el
-encabezado.
-
-![La pantalla no cambia: el encabezado viene del componente](tutorial-crud-images/06-7-encabezado.png)
-
-### 6.9 La botonera a su componente
-
-El encabezado ya es un componente, pero el control de la esquina sigue siendo un botón suelto dentro
-del hueco. Con uno alcanza. Con dos —«Exportar» y «Agregar»— cada control se vuelve hijo directo del
-`justify-between` del encabezado, que reparte el espacio entre todos: el primero queda flotando en el
-medio de la pantalla, lejos de la esquina. La fila que falta también es un componente, y el proyecto
-ya lo tiene. Usémoslo.
-
-**Archivo**: `resources/views/pages/notes/index.twig`, dentro del `{% block actions %}`.
-
-**Antes**: el botón suelto, como quedó en 6.7.
-
-```twig
-                {% block actions %}
-                    <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                        {{ t('notes.add') }}
-                    </button>
-                {% endblock %}
-```
-
-Con un solo botón esto funciona. Con dos, no: cada control suelto se vuelve hijo directo del
-`justify-between` del encabezado, que reparte el espacio entre todos —el título a la izquierda, el
-primero en el medio y el último a la derecha—. La botonera es la fila que falta.
-
-**Después**: el botón adentro de `components/ui/action-bar.twig`, que es dueña del `flex`, el `wrap` y
-la separación.
-
-```twig
-                {% block actions %}
-                    {% embed 'components/ui/action-bar.twig' %}
-                        {% block controls %}
-                            <button class="btn btn-primary gap-2" data-modal-open="note-create-modal">
-                                {{ t('notes.add') }}
-                            </button>
-                        {% endblock %}
-                    {% endembed %}
-                {% endblock %}
-```
-
-**Qué hace cada pieza**:
-
-- El bloque se llama `controls`, no `actions`: queda adentro del bloque `actions` del encabezado, y dos
-  bloques con el mismo nombre se leen mal.
-- El componente **no** ordena: la fila es suya, el orden es tuyo. El criterio del proyecto es secundario
-  primero y primario al final, pegado al borde: es donde el ojo lo busca y donde el pulgar lo alcanza en
-  el móvil.
-- `extra_class` es opcional, para alinear o separar distinto en un caso concreto.
-
-**Comprobación**: el encabezado se ve **idéntico** al de 6.8 y el botón sigue sin abrir nada.
-
-**Falla si**:
-
-- Dos controles se reparten por la pantalla, uno en el medio: faltó la botonera.
-- El control se estira a todo el ancho de la esquina: la fila quedó fuera del `embed`.
-
-**Cuando aparezca el segundo control**, los dos van adentro de la botonera y en este orden:
-
-```twig
-{% embed 'components/ui/action-bar.twig' %}
-    {% block controls %}
-        {% include 'components/ui/button.twig' with {
-            label: t('nav.home'),
-            variant: 'ghost',
-            icon: 'arrow-left',
-            href: url('/')
-        } only %}
-        {% include 'components/ui/button.twig' with {
-            label: t('notes.add'),
-            icon: 'plus',
-            data_modal_open: 'note-create-modal'
-        } only %}
-    {% endblock %}
-{% endembed %}
-```
-
-Cuidado con el primero: en un listado, un botón que lleva a la portada duplica el sidebar y el botón del
-navegador, y gana su lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican
-son «Exportar», «Filtros» o «Actualizar».
-
-**Qué ganaste**: la botonera es dueña del `flex`, el `wrap` y la separación; tu vista pone los controles
-y su orden. El día que aparezca el segundo botón no hay espacios que ajustar ni clases que recordar.
-
-**Pieza — `components/ui/action-bar.twig`**: resuelve la fila de controles del encabezado o de una
-tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
-cada pantalla elige su `gap` y su alineación.
-
-![La pantalla no cambia: la botonera agrupa el control de la esquina](tutorial-crud-images/06-7-encabezado.png)
-
-### 6.10 Anatomía del encabezado
-
-Usaste el encabezado completo sin ver cómo está armado, y vale la pena mirarlo: la forma en que se
-compone es la que vas a repetir cuando hagas tus propios compuestos. La idea es simple —un wrapper que
-pone la disposición y dos piezas que aportan el contenido— y se ve mejor en el código que en la
-explicación.
-
-`resources/views/components/ui/page-header-title.twig` es la mitad izquierda:
-
-```twig
-{# Título de página: icono opcional, `title` y `subtitle` opcional.
-   Props: icon, title, subtitle.
-
-   Es la mitad izquierda de `components/ui/page-header.twig`, que lo incluye.
-   Se puede usar suelto cuando una pantalla necesita el título sin la fila de
-   acciones: el encabezado de una tarjeta, un estado vacío, una portada.
-
-   `icon` y `subtitle` no dejan huecos: sin icono el `h1` pierde el `flex` que
-   lo alinea con el svg, y sin subtítulo no se emite el `p`. `title` y
-   `subtitle` se escapan solos. #}
-<div>
-    <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
-        {% if icon|default(false) %}
-            <span class="opacity-60" aria-hidden="true">
-                {% include 'components/ui/icon.twig' with {name: icon, class: 'h-5 w-5'} %}
-            </span>
-        {% endif %}
-        {{ title }}
-    </h1>
-    {% if subtitle|default(false) %}
-        <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
-    {% endif %}
-</div>
-```
-
-Y `resources/views/components/ui/page-header.twig` es el wrapper: no repite ese markup, lo incluye, y
-deja el hueco para la botonera.
-
-```twig
-<div class="flex flex-wrap items-start justify-between gap-3">
-    {% include 'components/ui/page-header-title.twig' with {
-        icon: icon|default(null),
-        title: title,
-        subtitle: subtitle|default(null)
-    } only %}
-    {% block actions %}{% endblock %}
-</div>
-```
-
-**Por qué la botonera se anida en tu vista**: `action-bar` no puede envolver `actions`, porque el bloque
-se rellena en tu `index.twig`.
-
-**Qué te deja**: tres contratos en vez de un bloque de markup. El título se puede usar solo —el
-encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una tabla o un listado. Cuando
-hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
-contenido.
-
-![La pantalla no cambia: la anatomía explica cómo se compone](tutorial-crud-images/06-7-encabezado.png)
-
----
 
 ## 7. El alta: del formulario crudo al modal del proyecto
 
@@ -1679,7 +1464,7 @@ modal tendría que repetir sus clases.
     {% endembed %}
 ```
 
-**Archivo**: el mismo `index.twig`, dentro del `{% block actions %}` del encabezado.
+**Archivo**: el mismo `index.twig`, dentro del encabezado a mano de 6.6 (el `<div>` que alinea el botón).
 
 **Antes**:
 
@@ -1822,7 +1607,7 @@ en él, y por eso la validación también vive en `store()`.
 
 **Qué ganaste**: un formulario rechazado vuelve con el modal abierto, el error junto al campo y lo que
 habías escrito; el `required` del navegador queda como primera barrera en vez de única. Y mira el costo:
-cada render de rechazo repite a mano la lista, el estado y las claves del modal. En 13.5 eso se
+cada render de rechazo repite a mano la lista, el estado y las claves del modal. En el capítulo 15 eso se
 junta en un solo método.
 
 **Pieza — `errors` + `form_values` + `open_*`**: el servidor es dueño del estado del modal. Úsalo en
@@ -2120,7 +1905,7 @@ este recorrido no lo agrega.
 
 **Qué ganaste**: editar funciona de punta a punta y reusa el formulario, el modal y las reglas del alta.
 Y mira el costo: esas reglas quedaron escritas dos veces, en `store()` y en `update()`, con la misma
-pareja de cadenas; el capítulo 13 unifica los renders, no las reglas.
+pareja de cadenas; el capítulo 15 unifica los renders, no las reglas.
 
 **Pieza — reusar el modal para alta y edición**: resuelve el formulario una sola vez y evita dos
 pantallas con reglas que se desincronizan. Úsalo cuando los campos son los mismos. Sin esto, el alta y
@@ -2481,7 +2266,7 @@ de PHP. Es el que evita que un enlace viejo tumbe la app.
 vendor/bin/phpunit
 ```
 
-Esperado: la suite completa en verde, con cinco tests de `NoteTest`. En 13.5 se suma el sexto, el del
+Esperado: la suite completa en verde, con cinco tests de `NoteTest`. En el capítulo 15 se suma el sexto, el del
 422 con `HX-Push-Url`.
 
 **Falla si**:
@@ -2503,7 +2288,249 @@ Evita tests que arman el entorno a mano y se rompen cuando cambia el bootstrap.
 
 ---
 
-## 12. Extraer la lista a un componente
+## 12. El encabezado a componentes
+
+**Objetivo**: sacar el encabezado de tu vista y pasarlo a los componentes del proyecto, ahora que la
+entidad funciona y se ve qué aporta cada pieza.
+
+**Estado de partida**: pasos 1 a 11 hechos; el encabezado de 6.6 vive a mano en `index.twig` y el botón
+ya es `components/ui/button.twig` desde 7.5. La pantalla no va a cambiar: cambia de quién es el markup.
+
+### 12.1 El encabezado a su componente
+
+Fijate en el encabezado que escribiste en 6.6. Esas líneas no tienen nada que ver con las notas: son la
+forma del encabezado —el icono, el título, el subtítulo, la fila que alinea la acción—. Si mañana otra
+pantalla necesita lo mismo, las copiarías; a la segunda copia una se vería distinta, y a la tercera ya no
+sabrías cuál es la buena. Es el mismo caso del panel en 6.5, y el proyecto ya lo tiene resuelto:
+`components/ui/page-header.twig`. Usémoslo: la vista deja de describir la forma y pasa a declarar el
+contenido.
+
+**Archivo**: `resources/views/pages/notes/index.twig`, bloque `content`.
+
+**Antes**: el armazón de 6.6, con el botón del proyecto que pusiste en 7.5.
+
+```twig
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h1 class="flex items-center gap-2 text-2xl font-bold">
+                        <span class="opacity-60" aria-hidden="true">
+                            {% include 'components/ui/icon.twig' with {name: 'list', class: 'h-5 w-5'} %}
+                        </span>
+                        {{ t('notes.title') }}
+                    </h1>
+                    <p class="mt-1 text-sm opacity-70">{{ t('notes.subtitle') }}</p>
+                </div>
+                {% include 'components/ui/button.twig' with {
+                    label: t('notes.add'),
+                    icon: 'plus',
+                    data_modal_open: 'note-create-modal'
+                } only %}
+            </div>
+```
+
+**Después**: el mismo contenido en `components/ui/page-header.twig`. El `<div>`, el `<h1>` y el
+subtítulo desaparecen de tu vista; queda el hueco.
+
+```twig
+            {% embed 'components/ui/page-header.twig' with {
+                icon: 'list',
+                title: t('notes.title'),
+                subtitle: t('notes.subtitle')
+            } %}
+                {% block actions %}
+                    {% include 'components/ui/button.twig' with {
+                        label: t('notes.add'),
+                        icon: 'plus',
+                        data_modal_open: 'note-create-modal'
+                    } only %}
+                {% endblock %}
+            {% endembed %}
+```
+
+**Qué hace cada pieza**:
+
+- `title` y `subtitle`: los mismos textos de antes. Se escapan solos. `subtitle` es opcional: si no lo
+  pasas, no queda un `<p>` vacío.
+- `icon`: opcional; el svg sale del registro compartido y un nombre inexistente no pinta nada.
+- `{% block actions %}`: el único hueco. Ahí va el control de la esquina, sea un botón, dos o un
+  formulario entero. Es el mismo hueco que `body` en el modal; la lista lo usa en el capítulo siguiente.
+  Se pinta **una sola vez** y no recibe variables: lo que uses, se lo pasas tú.
+
+**Comprobación**: el encabezado se ve **idéntico** al de 6.6 —título con icono, subtítulo y botón a la
+derecha— y el botón sigue abriendo el modal de alta.
+
+**Falla si**:
+
+- El título sale vacío: `title` no está llegando o la prop se llama distinto.
+- Queda una línea en blanco bajo el subtítulo: pasaste `subtitle: ''`; omítelo en vez de pasarlo vacío.
+- El botón cae debajo del título: el `{% block actions %}` quedó fuera del `embed`.
+- El icono desaparece: el nombre no está en `components/ui/icon.twig`.
+
+**Qué ganaste**: el armazón del encabezado ya no vive en tu vista. Si mañana cambia el espaciado, el
+tamaño del título o la posición del icono, cambia una vez y todas las pantallas que lo usan se enteran.
+
+**Pieza — `components/ui/page-header.twig`**: resuelve la disposición del encabezado: el título a la
+izquierda, el hueco de las acciones a la derecha. No repite el markup del título, lo incluye. Evita que
+cada vista invente su variante —una con icono, otra sin, una con la acción a la derecha y otra sin
+acción— y que el encabezado deje de ser reconocible entre pantallas. El botón ya cambió en 7.5 sin tocar
+el encabezado.
+
+![La pantalla no cambia: el encabezado viene del componente](tutorial-crud-images/06-7-encabezado.png)
+
+### 12.2 La botonera a su componente
+
+El encabezado ya es un componente, pero el control de la esquina sigue siendo un único botón dentro
+del hueco. Con uno alcanza. Con dos —«Exportar» y «Agregar»— cada control se vuelve hijo directo del
+`justify-between` del encabezado, que reparte el espacio entre todos: el primero queda flotando en el
+medio de la pantalla, lejos de la esquina. La fila que falta también es un componente, y el proyecto
+ya lo tiene. Usémoslo.
+
+**Archivo**: `resources/views/pages/notes/index.twig`, dentro del `{% block actions %}`.
+
+**Antes**: el botón del proyecto, como quedó en 12.1.
+
+```twig
+                {% block actions %}
+                    {% include 'components/ui/button.twig' with {
+                        label: t('notes.add'),
+                        icon: 'plus',
+                        data_modal_open: 'note-create-modal'
+                    } only %}
+                {% endblock %}
+```
+
+Con un solo botón esto funciona. Con dos, no: cada control suelto se vuelve hijo directo del
+`justify-between` del encabezado, que reparte el espacio entre todos —el título a la izquierda, el
+primero en el medio y el último a la derecha—. La botonera es la fila que falta.
+
+**Después**: el botón adentro de `components/ui/action-bar.twig`, que es dueña del `flex`, el `wrap` y
+la separación.
+
+```twig
+                {% block actions %}
+                    {% embed 'components/ui/action-bar.twig' %}
+                        {% block controls %}
+                            {% include 'components/ui/button.twig' with {
+                                label: t('notes.add'),
+                                icon: 'plus',
+                                data_modal_open: 'note-create-modal'
+                            } only %}
+                        {% endblock %}
+                    {% endembed %}
+                {% endblock %}
+```
+
+**Qué hace cada pieza**:
+
+- El bloque se llama `controls`, no `actions`: queda adentro del bloque `actions` del encabezado, y dos
+  bloques con el mismo nombre se leen mal.
+- El componente **no** ordena: la fila es suya, el orden es tuyo. El criterio del proyecto es secundario
+  primero y primario al final, pegado al borde: es donde el ojo lo busca y donde el pulgar lo alcanza en
+  el móvil.
+- `extra_class` es opcional, para alinear o separar distinto en un caso concreto.
+
+**Comprobación**: el encabezado se ve **idéntico** al de 12.1 y el botón sigue abriendo el modal.
+
+**Falla si**:
+
+- Dos controles se reparten por la pantalla, uno en el medio: faltó la botonera.
+- El control se estira a todo el ancho de la esquina: la fila quedó fuera del `embed`.
+
+**Cuando aparezca el segundo control**, los dos van adentro de la botonera y en este orden:
+
+```twig
+{% embed 'components/ui/action-bar.twig' %}
+    {% block controls %}
+        {% include 'components/ui/button.twig' with {
+            label: t('nav.home'),
+            variant: 'ghost',
+            icon: 'arrow-left',
+            href: url('/')
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: t('notes.add'),
+            icon: 'plus',
+            data_modal_open: 'note-create-modal'
+        } only %}
+    {% endblock %}
+{% endembed %}
+```
+
+Cuidado con el primero: en un listado, un botón que lleva a la portada duplica el sidebar y el botón del
+navegador, y gana su lugar recién en una pantalla de detalle. Los segundos controles que sí lo justifican
+son «Exportar», «Filtros» o «Actualizar».
+
+**Qué ganaste**: la botonera es dueña del `flex`, el `wrap` y la separación; tu vista pone los controles
+y su orden. El día que aparezca el segundo botón no hay espacios que ajustar ni clases que recordar.
+
+**Pieza — `components/ui/action-bar.twig`**: resuelve la fila de controles del encabezado o de una
+tarjeta, con su separación y su wrap. Úsala siempre que la esquina lleve más de un control; sin ella,
+cada pantalla elige su `gap` y su alineación.
+
+![La pantalla no cambia: la botonera agrupa el control de la esquina](tutorial-crud-images/06-7-encabezado.png)
+
+### 12.3 Anatomía del encabezado
+
+Usaste el encabezado completo sin ver cómo está armado, y vale la pena mirarlo: la forma en que se
+compone es la que vas a repetir cuando hagas tus propios compuestos. La idea es simple —un wrapper que
+pone la disposición y dos piezas que aportan el contenido— y se ve mejor en el código que en la
+explicación.
+
+`resources/views/components/ui/page-header-title.twig` es la mitad izquierda:
+
+```twig
+{# Título de página: icono opcional, `title` y `subtitle` opcional.
+   Props: icon, title, subtitle.
+
+   Es la mitad izquierda de `components/ui/page-header.twig`, que lo incluye.
+   Se puede usar suelto cuando una pantalla necesita el título sin la fila de
+   acciones: el encabezado de una tarjeta, un estado vacío, una portada.
+
+   `icon` y `subtitle` no dejan huecos: sin icono el `h1` pierde el `flex` que
+   lo alinea con el svg, y sin subtítulo no se emite el `p`. `title` y
+   `subtitle` se escapan solos. #}
+<div>
+    <h1 class="{% if icon|default(false) %}flex items-center gap-2 {% endif %}text-2xl font-bold">
+        {% if icon|default(false) %}
+            <span class="opacity-60" aria-hidden="true">
+                {% include 'components/ui/icon.twig' with {name: icon, class: 'h-5 w-5'} %}
+            </span>
+        {% endif %}
+        {{ title }}
+    </h1>
+    {% if subtitle|default(false) %}
+        <p class="mt-1 text-sm opacity-70">{{ subtitle }}</p>
+    {% endif %}
+</div>
+```
+
+Y `resources/views/components/ui/page-header.twig` es el wrapper: no repite ese markup, lo incluye, y
+deja el hueco para la botonera.
+
+```twig
+<div class="flex flex-wrap items-start justify-between gap-3">
+    {% include 'components/ui/page-header-title.twig' with {
+        icon: icon|default(null),
+        title: title,
+        subtitle: subtitle|default(null)
+    } only %}
+    {% block actions %}{% endblock %}
+</div>
+```
+
+**Por qué la botonera se anida en tu vista**: `action-bar` no puede envolver `actions`, porque el bloque
+se rellena en tu `index.twig`.
+
+**Qué te deja**: tres contratos en vez de un bloque de markup. El título se puede usar solo —el
+encabezado de una tarjeta, un estado vacío— y la botonera también, sobre una tabla o un listado. Cuando
+hagas tu propio compuesto, la regla es la misma: el wrapper pone la disposición, los hijos aportan el
+contenido.
+
+![La pantalla no cambia: la anatomía explica cómo se compone](tutorial-crud-images/06-7-encabezado.png)
+
+---
+
+## 13. La lista a un componente
 
 **Objetivo**: sacar de tu panel el `<ul>`, el recorrido y el estado vacío. Te quedas sólo con la fila.
 
@@ -2514,7 +2541,7 @@ sola pantalla: se lee de arriba abajo y no esconde nada. El problema aparece cua
 listado en otra entidad o cuando el estado vacío se desincroniza entre pantallas. El proyecto ya tiene
 esa pieza resuelta: `components/list/simple.twig`.
 
-### 12.1 Qué hace el componente
+### 13.1 Qué hace el componente
 
 **Componente**: `resources/views/components/list/simple.twig`. Léelo, no lo edites: ya existe y es del
 proyecto.
@@ -2562,7 +2589,7 @@ El componente no sabe nada de `notes` ni de `title`: sólo sabe recorrer y dejar
 `embed`, con una diferencia: `row` se rellena **una vez por item**, porque el componente lo invoca
 dentro de su `for`.
 
-Para verlo sin el ruido de los botones, toma la fila mínima de 6.6:
+Para verlo sin el ruido de los botones, toma la fila mínima de 6.5:
 
 ```twig
 <div id="notes-panel">
@@ -2624,7 +2651,7 @@ que sigue.
 
 ![La pantalla no cambia: el componente se lee](tutorial-crud-images/08-2-acciones.png)
 
-### 12.2 La fila al componente
+### 13.2 La fila al componente
 
 **Archivo**: `resources/views/pages/notes/_panel.twig`.
 
@@ -2727,7 +2754,7 @@ cada entidad tiene su propia versión con variaciones accidentales.
 
 ![La pantalla no cambia: la lista viaja al componente](tutorial-crud-images/08-2-acciones.png)
 
-### 12.3 Los diálogos a su bloque
+### 13.3 Los diálogos a su bloque
 
 El panel ya usa el componente, pero los diálogos siguen siendo un segundo recorrido escrito a mano justo
 debajo. Eso funciona en esta pantalla y en ninguna más: quien reusa la lista tiene que acordarse de
@@ -2774,7 +2801,7 @@ hereda también el lugar correcto para sus diálogos.
 
 ![La pantalla no cambia: los diálogos ya estaban fuera de la lista](tutorial-crud-images/08-2-acciones.png)
 
-### 12.4 Enriquecer la fila
+### 13.4 Enriquecer la fila
 
 Con el componente en su lugar, la fila todavía muestra sólo el título. Y hay un dato que vienes
 guardando desde el capítulo 7 y no se ve en ninguna parte: el `body`. Una nota con cuerpo y otra sin él
@@ -2821,13 +2848,13 @@ que un icono de 16 píxeles.
 
 ---
 
-## 13. Paginación del servidor
+## 14. Paginación del servidor
 
 **Objetivo**: que la lista siga siendo usable cuando crezca.
 
-**Estado de partida**: paso 12 hecho; con muchas notas la página se vuelve larga.
+**Estado de partida**: paso 13 hecho; con muchas notas la página se vuelve larga.
 
-### 13.1 Paginar la consulta
+### 14.1 Paginar la consulta
 
 La lista trae todo lo que hay en la tabla, y con cien notas la página tarda y el scroll no termina.
 Recortar en el navegador no sirve: el HTML ya viajó. La paginación tiene que ocurrir en el servidor,
@@ -2878,7 +2905,7 @@ Todavía no toques la vista ni el helper de respuesta: primero comprobamos que e
 
 **Comprobación**: con más de diez notas, abre directamente `/notes?page=2&per_page=10`. Esperado: ves
 las notas 11 a 20. `?page=1&per_page=25` muestra hasta 25; una página fuera de rango se ajusta a la
-última. Los controles visuales todavía no están; eso es 13.2.
+última. Los controles visuales todavía no están; eso es 14.2.
 
 **Qué no prueba**: que los controles naveguen sin recargar. Prueba que la consulta y el recorte del
 servidor son correctos.
@@ -2902,7 +2929,7 @@ con dos mil.
 
 ![La página 2 pedida a mano: diez filas y todavía sin controles](tutorial-crud-images/13-1-pagina-2-sin-controles.png)
 
-### 13.2 Pintar los controles
+### 14.2 Pintar los controles
 
 El servidor ya recorta, pero la vista no lo sabe: recibe diez notas y no tiene con qué pedir las
 siguientes. Falta el paginador, y falta que viaje **dentro** del panel: cuando HTMX reemplace la región,
@@ -2939,11 +2966,11 @@ pasa a «Mostrando 11 al 20 de N registros».
 - Los controles aparecen pero al paginar desaparecen: quedaron fuera del parcial.
 
 **Qué no prueba**: que paginar funcione. En este paso los controles son enlaces normales: cada clic
-recarga la página entera, con el parpadeo y el scroll que eso trae. Eso se resuelve en 13.3.
+recarga la página entera, con el parpadeo y el scroll que eso trae. Eso se resuelve en 14.3.
 
 ![El paginador al pie del panel: rango, selector de tamaño y botones](tutorial-crud-images/13-2-paginador.png)
 
-### 13.3 Responder sólo la región
+### 14.3 Responder sólo la región
 
 Los controles ya existen, pero cada clic es una navegación completa: el servidor devuelve la página
 entera, el navegador la repinta y volvés al tope. HTMX evita eso reemplazando sólo el panel, y para que
@@ -3000,11 +3027,11 @@ La URL todavía **no** cambia: la barra sigue en `/notes`. Eso es el paso siguie
   parcial.
 
 **Qué no prueba**: que la URL del historial diga la página que estás viendo, ni que un 422 no la
-empuje. Eso es 13.4.
+empuje. Eso es 14.4.
 
 ![Después de «Siguiente»: el rango cambia y el shell no se duplica, pero la URL sigue en /notes](tutorial-crud-images/13-2-paginador-pagina-2.png)
 
-### 13.4 La URL honesta
+### 14.4 La URL honesta
 
 El swap funciona, pero la barra de direcciones quedó atrás: estás viendo la página 2 y la URL dice
 `/notes`. Si recargás o compartís el enlace, volvés a la primera. HTMX puede empujar la URL que el
@@ -3044,7 +3071,7 @@ respuestas de htmx—: ves la última página, pero la URL sigue diciendo `?page
 - La URL dice la página pedida y no la servida: estás usando la query del request en vez de
   `pagination.current_page`.
 
-**Qué no prueba**: que un rechazo del formulario no cambie la URL. Eso se cierra con el test de 13.5.
+**Qué no prueba**: que un rechazo del formulario no cambie la URL. Eso se cierra con el test del capítulo 15.
 
 **Pieza — `HX-Push-Url`**: resuelve la URL honesta después de un swap 2xx. Úsalo en toda región paginada
 o filtrada. Evita que recargar o compartir el enlace te devuelva a otra página. No la emitas en un 422:
@@ -3052,7 +3079,13 @@ esa respuesta sólo repinta el formulario.
 
 ![La misma pantalla: ahora la barra de direcciones dice la página que el servidor sirvió](tutorial-crud-images/13-2-paginador-pagina-2.png)
 
-### 13.5 Unificar los renders de edición y 422
+## 15. Un solo camino de render
+
+**Objetivo**: que los tres renders del listado —edición, rechazo del alta y rechazo de la edición—
+pasen por el mismo método, para que la decisión de qué devolver viva en un solo lugar.
+
+**Estado de partida**: pasos 1 a 14 hechos; `renderList()` existe desde 14.3 y el guard de
+`HX-Push-Url` desde 14.4. `index()` ya lo usa; `edit()`, `store()` y `update()` todavía renderizan a mano.
 
 Los renders del listado están repetidos en tres métodos, y la repetición ya tiene un costo concreto: cada
 uno decide por su cuenta si empuja `HX-Push-Url`, si pasa `active` y en qué estado devuelve la página. Con
@@ -3133,15 +3166,15 @@ paginación tengan cada una su propia copia de `notes` y `active`.
 
 ---
 
-## 14. Repetir el patrón con otra entidad
+## 16. Repetir el patrón con otra entidad
 
 **Objetivo**: aplicar el mismo camino a una entidad propia.
 
-**Estado de partida**: pasos 1 a 13 hechos.
+**Estado de partida**: pasos 1 a 15 hechos.
 
 El recorrido funcionó una vez, sobre `notes`. Lo que se repite no es esa entidad sino el patrón: qué
 archivos aparecen siempre, qué cambia con el dominio y en qué orden se comprueban. Este capítulo lo deja
-escrito para que la segunda entidad no te obligue a releer los trece anteriores.
+escrito para que la segunda entidad no te obligue a releer los quince anteriores.
 
 | Qué cambia | Qué no cambia |
 |---|---|
@@ -3212,12 +3245,12 @@ tabla de problemas frecuentes nombra el síntoma y el paso donde se arregla.
 | El modal abre cerrado tras un rechazo | No estás pasando `open_create_modal` / `open_edit_modal` | Pásalo en `true` en el render del 422 (pasos 7.6 y 9.2) |
 | El error no aparece junto al campo | El include del `field` usa `only` y no recibe `error` | Pasa `error: errors.<campo>|default(null)` |
 | El alta vuelve al login sin ningún aviso | El `include` de `_form.twig` lleva `only` y los campos CSRF salen vacíos | Quita el `only` de ese include: el parcial necesita el contexto de CSRF del `render()` |
-| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.6) |
+| El panel desaparece tras el primer guardado | El `div` con el id quedó en `index.twig` | Muévelo adentro del parcial (paso 6.5) |
 | La papelera no abre el diálogo | El `data_modal_open` apunta a un id sin el número de fila | Usa `note-delete-{id}` en el modal y en `data_modal_open` |
-| La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 12) |
-| La papelera no abre nada | El modal quedó fuera del bloque `after` | Muévelo a `{% block after %}`, que el componente emite después del `</ul>` (paso 12.3) |
-| La lista trae todo | La consulta no pasa por `Pagination::fromRequest()` | Paso 13.1 |
-| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 13.4 |
+| La lista se ve vacía aunque haya notas | El componente se incluyó con `include` y el bloque `row` no se rellena | Usa `embed` y pon la fila en `{% block row %}` (capítulo 13) |
+| La papelera no abre nada | El modal quedó fuera del bloque `after` | Muévelo a `{% block after %}`, que el componente emite después del `</ul>` (paso 13.3) |
+| La lista trae todo | La consulta no pasa por `Pagination::fromRequest()` | Paso 14.1 |
+| Paginas y la URL no cambia | Falta la cabecera `HX-Push-Url` | Paso 14.4 |
 | Editar un id inexistente da 500 | No se lanza `HttpNotFoundException` | Paso 9.1 |
 
 ## Qué demuestra este recorrido
