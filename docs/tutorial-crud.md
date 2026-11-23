@@ -1069,21 +1069,28 @@ funciona.
 
 ![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
 
-### 6.7 Las cadenas al catálogo
+### 6.7 Tu app en dos idiomas: las cadenas al catálogo
 
-**Objetivo**: sacar el texto de la plantilla, del controlador y del menú, y pedirlo por clave a los
-catálogos del proyecto.
+**Objetivo**: que los textos de la pantalla dejen de estar escritos en el marcado y salgan de un
+catálogo por idioma, para que el selector del pie los muestre en español o en inglés sin tocar una línea
+de Twig.
 
 **Estado de partida**: 6.6 hecho; el título, el subtítulo, el botón, el encabezado de la lista y el vacío
 están escritos a mano en `index.twig` y `_panel.twig`, el breadcrumb en `index()` y la etiqueta del menú
 en `config/navigation/notes.php`.
 
-Los literales alcanzaron hasta acá y no alcanzan para lo que viene: el mismo texto se repite en cada
-vista que lo muestre, no hay un lugar único donde cambiarlo y nada impide que dos pantallas lo escriban
-distinto. El proyecto lo resuelve con un catálogo por idioma y una función para pedir la cadena. Las
-claves de esta pantalla las agregás vos: una línea por cadena en `lang/es.php` y la misma clave en
-`lang/en.php`, el catálogo base que ya trae el cromo. Este paso no agrega archivos nuevos: agrega claves
-a los que ya existen y cambia cómo se pide el texto.
+El shell ya resuelve el idioma en cada petición y el selector del pie lo cambia. Lo que no puede hacer es
+traducir *tu* texto, porque está escrito a mano en el marcado: el mismo texto se repite en cada vista que
+lo muestre, no hay un lugar único donde cambiarlo y nada impide que dos pantallas lo escriban distinto.
+Un catálogo por idioma resuelve las dos cosas a la vez: un archivo por idioma, una clave estable por
+cadena y el mismo `t()` en todas las plantillas.
+
+Este paso se puede saltear: si tu app vive en un solo idioma, lo que sigue funciona igual con los textos
+escritos a mano, aunque la regla del proyecto es que el texto visible salga del catálogo. Si querés que el
+selector del pie traduzca lo que escribís —y que agregar un idioma sea
+un archivo, no una refactorización—, las claves de esta pantalla van acá: una línea por cadena en
+`lang/es.php` y la misma clave en `lang/en.php`, el catálogo base que ya trae el cromo. No hay archivos
+nuevos: se agregan claves a los que existen y cambia cómo se pide el texto.
 
 **Archivo**: `lang/es.php` y `lang/en.php`. Estas son las seis claves que agrega el capítulo, completas
 en los dos archivos:
@@ -1220,11 +1227,13 @@ controlador y viaja ya traducida. La plantilla, en cambio, la pide sola con `t()
 **Comprobación**: recarga `/notes`: la pantalla se ve **idéntica** —el mismo título, el mismo subtítulo, el
 mismo botón, el mismo vacío, y la pestaña sigue diciendo «Notas»—. Después cambia el valor de
 `notes.title` por `'Mis notas'` en `lang/es.php`, recarga y vuelve a dejarlo: cambian el `<h1>` y el
-título de la pestaña a la vez, sin tocar la plantilla ni el controlador.
+título de la pestaña a la vez, sin tocar la plantilla ni el controlador. Y la prueba que cierra el paso:
+cambia el idioma en el selector del pie a «English» y recarga; estas seis cadenas salen en inglés, y
+vuelven a español cuando volvés.
 
-**Qué no prueba**: que el sitio hable otro idioma. Probaste que la cadena sale del catálogo, no que el
-catálogo cambie solo. Elegir idioma —resolver de locale, `?lang=`, sesión, `Accept-Language`, selector
-del pie— queda fuera de este recorrido y está en `docs/guia-stack-php-termux.md` §15.3.
+**Qué no prueba**: que toda la app esté traducida. El cromo ya venía así; acá se suman tus seis claves.
+El resolver de locale —`?lang=`, sesión, `Accept-Language`, selector del pie— es del shell y no se
+construye en este recorrido: está en `docs/guia-stack-php-termux.md` §15.3.
 
 **Falla si**:
 
@@ -1238,9 +1247,10 @@ del pie— queda fuera de este recorrido y está en `docs/guia-stack-php-termux.
 - Error `Class "App\Http\Controllers\Trans" not found`: falta `use Framework\I18n\Trans;` junto a los
   otros `use` del controlador.
 
-**Qué ganaste**: el texto de la pantalla vive en un solo lugar por idioma y la vista pide lo que necesita.
-El costo es una indirección: para saber qué dice el botón hay que abrir el catálogo. Lo que todavía no
-tienes es un segundo idioma funcionando: eso es configuración por petición, no texto.
+**Qué ganaste**: el texto de la pantalla vive en un solo lugar por idioma, la vista pide lo que necesita y
+el selector del pie ya traduce tus cadenas. El costo es una indirección: para saber qué dice el botón hay
+que abrir el catálogo. Y lo que ganás de verdad es el segundo idioma: no hay que tocar una plantilla para
+agregarlo, basta un archivo con las mismas claves.
 
 **Pieza — catálogos y `t()`/`Trans::t()`**: resuelven el texto visible de toda la app, con una clave
 estable por cadena y un archivo por idioma. Úsalos en cuanto haya texto que otra pantalla pueda repetir o
