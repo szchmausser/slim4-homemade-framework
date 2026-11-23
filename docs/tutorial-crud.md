@@ -499,9 +499,12 @@ para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos
 > 'nav.tasks'    => 'Tareas',
 > ```
 >
-> El sidebar pide `nav.notes` y recibe «Notas». **Comprobación**: cambia el valor por «Mis notas»,
-> recarga y vuelve a dejarlo: el menú cambió sin tocar la configuración. Cambiar de idioma es otra
-> cosa y queda fuera de este recorrido.
+> El sidebar pide `nav.notes` y recibe «Notas». Las dos mitades del proyecto piden la misma clave: la
+> plantilla con `t()`, el PHP con `Trans::t()` —es lo que usan el controlador para un flash y el header
+> para el breadcrumb—.
+>
+> **Comprobación**: cambia el valor por «Mis notas», recarga y vuelve a dejarlo: el menú cambió sin
+> tocar la configuración. Cambiar de idioma es otra cosa y queda fuera de este recorrido.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -3193,8 +3196,9 @@ escrito para que la segunda entidad no te obligue a releer los quince anteriores
 | El icono y el subtítulo del encabezado | Los seis casos del cierre |
 
 **Los textos del cromo no están en las vistas: salen de `lang/`.** Cuando tu entidad reusa el shell, el texto
-visible se agrega como clave en `lang/es.php` y `lang/en.php`; el cómo —incluido `Trans::t()` para traducir un
-flash desde el controlador— está en la guía, §15.3.
+visible se agrega como clave en `lang/es.php` y `lang/en.php` con el mismo nombre en los dos; en la
+plantilla se pide con `t()` y desde PHP con `Trans::t()` (4.1 y 6.2). Lo que queda fuera de este
+recorrido —resolver de locale, selector del pie, cambio de idioma— está en la guía, §15.3.
 
 **Los archivos a tocar**, en orden:
 

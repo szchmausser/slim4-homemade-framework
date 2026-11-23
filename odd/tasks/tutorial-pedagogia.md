@@ -123,3 +123,6 @@ independientes). Runner: `composer verify` + re-walk de los capítulos afectados
   que viola la invariante durante diez capítulos. Aplicación acordada: explicarlo una vez en 4.1 (donde
   aparece `'label' => 'nav.notes'` y no había explicación del helper), dejar 6.1 y 6.2 como referencias,
   y declarar la regionalización fuera de alcance. Sin capítulo nuevo y sin renumeración.
+- **L10**: tras T5 quedaba un puntero desactualizado en la sección de transferencia (cap. 16): remitía a la
+  guía §15.3 para el `Trans::t()` del flash, que ahora se explica en 4.1. Se alinea: la transferencia
+  apunta a 4.1 y 6.2 para el mecanismo y a la guía solo para el resolver de locale.
