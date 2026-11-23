@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Framework\Http;
 
 use Framework\Auth\Auth;
+use Framework\I18n\Trans;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
@@ -126,6 +127,12 @@ abstract class Controller
      * hueco— y `current` marca la última para que se pinte como texto y no como
      * enlace.
      *
+     * La miga raíz sale del catálogo (`nav.home`) y NO es una clave: el shell
+     * pinta `crumb.label` tal cual, así que acá tiene que llegar el texto del
+     * locale de la petición. `Trans::t()` corre en cada render, después de que
+     * `LocaleMiddleware` fijó el idioma; `$label`/`$action` los pasa quien llama
+     * ya traducidos (los scaffolds usan `Trans::t('nav.tasks')`).
+     *
      * @param string      $label texto de la pantalla, sin prefijo de marca
      * @param string|null $icon  nombre del icono; null cuando la pantalla no lleva
      *
@@ -142,13 +149,15 @@ abstract class Controller
         $current['current'] = true;
 
         return [
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             $current,
         ];
     }
 
     /**
      * Tres migas: Inicio, el listado padre y la acción actual.
+     *
+     * La miga raíz se traduce igual que en `breadcrumbs()`.
      *
      * El `href` entra tal cual: quien llama decide si es un `Url::path()` o una URL
      * propia. Es un método aparte y no un parámetro opcional de `breadcrumbs()`
@@ -162,7 +171,7 @@ abstract class Controller
     protected function breadcrumbsFor(string $label, string $href, string $action): array
     {
         return [
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             ['label' => $label, 'href' => $href],
             ['label' => $action, 'current' => true],
         ];

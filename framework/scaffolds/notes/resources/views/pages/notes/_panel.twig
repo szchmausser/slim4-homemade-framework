@@ -11,7 +11,7 @@
 <div id="notes-panel">
     {% embed 'components/list/simple.twig' with {
         items: notes,
-        empty: 'No notes yet.'
+        empty: t('notes.empty')
     } %}
         {% block row %}
             {# Una fila: el título abre la edición y a la derecha van las dos
@@ -29,7 +29,7 @@
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'pencil',
-                        aria_label: 'Edit ' ~ item.title,
+                        aria_label: t('notes.edit_aria', {'%title%': item.title}),
                         href: url('/notes/' ~ item.id ~ '/edit')
                     } only %}
 
@@ -41,7 +41,7 @@
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'trash',
-                        aria_label: 'Delete ' ~ item.title,
+                        aria_label: t('notes.delete_aria', {'%title%': item.title}),
                         data_modal_open: 'note-delete-' ~ item.id
                     } only %}
                 </div>
@@ -55,23 +55,23 @@
             {% for item in notes %}
                 {% embed 'components/ui/modal.twig' with {
                     id: 'note-delete-' ~ item.id,
-                    title: 'Delete note'
+                    title: t('notes.delete_title')
                 } %}
                     {% block body %}
-                        <p class="py-3 opacity-70">Delete "{{ item.title }}"? This cannot be undone.</p>
+                        <p class="py-3 opacity-70">{{ t('notes.delete_question', {'%title%': item.title}) }}</p>
                         <form method="post" action="{{ url('/notes/' ~ item.id ~ '/delete') }}"
                               onsubmit="this.querySelector('[type=submit]').disabled = true">
                             {% include 'components/form/csrf.twig' %}
                             <div class="modal-action">
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Cancel',
+                                    label: t('notes.cancel'),
                                     variant: 'ghost',
                                     type: 'button',
                                     icon: 'x',
                                     data_modal_close: true
                                 } only %}
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Delete',
+                                    label: t('notes.delete_confirm'),
                                     variant: 'error',
                                     type: 'submit',
                                     icon: 'trash'

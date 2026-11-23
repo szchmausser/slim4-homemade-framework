@@ -19,7 +19,7 @@
        `errors` del contexto no llega solo y el mensaje nunca aparecería. #}
     {% include 'components/form/field.twig' with {
         name: 'name',
-        label: 'Nombre',
+        label: t('contacts.field_name'),
         type: 'text',
         value: values ? values.name : '',
         required: true,
@@ -29,7 +29,7 @@
     } only %}
     {% include 'components/form/field.twig' with {
         name: 'email',
-        label: 'Email',
+        label: t('contacts.field_email'),
         type: 'email',
         value: values ? values.email : '',
         required: true,
@@ -39,7 +39,7 @@
     } only %}
     {% include 'components/form/field.twig' with {
         name: 'phone',
-        label: 'Teléfono',
+        label: t('contacts.field_phone'),
         type: 'tel',
         value: values ? values.phone : '',
         optional: true,
@@ -51,7 +51,7 @@
     <div class="modal-action">
         {% if cancel_target is defined and cancel_target %}
             {% include 'components/ui/button.twig' with {
-                label: 'Cancelar',
+                label: t('contacts.cancel'),
                 variant: 'ghost',
                 type: 'button',
                 icon: 'x',
@@ -59,14 +59,14 @@
             } only %}
         {% else %}
             {% include 'components/ui/button.twig' with {
-                label: 'Cancelar',
+                label: t('contacts.cancel'),
                 variant: 'ghost',
                 href: cancel_href|default(url('/contacts')),
                 icon: 'x'
             } only %}
         {% endif %}
         {% include 'components/ui/button.twig' with {
-            label: submit_label|default('Guardar'),
+            label: submit_label|default(t('contacts.save')),
             type: 'submit',
             icon: submit_icon|default('check')
         } only %}

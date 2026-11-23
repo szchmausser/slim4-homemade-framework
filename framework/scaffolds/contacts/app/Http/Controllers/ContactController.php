@@ -9,6 +9,7 @@ use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use Illuminate\Database\Eloquent\Builder;
 use Psr\Http\Message\ResponseInterface as Response;
@@ -68,7 +69,7 @@ final class ContactController extends Controller
                 return $this->renderForm($request, $response, [
                     'action' => Url::path('/contacts'),
                     'cancel_target' => 'contact-create-modal',
-                    'submit_label' => 'Crear contacto',
+                    'submit_label' => Trans::t('contacts.create_submit'),
                     'submit_icon' => 'plus',
                     'errors' => $errors,
                     'form_values' => $this->attributes($data),
@@ -87,10 +88,10 @@ final class ContactController extends Controller
         Contact::create($this->attributes($data));
 
         if ($this->isHtmx($request)) {
-            return $this->hxSuccess($response, 'Contacto creado.', 'create');
+            return $this->hxSuccess($response, Trans::t('contacts.created'), 'create');
         }
 
-        Flash::set('success', 'Contacto creado.');
+        Flash::set('success', Trans::t('contacts.created'));
 
         return $this->back($response);
     }
@@ -109,7 +110,7 @@ final class ContactController extends Controller
                 'action' => Url::path('/contacts/' . $contact->getKey()),
                 'contact' => $contact,
                 'cancel_target' => 'contact-edit-modal',
-                'submit_label' => 'Guardar cambios',
+                'submit_label' => Trans::t('contacts.save_changes'),
                 'submit_icon' => 'check',
             ]);
         }
@@ -140,7 +141,7 @@ final class ContactController extends Controller
                     'action' => Url::path('/contacts/' . $contact->getKey()),
                     'contact' => $contact,
                     'cancel_target' => 'contact-edit-modal',
-                    'submit_label' => 'Guardar cambios',
+                    'submit_label' => Trans::t('contacts.save_changes'),
                     'submit_icon' => 'check',
                     'errors' => $errors,
                     'form_values' => $this->attributes($data),
@@ -158,10 +159,10 @@ final class ContactController extends Controller
         $contact->fill($this->attributes($data))->save();
 
         if ($this->isHtmx($request)) {
-            return $this->hxSuccess($response, 'Contacto actualizado.', 'update');
+            return $this->hxSuccess($response, Trans::t('contacts.updated'), 'update');
         }
 
-        Flash::set('success', 'Contacto actualizado.');
+        Flash::set('success', Trans::t('contacts.updated'));
 
         return $this->back($response);
     }
@@ -178,15 +179,15 @@ final class ContactController extends Controller
         if ($this->isHtmx($request)) {
             return $this->hxSuccess(
                 $response,
-                $deleted === 0 ? 'El contacto no existe.' : 'Contacto eliminado.',
+                $deleted === 0 ? Trans::t('contacts.not_found') : Trans::t('contacts.deleted'),
                 'delete',
                 $deleted === 0 ? 'error' : 'success'
             );
         }
 
         $deleted === 0
-            ? Flash::set('error', 'El contacto no existe.')
-            : Flash::set('success', 'Contacto eliminado.');
+            ? Flash::set('error', Trans::t('contacts.not_found'))
+            : Flash::set('success', Trans::t('contacts.deleted'));
 
         return $this->back($response);
     }
@@ -275,6 +276,60 @@ final class ContactController extends Controller
         return $this->render($request, $response, 'pages/contacts/_form.twig', $data)->withStatus($status);
     }
 
+    /**
+     * Textos de la tabla en el idioma de la petición.
+     *
+     * El JS que inicializa Tabulator es un asset estático: no puede llamar a
+     * `t()` ni sabe en qué idioma se pidió la página, y por eso sus textos no
+     * viven ahí. `pages/contacts/index.twig` los emite como JSON al lado del
+     * contenedor y el script los consume tal cual.
+     *
+     * El paginador reusa las claves `pagination.*` del shell: es el mismo
+     * vocabulario del paginador del servidor, así que las dos pantallas no
+     * pueden mostrar «Anterior» en una e «Previous» en la otra.
+     *
+     * @return array<string, mixed>
+     */
+    private function tableStrings(): array
+    {
+        return [
+            'columns' => [
+                'number'  => Trans::t('contacts.column_number'),
+                'name'    => Trans::t('contacts.column_name'),
+                'email'   => Trans::t('contacts.column_email'),
+                'phone'   => Trans::t('contacts.column_phone'),
+                'actions' => Trans::t('contacts.column_actions'),
+            ],
+            'actions' => [
+                'edit'   => Trans::t('contacts.edit'),
+                'delete' => Trans::t('contacts.delete'),
+            ],
+            'empty'      => Trans::t('contacts.empty'),
+            'loading'    => Trans::t('contacts.loading'),
+            'load_error' => Trans::t('contacts.load_error'),
+            'collapse'   => Trans::t('contacts.collapse_toggle'),
+            'pagination' => [
+                'page_size'   => Trans::t('contacts.rows_per_page'),
+                'page_title'  => Trans::t('contacts.page'),
+                'first'       => Trans::t('pagination.first'),
+                'first_title' => Trans::t('pagination.go_first'),
+                'last'        => Trans::t('pagination.last'),
+                'last_title'  => Trans::t('pagination.go_last'),
+                'prev'        => Trans::t('pagination.previous'),
+                'prev_title'  => Trans::t('pagination.go_previous'),
+                'next'        => Trans::t('pagination.next'),
+                'next_title'  => Trans::t('pagination.go_next'),
+                'all'         => Trans::t('contacts.all'),
+                'counter'     => [
+                    'showing' => Trans::t('contacts.counter_showing'),
+                    'of'      => Trans::t('contacts.counter_of'),
+                    'rows'    => Trans::t('contacts.counter_rows'),
+                    'pages'   => Trans::t('contacts.counter_pages'),
+                ],
+            ],
+        ];
+    }
+
     /** Vuelta al listado con 303: el `GET` que sigue al `POST` del patrón PRG. */
     private function back(Response $response): Response
     {
@@ -294,7 +349,12 @@ final class ContactController extends Controller
     {
         $response = $this->render($request, $response, 'pages/contacts/index.twig', [
             'active' => 'contacts',
-            'breadcrumbs' => $this->breadcrumbs('Contactos', 'contacts'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.contacts'), 'contacts'),
+            // El JS de la tabla es un asset estático: los textos viajan acá, ya
+            // resueltos en el idioma de la petición (ver `tableStrings()`).
+            // `JSON_FLAGS` deja `<`, `>`, `&`, `'` y `"` como secuencias unicode,
+            // así que el JSON no puede cerrar la etiqueta `<script>` que lo emite.
+            'table_strings' => json_encode($this->tableStrings(), self::JSON_FLAGS),
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);
@@ -319,7 +379,11 @@ final class ContactController extends Controller
         $response = $this->render($request, $response, 'pages/contacts/edit.twig', [
             'active' => 'contacts',
             'contact' => $contact,
-            'breadcrumbs' => $this->breadcrumbsFor('Contactos', Url::path('/contacts'), 'Editar'),
+            'breadcrumbs' => $this->breadcrumbsFor(
+                Trans::t('nav.contacts'),
+                Url::path('/contacts'),
+                Trans::t('contacts.edit_crumb')
+            ),
         ] + $extra);
 
         return $status === 200 ? $response : $response->withStatus($status);

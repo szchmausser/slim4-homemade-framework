@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Framework\Validation;
 
+use Framework\I18n\Trans;
 use InvalidArgumentException;
 use Respect\Validation\ChainedValidator;
 use Respect\Validation\Exceptions\ValidationException;
@@ -13,10 +14,14 @@ use Respect\Validation\Validator as V;
  * Valida un array de datos contra reglas escritas como texto
  * (`'campo' => 'required|max:120'`).
  *
- * Traduce cada regla a un validador de respect/validation y a su mensaje en
- * castellano, y corta en el primer fallo de cada campo: un campo inválido produce
- * un solo mensaje, el de la primera regla que falló. Los controladores la usan
- * antes de tocar la base y las vistas reciben el mapa `campo => mensaje`.
+ * Traduce cada regla a un validador de respect/validation y a su mensaje, y
+ * corta en el primer fallo de cada campo: un campo inválido produce un solo
+ * mensaje, el de la primera regla que falló. Los mensajes salen de
+ * `lang/<locale>.php` por `Trans::t()`, así que el idioma es el de la petición
+ * (lo fija `LocaleMiddleware` antes de que el controlador valide), no uno fijo.
+ * `max`/`min` usan parámetros con nombre (`%max%`, `%min%`) para que cada
+ * idioma arme la frase como le corresponde. Los controladores la usan antes de
+ * tocar la base y las vistas reciben el mapa `campo => mensaje`.
  */
 class Validator
 {
@@ -86,6 +91,11 @@ class Validator
      * vacío), `max` y `min` son `length()` (caracteres, no bytes) y `numeric` va
      * por `numericVal()`, que es el nombre que existe en Respect.
      *
+     * El mensaje se traduce en el momento de validar y no al construir el
+     * validador: el traductor es del request, y una regla resuelta con el idioma
+     * de la petición anterior es exactamente el error que este archivo cometía
+     * con el castellano fijo.
+     *
      * @return array{0: ChainedValidator, 1: string}
      */
     private function rule(string $name, ?string $param, string $field, string $ruleString): array
@@ -97,12 +107,12 @@ class Validator
             : null;
 
         return match ($name) {
-            'required' => [V::notEmpty(), 'Este campo es obligatorio.'],
-            'string'   => [V::stringType(), 'Este campo debe ser texto.'],
-            'email'    => [V::email(), 'Este campo debe ser un email válido.'],
-            'numeric'  => [V::numericVal(), 'Este campo debe ser un número.'],
-            'max'      => [V::length(null, (int) $limit), sprintf('No puede superar los %d caracteres.', $limit)],
-            'min'      => [V::length((int) $limit, null), sprintf('Debe tener al menos %d caracteres.', $limit)],
+            'required' => [V::notEmpty(), Trans::t('validation.required')],
+            'string'   => [V::stringType(), Trans::t('validation.string')],
+            'email'    => [V::email(), Trans::t('validation.email')],
+            'numeric'  => [V::numericVal(), Trans::t('validation.numeric')],
+            'max'      => [V::length(null, (int) $limit), Trans::t('validation.max', ['%max%' => (int) $limit])],
+            'min'      => [V::length((int) $limit, null), Trans::t('validation.min', ['%min%' => (int) $limit])],
             // El string completo viaja en el mensaje: es el dato que hace
             // falta para encontrar el template roto.
             default    => throw new InvalidArgumentException(sprintf(

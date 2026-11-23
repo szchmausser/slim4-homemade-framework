@@ -9,6 +9,7 @@ use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -54,7 +55,7 @@ final class NoteController extends Controller
             // La miga la pinta el header del shell: Inicio como enlace y Notes
             // como página actual. Sin ella, el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
-            'breadcrumbs' => $this->breadcrumbs('Notes', 'list'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.notes'), 'list'),
         ];
     }
 
@@ -125,7 +126,7 @@ final class NoteController extends Controller
             'body'  => $data['body'] !== '' ? $data['body'] : null,
         ]);
 
-        Flash::set('success', 'Note created.');
+        Flash::set('success', Trans::t('notes.created'));
 
         return $this->redirect($response, '/notes');
     }
@@ -189,7 +190,7 @@ final class NoteController extends Controller
             'body'  => $data['body'] !== '' ? $data['body'] : null,
         ])->save();
 
-        Flash::set('success', 'Note updated.');
+        Flash::set('success', Trans::t('notes.updated'));
 
         return $this->redirect($response, '/notes');
     }
@@ -205,7 +206,7 @@ final class NoteController extends Controller
 
         $note->delete();
 
-        Flash::set('success', 'Note deleted.');
+        Flash::set('success', Trans::t('notes.deleted'));
 
         return $this->redirect($response, '/notes');
     }

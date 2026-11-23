@@ -21,13 +21,19 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 - **URLs siempre por helper.** En Twig `{{ url('/ruta') }}`; en PHP
   `Framework\Http\Url::path('/ruta')`. Nunca literales raíz-absolutos: rompen
   `APP_BASE_PATH`.
-- **Los textos visibles del cromo van por catálogo.** En componentes y layouts se
-  usa `{{ t('clave') }}` (o `|trans`) con la clave en inglés; el texto vive en
-  `lang/{es,en}.php`. Desde PHP la misma clave sale con
-  `Framework\I18n\Trans::t('clave')` (`t()` y `|trans` son sólo de Twig), que es
-  lo que usa un controlador para un flash. No se agregan literales españoles
-  nuevos a layouts ni componentes: una clave nueva va en los dos catálogos con
-  el mismo nombre.
+- **Los textos visibles del cromo y de las páginas van por catálogo.** En
+  componentes, layouts y páginas se usa `{{ t('clave') }}` (o `|trans`) con la
+  clave en inglés; el texto vive en `lang/{es,en}.php`. Desde PHP la misma clave
+  sale con `Framework\I18n\Trans::t('clave')` (`t()` y `|trans` son sólo de
+  Twig), que es lo que usa un controlador para un flash y lo que usa el validador
+  para sus mensajes. No se agregan literales españoles nuevos a layouts,
+  componentes, páginas, controladores ni a los demos (`framework/scaffolds/**`):
+  una clave nueva va en los dos catálogos con el mismo nombre. Los metadatos de
+  cada módulo (`label`, `summary`, `why` en `config/navigation/<demo>.php`) son
+  CLAVES que se traducen al render, y un JS de scaffold no lleva texto visible:
+  el servidor le manda el diccionario (`data-*` con JSON). El demo `notes` es
+  inglés por diseño, así que sus claves dicen lo mismo en los dos catálogos. Lo
+  único que falta es la miga raíz del shell (guía §15.3.2).
 - **El locale se resuelve por petición.** Precedencia: `?lang=` > sesión >
   `Accept-Language` > `APP_LOCALE` (default `es`; fallback de catálogo
   `APP_FALLBACK_LOCALE`, default `en`). El orden vive en

@@ -7,6 +7,7 @@ namespace Framework\Http\Middleware;
 use Framework\Auth\Auth;
 use Framework\Http\Flash;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -36,8 +37,11 @@ final class RequireAuthMiddleware implements MiddlewareInterface
      * qué.
      *
      * El flash se escribe antes del 303 y lo consume la pantalla de acceso en el GET
-     * siguiente. La rama htmx usa `HX-Redirect` y no `Location` porque el XHR sigue
-     * el redirect y el login se cambiaría dentro de la región.
+     * siguiente. Sale del catálogo con `Trans::t()`: el middleware corre dentro de
+     * `LocaleMiddleware`, así que el idioma de la petición ya está resuelto y el
+     * aviso no puede quedar en el idioma del proceso. La rama htmx usa
+     * `HX-Redirect` y no `Location` porque el XHR sigue el redirect y el login se
+     * cambiaría dentro de la región.
      */
     public function process(Request $request, Handler $handler): Response
     {
@@ -50,7 +54,7 @@ final class RequireAuthMiddleware implements MiddlewareInterface
                 ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
-        Flash::set('error', 'Inicia sesión para continuar.');
+        Flash::set('error', Trans::t('auth.login_required'));
 
         return $this->responseFactory->createResponse(303)
             ->withHeader('Location', Url::path('/login'));

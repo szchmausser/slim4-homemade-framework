@@ -1,7 +1,11 @@
 {# Sidebar del shell. Recibe `active` y arma el menú desde `navigation_items`,
    que el contenedor compone por convención: Inicio más los archivos de
    config/navigation/. Agregar una entrada es dejar su archivo; no se toca esta
-   plantilla. #}
+   plantilla.
+
+   `item.label` es una CLAVE del catálogo, no texto: el array se arma una vez por
+   proceso y el locale es por request, así que la traducción ocurre acá, en cada
+   render. #}
 
 <aside id="sidebar"
        class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-base-100 transition-all duration-200 lg:sticky lg:top-0 lg:bottom-auto lg:h-dvh lg:translate-x-0"
@@ -23,14 +27,15 @@
         <ul class="menu w-full gap-1 p-2">
             {% for item in navigation_items %}
                 {% set is_active = active is defined and active == item.key %}
+                {% set item_label = t(item.label) %}
                 <li>
                     <a href="{{ url(item.href) }}"
                        class="{% if is_active %}menu-active{% endif %}"
-                       title="{{ item.label }}"
-                       aria-label="{{ item.label }}"
+                       title="{{ item_label }}"
+                       aria-label="{{ item_label }}"
                        {% if is_active %}aria-current="page"{% endif %}>
                         {% include 'components/ui/icon.twig' with { name: item.icon } %}
-                        <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">{{ item.label }}</span>
+                        <span class="sidebar-label" :class="sidebarMini && 'lg:hidden'">{{ item_label }}</span>
                     </a>
                 </li>
             {% endfor %}

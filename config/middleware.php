@@ -6,12 +6,14 @@ use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Middleware\SessionMiddleware;
+use Framework\I18n\Trans;
 use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Csrf\Guard;
 use Slim\Exception\HttpException;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Framework\Support\Env;
 
 return function (App $app) {
@@ -103,18 +105,46 @@ return function (App $app) {
             } else {
                 $body = null;
                 try {
+                    $twig = $container->get(Twig::class);
+
+                    // El locale del error. Este handler corre FUERA de
+                    // `LocaleMiddleware` (el error middleware se agrega después
+                    // y envuelve a la sesión y al locale) y la respuesta que
+                    // arma es nueva, así que no hereda ni el idioma ni el
+                    // `Vary` que el middleware puso en la suya. Se resuelve acá
+                    // con la MISMA función —misma precedencia— y el `Vary` se
+                    // agrega a mano abajo. Si la excepción fue tan temprana que
+                    // no hay sesión ni cabecera usable, el resolutor cae en
+                    // `APP_LOCALE`: la página de error sale en el idioma por
+                    // defecto, nunca en el que dejó la petición anterior.
+                    $twig->getEnvironment()->addGlobal(
+                        'app_locale',
+                        LocaleMiddleware::apply($request, $container->get(LocaleAwareInterface::class))
+                    );
+
+                    // El mensaje sale del catálogo y del CÓDIGO de estado, no
+                    // del texto de la excepción: el del vendor viene en inglés
+                    // ("Not found.") y puede arrastrar detalles internos. El
+                    // código queda a la vista para que soporte lo pueda pedir.
+                    // Un código sin texto propio cae al genérico, como antes.
+                    $message = Trans::t(match ($status) {
+                        404 => 'error.not_found',
+                        403 => 'error.forbidden',
+                        405 => 'error.method_not_allowed',
+                        400, 419 => 'error.bad_request',
+                        default => 'error.server',
+                    });
+
                     $template = $request->hasHeader('HX-Request')
                         ? 'pages/errors/_htmx.twig'
                         : 'pages/errors/error.twig';
 
-                    $rendered = $container->get(Twig::class)->render(
+                    $rendered = $twig->render(
                         $app->getResponseFactory()->createResponse($status),
                         $template,
                         [
                             'code'    => $status,
-                            'message' => $status >= 500
-                                ? 'Error interno del servidor.'
-                                : $exception->getMessage(),
+                            'message' => $message,
                         ]
                     );
 
@@ -137,7 +167,11 @@ return function (App $app) {
 
             $response = $app->getResponseFactory()->createResponse($status);
             $response->getBody()->write($body);
-            return $response;
+
+            // Ver el comentario del locale, arriba: esta respuesta no pasó por
+            // `LocaleMiddleware`, así que sin el `Vary` explícito un caché
+            // guarda el 404 en un idioma y lo sirve a todos.
+            return $response->withHeader('Vary', 'Accept-Language');
         }
     );
 };

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="{{ app_locale }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ code }} · Mi App</title>
+    <title>{{ t('error.title', {'%code%': code, '%app%': t('app.name')}) }}</title>
 
     {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
        costaría un 404 extra. Son ~55 bytes. #}
@@ -56,28 +56,24 @@
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
-    {# El mensaje se deduce del código y NO se imprime el `message` que manda
-       config/middleware.php: viene del vendor, en inglés ("Not found."), y
-       puede arrastrar detalles internos de la excepción. El código queda a la
-       vista para que soporte lo pueda pedir; un código desconocido cae al
-       texto genérico, no a "sin mensaje". #}
-    {% set mensaje = code == 404 ? 'No encontramos esa página.'
-        : (code == 403 ? 'No tienes permiso para ver esto.'
-        : (code == 405 ? 'Ese método no está permitido.'
-        : (code == 419 or code == 400 ? 'La petición no es válida.'
-        : 'Algo salió mal de nuestro lado.'))) %}
+    {# El mensaje llega YA traducido desde config/middleware.php y sale del
+       código de estado, no del texto de la excepción: el del vendor viene en
+       inglés y puede arrastrar detalles internos. El código queda a la vista
+       para que soporte lo pueda pedir. El `lang` del documento es el locale
+       resuelto por la petición, no un `es` fijo: esta página es lo último que ve
+       un visitante en inglés si algo se rompe. #}
     <main class="hero error-main">
         <div class="hero-content">
-            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
+            <a href="{{ url('/') }}" class="error-brand" aria-label="{{ t('layout.brand_home', {'%app%': t('app.name')}) }}">
                 {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
-                <span>Mi App</span>
+                <span>{{ t('app.name') }}</span>
             </a>
             <div class="card card-border bg-base-100">
                 <div class="card-body error-body">
-                    <span class="badge badge-neutral">Error {{ code }}</span>
-                    <h1 class="error-title">{{ mensaje }}</h1>
+                    <span class="badge badge-neutral">{{ t('error.badge', {'%code%': code}) }}</span>
+                    <h1 class="error-title">{{ message }}</h1>
                     {% include 'components/ui/button.twig' with {
-                        label: 'Volver al inicio',
+                        label: t('error.back_home'),
                         href: url('/'),
                         extra_class: 'btn-block'
                     } only %}

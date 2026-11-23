@@ -1,6 +1,6 @@
 {% extends 'layouts/auth.twig' %}
 
-{% block title %}Acceder{% endblock %}
+{% block title %}{{ t('login.title') }}{% endblock %}
 
 {% block content %}
     {# Errores por campo que devuelve Validator (campo => mensaje). Van
@@ -15,8 +15,8 @@
         <div class="card border border-base-300 bg-base-100">
             <div class="card-body gap-5 p-6 sm:p-7">
                 <header class="space-y-1">
-                    <h1 class="text-2xl font-bold">Acceder</h1>
-                    <p class="text-sm opacity-70">Ingresa con tu email y clave para continuar.</p>
+                    <h1 class="text-2xl font-bold">{{ t('login.title') }}</h1>
+                    <p class="text-sm opacity-70">{{ t('login.subtitle') }}</p>
                 </header>
 
                 {% if flash_error %}
@@ -57,12 +57,12 @@
                     {% include 'components/form/field.twig' with {
                         name: 'email',
                         id: 'login-email',
-                        label: 'Email',
+                        label: t('login.email'),
                         type: 'email',
                         value: email|default(''),
                         required: true,
                         autocomplete: 'username',
-                        placeholder: 'tu@ejemplo.com',
+                        placeholder: t('login.email_hint'),
                         icon: 'mail',
                         wrap_class: 'login-field',
                         icon_class: 'login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3',
@@ -72,7 +72,7 @@
                     {% include 'components/form/field.twig' with {
                         name: 'password',
                         id: 'login-password',
-                        label: 'Clave',
+                        label: t('login.password'),
                         type: 'password',
                         required: true,
                         autocomplete: 'current-password',
@@ -87,10 +87,10 @@
                         <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
                         {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
                            el formato de la fila lo da el `label` de afuera. #}
-                        <span>Recordarme 30 días</span>
+                        <span>{{ t('login.remember') }}</span>
                     </label>
                     {% include 'components/ui/button.twig' with {
-                        label: 'Entrar',
+                        label: t('login.submit'),
                         type: 'submit',
                         icon: 'arrow-right',
                         icon_position: 'end',

@@ -4,13 +4,47 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\I18n\TranslatorFactory;
 use Framework\Validation\Validator;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
+use Tests\Support\AppFactory;
 
 final class ValidatorTest extends TestCase
 {
+    /**
+     * Los mensajes salen del catálogo del locale activo, que en esta suite es
+     * estado del PROCESO: el traductor es un singleton y otro test puede
+     * haberlo dejado en inglés (`HttpTestCase::tearDown()` limpia la sesión,
+     * no el traductor). Se fija `es` acá para que el español esperado no
+     * dependa del orden de ejecución, y se devuelve al default del entorno al
+     * terminar.
+     *
+     * Se cambia el locale del traductor del contenedor —el que `Trans` tiene
+     * registrado desde `tests/bootstrap.php`— y no se registra uno nuevo: un
+     * segundo traductor dejaría a `Trans` apuntando a otro objeto y el locale
+     * por request de los tests HTTP siguientes dejaría de aplicarle.
+     */
+    protected function setUp(): void
+    {
+        self::localeAware()->setLocale('es');
+    }
+
+    protected function tearDown(): void
+    {
+        self::localeAware()->setLocale(TranslatorFactory::defaultLocale());
+    }
+
+    private static function localeAware(): LocaleAwareInterface
+    {
+        $traductor = AppFactory::make()->getContainer()->get(LocaleAwareInterface::class);
+
+        self::assertInstanceOf(LocaleAwareInterface::class, $traductor);
+
+        return $traductor;
+    }
     /** @return array<string, array{0: array, 1: array, 2: bool}> */
     public static function cases(): array
     {
@@ -123,6 +157,29 @@ final class ValidatorTest extends TestCase
         }
 
         self::fail('Un "' . $rule . '" sin número validó en silencio.');
+    }
+
+    /**
+     * El mensaje sale del catálogo del locale ACTIVO, y `%max%`/`%min%` se
+     * interpolan con el número de la regla: una traducción natural no puede
+     * depender de la posición de un `%d` dentro de la frase.
+     *
+     * Antes el validador devolvía castellano fijo y `sprintf('%d')`: con
+     * `APP_LOCALE=en` el aviso seguía en español, que es justo lo que se veía
+     * en el formulario de login.
+     */
+    public function test_los_mensajes_salen_en_el_idioma_activo_con_sus_parametros(): void
+    {
+        self::localeAware()->setLocale('en');
+
+        $largo = Validator::make(['title' => str_repeat('a', 51)], ['title' => 'max:50']);
+        self::assertSame(['title' => 'Must not be longer than 50 characters.'], $largo->errors());
+
+        $corto = Validator::make(['password' => 'corta'], ['password' => 'min:8']);
+        self::assertSame(['password' => 'Must be at least 8 characters long.'], $corto->errors());
+
+        $sinEmail = Validator::make(['email' => ''], ['email' => 'required']);
+        self::assertSame(['email' => 'This field is required.'], $sinEmail->errors());
     }
 
     /**

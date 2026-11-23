@@ -12,13 +12,16 @@ declare(strict_types=1);
  * Esa es la lección para tu entidad: el menú se arma leyendo el directorio.
  */
 return [
-    'label'    => 'Contactos',
+    // Las tres son CLAVES del catálogo, no texto: el menú y la portada se arman
+    // una vez por proceso y el locale es por request, así que la traducción
+    // ocurre al render (`sidebar.twig`, `pages/home.twig`).
+    'label'    => 'nav.contacts',
     'href'     => '/contacts',
     'icon'     => 'contacts',
     'key'      => 'contacts',
     // Ficha que el menú muestra para orientar a quien recién llega.
-    'summary'  => 'Grilla Tabulator en modo remoto: pagina y ordena el servidor, no el cliente.',
-    'why'      => 'Para una tabla avanzada y no una lista: endpoint de datos, whitelist de orden, alta y borrado en modales y edición en página propia.',
+    'summary'  => 'contacts.summary',
+    'why'      => 'contacts.why',
     // Orden dentro del menú; los demos instalados se intercalan por este número.
     'position' => 20,
 ];

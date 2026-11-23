@@ -6,6 +6,7 @@ namespace Tests\Support;
 
 use Framework\Http\Controller;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -29,6 +30,12 @@ use Twig\Loader\ArrayLoader;
  * pintar (dos migas y tres migas). La forma importa: la clave `icon` viaja sólo
  * cuando hay icono (una miga con `icon => null` pinta un hueco) y `current` sólo
  * en la última.
+ *
+ * La miga raíz es la única que arma la base: sale del catálogo con
+ * `Trans::t('nav.home')`, así que las aserciones la comparan contra el catálogo y
+ * no contra un literal (el traductor es estado del proceso y acá no se fija: lo
+ * que se mide es la FORMA de las migas). Que en español esa clave diga «Inicio»,
+ * carácter por carácter, lo fija `I18nDemosTest::ESPANOL_DEMOS`.
  */
 final class ControllerViewDefaultsTest extends TestCase
 {
@@ -48,7 +55,7 @@ final class ControllerViewDefaultsTest extends TestCase
     public function test_breadcrumbs_arma_dos_migas_con_icono(): void
     {
         self::assertSame([
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             ['label' => 'Notas', 'icon' => 'list', 'current' => true],
         ], self::controlador()->migasParaTest('Notas', 'list'));
     }
@@ -66,7 +73,7 @@ final class ControllerViewDefaultsTest extends TestCase
     public function test_breadcrumbs_for_arma_tres_migas_con_la_ultima_actual(): void
     {
         self::assertSame([
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             ['label' => 'Contactos', 'href' => '/contacts'],
             ['label' => 'Editar', 'current' => true],
         ], self::controlador()->migasForParaTest('Contactos', '/contacts', 'Editar'));

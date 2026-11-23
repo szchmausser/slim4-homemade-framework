@@ -8,6 +8,7 @@ use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use App\Models\Task;
 use Illuminate\Support\Carbon;
@@ -75,7 +76,7 @@ class TaskController extends Controller
         // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
             'active' => 'tasks',
-            'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.tasks'), 'tasks'),
         ];
 
         // La plantilla la elige el request y no la acción: `_panel.twig` es la
@@ -131,7 +132,7 @@ class TaskController extends Controller
             // El campo de alta vive fuera de `#tareas-panel`, así que el swap no
             // lo toca: el toast es el único canal del mensaje. El 422 evita que
             // el formulario se limpie y el usuario pierda lo tipeado.
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
+            Flash::set('error', $validator->firstError() ?? Trans::t('tasks.invalid_data'));
 
             return $this->respond($request, $response, [
                 'errors' => $validator->errors(),
@@ -139,7 +140,7 @@ class TaskController extends Controller
         }
 
         Task::create(['title' => $data['title']]);
-        Flash::set('success', 'Tarea creada.');
+        Flash::set('success', Trans::t('tasks.created'));
 
         // El panel vuelve completo, no sólo la lista: el aviso se emite en este
         // mismo swap.
@@ -162,7 +163,7 @@ class TaskController extends Controller
 
         Flash::set(
             $deleted > 0 ? 'success' : 'error',
-            $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
+            $deleted > 0 ? Trans::t('tasks.deleted') : Trans::t('tasks.not_found')
         );
 
         return $this->respond($request, $response);
@@ -188,7 +189,7 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
         }
 
         return $this->respond($request, $response, [
@@ -211,7 +212,7 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
 
             return $this->respond($request, $response, [
                 'editing_id' => null,
@@ -237,7 +238,7 @@ class TaskController extends Controller
         }
 
         $task->update(['title' => $data['title']]);
-        Flash::set('success', 'Tarea actualizada.');
+        Flash::set('success', Trans::t('tasks.updated'));
 
         return $this->respond($request, $response, [
             'editing_id'    => null,
@@ -262,17 +263,17 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
 
             return $this->respond($request, $response);
         }
 
         if ($task->status === 'completado') {
             $task->update(['status' => 'pendiente', 'completed_at' => null]);
-            Flash::set('success', 'Tarea marcada como pendiente.');
+            Flash::set('success', Trans::t('tasks.marked_pending'));
         } else {
             $task->update(['status' => 'completado', 'completed_at' => Carbon::now()]);
-            Flash::set('success', 'Tarea completada.');
+            Flash::set('success', Trans::t('tasks.completed'));
         }
 
         return $this->respond($request, $response);

@@ -673,7 +673,9 @@ return [
 
         usort(
             $demoModules,
-            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+            // `key` y no `label`: la etiqueta es una clave de catálogo y ordarla
+            // por texto dependía del idioma del archivo.
+            static fn (array $a, array $b): int => [$a['position'], $a['key']] <=> [$b['position'], $b['key']]
         );
 
         $twig->getEnvironment()->addGlobal('demo_modules', $demoModules);
@@ -682,8 +684,13 @@ return [
         // aporta su entrada en config/navigation/<modulo>.php. El archivo lo
         // instala y lo quita el demo, así que su presencia es el interruptor y
         // el sidebar no tiene que saber de ningún demo en particular.
+        //
+        // `label` es una CLAVE y no texto: este array se arma una vez por
+        // proceso (el Twig es singleton) y el locale es por request, así que el
+        // texto se resuelve en la plantilla. Resolverlo acá dejaría el menú del
+        // primer visitante pegado para todos los demás.
         $navigation = [
-            ['label' => 'Inicio', 'href' => '/', 'icon' => 'home', 'key' => 'home', 'position' => 0],
+            ['label' => 'nav.home', 'href' => '/', 'icon' => 'home', 'key' => 'home', 'position' => 0],
         ];
 
         foreach (glob(__DIR__ . '/navigation/*.php') ?: [] as $navigationFile) {
@@ -698,7 +705,9 @@ return [
 
         usort(
             $navigation,
-            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+            // Igual que en `demo_modules`: la clave es estable, la etiqueta es
+            // catálogo y cambia con el idioma.
+            static fn (array $a, array $b): int => [$a['position'], $a['key']] <=> [$b['position'], $b['key']]
         );
 
         $twig->getEnvironment()->addGlobal('navigation_items', $navigation);
@@ -760,14 +769,17 @@ return [
                     return $response
                         ->withStatus(400)
                         ->withHeader('HX-Trigger', json_encode([
-                            'csrf' => 'Tu sesión expiró. Recarga la página.',
+                            'csrf' => Trans::t('auth.csrf_reload'),
                         ]));
                 }
 
                 // Sin htmx no hay toast que escuchar, así que el aviso tiene
                 // que viajar en el flash y aparecer donde el usuario cae: el
-                // login, que es la vista que renderiza `flash_error`.
-                Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
+                // login, que es la vista que renderiza `flash_error`. El texto
+                // sale del catálogo: el Guard corre adentro de
+                // `LocaleMiddleware`, así que el locale de la petición ya está
+                // fijado.
+                Flash::set('error', Trans::t('auth.csrf_login'));
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app
                 // deja al usuario en la raíz del dominio, que no es esta app.
@@ -868,12 +880,14 @@ use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Middleware\RememberMeMiddleware;
 use Framework\Http\Middleware\SecurityHeadersMiddleware;
 use Framework\Http\Middleware\SessionMiddleware;
+use Framework\I18n\Trans;
 use Psr\Log\LoggerInterface;
 use Slim\App;
 use Slim\Csrf\Guard;
 use Slim\Exception\HttpException;
 use Slim\Views\Twig;
 use Slim\Views\TwigMiddleware;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
 use Framework\Support\Env;
 
 return function (App $app) {
@@ -965,18 +979,46 @@ return function (App $app) {
             } else {
                 $body = null;
                 try {
+                    $twig = $container->get(Twig::class);
+
+                    // El locale del error. Este handler corre FUERA de
+                    // `LocaleMiddleware` (el error middleware se agrega después
+                    // y envuelve a la sesión y al locale) y la respuesta que
+                    // arma es nueva, así que no hereda ni el idioma ni el
+                    // `Vary` que el middleware puso en la suya. Se resuelve acá
+                    // con la MISMA función —misma precedencia— y el `Vary` se
+                    // agrega a mano abajo. Si la excepción fue tan temprana que
+                    // no hay sesión ni cabecera usable, el resolutor cae en
+                    // `APP_LOCALE`: la página de error sale en el idioma por
+                    // defecto, nunca en el que dejó la petición anterior.
+                    $twig->getEnvironment()->addGlobal(
+                        'app_locale',
+                        LocaleMiddleware::apply($request, $container->get(LocaleAwareInterface::class))
+                    );
+
+                    // El mensaje sale del catálogo y del CÓDIGO de estado, no
+                    // del texto de la excepción: el del vendor viene en inglés
+                    // ("Not found.") y puede arrastrar detalles internos. El
+                    // código queda a la vista para que soporte lo pueda pedir.
+                    // Un código sin texto propio cae al genérico, como antes.
+                    $message = Trans::t(match ($status) {
+                        404 => 'error.not_found',
+                        403 => 'error.forbidden',
+                        405 => 'error.method_not_allowed',
+                        400, 419 => 'error.bad_request',
+                        default => 'error.server',
+                    });
+
                     $template = $request->hasHeader('HX-Request')
                         ? 'pages/errors/_htmx.twig'
                         : 'pages/errors/error.twig';
 
-                    $rendered = $container->get(Twig::class)->render(
+                    $rendered = $twig->render(
                         $app->getResponseFactory()->createResponse($status),
                         $template,
                         [
                             'code'    => $status,
-                            'message' => $status >= 500
-                                ? 'Error interno del servidor.'
-                                : $exception->getMessage(),
+                            'message' => $message,
                         ]
                     );
 
@@ -999,7 +1041,11 @@ return function (App $app) {
 
             $response = $app->getResponseFactory()->createResponse($status);
             $response->getBody()->write($body);
-            return $response;
+
+            // Ver el comentario del locale, arriba: esta respuesta no pasó por
+            // `LocaleMiddleware`, así que sin el `Vary` explícito un caché
+            // guarda el 404 en un idioma y lo sirve a todos.
+            return $response->withHeader('Vary', 'Accept-Language');
         }
     );
 };
@@ -1007,17 +1053,17 @@ return function (App $app) {
 
 ### 7.1 La vista de error (404, 500 y compañía)
 
-El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code` y `message`:
+El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code` y `message`. El mensaje llega ya traducido (sale del código de estado y del catálogo, nunca del texto de la excepción, que viene en inglés del vendor) y el `lang` del documento es el locale resuelto de la petición, así que un 404 con `?lang=en` sale en inglés (cap. 15.3.2):
 
 `resources/views/pages/errors/error.twig`:
 
 ```twig
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="{{ app_locale }}" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ code }} · Mi App</title>
+    <title>{{ t('error.title', {'%code%': code, '%app%': t('app.name')}) }}</title>
 
     {# Sin favicon el navegador pide /favicon.ico y esta página autónoma
        costaría un 404 extra. Son ~55 bytes. #}
@@ -1070,28 +1116,24 @@ El error handler de arriba renderiza `pages/errors/error.twig`, que recibe `code
     </style>
 </head>
 <body class="bg-base-200 text-base-content">
-    {# El mensaje se deduce del código y NO se imprime el `message` que manda
-       config/middleware.php: viene del vendor, en inglés ("Not found."), y
-       puede arrastrar detalles internos de la excepción. El código queda a la
-       vista para que soporte lo pueda pedir; un código desconocido cae al
-       texto genérico, no a "sin mensaje". #}
-    {% set mensaje = code == 404 ? 'No encontramos esa página.'
-        : (code == 403 ? 'No tienes permiso para ver esto.'
-        : (code == 405 ? 'Ese método no está permitido.'
-        : (code == 419 or code == 400 ? 'La petición no es válida.'
-        : 'Algo salió mal de nuestro lado.'))) %}
+    {# El mensaje llega YA traducido desde config/middleware.php y sale del
+       código de estado, no del texto de la excepción: el del vendor viene en
+       inglés y puede arrastrar detalles internos. El código queda a la vista
+       para que soporte lo pueda pedir. El `lang` del documento es el locale
+       resuelto por la petición, no un `es` fijo: esta página es lo último que ve
+       un visitante en inglés si algo se rompe. #}
     <main class="hero error-main">
         <div class="hero-content">
-            <a href="{{ url('/') }}" class="error-brand" aria-label="Mi App, ir al inicio">
+            <a href="{{ url('/') }}" class="error-brand" aria-label="{{ t('layout.brand_home', {'%app%': t('app.name')}) }}">
                 {% include 'components/ui/logo.twig' with { size: 'error-logo' } %}
-                <span>Mi App</span>
+                <span>{{ t('app.name') }}</span>
             </a>
             <div class="card card-border bg-base-100">
                 <div class="card-body error-body">
-                    <span class="badge badge-neutral">Error {{ code }}</span>
-                    <h1 class="error-title">{{ mensaje }}</h1>
+                    <span class="badge badge-neutral">{{ t('error.badge', {'%code%': code}) }}</span>
+                    <h1 class="error-title">{{ message }}</h1>
                     {% include 'components/ui/button.twig' with {
-                        label: 'Volver al inicio',
+                        label: t('error.back_home'),
                         href: url('/'),
                         extra_class: 'btn-block'
                     } only %}
@@ -1266,6 +1308,7 @@ namespace Framework\Http\Middleware;
 use Framework\Auth\Auth;
 use Framework\Http\Flash;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -1295,8 +1338,11 @@ final class RequireAuthMiddleware implements MiddlewareInterface
      * qué.
      *
      * El flash se escribe antes del 303 y lo consume la pantalla de acceso en el GET
-     * siguiente. La rama htmx usa `HX-Redirect` y no `Location` porque el XHR sigue
-     * el redirect y el login se cambiaría dentro de la región.
+     * siguiente. Sale del catálogo con `Trans::t()`: el middleware corre dentro de
+     * `LocaleMiddleware`, así que el idioma de la petición ya está resuelto y el
+     * aviso no puede quedar en el idioma del proceso. La rama htmx usa
+     * `HX-Redirect` y no `Location` porque el XHR sigue el redirect y el login se
+     * cambiaría dentro de la región.
      */
     public function process(Request $request, Handler $handler): Response
     {
@@ -1309,7 +1355,7 @@ final class RequireAuthMiddleware implements MiddlewareInterface
                 ->withHeader('HX-Redirect', Url::path('/login'));
         }
 
-        Flash::set('error', 'Inicia sesión para continuar.');
+        Flash::set('error', Trans::t('auth.login_required'));
 
         return $this->responseFactory->createResponse(303)
             ->withHeader('Location', Url::path('/login'));
@@ -1922,6 +1968,7 @@ use Framework\Http\CsrfTokens;
 use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Url;
 use Framework\I18n\LocaleResolver;
+use Framework\I18n\Trans;
 use Framework\I18n\TranslatorFactory;
 use App\Http\Controllers\Auth\AuthController;
 use Psr\Http\Message\ResponseInterface;
@@ -2001,7 +2048,11 @@ return function (App $app) {
             'user_id'     => Auth::id(),
             'user_email'  => Auth::user()?->getAttribute('email'),
             'breadcrumbs' => [
-                ['label' => 'Inicio', 'icon' => 'home', 'current' => true],
+                // La miga la pinta el header del shell tal cual, así que acá va el
+                // TEXTO y no la clave: este closure corre en cada petición, con el
+                // locale ya resuelto por `LocaleMiddleware`. Una clave acá
+                // imprimiría `nav.home` en el header.
+                ['label' => Trans::t('nav.home'), 'icon' => 'home', 'current' => true],
             ],
             ...CsrfTokens::fields($request, $container->get(Guard::class)),
         ]);
@@ -2033,6 +2084,7 @@ declare(strict_types=1);
 namespace Framework\Http;
 
 use Framework\Auth\Auth;
+use Framework\I18n\Trans;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\Csrf\Guard;
@@ -2154,6 +2206,12 @@ abstract class Controller
      * hueco— y `current` marca la última para que se pinte como texto y no como
      * enlace.
      *
+     * La miga raíz sale del catálogo (`nav.home`) y NO es una clave: el shell
+     * pinta `crumb.label` tal cual, así que acá tiene que llegar el texto del
+     * locale de la petición. `Trans::t()` corre en cada render, después de que
+     * `LocaleMiddleware` fijó el idioma; `$label`/`$action` los pasa quien llama
+     * ya traducidos (los scaffolds usan `Trans::t('nav.tasks')`).
+     *
      * @param string      $label texto de la pantalla, sin prefijo de marca
      * @param string|null $icon  nombre del icono; null cuando la pantalla no lleva
      *
@@ -2170,13 +2228,15 @@ abstract class Controller
         $current['current'] = true;
 
         return [
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             $current,
         ];
     }
 
     /**
      * Tres migas: Inicio, el listado padre y la acción actual.
+     *
+     * La miga raíz se traduce igual que en `breadcrumbs()`.
      *
      * El `href` entra tal cual: quien llama decide si es un `Url::path()` o una URL
      * propia. Es un método aparte y no un parámetro opcional de `breadcrumbs()`
@@ -2190,7 +2250,7 @@ abstract class Controller
     protected function breadcrumbsFor(string $label, string $href, string $action): array
     {
         return [
-            ['label' => 'Inicio', 'href' => Url::path('/')],
+            ['label' => Trans::t('nav.home'), 'href' => Url::path('/')],
             ['label' => $label, 'href' => $href],
             ['label' => $action, 'current' => true],
         ];
@@ -2274,6 +2334,7 @@ use Framework\Http\Controller;
 use Framework\Http\Flash;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use App\Models\Task;
 use Illuminate\Support\Carbon;
@@ -2341,7 +2402,7 @@ class TaskController extends Controller
         // puede pisar `tasks` ni `pagination`.
         $data = $this->pageData($request) + $extra + [
             'active' => 'tasks',
-            'breadcrumbs' => $this->breadcrumbs('Tareas', 'tasks'),
+            'breadcrumbs' => $this->breadcrumbs(Trans::t('nav.tasks'), 'tasks'),
         ];
 
         // La plantilla la elige el request y no la acción: `_panel.twig` es la
@@ -2397,7 +2458,7 @@ class TaskController extends Controller
             // El campo de alta vive fuera de `#tareas-panel`, así que el swap no
             // lo toca: el toast es el único canal del mensaje. El 422 evita que
             // el formulario se limpie y el usuario pierda lo tipeado.
-            Flash::set('error', $validator->firstError() ?? 'Datos inválidos.');
+            Flash::set('error', $validator->firstError() ?? Trans::t('tasks.invalid_data'));
 
             return $this->respond($request, $response, [
                 'errors' => $validator->errors(),
@@ -2405,7 +2466,7 @@ class TaskController extends Controller
         }
 
         Task::create(['title' => $data['title']]);
-        Flash::set('success', 'Tarea creada.');
+        Flash::set('success', Trans::t('tasks.created'));
 
         // El panel vuelve completo, no sólo la lista: el aviso se emite en este
         // mismo swap.
@@ -2428,7 +2489,7 @@ class TaskController extends Controller
 
         Flash::set(
             $deleted > 0 ? 'success' : 'error',
-            $deleted > 0 ? 'Tarea eliminada.' : 'La tarea no existe o ya fue eliminada.'
+            $deleted > 0 ? Trans::t('tasks.deleted') : Trans::t('tasks.not_found')
         );
 
         return $this->respond($request, $response);
@@ -2454,7 +2515,7 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
         }
 
         return $this->respond($request, $response, [
@@ -2477,7 +2538,7 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
 
             return $this->respond($request, $response, [
                 'editing_id' => null,
@@ -2503,7 +2564,7 @@ class TaskController extends Controller
         }
 
         $task->update(['title' => $data['title']]);
-        Flash::set('success', 'Tarea actualizada.');
+        Flash::set('success', Trans::t('tasks.updated'));
 
         return $this->respond($request, $response, [
             'editing_id'    => null,
@@ -2528,17 +2589,17 @@ class TaskController extends Controller
                 throw new HttpNotFoundException($request);
             }
 
-            Flash::set('error', 'La tarea no existe o ya fue eliminada.');
+            Flash::set('error', Trans::t('tasks.not_found'));
 
             return $this->respond($request, $response);
         }
 
         if ($task->status === 'completado') {
             $task->update(['status' => 'pendiente', 'completed_at' => null]);
-            Flash::set('success', 'Tarea marcada como pendiente.');
+            Flash::set('success', Trans::t('tasks.marked_pending'));
         } else {
             $task->update(['status' => 'completado', 'completed_at' => Carbon::now()]);
-            Flash::set('success', 'Tarea completada.');
+            Flash::set('success', Trans::t('tasks.completed'));
         }
 
         return $this->respond($request, $response);
@@ -2575,6 +2636,7 @@ use Framework\Http\Controller;
 use Framework\Http\CsrfTokens;
 use Framework\Http\Flash;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -2590,8 +2652,11 @@ class AuthController extends Controller
      */
     public const DUMMY_HASH = '$2y$12$hmGwg9QWNfE1u1JP/s90ReQugq9oOeSa4YlxVNYaQFX3/eCtS84G2';
 
-    /** Mismo mensaje para credenciales malas y para cuenta throttled. */
-    private const INVALID_CREDENTIALS = 'Credenciales inválidas.';
+    // Mismo mensaje (y misma clave) para credenciales malas y para cuenta
+    // throttled: el texto se busca en el catálogo al momento de avisar, no se
+    // guarda en una constante, porque la constante se resolvería una sola vez
+    // —al cargar la clase— y no sabría en qué idioma está la petición.
+    private const INVALID_CREDENTIALS_KEY = 'auth.invalid_credentials';
 
     public function show(Request $request, Response $response): Response
     {
@@ -2637,7 +2702,7 @@ class AuthController extends Controller
         // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
         // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
         if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
-            Flash::set('error', self::INVALID_CREDENTIALS);
+            Flash::set('error', Trans::t(self::INVALID_CREDENTIALS_KEY));
 
             return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
@@ -2656,7 +2721,7 @@ class AuthController extends Controller
             Throttle::hit($email, $ip);
 
             // Genérico a propósito: nunca decir si falló el email o la clave.
-            Flash::set('error', self::INVALID_CREDENTIALS);
+            Flash::set('error', Trans::t(self::INVALID_CREDENTIALS_KEY));
 
             return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
@@ -2696,7 +2761,7 @@ class AuthController extends Controller
         }
 
         Auth::logout();
-        Flash::set('info', 'Sesión cerrada.');
+        Flash::set('info', Trans::t('auth.logged_out'));
 
         $response = $this->redirect($response, '/login');
 
@@ -3293,6 +3358,7 @@ declare(strict_types=1);
 
 namespace Framework\Validation;
 
+use Framework\I18n\Trans;
 use InvalidArgumentException;
 use Respect\Validation\ChainedValidator;
 use Respect\Validation\Exceptions\ValidationException;
@@ -3302,10 +3368,14 @@ use Respect\Validation\Validator as V;
  * Valida un array de datos contra reglas escritas como texto
  * (`'campo' => 'required|max:120'`).
  *
- * Traduce cada regla a un validador de respect/validation y a su mensaje en
- * castellano, y corta en el primer fallo de cada campo: un campo inválido produce
- * un solo mensaje, el de la primera regla que falló. Los controladores la usan
- * antes de tocar la base y las vistas reciben el mapa `campo => mensaje`.
+ * Traduce cada regla a un validador de respect/validation y a su mensaje, y
+ * corta en el primer fallo de cada campo: un campo inválido produce un solo
+ * mensaje, el de la primera regla que falló. Los mensajes salen de
+ * `lang/<locale>.php` por `Trans::t()`, así que el idioma es el de la petición
+ * (lo fija `LocaleMiddleware` antes de que el controlador valide), no uno fijo.
+ * `max`/`min` usan parámetros con nombre (`%max%`, `%min%`) para que cada
+ * idioma arme la frase como le corresponde. Los controladores la usan antes de
+ * tocar la base y las vistas reciben el mapa `campo => mensaje`.
  */
 class Validator
 {
@@ -3375,6 +3445,11 @@ class Validator
      * vacío), `max` y `min` son `length()` (caracteres, no bytes) y `numeric` va
      * por `numericVal()`, que es el nombre que existe en Respect.
      *
+     * El mensaje se traduce en el momento de validar y no al construir el
+     * validador: el traductor es del request, y una regla resuelta con el idioma
+     * de la petición anterior es exactamente el error que este archivo cometía
+     * con el castellano fijo.
+     *
      * @return array{0: ChainedValidator, 1: string}
      */
     private function rule(string $name, ?string $param, string $field, string $ruleString): array
@@ -3386,12 +3461,12 @@ class Validator
             : null;
 
         return match ($name) {
-            'required' => [V::notEmpty(), 'Este campo es obligatorio.'],
-            'string'   => [V::stringType(), 'Este campo debe ser texto.'],
-            'email'    => [V::email(), 'Este campo debe ser un email válido.'],
-            'numeric'  => [V::numericVal(), 'Este campo debe ser un número.'],
-            'max'      => [V::length(null, (int) $limit), sprintf('No puede superar los %d caracteres.', $limit)],
-            'min'      => [V::length((int) $limit, null), sprintf('Debe tener al menos %d caracteres.', $limit)],
+            'required' => [V::notEmpty(), Trans::t('validation.required')],
+            'string'   => [V::stringType(), Trans::t('validation.string')],
+            'email'    => [V::email(), Trans::t('validation.email')],
+            'numeric'  => [V::numericVal(), Trans::t('validation.numeric')],
+            'max'      => [V::length(null, (int) $limit), Trans::t('validation.max', ['%max%' => (int) $limit])],
+            'min'      => [V::length((int) $limit, null), Trans::t('validation.min', ['%min%' => (int) $limit])],
             // El string completo viaja en el mensaje: es el dato que hace
             // falta para encontrar el template roto.
             default    => throw new InvalidArgumentException(sprintf(
@@ -4077,7 +4152,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
 ```twig
 {% extends 'layouts/auth.twig' %}
 
-{% block title %}Acceder{% endblock %}
+{% block title %}{{ t('login.title') }}{% endblock %}
 
 {% block content %}
     {# Errores por campo que devuelve Validator (campo => mensaje). Van
@@ -4092,8 +4167,8 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
         <div class="card border border-base-300 bg-base-100">
             <div class="card-body gap-5 p-6 sm:p-7">
                 <header class="space-y-1">
-                    <h1 class="text-2xl font-bold">Acceder</h1>
-                    <p class="text-sm opacity-70">Ingresa con tu email y clave para continuar.</p>
+                    <h1 class="text-2xl font-bold">{{ t('login.title') }}</h1>
+                    <p class="text-sm opacity-70">{{ t('login.subtitle') }}</p>
                 </header>
 
                 {% if flash_error %}
@@ -4134,12 +4209,12 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                     {% include 'components/form/field.twig' with {
                         name: 'email',
                         id: 'login-email',
-                        label: 'Email',
+                        label: t('login.email'),
                         type: 'email',
                         value: email|default(''),
                         required: true,
                         autocomplete: 'username',
-                        placeholder: 'tu@ejemplo.com',
+                        placeholder: t('login.email_hint'),
                         icon: 'mail',
                         wrap_class: 'login-field',
                         icon_class: 'login-field-icon pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3',
@@ -4149,7 +4224,7 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                     {% include 'components/form/field.twig' with {
                         name: 'password',
                         id: 'login-password',
-                        label: 'Clave',
+                        label: t('login.password'),
                         type: 'password',
                         required: true,
                         autocomplete: 'current-password',
@@ -4164,10 +4239,10 @@ Para no duplicar SVGs entre sidebar y header (el mismo icono tiene que ser el mi
                         <input type="checkbox" name="remember" value="1" class="checkbox checkbox-primary checkbox-sm">
                         {# Sin `label-text`: era el texto de la v4 y la 5 la eliminó;
                            el formato de la fila lo da el `label` de afuera. #}
-                        <span>Recordarme 30 días</span>
+                        <span>{{ t('login.remember') }}</span>
                     </label>
                     {% include 'components/ui/button.twig' with {
-                        label: 'Entrar',
+                        label: t('login.submit'),
                         type: 'submit',
                         icon: 'arrow-right',
                         icon_position: 'end',
@@ -4201,7 +4276,7 @@ Y el header (`layouts/parts/topbar.twig`) no mira `active`: todo sale de `breadc
 
 ### 15.3 Traducción del cromo: catálogos, `t()`, `Trans::t()` y locale por request
 
-Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— no se escriben a mano en los templates: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale.
+Los textos del cromo —paginador, modal, la pista de «opcional» del campo, los nombres accesibles del header y la sidebar, el pie del shell— y los de las páginas propias —portada, login, páginas de error, flashes de auth y mensajes del validador— no se escriben a mano en los templates ni en el PHP: salen de catálogos en `lang/`. El español renderizado es exactamente el mismo que antes de la migración, carácter por carácter; lo único que cambió es de dónde sale. El inventario de qué está externalizado y qué falta está en §15.3.2.
 
 Esto es lo que hay; después, cómo se usa cuando agregás algo tuyo.
 
@@ -4261,7 +4336,7 @@ $translator->setLocale($locale);
 
 **Caso API (sin sesión).** El middleware mira `session_status()`: si no hay sesión activa no la abre ni intenta guardar nada, sólo negocia con `Accept-Language`. Una request con `Accept-Language: en` sobre un pipeline sin `SessionMiddleware` sale en inglés; con `?lang=en` también, pero sin persistencia (no hay dónde recordarla). Eso es lo que permite montar una API JSON sin arrastrar la cookie de sesión.
 
-**`Vary: Accept-Language`.** Toda respuesta que pasa por el middleware lleva esa cabecera, para que ningún caché intermedio guarde la versión en un idioma y la sirva a todos. Límite honesto: las páginas de error las genera el error middleware, que envuelve al de locale, así que no llevan `Vary`; su contenido sigue en español fijo (ver «Límites honestos»).
+**`Vary: Accept-Language`.** Toda respuesta que pasa por el middleware lleva esa cabecera, para que ningún caché intermedio guarde la versión en un idioma y la sirva a todos. Las páginas de error también la llevan, pero no vienen de ahí: las arma el error middleware, que envuelve al de locale, y esa respuesta no hereda la del middleware. El handler resuelve el locale otra vez con la misma función (`LocaleMiddleware::apply()`, misma precedencia) para el `lang` y el mensaje, y agrega el `Vary` a mano. Si la excepción es tan temprana que no hay sesión ni `Accept-Language` utilizable, el resolutor cae en `APP_LOCALE`: la página de error sale en el idioma por defecto, nunca en el que dejó la petición anterior.
 
 **Globals de Twig.** `app_locale` y `locale_names` se registran al construir Twig; `app_locale` y `current_path` los **actualiza** el middleware en cada request. La distinción no es cosmética: Twig permite agregar un global nuevo sólo antes del primer render; después, agregar uno inexistente lanza `LogicException` («the extensions have already been initialized») y actualizar uno existente es lo soportado. Por eso `current_path` (la página actual, para que el selector vuelva a ella) también se registra en el contenedor.
 
@@ -4332,9 +4407,45 @@ Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` pa
 
 **Límites honestos.**
 
-- **Falta externalizar** los textos de los demos (`framework/scaffolds/*`), los flashes de los controladores (`AuthController` incluido), los mensajes del validador, `resources/views/pages/*`, `error.twig` y el JS del demo de contacts. La infraestructura ya está: `Trans::t()` cubre el PHP y el selector cubre la elección del visitante, así que cada superficie es reemplazar literales por claves, sin inventar mecanismo. Los avisos que escribe el Guard cuando falla el CSRF (`Flash::set('error', 'Tu sesión expiró…')`) y los de `RequireAuthMiddleware` también están en español fijo.
-- **La página de error queda fuera del locale por request.** Es autónoma (no usa el layout) y su `lang="es"` y sus textos están fijos: el error middleware la genera por fuera del `LocaleMiddleware`. Traducirla es parte de la deuda de `error.twig`, no del resolutor.
+- **El header pinta las migas tal cual: el TEXTO se arma al construir la miga.** `Controller::breadcrumbs()`/`breadcrumbsFor()` traducen la raíz con `Trans::t('nav.home')` y cada controlador pasa su miga ya traducida (`Trans::t('nav.tasks')`); `layouts/parts/topbar.twig` sólo imprime `crumb.label`. Poner una CLAVE en `breadcrumbs` imprimiría `nav.home` en el header: eso se hace sólo donde el menú se arma una vez por proceso (sidebar y portada), no acá.
+- **El texto de un JS de demo no vive en el JS.** Un asset estático no puede traducir: si un JS de scaffold arma texto visible, el servidor le manda el diccionario ya resuelto (el demo de contacts usa `data-strings` con JSON). Incrustar cadenas en el archivo lo deja en un solo idioma.
 - **El formato de fechas y números no es por locale**, y no lo va a ser sin `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, y los nombres de mes y día que vienen con el idioma). La extensión no está garantizada en el PHP de Termux: mientras tanto, el formato queda en el `php.ini` del despliegue y las fechas se muestran en un solo formato.
+
+### 15.3.2 Qué superficies están externalizadas (y cuáles no)
+
+Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en `lang/es.php` y `lang/en.php` (217 claves cada uno, con las mismas claves en el mismo orden).
+
+| Superficie | Dónde | Claves |
+|---|---|---|
+| Cromo del shell: header, sidebar, migas, pie, toasts | `resources/views/layouts/**` | `layout.*`, `footer.*`, `toast.close`, `app.name` |
+| Paginador, modal y pista de campo | `components/pagination`, `components/ui/modal.twig`, `components/form/field.twig` | `pagination.*`, `modal.close`, `field.optional` |
+| Portada | `resources/views/pages/home.twig` | `home.*` (57 claves) |
+| Login | `resources/views/pages/auth/login.twig` | `login.*` |
+| Páginas de error y partial de HTMX | `resources/views/pages/errors/**` | `error.*` |
+| Flashes del controlador de auth | `app/Http/Controllers/Auth/AuthController.php` | `auth.invalid_credentials`, `auth.logged_out` |
+| Aviso del Guard cuando falla el CSRF | `config/container.php` | `auth.csrf_reload` (HTMX), `auth.csrf_login` (flash) |
+| Mensajes del validador | `framework/Validation/Validator.php` | `validation.*` |
+| Página de error con locale | `config/middleware.php` + `pages/errors/**` | `error.title`, `error.badge`, `error.*` |
+| Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.*` (4 claves) |
+| Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why` |
+| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` (28 claves) |
+| Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` (46 claves) |
+| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` (24 claves) |
+| Puerta de login | `framework/Http/Middleware/RequireAuthMiddleware.php` | `auth.login_required` |
+
+**Cómo recibe sus textos un JS de demo.** `contacts-tabulator.js` no tiene una sola cadena de interfaz: `ContactController::tableStrings()` arma el diccionario del locale activo con `Trans::t()`, `pages/contacts/index.twig` lo publica en `data-strings` de un nodo oculto (`#contacts-table-i18n`) y el script hace `JSON.parse(...dataset.strings)`. El `data-*` no es casual: el parser decodifica las entidades del atributo, así que el JSON llega intacto y la vista no necesita `|raw` (un `<script type="application/json">` no decodifica nada y obligaría a abrirlo). Si falta el nodo, la tabla no se inicializa —misma regla que la URL del endpoint—: mejor ninguna tabla que una con nombres accesibles vacíos.
+
+**El demo `notes` es inglés en los dos catálogos.** Nace así por diseño (L16 de `odd/tasks/demo-conventions.md`: columnas, datos, etiquetas, diálogos y flashes en inglés), así que sus claves de interfaz dicen lo mismo en `es.php` y `en.php` y el demo no cambia de idioma al cambiar el locale: lo externalizado es de dónde sale el texto. Traducirlo es una decisión de producto de una línea por clave en `lang/es.php`, no un cambio de mecanismo. Sus metadatos de módulo sí son texto de la portada y sí se traducen.
+
+**La miga raíz también sale del catálogo.** `Controller::breadcrumbs()`/`breadcrumbsFor()` (`framework/Http/Controller.php`) arman el primer crumb con `Trans::t('nav.home')` y `layouts/parts/topbar.twig` repite esa clave en su fallback de una sola miga. Acá va el TEXTO y no la clave: el header imprime `crumb.label` tal cual, y el controlador corre en cada petición con el locale ya resuelto. Es la contracara del menú: ver la nota siguiente.
+
+**La navegación se traduce al render, no al armar el menú.** `navigation_items` y `demo_modules` los arma el contenedor una vez por proceso y guardan CLAVES (`nav.tasks`, `tasks.summary`); el sidebar y la portada las resuelven con `t()` en cada render. Resolverlas en el array dejaría el menú en el idioma del primer visitante. En `routes/web.php` es al revés y por eso está bien: el closure corre en cada petición, así que ahí la miga se arma con `Trans::t('nav.home')` — el header pinta el texto recibido.
+
+Las dos superficies de error no se quedan en `t()`: la página de error es autónoma (no usa el layout), así que su `lang` sale del global `app_locale` que el handler **actualiza** antes de renderizar, y la respuesta lleva `Vary: Accept-Language`. El mensaje sale del código de estado (`match`), nunca del texto de la excepción: el del vendor viene en inglés y puede arrastrar detalles internos.
+
+**Qué queda pendiente (y por qué).**
+
+- **Fechas y números**, que piden `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, nombres de mes y día). La extensión no está garantizada en el PHP de Termux; mientras tanto el formato queda en el `php.ini` del despliegue. Es la única superficie del frontend que sigue fuera del catálogo.
 
 **El código.** La extensión de Twig, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):
 
@@ -4502,24 +4613,26 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 ```twig
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Mi App{% endblock %}
+{% block title %}{{ t('app.name') }}{% endblock %}
 
 {% block content %}
     <section class="card overflow-hidden border border-base-300 bg-base-100" aria-labelledby="home-title">
-        {# Header principal / Hero #}
+        {# Header principal / Hero. Todo el texto visible sale del catálogo: la
+           portada es la primera pantalla que se ve al cambiar de idioma, así que
+           un literal acá deja media página en el idioma anterior. #}
         <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
                     {% include 'components/ui/logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
-                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
-                        <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
+                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">{{ t('app.name') }}</h1>
+                        <p class="text-sm font-medium opacity-70">{{ t('home.tagline') }}</p>
                     </div>
                 </div>
                 {% if not user_id %}
                     <div>
                         {% include 'components/ui/button.twig' with {
-                            label: 'Ingresar',
+                            label: t('home.sign_in'),
                             href: url('/login'),
                             icon: 'arrow-right',
                             icon_position: 'end'
@@ -4531,7 +4644,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         <div class="flex flex-wrap gap-2">
                             {% for module in instalados %}
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Abrir ' ~ (module.label|lower),
+                                    label: t('home.open_demo', {'%name%': t(module.label)|lower}),
                                     href: url(module.href),
                                     icon: 'arrow-right',
                                     icon_position: 'end'
@@ -4543,78 +4656,77 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             </div>
 
             <p class="text-base sm:text-lg leading-relaxed opacity-80 w-full">
-                Esqueleto optimizado para desarrollo ágil y asistido por IA en entornos acotados
-                (Windows, Linux o Termux 32 bits offline). Arquitectura limpia con renderizado en el servidor,
-                reactividad ligera sin sobrecarga de SPA, y recursos frontend servidos de forma local sin Node,
-                sin bundlers ni dependencias de CDNs externas.
+                {{ t('home.intro') }}
             </p>
         </div>
 
         <div class="border-t border-base-300 bg-base-300 p-6 sm:p-8 lg:px-10 lg:py-7">
-            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">Características operativas</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">{{ t('home.features.title') }}</h2>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.ssr.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.ssr.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.node.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.node.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.assets.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.assets.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.offline.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.offline.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.nobuild.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.nobuild.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.scaffolds.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.scaffolds.body') }}</p>
                 </div>
             </div>
         </div>
 
         {# Grilla principal: Stack a la izquierda, Módulos/Demos a la derecha #}
         <div class="grid border-t border-base-300 lg:grid-cols-5">
-            {# Columna izquierda: Stack técnico #}
+            {# Columna izquierda: Stack técnico. Los nombres de las tecnologías
+               son nombres propios y quedan en el template; se traduce la línea
+               que explica para qué está cada una. #}
             <div class="p-6 sm:p-8 lg:col-span-3 lg:p-10">
                 <div class="mb-6">
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
                         </span>
-                        Arquitectura y stack
+                        {{ t('home.stack.title') }}
                     </h2>
-                    <p class="mt-1 text-xs opacity-60">Tecnologías desacopladas, estándar PSR y listas para producción sin pasos de compilación.</p>
+                    <p class="mt-1 text-xs opacity-60">{{ t('home.stack.subtitle') }}</p>
                 </div>
 
                 <div class="grid gap-6 sm:grid-cols-2 lg:gap-8">
@@ -4623,36 +4735,36 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Núcleo & Backend
+                            {{ t('home.stack.backend') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-backend">
                             <div>
                                 <dt class="text-sm font-semibold">PHP 8.4+</dt>
-                                <dd class="text-xs opacity-70">Lenguaje base y runtime moderno</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.php') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Slim 4</dt>
-                                <dd class="text-xs opacity-70">Router HTTP, middlewares y pipeline PSR-7/15</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.slim') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">PHP-DI</dt>
-                                <dd class="text-xs opacity-70">Contenedor de inyección de dependencias PSR-11</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpdi') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">slim/csrf</dt>
-                                <dd class="text-xs opacity-70">Protección contra falsificación de peticiones</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.csrf') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">phpdotenv</dt>
-                                <dd class="text-xs opacity-70">Configuración centralizada por variables de entorno</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.dotenv') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">respect/validation</dt>
-                                <dd class="text-xs opacity-70">Reglas declarativas para validación de entradas</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.respect') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Monolog</dt>
-                                <dd class="text-xs opacity-70">Registro estructurado de eventos del sistema</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.monolog') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -4662,28 +4774,28 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Frontend & Reactividad
+                            {{ t('home.stack.frontend') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-frontend">
                             <div>
                                 <dt class="text-sm font-semibold">Twig</dt>
-                                <dd class="text-xs opacity-70">Plantillas server-rendered vía slim/twig-view</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.twig') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Tailwind CSS</dt>
-                                <dd class="text-xs opacity-70">Estilos utilitarios ejecutados localmente sin Node</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.tailwind') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">daisyUI 5</dt>
-                                <dd class="text-xs opacity-70">Componentes de interfaz vendorizados y temables</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.daisyui') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">HTMX</dt>
-                                <dd class="text-xs opacity-70">Navegación reactiva y swaps HTML sin SPA</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.htmx') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Alpine.js</dt>
-                                <dd class="text-xs opacity-70">Control de estado interactivo en el cliente</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.alpine') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -4693,20 +4805,20 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Datos & Persistencia
+                            {{ t('home.stack.data') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-datos">
                             <div>
                                 <dt class="text-sm font-semibold">Eloquent ORM</dt>
-                                <dd class="text-xs opacity-70">Mapeo objeto-relacional (illuminate/database)</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.eloquent') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">SQLite</dt>
-                                <dd class="text-xs opacity-70">Base de datos embebida de cero mantenimiento</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.sqlite') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Phinx</dt>
-                                <dd class="text-xs opacity-70">Migraciones idempotentes y versionado de esquema</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phinx') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -4716,40 +4828,44 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Calidad & Herramientas
+                            {{ t('home.stack.quality') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-desarrollo">
                             <div>
                                 <dt class="text-sm font-semibold">PHPUnit</dt>
-                                <dd class="text-xs opacity-70">Pruebas unitarias, funcionales y de seguridad</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpunit') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">PHPStan</dt>
-                                <dd class="text-xs opacity-70">Análisis estático de tipos nivel 5 (PHAR)</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpstan') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Whoops</dt>
-                                <dd class="text-xs opacity-70">Gestor de errores detallado para desarrollo</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.whoops') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Composer</dt>
-                                <dd class="text-xs opacity-70">Gestor de paquetes y scripts de verificación</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.composer') }}</dd>
                             </div>
                         </dl>
                     </div>
                 </div>
             </div>
 
-            {# Columna derecha: Demos, Scaffolds y Requisitos #}
+            {# Columna derecha: Demos, Scaffolds y Requisitos. El nombre y el
+               resumen de cada demo vienen de los metadatos del scaffold
+               (`label`, `summary`, `why`), que son CLAVES del catálogo: se
+               traducen acá, en el render, porque el array de módulos se arma
+               una vez por proceso y el locale es por request. #}
             <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
                         </span>
-                        Módulos y demos
+                        {{ t('home.modules.title') }}
                     </h2>
-                    <p class="mt-1 text-xs opacity-60">Scaffolds opcionales para explorar el stack o usar como base.</p>
+                    <p class="mt-1 text-xs opacity-60">{{ t('home.modules.subtitle') }}</p>
                 </div>
 
                 {% for module in demo_modules %}
@@ -4760,24 +4876,24 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                                     <span class="opacity-70" aria-hidden="true">
                                         {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
-                                    Demo de {{ module.label|lower }}
+                                    {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
                                 </h3>
-                                <p class="mt-1 text-xs opacity-70">{{ module.summary }}</p>
-                                {% if module.why|default('') %}
-                                    <p class="mt-1 text-xs opacity-50">{{ module.why }}</p>
+                                <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
+                                {% if module.why is defined and module.why %}
+                                    <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
                                 {% endif %}
                             </div>
                             {% if module.installed %}
-                                <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                                <span class="badge badge-success badge-sm shrink-0">{{ t('home.demo.installed') }}</span>
                             {% else %}
-                                <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                                <span class="badge badge-ghost badge-sm shrink-0">{{ t('home.demo.optional') }}</span>
                             {% endif %}
                         </div>
 
                         {% if module.installed %}
                             <div class="pt-1">
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Abrir ' ~ (module.label|lower),
+                                    label: t('home.open_demo', {'%name%': t(module.label)|lower}),
                                     href: url(module.href),
                                     icon: 'arrow-right',
                                     icon_position: 'end',
@@ -4786,12 +4902,12 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                                 } only %}
                             </div>
                             <div class="border-t border-base-300 pt-3">
-                                <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                                <p class="mb-1 text-xs opacity-60">{{ t('home.demo.uninstall') }}</p>
                                 <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:remove</code>
                             </div>
                         {% else %}
                             <div>
-                                <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                                <p class="mb-1 text-xs opacity-60">{{ t('home.demo.install') }}</p>
                                 <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:install</code>
                             </div>
                         {% endif %}
@@ -4803,33 +4919,33 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         <span class="inline-flex shrink-0" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
                         </span>
-                        Requisitos y compatibilidad
+                        {{ t('home.requirements.title') }}
                     </h3>
                     <dl class="space-y-2 text-xs" aria-labelledby="requirements-title">
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Entornos</dt>
-                            <dd class="text-right opacity-70">Termux (ARM 32/64b), Windows, Linux, Mac</dd>
+                            <dt class="font-medium">{{ t('home.requirements.envs') }}</dt>
+                            <dd class="text-right opacity-70">{{ t('home.requirements.envs_value') }}</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">PHP</dt>
+                            <dt class="font-medium">{{ t('home.requirements.php') }}</dt>
                             <dd class="opacity-70">8.4.1+</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Extensiones</dt>
+                            <dt class="font-medium">{{ t('home.requirements.extensions') }}</dt>
                             <dd class="opacity-70">pdo_sqlite, sqlite3, mbstring</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Composer</dt>
+                            <dt class="font-medium">{{ t('home.requirements.composer') }}</dt>
                             <dd class="opacity-70">2.x</dd>
                         </div>
                         <div class="flex justify-between gap-2 pb-0.5">
-                            <dt class="font-medium">Navegadores</dt>
+                            <dt class="font-medium">{{ t('home.requirements.browsers') }}</dt>
                             <dd class="text-right opacity-70">
                                 <span>Chrome 111+</span>, <span>Safari 16.4+</span>, <span>Firefox 128+</span>
                             </dd>
                         </div>
                     </dl>
-                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">Sin Node.js, sin paso de build ni CDN en runtime.</p>
+                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">{{ t('home.requirements.note') }}</p>
                 </div>
             </div>
         </div>
@@ -4893,7 +5009,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
    Para tu entidad, copia este archivo y cambia el formulario y el panel. #}
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Tareas{% endblock %}
+{% block title %}{{ t('tasks.title') }}{% endblock %}
 
 {# `_styles.twig` viaja con el demo: si se desinstala, el archivo se borra con el
    resto del scaffold y el shell no queda con reglas huérfanas. #}
@@ -4907,10 +5023,10 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                     <span class="opacity-60" aria-hidden="true">
                         {% include 'components/ui/icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
                     </span>
-                    Mis tareas
+                    {{ t('tasks.heading') }}
                 </h1>
                 <p class="mt-1 text-sm opacity-70">
-                    CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
+                    {{ t('tasks.subtitle') }}
                 </p>
             </div>
 
@@ -4938,8 +5054,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
         {% include 'components/form/field.twig' with {
             id: 'task-title-new',
             name: 'title',
-            label: 'Nueva tarea',
-            placeholder: 'Nueva tarea',
+            label: t('tasks.new'),
+            placeholder: t('tasks.new'),
             required: true,
             maxlength: 120,
             field_class: 'contents',
@@ -4947,7 +5063,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             input_class: 'input join-item w-full'
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: 'Agregar',
+            label: t('tasks.add'),
             type: 'submit',
             icon: 'plus',
             extra_class: 'join-item gap-2'
@@ -5011,7 +5127,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#tareas-panel',
-        label: 'tareas'
+        label: t('tasks.pagination_label')
     } %}
 </div>
 ```
@@ -5042,7 +5158,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
    devolverlo. Sale del id de la tarea, lo único estable entre un render y otro. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
-    empty: 'No hay tareas todavía.',
+    empty: t('tasks.empty'),
     list_class: 'space-y-2 task-list'
 } %}
     {% block row %}
@@ -5068,7 +5184,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
-                        label: 'Título de la tarea',
+                        label: t('tasks.field_title'),
                         value: editing_title is defined and editing_title is not null ? editing_title : task.title,
                         required: true,
                         maxlength: 120,
@@ -5080,7 +5196,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         error_class: 'text-error text-sm w-full'
                     } only %}
                     {% include 'components/ui/button.twig' with {
-                        label: 'Guardar',
+                        label: t('tasks.save'),
                         type: 'submit',
                         icon: 'check',
                         icon_class: 'h-3.5 w-3.5',
@@ -5090,7 +5206,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                     } only %}
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     {% include 'components/ui/button.twig' with {
-                        label: 'Cancelar',
+                        label: t('tasks.cancel'),
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'x',
@@ -5116,8 +5232,10 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                        hover. `aria-label` lleva el texto completo para el lector y el
                        recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
-                        ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
-                        : 'Pendiente' %}
+                        ? (task.completed_at
+                            ? t('tasks.status_done_at', {'%date%': task.completed_at|date('d/m/Y H:i')})
+                            : t('tasks.status_done'))
+                        : t('tasks.status_pending') %}
                     {# `-mt-0.5` centra el icono de 20px sobre el primer renglón
                        (24px). Sin esto quedaría 2px por debajo del centro óptico. #}
                     {# Cierre al perder el foco: `focusout` burbujea, así que un handler
@@ -5175,8 +5293,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         size: 'sm',
                         icon: task.status == 'completado' ? 'rotate' : 'check',
                         extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
-                        aria_label: task.status == 'completado' ? 'Desmarcar' : 'Completar',
-                        title: task.status == 'completado' ? 'Desmarcar' : 'Completar',
+                        aria_label: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
+                        title: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
                         hx_post: url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
@@ -5189,8 +5307,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         size: 'sm',
                         icon: 'pencil',
                         extra_class: 'btn-square size-9',
-                        aria_label: 'Editar',
-                        title: 'Editar',
+                        aria_label: t('tasks.edit'),
+                        title: t('tasks.edit'),
                         hx_get: url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
@@ -5202,8 +5320,8 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         size: 'sm',
                         icon: 'trash',
                         extra_class: 'btn-square size-9 icon-error',
-                        aria_label: 'Eliminar',
-                        title: 'Eliminar',
+                        aria_label: t('tasks.delete'),
+                        title: t('tasks.delete'),
                         data_focus_key: 'delete-' ~ task.id,
                         data_modal_open: 'task-delete-' ~ task.id
                     } only %}
@@ -5214,13 +5332,13 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                el dialog sale del DOM; en un 400 (CSRF) no hay swap y avisa el toast. #}
             {% embed 'components/ui/modal.twig' with {
                 id: 'task-delete-' ~ task.id,
-                title: '¿Borrar esta tarea?'
+                title: t('tasks.delete_title')
             } %}
                 {% block body %}
                     <p class="py-3 opacity-70">{{ task.title }}</p>
                     <div class="modal-action">
                         {% include 'components/ui/button.twig' with {
-                            label: 'Cancelar',
+                            label: t('tasks.cancel'),
                             variant: 'ghost',
                             icon: 'x',
                             type: 'button',
@@ -5228,7 +5346,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             data_modal_close: true
                         } only %}
                         {% include 'components/ui/button.twig' with {
-                            label: 'Borrar',
+                            label: t('tasks.delete_confirm'),
                             variant: 'error',
                             icon: 'trash',
                             extra_class: 'gap-1.5',
@@ -6053,13 +6171,47 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use Framework\I18n\TranslatorFactory;
 use Framework\Validation\Validator;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\Translation\LocaleAwareInterface;
+use Tests\Support\AppFactory;
 
 final class ValidatorTest extends TestCase
 {
+    /**
+     * Los mensajes salen del catálogo del locale activo, que en esta suite es
+     * estado del PROCESO: el traductor es un singleton y otro test puede
+     * haberlo dejado en inglés (`HttpTestCase::tearDown()` limpia la sesión,
+     * no el traductor). Se fija `es` acá para que el español esperado no
+     * dependa del orden de ejecución, y se devuelve al default del entorno al
+     * terminar.
+     *
+     * Se cambia el locale del traductor del contenedor —el que `Trans` tiene
+     * registrado desde `tests/bootstrap.php`— y no se registra uno nuevo: un
+     * segundo traductor dejaría a `Trans` apuntando a otro objeto y el locale
+     * por request de los tests HTTP siguientes dejaría de aplicarle.
+     */
+    protected function setUp(): void
+    {
+        self::localeAware()->setLocale('es');
+    }
+
+    protected function tearDown(): void
+    {
+        self::localeAware()->setLocale(TranslatorFactory::defaultLocale());
+    }
+
+    private static function localeAware(): LocaleAwareInterface
+    {
+        $traductor = AppFactory::make()->getContainer()->get(LocaleAwareInterface::class);
+
+        self::assertInstanceOf(LocaleAwareInterface::class, $traductor);
+
+        return $traductor;
+    }
     /** @return array<string, array{0: array, 1: array, 2: bool}> */
     public static function cases(): array
     {
@@ -6172,6 +6324,29 @@ final class ValidatorTest extends TestCase
         }
 
         self::fail('Un "' . $rule . '" sin número validó en silencio.');
+    }
+
+    /**
+     * El mensaje sale del catálogo del locale ACTIVO, y `%max%`/`%min%` se
+     * interpolan con el número de la regla: una traducción natural no puede
+     * depender de la posición de un `%d` dentro de la frase.
+     *
+     * Antes el validador devolvía castellano fijo y `sprintf('%d')`: con
+     * `APP_LOCALE=en` el aviso seguía en español, que es justo lo que se veía
+     * en el formulario de login.
+     */
+    public function test_los_mensajes_salen_en_el_idioma_activo_con_sus_parametros(): void
+    {
+        self::localeAware()->setLocale('en');
+
+        $largo = Validator::make(['title' => str_repeat('a', 51)], ['title' => 'max:50']);
+        self::assertSame(['title' => 'Must not be longer than 50 characters.'], $largo->errors());
+
+        $corto = Validator::make(['password' => 'corta'], ['password' => 'min:8']);
+        self::assertSame(['password' => 'Must be at least 8 characters long.'], $corto->errors());
+
+        $sinEmail = Validator::make(['email' => ''], ['email' => 'required']);
+        self::assertSame(['email' => 'This field is required.'], $sinEmail->errors());
     }
 
     /**

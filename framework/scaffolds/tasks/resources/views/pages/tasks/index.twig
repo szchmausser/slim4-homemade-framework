@@ -7,7 +7,7 @@
    Para tu entidad, copia este archivo y cambia el formulario y el panel. #}
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Tareas{% endblock %}
+{% block title %}{{ t('tasks.title') }}{% endblock %}
 
 {# `_styles.twig` viaja con el demo: si se desinstala, el archivo se borra con el
    resto del scaffold y el shell no queda con reglas huérfanas. #}
@@ -21,10 +21,10 @@
                     <span class="opacity-60" aria-hidden="true">
                         {% include 'components/ui/icon.twig' with {name: 'tasks', class: 'h-5 w-5'} %}
                     </span>
-                    Mis tareas
+                    {{ t('tasks.heading') }}
                 </h1>
                 <p class="mt-1 text-sm opacity-70">
-                    CRUD de tareas con HTMX, edición inline y paginación sobre SQLite.
+                    {{ t('tasks.subtitle') }}
                 </p>
             </div>
 
@@ -52,8 +52,8 @@
         {% include 'components/form/field.twig' with {
             id: 'task-title-new',
             name: 'title',
-            label: 'Nueva tarea',
-            placeholder: 'Nueva tarea',
+            label: t('tasks.new'),
+            placeholder: t('tasks.new'),
             required: true,
             maxlength: 120,
             field_class: 'contents',
@@ -61,7 +61,7 @@
             input_class: 'input join-item w-full'
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: 'Agregar',
+            label: t('tasks.add'),
             type: 'submit',
             icon: 'plus',
             extra_class: 'join-item gap-2'

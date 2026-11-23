@@ -82,6 +82,116 @@ final class I18nTest extends HttpTestCase
         'pagination.apply'       => 'Aplicar',
     ];
 
+    /**
+     * Español de las páginas propias, los flashes de auth, el validador y el
+     * aviso de CSRF, tal como estaba escrito a mano antes de externalizarlo.
+     *
+     * Es la referencia de S7 para las superficies de esta unidad: si alguien
+     * "mejora" una cadena en `lang/es.php`, el render cambia para el usuario y
+     * este test lo frena. Los textos largos van en una sola línea —en el
+     * catálogo lo están—: el HTML anterior los partía por indentación, y lo que
+     * se compara acá es el texto, no los saltos de línea del template.
+     *
+     * Tiene que cubrir TODO el namespace de cada prefijo (`home.`, `login.`,
+     * `error.`, `validation.`, `auth.`): una clave nueva que no entre acá deja
+     * su español sin protección y el test sigue verde mientras el texto cambia.
+     */
+    private const ESPANOL_PAGINAS = [
+        // Portada.
+        'home.sign_in'                 => 'Ingresar',
+        'home.open_demo'               => 'Abrir %name%',
+        'home.tagline'                 => 'Framework PHP Fullstack con renderizado en el servidor',
+        'home.intro'                   => 'Esqueleto optimizado para desarrollo ágil y asistido por IA en entornos acotados (Windows, Linux o Termux 32 bits offline). Arquitectura limpia con renderizado en el servidor, reactividad ligera sin sobrecarga de SPA, y recursos frontend servidos de forma local sin Node, sin bundlers ni dependencias de CDNs externas.',
+        'home.features.title'          => 'Características operativas',
+        'home.feature.ssr.title'       => 'Renderizado en servidor',
+        'home.feature.ssr.body'        => 'Plantillas Twig resueltas en el backend sin sobrecarga de SPA.',
+        'home.feature.node.title'      => 'Sin toolchain Node',
+        'home.feature.node.body'       => 'Cero dependencias npm, sin package.json ni compiladores JS.',
+        'home.feature.assets.title'    => 'Recursos locales sin CDN',
+        'home.feature.assets.body'     => 'Tailwind y daisyUI 5 vendorizados y servidos con SRI.',
+        'home.feature.offline.title'   => 'Operativo 100% offline',
+        'home.feature.offline.body'    => 'Funciona sin red, ideal para Termux 32 bits y entornos aislados.',
+        'home.feature.nobuild.title'   => 'Cero pasos de compilación',
+        'home.feature.nobuild.body'    => 'Edita plantillas Twig o PHP y recarga de inmediato.',
+        'home.feature.scaffolds.title' => 'Scaffolds desmontables',
+        'home.feature.scaffolds.body'  => 'Demos opcionales instalables o removibles sin dejar residuos.',
+        'home.stack.title'             => 'Arquitectura y stack',
+        'home.stack.subtitle'          => 'Tecnologías desacopladas, estándar PSR y listas para producción sin pasos de compilación.',
+        'home.stack.backend'           => 'Núcleo & Backend',
+        'home.stack.frontend'          => 'Frontend & Reactividad',
+        'home.stack.data'              => 'Datos & Persistencia',
+        'home.stack.quality'           => 'Calidad & Herramientas',
+        'home.tech.php'                => 'Lenguaje base y runtime moderno',
+        'home.tech.slim'               => 'Router HTTP, middlewares y pipeline PSR-7/15',
+        'home.tech.phpdi'              => 'Contenedor de inyección de dependencias PSR-11',
+        'home.tech.csrf'               => 'Protección contra falsificación de peticiones',
+        'home.tech.dotenv'             => 'Configuración centralizada por variables de entorno',
+        'home.tech.respect'            => 'Reglas declarativas para validación de entradas',
+        'home.tech.monolog'            => 'Registro estructurado de eventos del sistema',
+        'home.tech.twig'               => 'Plantillas server-rendered vía slim/twig-view',
+        'home.tech.tailwind'           => 'Estilos utilitarios ejecutados localmente sin Node',
+        'home.tech.daisyui'            => 'Componentes de interfaz vendorizados y temables',
+        'home.tech.htmx'               => 'Navegación reactiva y swaps HTML sin SPA',
+        'home.tech.alpine'             => 'Control de estado interactivo en el cliente',
+        'home.tech.eloquent'           => 'Mapeo objeto-relacional (illuminate/database)',
+        'home.tech.sqlite'             => 'Base de datos embebida de cero mantenimiento',
+        'home.tech.phinx'              => 'Migraciones idempotentes y versionado de esquema',
+        'home.tech.phpunit'            => 'Pruebas unitarias, funcionales y de seguridad',
+        'home.tech.phpstan'            => 'Análisis estático de tipos nivel 5 (PHAR)',
+        'home.tech.whoops'             => 'Gestor de errores detallado para desarrollo',
+        'home.tech.composer'           => 'Gestor de paquetes y scripts de verificación',
+        'home.modules.title'           => 'Módulos y demos',
+        'home.modules.subtitle'        => 'Scaffolds opcionales para explorar el stack o usar como base.',
+        'home.demo.title'              => 'Demo de %name%',
+        'home.demo.installed'          => 'Instalado',
+        'home.demo.optional'           => 'Opcional',
+        'home.demo.uninstall'          => 'Desinstalar módulo:',
+        'home.demo.install'            => 'Comando de instalación:',
+        'home.requirements.title'      => 'Requisitos y compatibilidad',
+        'home.requirements.envs'       => 'Entornos',
+        'home.requirements.envs_value' => 'Termux (ARM 32/64b), Windows, Linux, Mac',
+        'home.requirements.php'        => 'PHP',
+        'home.requirements.extensions' => 'Extensiones',
+        'home.requirements.composer'   => 'Composer',
+        'home.requirements.browsers'   => 'Navegadores',
+        'home.requirements.note'       => 'Sin Node.js, sin paso de build ni CDN en runtime.',
+
+        // Login.
+        'login.title'      => 'Acceder',
+        'login.subtitle'   => 'Ingresa con tu email y clave para continuar.',
+        'login.email'      => 'Email',
+        'login.email_hint' => 'tu@ejemplo.com',
+        'login.password'   => 'Clave',
+        'login.remember'   => 'Recordarme 30 días',
+        'login.submit'     => 'Entrar',
+
+        // Páginas de error (autónomas y el partial de HTMX).
+        'error.title'              => '%code% · %app%',
+        'error.badge'              => 'Error %code%',
+        'error.back_home'          => 'Volver al inicio',
+        'error.not_found'          => 'No encontramos esa página.',
+        'error.forbidden'          => 'No tienes permiso para ver esto.',
+        'error.method_not_allowed' => 'Ese método no está permitido.',
+        'error.bad_request'        => 'La petición no es válida.',
+        'error.server'             => 'Algo salió mal de nuestro lado.',
+
+        // Validador: mensajes por campo.
+        'validation.required' => 'Este campo es obligatorio.',
+        'validation.string'   => 'Este campo debe ser texto.',
+        'validation.email'    => 'Este campo debe ser un email válido.',
+        'validation.numeric'  => 'Este campo debe ser un número.',
+        'validation.max'      => 'No puede superar los %max% caracteres.',
+        'validation.min'      => 'Debe tener al menos %min% caracteres.',
+
+        // Flashes de auth, aviso del Guard cuando falla el CSRF y aviso de la
+        // puerta de login (`RequireAuthMiddleware`).
+        'auth.invalid_credentials' => 'Credenciales inválidas.',
+        'auth.logged_out'          => 'Sesión cerrada.',
+        'auth.login_required'      => 'Inicia sesión para continuar.',
+        'auth.csrf_reload'         => 'Tu sesión expiró. Recarga la página.',
+        'auth.csrf_login'          => 'Tu sesión expiró. Vuelve a iniciar sesión.',
+    ];
+
     private static function twig(): Environment
     {
         return self::app()->getContainer()->get(Twig::class)->getEnvironment();
@@ -578,6 +688,240 @@ final class I18nTest extends HttpTestCase
             $nombres,
             'Los nombres accesibles que evalúa Alpine no son los del catálogo.'
         );
+    }
+
+    /**
+     * S7: el catálogo en español de las páginas, los flashes y el validador.
+     *
+     * El español de estas superficies no cambia ni un carácter: el valor del
+     * catálogo es el texto que el usuario ya veía, no una versión mejorada.
+     */
+    public function test_el_catalogo_de_las_paginas_propias_conserva_el_espanol(): void
+    {
+        $es = require self::LANG . '/es.php';
+
+        foreach (self::ESPANOL_PAGINAS as $clave => $texto) {
+            self::assertArrayHasKey($clave, $es, "Falta la clave `{$clave}` en lang/es.php.");
+            self::assertSame($texto, $es[$clave], "El texto de `{$clave}` cambió para el usuario.");
+        }
+    }
+
+    /**
+     * S7: la referencia no se queda corta cuando una superficie suma una clave.
+     *
+     * Mismo guard que `test_la_referencia_del_espanol_cubre_todas_las_claves_del_cromo`,
+     * un prefijo por superficie: `home.`, `login.`, `error.`, `validation.` y
+     * `auth.`. Una clave nueva que no entre en la referencia dejaría su texto
+     * sin proteger.
+     */
+    public function test_la_referencia_cubre_todas_las_claves_de_las_paginas_propias(): void
+    {
+        $es = require self::LANG . '/es.php';
+
+        $prefijos = ['home.', 'login.', 'error.', 'validation.', 'auth.'];
+        $dePaginas = array_values(array_filter(
+            array_keys($es),
+            static function (string $clave) use ($prefijos): bool {
+                foreach ($prefijos as $prefijo) {
+                    if (str_starts_with($clave, $prefijo)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        ));
+
+        self::assertNotSame([], $dePaginas, 'lang/es.php no tiene claves de las páginas propias.');
+
+        $faltan = array_values(array_diff($dePaginas, array_keys(self::ESPANOL_PAGINAS)));
+
+        self::assertSame(
+            [],
+            $faltan,
+            'Faltan en la referencia de S7, así que su español no lo protege nadie: ' . implode(', ', $faltan)
+        );
+    }
+
+    /**
+     * S7: las cuatro vistas renderizan ese mismo español, sin literales.
+     *
+     * Se pide en español por HTTP y no por `self::twig()->render()` a propósito:
+     * el locale lo fija `LocaleMiddleware` en cada petición, así que el
+     * resultado no depende del idioma que dejó el test anterior.
+     */
+    public function test_las_paginas_propias_renderizan_el_mismo_espanol(): void
+    {
+        $portada = self::texto((string) self::app()->handle(self::request('GET', '/'))->getBody());
+
+        self::assertStringContainsString('Framework PHP Fullstack con renderizado en el servidor', $portada);
+        self::assertStringContainsString('Características operativas', $portada);
+        self::assertStringContainsString('Núcleo & Backend', $portada);
+        self::assertStringContainsString('Calidad & Herramientas', $portada);
+        self::assertStringContainsString('<span>Ingresar</span>', $portada);
+        // La ficha de cada módulo muestra el comando de instalación o el de
+        // desinstalación según esté instalado: la aserción no puede fijar uno
+        // solo, porque la suite corre en los dos estados (con y sin demos).
+        self::assertTrue(
+            str_contains($portada, 'Comando de instalación:') || str_contains($portada, 'Desinstalar módulo:'),
+            'La portada no muestra ni el comando de instalación ni el de desinstalación de los módulos.'
+        );
+        self::assertStringContainsString('Sin Node.js, sin paso de build ni CDN en runtime.', $portada);
+
+        $login = self::texto((string) self::app()->handle(self::request('GET', '/login'))->getBody());
+
+        self::assertStringContainsString('<title>Acceder</title>', $login);
+        self::assertStringContainsString('Ingresa con tu email y clave para continuar.', $login);
+        self::assertStringContainsString('Recordarme 30 días', $login);
+        self::assertStringContainsString('<span>Entrar</span>', $login);
+        self::assertStringContainsString('placeholder="tu@ejemplo.com"', $login);
+
+        $noEncontrada = self::texto((string) self::app()->handle(self::request('GET', '/no-existe'))->getBody());
+
+        self::assertStringContainsString('<html lang="es"', $noEncontrada);
+        self::assertStringContainsString('Error 404', $noEncontrada);
+        self::assertStringContainsString('No encontramos esa página.', $noEncontrada);
+        self::assertStringContainsString('aria-label="Mi App, ir al inicio"', $noEncontrada);
+        self::assertStringContainsString('<span>Mi App</span>', $noEncontrada);
+        self::assertStringContainsString('<span>Volver al inicio</span>', $noEncontrada);
+
+        $caida = self::texto((string) self::app()->handle(self::request('GET', '/_test/boom'))->getBody());
+
+        self::assertStringContainsString('Algo salió mal de nuestro lado.', $caida);
+    }
+
+    /**
+     * El cambio de idioma llega a TODAS las superficies de esta unidad.
+     *
+     * Una aserción visible por superficie (portada, login, error) y el `lang`
+     * del documento: es lo que el visitante ve al elegir `English` en el pie.
+     */
+    public function test_con_lang_en_la_portada_el_login_y_el_error_salen_en_ingles(): void
+    {
+        $portada = self::app()->handle(self::request('GET', '/?lang=en'));
+        $htmlPortada = self::texto((string) $portada->getBody());
+
+        self::assertStringContainsString('<html lang="en"', $htmlPortada);
+        self::assertStringContainsString('Full-stack PHP framework with server-side rendering', $htmlPortada);
+        self::assertStringContainsString('Operational features', $htmlPortada);
+        self::assertStringContainsString('Core & Backend', $htmlPortada);
+        self::assertStringContainsString('<span>Sign in</span>', $htmlPortada);
+        self::assertStringNotContainsString('Características operativas', $htmlPortada);
+
+        $htmlLogin = self::texto((string) self::app()->handle(self::request('GET', '/login?lang=en'))->getBody());
+
+        self::assertStringContainsString('<title>Sign in</title>', $htmlLogin);
+        self::assertStringContainsString('Enter your email and password to continue.', $htmlLogin);
+        self::assertStringContainsString('Remember me for 30 days', $htmlLogin);
+        self::assertStringContainsString('<span>Log in</span>', $htmlLogin);
+        self::assertStringNotContainsString('Recordarme 30 días', $htmlLogin);
+
+        $htmlError = self::texto((string) self::app()->handle(self::request('GET', '/no-existe?lang=en'))->getBody());
+
+        self::assertStringContainsString('<html lang="en"', $htmlError);
+        self::assertStringContainsString('<title>404 · My App</title>', $htmlError);
+        self::assertStringContainsString('We could not find that page.', $htmlError);
+        self::assertStringContainsString('<span>Back to home</span>', $htmlError);
+        self::assertStringContainsString('aria-label="My App, go to the home page"', $htmlError);
+    }
+
+    /**
+     * Las páginas de error respetan el locale y llevan `Vary`.
+     *
+     * El 404 lo lanza el routing y el 500 una excepción de la ruta; los dos los
+     * renderiza el error middleware, que corre POR FUERA de `LocaleMiddleware`,
+     * así que la respuesta no hereda ni el idioma ni la cabecera: la resuelve y
+     * la agrega el propio handler. Sin `Vary`, un caché guarda el 404 en un
+     * idioma y lo sirve a todos.
+     */
+    public function test_las_paginas_de_error_llevan_vary_y_el_lang_del_locale(): void
+    {
+        foreach ([
+            'es' => ['', 'lang="es"', 'No encontramos esa página.', 'Algo salió mal de nuestro lado.'],
+            'en' => ['?lang=en', 'lang="en"', 'We could not find that page.', 'Something went wrong on our side.'],
+        ] as $locale => [$query, $lang, $noEncontrada, $caida]) {
+            $notFound = self::app()->handle(self::request('GET', '/no-existe' . $query));
+            $htmlNotFound = (string) $notFound->getBody();
+
+            self::assertSame(404, $notFound->getStatusCode());
+            self::assertStringContainsString('Accept-Language', $notFound->getHeaderLine('Vary'), "El 404 en {$locale} no lleva Vary.");
+            self::assertStringContainsString('<html ' . $lang, $htmlNotFound, "El 404 en {$locale} no declara el idioma.");
+            self::assertStringContainsString($noEncontrada, $htmlNotFound);
+
+            $serverError = self::app()->handle(self::request('GET', '/_test/boom' . $query));
+            $htmlServerError = (string) $serverError->getBody();
+
+            self::assertSame(500, $serverError->getStatusCode());
+            self::assertStringContainsString('Accept-Language', $serverError->getHeaderLine('Vary'), "El 500 en {$locale} no lleva Vary.");
+            self::assertStringContainsString('<html ' . $lang, $htmlServerError, "El 500 en {$locale} no declara el idioma.");
+            self::assertStringContainsString($caida, $htmlServerError);
+        }
+    }
+
+    /**
+     * Los flashes de `AuthController` salen en el idioma activo.
+     *
+     * Credenciales inválidas (constante histórica del controlador) y el aviso
+     * de logout: los dos se escriben con `Trans::t()`, así que el objeto que
+     * usa el controlador y el que usa la plantilla son el mismo traductor.
+     */
+    public function test_los_flashes_de_auth_salen_en_el_idioma_activo(): void
+    {
+        $token = self::token('/login');
+
+        $invalido = (string) self::app()->handle(self::request('POST', '/login?lang=en', [
+            'email'    => 'nadie-idioma@ejemplo.com',
+            'password' => 'clave-errada',
+        ] + $token))->getBody();
+
+        self::assertStringContainsString('Invalid credentials.', $invalido);
+        self::assertStringNotContainsString('Credenciales inválidas.', $invalido);
+
+        self::loginAs();
+        $salir = self::token('/');
+
+        $response = self::app()->handle(self::request('POST', '/logout?lang=en', $salir));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertStringContainsString(
+            'Signed out.',
+            (string) self::app()->handle(self::request('GET', '/login?lang=en'))->getBody()
+        );
+    }
+
+    /**
+     * El aviso del Guard cuando falla el CSRF también sale del catálogo.
+     *
+     * Sin token no hay form válido: el handler pone el flash y redirige al
+     * login, que es donde el visitante lo lee. Con `?lang=en` tiene que salir en
+     * inglés, igual que cualquier otro texto de la pantalla.
+     */
+    public function test_el_aviso_de_csrf_sale_en_el_idioma_activo(): void
+    {
+        $response = self::app()->handle(self::request('POST', '/login?lang=en', [
+            'email'    => 'nadie@ejemplo.com',
+            'password' => 'x',
+        ]));
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/login', $response->getHeaderLine('Location'));
+
+        $html = (string) self::app()->handle(self::request('GET', '/login?lang=en'))->getBody();
+
+        self::assertStringContainsString('Your session expired. Sign in again.', $html);
+        self::assertStringNotContainsString('Tu sesión expiró.', $html);
+    }
+
+    /**
+     * Texto del render, con las entidades HTML decodificadas.
+     *
+     * Lo que se compara es lo que se lee, no cómo está escapado: `Núcleo &
+     * Backend` hoy es texto literal de la plantilla y mañana sale del catálogo
+     * con autoescape (`&amp;`). El carácter que ve el usuario es el mismo.
+     */
+    private static function texto(string $html): string
+    {
+        return html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     /**

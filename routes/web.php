@@ -7,6 +7,7 @@ use Framework\Http\CsrfTokens;
 use Framework\Http\Middleware\LocaleMiddleware;
 use Framework\Http\Url;
 use Framework\I18n\LocaleResolver;
+use Framework\I18n\Trans;
 use Framework\I18n\TranslatorFactory;
 use App\Http\Controllers\Auth\AuthController;
 use Psr\Http\Message\ResponseInterface;
@@ -86,7 +87,11 @@ return function (App $app) {
             'user_id'     => Auth::id(),
             'user_email'  => Auth::user()?->getAttribute('email'),
             'breadcrumbs' => [
-                ['label' => 'Inicio', 'icon' => 'home', 'current' => true],
+                // La miga la pinta el header del shell tal cual, así que acá va el
+                // TEXTO y no la clave: este closure corre en cada petición, con el
+                // locale ya resuelto por `LocaleMiddleware`. Una clave acá
+                // imprimiría `nav.home` en el header.
+                ['label' => Trans::t('nav.home'), 'icon' => 'home', 'current' => true],
             ],
             ...CsrfTokens::fields($request, $container->get(Guard::class)),
         ]);

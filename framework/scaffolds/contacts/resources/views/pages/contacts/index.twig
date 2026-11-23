@@ -6,7 +6,7 @@
    modales, que los botones y el script del demo referencian por nombre. #}
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Contactos{% endblock %}
+{% block title %}{{ t('contacts.title') }}{% endblock %}
 
 {% block head %}
     {# CSS local de la tabla, con su SRI: el demo no pide nada a un CDN. #}
@@ -22,15 +22,14 @@
         <div class="card-body gap-4">
             {% embed 'components/ui/page-header.twig' with {
                 icon: 'contacts',
-                title: 'Contactos',
-                subtitle: 'CRUD de contactos con listado en Tabulator: numeración,'
-                    ~ ' columnas y acciones sobre SQLite.'
+                title: t('contacts.title'),
+                subtitle: t('contacts.subtitle')
             } %}
                 {% block actions %}
                     {% embed 'components/ui/action-bar.twig' %}
                         {% block controls %}
                             {% include 'components/ui/button.twig' with {
-                                label: 'Agregar contacto',
+                                label: t('contacts.add'),
                                 icon: 'plus',
                                 data_modal_open: 'contact-create-modal'
                             } only %}
@@ -39,35 +38,44 @@
                 {% endblock %}
             {% endembed %}
 
-            <h2 class="text-lg font-semibold">Listado</h2>
+            <h2 class="text-lg font-semibold">{{ t('contacts.list_heading') }}</h2>
 
             {# La tabla es un contenedor vacío con la URL del endpoint: las filas
                llegan por JSON y, si el JS no corre, el `noscript` lo explica. #}
             {% include 'components/table/tabulator.twig' with {
                 id: 'contacts-table',
                 url: url('/contacts/data'),
-                label: 'Listado de contactos'
+                label: t('contacts.table_label')
             } only %}
 
             <noscript>
-                <p class="text-sm opacity-70">Activa JavaScript para ver la tabla interactiva.</p>
+                <p class="text-sm opacity-70">{{ t('contacts.needs_js') }}</p>
             </noscript>
         </div>
     </section>
+
+    {# Textos de la tabla: el JS que la inicializa es un asset estático y no
+       puede llamar a `t()`, así que el servidor le manda el diccionario del
+       locale activo en un JSON. Viaja en un `data-*` y no en un `<script>`: el
+       parser decodifica las entidades del atributo, así que el JSON llega
+       intacto a `JSON.parse()` y el autoescape de Twig queda encendido (un
+       `<script>` no decodifica entidades y obligaría a `|raw`). El `hidden` del
+       nodo es cosmético: no se muestra ni entra en el orden de lectura. #}
+    <div id="contacts-table-i18n" data-strings="{{ table_strings }}" hidden></div>
 
     {# `open_create_modal`: el alta sin JS que falla la validación reusa esta
        página con el modal abierto y lo tipeado. Con htmx el 422 devuelve solo
        el formulario y el 204 cierra el modal por evento. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-create-modal',
-        title: 'Nuevo contacto',
-        subtitle: 'Completa los datos para agregarlo al listado.',
+        title: t('contacts.create_title'),
+        subtitle: t('contacts.create_subtitle'),
         open: open_create_modal|default(false)
     } %}
         {% block body %}
             {% include 'pages/contacts/_form.twig' with {
                 action: url('/contacts'),
-                submit_label: 'Crear contacto',
+                submit_label: t('contacts.create_submit'),
                 submit_icon: 'plus',
                 cancel_target: 'contact-create-modal'
             } %}
@@ -78,24 +86,30 @@
        los datos de la fila: por eso el `action` sale vacío en el HTML. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-delete-modal',
-        title: 'Eliminar contacto'
+        title: t('contacts.delete_title')
     } %}
         {% block body %}
+            {# La frase sale del catálogo con el hueco `%name%`; el nombre lo
+               escribe el JS dentro del `<strong>`, así que el elemento lo
+               aporta esta vista y no el catálogo. `|raw` cubre texto de
+               catálogo (código del repo) más ese elemento vacío: el único
+               valor interpolado es el literal de abajo, y `textContent` en el
+               JS no interpreta HTML. #}
             <p class="py-3 opacity-70">
-                ¿Eliminar a <strong data-contact-delete-name></strong>?
+                {{ t('contacts.delete_question', {'%name%': '<strong data-contact-delete-name></strong>'})|raw }}
             </p>
             <form method="post" action="" data-contact-delete-form>
                 {% include 'components/form/csrf.twig' %}
                 <div class="modal-action">
                     {% include 'components/ui/button.twig' with {
-                        label: 'Cancelar',
+                        label: t('contacts.cancel'),
                         variant: 'ghost',
                         type: 'button',
                         icon: 'x',
                         data_modal_close: true
                     } only %}
                     {% include 'components/ui/button.twig' with {
-                        label: 'Eliminar',
+                        label: t('contacts.delete_confirm'),
                         variant: 'error',
                         type: 'submit',
                         icon: 'trash'
@@ -109,7 +123,7 @@
        adentro antes de abrir el modal. #}
     {% embed 'components/ui/modal.twig' with {
         id: 'contact-edit-modal',
-        title: 'Editar contacto'
+        title: t('contacts.edit_title')
     } %}
         {% block body %}
             <div id="contact-edit-body" class="min-h-24"></div>
@@ -123,5 +137,5 @@
     <script src="{{ url('/assets/vendor/tabulator/6.7.1/tabulator.min.js') }}"
             crossorigin="anonymous" integrity="sha384-1M1aGyKpzLZTYIWClgDVwtSkPjR2lvQIkbhZvQ3A3VPKhU2H6EjeXeCBEmyXluer"></script>
     <script src="{{ url('/assets/js/contacts-tabulator.js') }}"
-            crossorigin="anonymous" integrity="sha384-iCE7CM5NZOLy0tN0U59oKVPPjQbXb9Q3BjX3h51CF2VmtqZpA/YZ/Erz2LI4URCV"></script>
+            crossorigin="anonymous" integrity="sha384-AXyAZN/HFORcX2sRsLzk0qnBS0fDWi9jUavc1U6K55M8bbl9oTVsyL9WxT+RT+6x"></script>
 {% endblock %}

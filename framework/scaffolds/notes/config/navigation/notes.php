@@ -19,13 +19,18 @@ declare(strict_types=1);
  * agregando una línea a una lista.
  */
 return [
-    'label'    => 'Notes',
+    // Las tres son CLAVES del catálogo, no texto: el menú y la portada se arman
+    // una vez por proceso y el locale es por request, así que la traducción
+    // ocurre al render (`sidebar.twig`, `pages/home.twig`). El idioma del demo
+    // no cambia (`notes.*` dice lo mismo en los dos catálogos), pero sus
+    // metadatos sí son texto de la portada y se traducen.
+    'label'    => 'nav.notes',
     'href'     => '/notes',
     'icon'     => 'list',
     'key'      => 'notes',
     // Ficha que el menú muestra para orientar a quien recién llega.
-    'summary'  => 'CRUD mínimo y completo: alta y edición en modales, borrado confirmado y paginación del servidor.',
-    'why'      => 'Es el patrón del tutorial con el dominio en inglés (columnas title y body) y el layout plano en app/Models y app/Http/Controllers: compara comportamiento, no ubicación.',
+    'summary'  => 'notes.summary',
+    'why'      => 'notes.why',
     // Orden dentro del menú; los demos instalados se intercalan por este número.
     'position' => 30,
 ];

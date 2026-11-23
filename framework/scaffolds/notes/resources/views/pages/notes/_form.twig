@@ -23,19 +23,21 @@
        pasa, y el campo es quien lo ata al input. #}
     {% include 'components/form/field.twig' with {
         name: 'title',
-        label: 'Title',
+        label: t('notes.field_title'),
         value: values ? values.title : '',
         required: true,
         maxlength: 120,
         error: errors.title|default(null)
     } only %}
 
-    {# El aviso de opcional va en la etiqueta y no en `optional: true`: ese
-       flag pertenece a `components/form/field.twig`, que lo escribe en
-       castellano para toda la app. #}
+    {# El aviso de opcional va dentro de la etiqueta y no con `optional: true`:
+       ese flag escribe `field.optional` en el idioma activo, y este demo está
+       en inglés por diseño, así que en español cambiaría el texto de la
+       pantalla. `notes.field_body` guarda la etiqueta completa en los dos
+       catálogos (L16 de `odd/tasks/demo-conventions.md`). #}
     {% include 'components/form/field.twig' with {
         name: 'body',
-        label: 'Body (optional)',
+        label: t('notes.field_body'),
         value: values ? values.body : '',
         maxlength: 2000,
         error: errors.body|default(null)
@@ -43,14 +45,14 @@
 
     <div class="modal-action">
         {% include 'components/ui/button.twig' with {
-            label: 'Cancel',
+            label: t('notes.cancel'),
             variant: 'ghost',
             type: 'button',
             icon: 'x',
             data_modal_close: true
         } only %}
         {% include 'components/ui/button.twig' with {
-            label: submit_label|default('Save'),
+            label: submit_label|default(t('notes.save')),
             type: 'submit',
             icon: submit_icon|default('check')
         } only %}

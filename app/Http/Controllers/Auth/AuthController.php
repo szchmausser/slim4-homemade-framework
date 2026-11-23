@@ -12,6 +12,7 @@ use Framework\Http\Controller;
 use Framework\Http\CsrfTokens;
 use Framework\Http\Flash;
 use Framework\Http\Url;
+use Framework\I18n\Trans;
 use Framework\Validation\Validator;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -27,8 +28,11 @@ class AuthController extends Controller
      */
     public const DUMMY_HASH = '$2y$12$hmGwg9QWNfE1u1JP/s90ReQugq9oOeSa4YlxVNYaQFX3/eCtS84G2';
 
-    /** Mismo mensaje para credenciales malas y para cuenta throttled. */
-    private const INVALID_CREDENTIALS = 'Credenciales inválidas.';
+    // Mismo mensaje (y misma clave) para credenciales malas y para cuenta
+    // throttled: el texto se busca en el catálogo al momento de avisar, no se
+    // guarda en una constante, porque la constante se resolvería una sola vez
+    // —al cargar la clase— y no sabría en qué idioma está la petición.
+    private const INVALID_CREDENTIALS_KEY = 'auth.invalid_credentials';
 
     public function show(Request $request, Response $response): Response
     {
@@ -74,7 +78,7 @@ class AuthController extends Controller
         // Antes de tocar la base de usuarios: si ya hay demasiados fallos, no
         // se revela nada (ni bloqueo ni existencia) y no se gasta bcrypt.
         if (Throttle::tooMany($email, $ip) || Throttle::tooManyByIp($ip)) {
-            Flash::set('error', self::INVALID_CREDENTIALS);
+            Flash::set('error', Trans::t(self::INVALID_CREDENTIALS_KEY));
 
             return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
@@ -93,7 +97,7 @@ class AuthController extends Controller
             Throttle::hit($email, $ip);
 
             // Genérico a propósito: nunca decir si falló el email o la clave.
-            Flash::set('error', self::INVALID_CREDENTIALS);
+            Flash::set('error', Trans::t(self::INVALID_CREDENTIALS_KEY));
 
             return $this->render($request, $response, 'pages/auth/login.twig', [
                 'active' => 'login',
@@ -133,7 +137,7 @@ class AuthController extends Controller
         }
 
         Auth::logout();
-        Flash::set('info', 'Sesión cerrada.');
+        Flash::set('info', Trans::t('auth.logged_out'));
 
         $response = $this->redirect($response, '/login');
 

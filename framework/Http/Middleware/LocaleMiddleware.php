@@ -56,20 +56,15 @@ final class LocaleMiddleware implements MiddlewareInterface
      */
     public function process(Request $request, Handler $handler): Response
     {
-        $available = TranslatorFactory::availableLocales();
         $explicit = self::explicit($request);
 
-        $locale = LocaleResolver::resolve(
-            $explicit,
-            $this->sessionLocale(),
-            $request->getHeaderLine('Accept-Language'),
-            TranslatorFactory::defaultLocale(),
-            $available
-        );
+        // Resolver y aplicar vive en `apply()` porque el error handler de
+        // `config/middleware.php` necesita exactamente lo mismo para la página
+        // de error. Duplicar la precedencia ahí sería la forma de que las dos
+        // se desincronicen.
+        $locale = self::apply($request, $this->translator);
 
-        $this->translator->setLocale($locale);
-
-        if ($explicit !== null && LocaleResolver::find($explicit, $available) !== null) {
+        if ($explicit !== null && LocaleResolver::find($explicit, TranslatorFactory::availableLocales()) !== null) {
             $this->remember($locale);
         }
 
@@ -84,6 +79,35 @@ final class LocaleMiddleware implements MiddlewareInterface
         return self::vary($handler->handle($request));
     }
 
+    /**
+     * Resuelve el locale de la petición y lo deja fijado en el traductor.
+     *
+     * Público porque el handler de errores de `config/middleware.php` corre por
+     * FUERA de este middleware (el error middleware se agrega después, así que
+     * envuelve a la sesión y al locale) y arma una respuesta nueva: necesita el
+     * mismo locale para el `lang` de la página de error y para el mensaje. Usa
+     * las mismas fuentes y la misma precedencia que una petición normal, así
+     * que un 404 con `?lang=en` sale en inglés. Si la excepción fue tan
+     * temprana que no hay sesión ni cabecera aprovechable, el resolutor cae en
+     * `APP_LOCALE`: el error se muestra en el default, nunca en el idioma que
+     * dejó la petición anterior. Devuelve el código aplicado para que el
+     * llamador pueda publicarlo como global de Twig.
+     */
+    public static function apply(Request $request, LocaleAwareInterface $translator): string
+    {
+        $locale = LocaleResolver::resolve(
+            self::explicit($request),
+            self::sessionLocale(),
+            $request->getHeaderLine('Accept-Language'),
+            TranslatorFactory::defaultLocale(),
+            TranslatorFactory::availableLocales()
+        );
+
+        $translator->setLocale($locale);
+
+        return $locale;
+    }
+
     /** `?lang=` como string; cualquier otra forma (array, ausente) se ignora. */
     private static function explicit(Request $request): ?string
     {
@@ -93,7 +117,7 @@ final class LocaleMiddleware implements MiddlewareInterface
     }
 
     /** Locale recordado por el selector, sólo si la sesión está abierta. */
-    private function sessionLocale(): ?string
+    private static function sessionLocale(): ?string
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
             return null;

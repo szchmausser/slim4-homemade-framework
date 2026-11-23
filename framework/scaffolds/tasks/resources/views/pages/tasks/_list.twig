@@ -17,7 +17,7 @@
    devolverlo. Sale del id de la tarea, lo único estable entre un render y otro. #}
 {% embed 'components/list/simple.twig' with {
     items: tasks,
-    empty: 'No hay tareas todavía.',
+    empty: t('tasks.empty'),
     list_class: 'space-y-2 task-list'
 } %}
     {% block row %}
@@ -43,7 +43,7 @@
                     {% include 'components/form/field.twig' with {
                         id: 'task-title-' ~ task.id,
                         name: 'title',
-                        label: 'Título de la tarea',
+                        label: t('tasks.field_title'),
                         value: editing_title is defined and editing_title is not null ? editing_title : task.title,
                         required: true,
                         maxlength: 120,
@@ -55,7 +55,7 @@
                         error_class: 'text-error text-sm w-full'
                     } only %}
                     {% include 'components/ui/button.twig' with {
-                        label: 'Guardar',
+                        label: t('tasks.save'),
                         type: 'submit',
                         icon: 'check',
                         icon_class: 'h-3.5 w-3.5',
@@ -65,7 +65,7 @@
                     } only %}
                     {# Cancelar vuelve a la página desde la que se entró a editar. #}
                     {% include 'components/ui/button.twig' with {
-                        label: 'Cancelar',
+                        label: t('tasks.cancel'),
                         variant: 'ghost',
                         size: 'sm',
                         icon: 'x',
@@ -91,8 +91,10 @@
                        hover. `aria-label` lleva el texto completo para el lector y el
                        recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
-                        ? 'Completada' ~ (task.completed_at ? ' el ' ~ task.completed_at|date('d/m/Y H:i') : '')
-                        : 'Pendiente' %}
+                        ? (task.completed_at
+                            ? t('tasks.status_done_at', {'%date%': task.completed_at|date('d/m/Y H:i')})
+                            : t('tasks.status_done'))
+                        : t('tasks.status_pending') %}
                     {# `-mt-0.5` centra el icono de 20px sobre el primer renglón
                        (24px). Sin esto quedaría 2px por debajo del centro óptico. #}
                     {# Cierre al perder el foco: `focusout` burbujea, así que un handler
@@ -150,8 +152,8 @@
                         size: 'sm',
                         icon: task.status == 'completado' ? 'rotate' : 'check',
                         extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
-                        aria_label: task.status == 'completado' ? 'Desmarcar' : 'Completar',
-                        title: task.status == 'completado' ? 'Desmarcar' : 'Completar',
+                        aria_label: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
+                        title: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
                         hx_post: url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
@@ -164,8 +166,8 @@
                         size: 'sm',
                         icon: 'pencil',
                         extra_class: 'btn-square size-9',
-                        aria_label: 'Editar',
-                        title: 'Editar',
+                        aria_label: t('tasks.edit'),
+                        title: t('tasks.edit'),
                         hx_get: url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
@@ -177,8 +179,8 @@
                         size: 'sm',
                         icon: 'trash',
                         extra_class: 'btn-square size-9 icon-error',
-                        aria_label: 'Eliminar',
-                        title: 'Eliminar',
+                        aria_label: t('tasks.delete'),
+                        title: t('tasks.delete'),
                         data_focus_key: 'delete-' ~ task.id,
                         data_modal_open: 'task-delete-' ~ task.id
                     } only %}
@@ -189,13 +191,13 @@
                el dialog sale del DOM; en un 400 (CSRF) no hay swap y avisa el toast. #}
             {% embed 'components/ui/modal.twig' with {
                 id: 'task-delete-' ~ task.id,
-                title: '¿Borrar esta tarea?'
+                title: t('tasks.delete_title')
             } %}
                 {% block body %}
                     <p class="py-3 opacity-70">{{ task.title }}</p>
                     <div class="modal-action">
                         {% include 'components/ui/button.twig' with {
-                            label: 'Cancelar',
+                            label: t('tasks.cancel'),
                             variant: 'ghost',
                             icon: 'x',
                             type: 'button',
@@ -203,7 +205,7 @@
                             data_modal_close: true
                         } only %}
                         {% include 'components/ui/button.twig' with {
-                            label: 'Borrar',
+                            label: t('tasks.delete_confirm'),
                             variant: 'error',
                             icon: 'trash',
                             extra_class: 'gap-1.5',

@@ -5,12 +5,12 @@
    Para tu entidad copia la página, cambia la acción y la miga de pan. #}
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Editar contacto{% endblock %}
+{% block title %}{{ t('contacts.edit_title') }}{% endblock %}
 
 {% block content %}
     <div class="mb-6">
         {% include 'components/ui/button.twig' with {
-            label: 'Volver a contactos',
+            label: t('contacts.back'),
             variant: 'ghost',
             size: 'sm',
             href: url('/contacts'),
@@ -20,9 +20,9 @@
             <span class="opacity-60" aria-hidden="true">
                 {% include 'components/ui/icon.twig' with {name: 'pencil', class: 'h-5 w-5'} %}
             </span>
-            Editar contacto
+            {{ t('contacts.edit_title') }}
         </h1>
-        <p class="mt-1 text-sm opacity-70">Actualiza los datos y guarda los cambios.</p>
+        <p class="mt-1 text-sm opacity-70">{{ t('contacts.edit_subtitle') }}</p>
     </div>
 
     <section class="card border border-base-300 bg-base-100">
@@ -32,7 +32,7 @@
             {% include 'pages/contacts/_form.twig' with {
                 action: url('/contacts/' ~ contact.id),
                 contact: contact,
-                submit_label: 'Guardar cambios',
+                submit_label: t('contacts.save_changes'),
                 submit_icon: 'check'
             } %}
         </div>

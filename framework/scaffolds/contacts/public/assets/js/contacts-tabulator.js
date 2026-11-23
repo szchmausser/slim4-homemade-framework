@@ -7,10 +7,29 @@
 
     // El endpoint viaja en el markup: sin URL no hay de dónde traer las filas,
     // así que la tabla no se inicializa (mejor ninguna tabla que una vacía que
-    // parece "no hay contactos").
+    // parece no tener contactos).
     const url = root.dataset.url;
 
     if (!url) {
+        return;
+    }
+
+    // Los textos visibles los manda el servidor en el JSON que la página deja
+    // al lado de la tabla (`index.twig`, armado por `ContactController`): este
+    // archivo es un asset estático y no sabe en qué idioma pidieron la página.
+    // Misma regla que la URL: sin textos no hay nombres accesibles ni paginador,
+    // así que la tabla no se inicializa.
+    const i18nNode = document.getElementById('contacts-table-i18n');
+
+    if (!i18nNode) {
+        return;
+    }
+
+    let i18n;
+
+    try {
+        i18n = JSON.parse(i18nNode.dataset.strings || '');
+    } catch (error) {
         return;
     }
 
@@ -27,16 +46,16 @@
             <button type="button" class="btn btn-square btn-ghost btn-sm size-9"
                     data-contact-edit
                     data-edit-url="${esc(contact.edit_url)}"
-                    aria-label="Editar"
-                    title="Editar">
+                    aria-label="${esc(i18n.actions.edit)}"
+                    title="${esc(i18n.actions.edit)}">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
             </button>
             <button type="button" class="btn btn-square btn-ghost btn-sm size-9 icon-error"
                     data-contact-delete
                     data-delete-url="${esc(contact.delete_url)}"
                     data-contact-name="${esc(contact.name)}"
-                    aria-label="Eliminar"
-                    title="Eliminar">
+                    aria-label="${esc(i18n.actions.delete)}"
+                    title="${esc(i18n.actions.delete)}">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             </button>
         </div>`;
@@ -57,7 +76,7 @@
                 return;
             }
 
-            editBody.innerHTML = '<div class="py-6 text-center text-sm opacity-70">Cargando...</div>';
+            editBody.innerHTML = `<div class="py-6 text-center text-sm opacity-70">${esc(i18n.loading)}</div>`;
             editModal.showModal();
 
             if (window.htmx) {
@@ -66,7 +85,7 @@
                     swap: 'innerHTML',
                 });
             } else {
-                editBody.innerHTML = '<p class="py-4 text-sm text-error">No se pudo cargar el formulario.</p>';
+                editBody.innerHTML = `<p class="py-4 text-sm text-error">${esc(i18n.load_error)}</p>`;
             }
 
             return;
@@ -140,7 +159,7 @@
 
             return list;
         },
-        placeholder: 'No hay contactos todavía.',
+        placeholder: i18n.empty,
         // Remoto en las dos direcciones: la página y el orden los resuelve el
         // servidor sobre la tabla completa. Paginar u ordenar acá las diez
         // filas que llegaron sería un cliente simulando lo que el server ya
@@ -157,28 +176,13 @@
         dataSendParams: {size: 'per_page'},
         paginationCounter: 'rows',
         paginationButtonCount: 5,
-        locale: 'es',
+        // El paquete de textos de Tabulator también llega del servidor: la clave
+        // del locale es un nombre propio del demo (`app`) y no el código de
+        // idioma, así que no queda ninguna cadena visible incrustada acá.
+        locale: 'app',
         langs: {
-            es: {
-                pagination: {
-                    page_size: 'Filas',
-                    page_title: 'Página',
-                    first: 'Primera',
-                    first_title: 'Primera página',
-                    last: 'Última',
-                    last_title: 'Última página',
-                    prev: 'Anterior',
-                    prev_title: 'Página anterior',
-                    next: 'Siguiente',
-                    next_title: 'Página siguiente',
-                    all: 'Todas',
-                    counter: {
-                        showing: 'Mostrando',
-                        of: 'de',
-                        rows: 'filas',
-                        pages: 'páginas',
-                    },
-                },
+            app: {
+                pagination: i18n.pagination,
             },
         },
         columns: [
@@ -196,12 +200,12 @@
             },
             // `#` lo numera el servidor: es la posición en el orden visible, así
             // que no se puede ordenar (el id no es lo que se ve en la columna).
-            {title: '#', field: 'number', hozAlign: 'center', headerHozAlign: 'center', width: 60, headerSort: false},
-            {title: 'Nombre', field: 'name', minWidth: 140},
-            {title: 'Email', field: 'email', minWidth: 180},
-            {title: 'Teléfono', field: 'phone', minWidth: 140},
+            {title: i18n.columns.number, field: 'number', hozAlign: 'center', headerHozAlign: 'center', width: 60, headerSort: false},
+            {title: i18n.columns.name, field: 'name', minWidth: 140},
+            {title: i18n.columns.email, field: 'email', minWidth: 180},
+            {title: i18n.columns.phone, field: 'phone', minWidth: 140},
             {
-                title: 'Acciones',
+                title: i18n.columns.actions,
                 field: 'actions',
                 hozAlign: 'right',
                 headerHozAlign: 'right',
@@ -247,7 +251,7 @@
             if (!toggle.hasAttribute('role')) {
                 toggle.setAttribute('role', 'button');
                 toggle.setAttribute('tabindex', '0');
-                toggle.setAttribute('aria-label', 'Mostrar u ocultar los datos de la fila');
+                toggle.setAttribute('aria-label', i18n.collapse);
             }
             toggle.setAttribute('aria-expanded', toggle.classList.contains('open') ? 'true' : 'false');
         });

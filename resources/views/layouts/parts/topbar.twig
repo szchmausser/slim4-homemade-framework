@@ -1,6 +1,7 @@
 {# Header del shell. `breadcrumbs` es opcional: cada página puede pasar un
-   array de {label, href?, icon?, current?}. El fallback mantiene Inicio. #}
-{% set crumbs = breadcrumbs|default([{label: 'Inicio', icon: 'home', current: true}]) %}
+   array de {label, href?, icon?, current?}, con el label YA traducido (el shell
+   lo pinta tal cual). El fallback mantiene la miga raíz del catálogo. #}
+{% set crumbs = breadcrumbs|default([{label: t('nav.home'), icon: 'home', current: true}]) %}
 {% set current = crumbs|last %}
 
 <header class="navbar sticky top-0 z-20 border-b border-base-300 bg-base-100">

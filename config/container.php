@@ -202,7 +202,9 @@ return [
 
         usort(
             $demoModules,
-            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+            // `key` y no `label`: la etiqueta es una clave de catálogo y ordarla
+            // por texto dependía del idioma del archivo.
+            static fn (array $a, array $b): int => [$a['position'], $a['key']] <=> [$b['position'], $b['key']]
         );
 
         $twig->getEnvironment()->addGlobal('demo_modules', $demoModules);
@@ -211,8 +213,13 @@ return [
         // aporta su entrada en config/navigation/<modulo>.php. El archivo lo
         // instala y lo quita el demo, así que su presencia es el interruptor y
         // el sidebar no tiene que saber de ningún demo en particular.
+        //
+        // `label` es una CLAVE y no texto: este array se arma una vez por
+        // proceso (el Twig es singleton) y el locale es por request, así que el
+        // texto se resuelve en la plantilla. Resolverlo acá dejaría el menú del
+        // primer visitante pegado para todos los demás.
         $navigation = [
-            ['label' => 'Inicio', 'href' => '/', 'icon' => 'home', 'key' => 'home', 'position' => 0],
+            ['label' => 'nav.home', 'href' => '/', 'icon' => 'home', 'key' => 'home', 'position' => 0],
         ];
 
         foreach (glob(__DIR__ . '/navigation/*.php') ?: [] as $navigationFile) {
@@ -227,7 +234,9 @@ return [
 
         usort(
             $navigation,
-            static fn (array $a, array $b): int => [$a['position'], $a['label']] <=> [$b['position'], $b['label']]
+            // Igual que en `demo_modules`: la clave es estable, la etiqueta es
+            // catálogo y cambia con el idioma.
+            static fn (array $a, array $b): int => [$a['position'], $a['key']] <=> [$b['position'], $b['key']]
         );
 
         $twig->getEnvironment()->addGlobal('navigation_items', $navigation);
@@ -289,14 +298,17 @@ return [
                     return $response
                         ->withStatus(400)
                         ->withHeader('HX-Trigger', json_encode([
-                            'csrf' => 'Tu sesión expiró. Recarga la página.',
+                            'csrf' => Trans::t('auth.csrf_reload'),
                         ]));
                 }
 
                 // Sin htmx no hay toast que escuchar, así que el aviso tiene
                 // que viajar en el flash y aparecer donde el usuario cae: el
-                // login, que es la vista que renderiza `flash_error`.
-                Flash::set('error', 'Tu sesión expiró. Vuelve a iniciar sesión.');
+                // login, que es la vista que renderiza `flash_error`. El texto
+                // sale del catálogo: el Guard corre adentro de
+                // `LocaleMiddleware`, así que el locale de la petición ya está
+                // fijado.
+                Flash::set('error', Trans::t('auth.csrf_login'));
 
                 // Prefijado como todo redirect: un 303 a '/login' desde /app
                 // deja al usuario en la raíz del dominio, que no es esta app.

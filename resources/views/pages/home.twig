@@ -1,23 +1,25 @@
 {% extends 'layouts/app.twig' %}
 
-{% block title %}Mi App{% endblock %}
+{% block title %}{{ t('app.name') }}{% endblock %}
 
 {% block content %}
     <section class="card overflow-hidden border border-base-300 bg-base-100" aria-labelledby="home-title">
-        {# Header principal / Hero #}
+        {# Header principal / Hero. Todo el texto visible sale del catálogo: la
+           portada es la primera pantalla que se ve al cambiar de idioma, así que
+           un literal acá deja media página en el idioma anterior. #}
         <div class="flex flex-col gap-5 p-6 sm:p-8 lg:p-10">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-3">
                     {% include 'components/ui/logo.twig' with {size: 'h-12 w-12'} %}
                     <div>
-                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">Mi App</h1>
-                        <p class="text-sm font-medium opacity-70">Framework PHP Fullstack con renderizado en el servidor</p>
+                        <h1 id="home-title" class="text-3xl font-bold tracking-tight">{{ t('app.name') }}</h1>
+                        <p class="text-sm font-medium opacity-70">{{ t('home.tagline') }}</p>
                     </div>
                 </div>
                 {% if not user_id %}
                     <div>
                         {% include 'components/ui/button.twig' with {
-                            label: 'Ingresar',
+                            label: t('home.sign_in'),
                             href: url('/login'),
                             icon: 'arrow-right',
                             icon_position: 'end'
@@ -29,7 +31,7 @@
                         <div class="flex flex-wrap gap-2">
                             {% for module in instalados %}
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Abrir ' ~ (module.label|lower),
+                                    label: t('home.open_demo', {'%name%': t(module.label)|lower}),
                                     href: url(module.href),
                                     icon: 'arrow-right',
                                     icon_position: 'end'
@@ -41,78 +43,77 @@
             </div>
 
             <p class="text-base sm:text-lg leading-relaxed opacity-80 w-full">
-                Esqueleto optimizado para desarrollo ágil y asistido por IA en entornos acotados
-                (Windows, Linux o Termux 32 bits offline). Arquitectura limpia con renderizado en el servidor,
-                reactividad ligera sin sobrecarga de SPA, y recursos frontend servidos de forma local sin Node,
-                sin bundlers ni dependencias de CDNs externas.
+                {{ t('home.intro') }}
             </p>
         </div>
 
         <div class="border-t border-base-300 bg-base-300 p-6 sm:p-8 lg:px-10 lg:py-7">
-            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">Características operativas</h2>
+            <h2 class="text-xs font-semibold uppercase tracking-wider opacity-60 mb-4">{{ t('home.features.title') }}</h2>
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Renderizado en servidor</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.ssr.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Plantillas Twig resueltas en el backend sin sobrecarga de SPA.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.ssr.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Sin toolchain Node</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.node.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Cero dependencias npm, sin package.json ni compiladores JS.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.node.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Recursos locales sin CDN</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.assets.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Tailwind y daisyUI 5 vendorizados y servidos con SRI.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.assets.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Operativo 100% offline</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.offline.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Funciona sin red, ideal para Termux 32 bits y entornos aislados.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.offline.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Cero pasos de compilación</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.nobuild.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Edita plantillas Twig o PHP y recarga de inmediato.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.nobuild.body') }}</p>
                 </div>
 
                 <div class="rounded-box border border-base-300 bg-base-100 p-3.5 space-y-1">
                     <div class="flex items-center gap-2">
                         {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-4 w-4 shrink-0 icon-success'} %}
-                        <h3 class="text-sm font-semibold">Scaffolds desmontables</h3>
+                        <h3 class="text-sm font-semibold">{{ t('home.feature.scaffolds.title') }}</h3>
                     </div>
-                    <p class="text-xs opacity-70 pl-6">Demos opcionales instalables o removibles sin dejar residuos.</p>
+                    <p class="text-xs opacity-70 pl-6">{{ t('home.feature.scaffolds.body') }}</p>
                 </div>
             </div>
         </div>
 
         {# Grilla principal: Stack a la izquierda, Módulos/Demos a la derecha #}
         <div class="grid border-t border-base-300 lg:grid-cols-5">
-            {# Columna izquierda: Stack técnico #}
+            {# Columna izquierda: Stack técnico. Los nombres de las tecnologías
+               son nombres propios y quedan en el template; se traduce la línea
+               que explica para qué está cada una. #}
             <div class="p-6 sm:p-8 lg:col-span-3 lg:p-10">
                 <div class="mb-6">
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'layers', class: 'h-4 w-4'} %}
                         </span>
-                        Arquitectura y stack
+                        {{ t('home.stack.title') }}
                     </h2>
-                    <p class="mt-1 text-xs opacity-60">Tecnologías desacopladas, estándar PSR y listas para producción sin pasos de compilación.</p>
+                    <p class="mt-1 text-xs opacity-60">{{ t('home.stack.subtitle') }}</p>
                 </div>
 
                 <div class="grid gap-6 sm:grid-cols-2 lg:gap-8">
@@ -121,36 +122,36 @@
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'server', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Núcleo & Backend
+                            {{ t('home.stack.backend') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-backend">
                             <div>
                                 <dt class="text-sm font-semibold">PHP 8.4+</dt>
-                                <dd class="text-xs opacity-70">Lenguaje base y runtime moderno</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.php') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Slim 4</dt>
-                                <dd class="text-xs opacity-70">Router HTTP, middlewares y pipeline PSR-7/15</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.slim') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">PHP-DI</dt>
-                                <dd class="text-xs opacity-70">Contenedor de inyección de dependencias PSR-11</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpdi') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">slim/csrf</dt>
-                                <dd class="text-xs opacity-70">Protección contra falsificación de peticiones</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.csrf') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">phpdotenv</dt>
-                                <dd class="text-xs opacity-70">Configuración centralizada por variables de entorno</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.dotenv') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">respect/validation</dt>
-                                <dd class="text-xs opacity-70">Reglas declarativas para validación de entradas</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.respect') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Monolog</dt>
-                                <dd class="text-xs opacity-70">Registro estructurado de eventos del sistema</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.monolog') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -160,28 +161,28 @@
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'monitor', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Frontend & Reactividad
+                            {{ t('home.stack.frontend') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-frontend">
                             <div>
                                 <dt class="text-sm font-semibold">Twig</dt>
-                                <dd class="text-xs opacity-70">Plantillas server-rendered vía slim/twig-view</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.twig') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Tailwind CSS</dt>
-                                <dd class="text-xs opacity-70">Estilos utilitarios ejecutados localmente sin Node</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.tailwind') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">daisyUI 5</dt>
-                                <dd class="text-xs opacity-70">Componentes de interfaz vendorizados y temables</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.daisyui') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">HTMX</dt>
-                                <dd class="text-xs opacity-70">Navegación reactiva y swaps HTML sin SPA</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.htmx') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Alpine.js</dt>
-                                <dd class="text-xs opacity-70">Control de estado interactivo en el cliente</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.alpine') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -191,20 +192,20 @@
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'database', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Datos & Persistencia
+                            {{ t('home.stack.data') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-datos">
                             <div>
                                 <dt class="text-sm font-semibold">Eloquent ORM</dt>
-                                <dd class="text-xs opacity-70">Mapeo objeto-relacional (illuminate/database)</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.eloquent') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">SQLite</dt>
-                                <dd class="text-xs opacity-70">Base de datos embebida de cero mantenimiento</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.sqlite') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Phinx</dt>
-                                <dd class="text-xs opacity-70">Migraciones idempotentes y versionado de esquema</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phinx') }}</dd>
                             </div>
                         </dl>
                     </div>
@@ -214,40 +215,44 @@
                             <span class="inline-flex shrink-0" aria-hidden="true">
                                 {% include 'components/ui/icon.twig' with {name: 'wrench', class: 'h-3.5 w-3.5'} %}
                             </span>
-                            Calidad & Herramientas
+                            {{ t('home.stack.quality') }}
                         </h3>
                         <dl class="space-y-3" aria-labelledby="stack-desarrollo">
                             <div>
                                 <dt class="text-sm font-semibold">PHPUnit</dt>
-                                <dd class="text-xs opacity-70">Pruebas unitarias, funcionales y de seguridad</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpunit') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">PHPStan</dt>
-                                <dd class="text-xs opacity-70">Análisis estático de tipos nivel 5 (PHAR)</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.phpstan') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Whoops</dt>
-                                <dd class="text-xs opacity-70">Gestor de errores detallado para desarrollo</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.whoops') }}</dd>
                             </div>
                             <div>
                                 <dt class="text-sm font-semibold">Composer</dt>
-                                <dd class="text-xs opacity-70">Gestor de paquetes y scripts de verificación</dd>
+                                <dd class="text-xs opacity-70">{{ t('home.tech.composer') }}</dd>
                             </div>
                         </dl>
                     </div>
                 </div>
             </div>
 
-            {# Columna derecha: Demos, Scaffolds y Requisitos #}
+            {# Columna derecha: Demos, Scaffolds y Requisitos. El nombre y el
+               resumen de cada demo vienen de los metadatos del scaffold
+               (`label`, `summary`, `why`), que son CLAVES del catálogo: se
+               traducen acá, en el render, porque el array de módulos se arma
+               una vez por proceso y el locale es por request. #}
             <div id="demos" class="flex flex-col gap-6 border-t-2 border-base-200 bg-base-300 p-6 sm:p-8 lg:col-span-2 lg:border-l lg:p-10">
                 <div>
                     <h2 class="flex items-center gap-2 text-xl font-bold tracking-tight">
                         <span class="opacity-60" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'package', class: 'h-4 w-4'} %}
                         </span>
-                        Módulos y demos
+                        {{ t('home.modules.title') }}
                     </h2>
-                    <p class="mt-1 text-xs opacity-60">Scaffolds opcionales para explorar el stack o usar como base.</p>
+                    <p class="mt-1 text-xs opacity-60">{{ t('home.modules.subtitle') }}</p>
                 </div>
 
                 {% for module in demo_modules %}
@@ -258,24 +263,24 @@
                                     <span class="opacity-70" aria-hidden="true">
                                         {% include 'components/ui/icon.twig' with {name: module.icon, class: 'h-4 w-4'} %}
                                     </span>
-                                    Demo de {{ module.label|lower }}
+                                    {{ t('home.demo.title', {'%name%': t(module.label)|lower}) }}
                                 </h3>
-                                <p class="mt-1 text-xs opacity-70">{{ module.summary }}</p>
-                                {% if module.why|default('') %}
-                                    <p class="mt-1 text-xs opacity-50">{{ module.why }}</p>
+                                <p class="mt-1 text-xs opacity-70">{{ t(module.summary) }}</p>
+                                {% if module.why is defined and module.why %}
+                                    <p class="mt-1 text-xs opacity-50">{{ t(module.why) }}</p>
                                 {% endif %}
                             </div>
                             {% if module.installed %}
-                                <span class="badge badge-success badge-sm shrink-0">Instalado</span>
+                                <span class="badge badge-success badge-sm shrink-0">{{ t('home.demo.installed') }}</span>
                             {% else %}
-                                <span class="badge badge-ghost badge-sm shrink-0">Opcional</span>
+                                <span class="badge badge-ghost badge-sm shrink-0">{{ t('home.demo.optional') }}</span>
                             {% endif %}
                         </div>
 
                         {% if module.installed %}
                             <div class="pt-1">
                                 {% include 'components/ui/button.twig' with {
-                                    label: 'Abrir ' ~ (module.label|lower),
+                                    label: t('home.open_demo', {'%name%': t(module.label)|lower}),
                                     href: url(module.href),
                                     icon: 'arrow-right',
                                     icon_position: 'end',
@@ -284,12 +289,12 @@
                                 } only %}
                             </div>
                             <div class="border-t border-base-300 pt-3">
-                                <p class="mb-1 text-xs opacity-60">Desinstalar módulo:</p>
+                                <p class="mb-1 text-xs opacity-60">{{ t('home.demo.uninstall') }}</p>
                                 <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:remove</code>
                             </div>
                         {% else %}
                             <div>
-                                <p class="mb-1 text-xs opacity-60">Comando de instalación:</p>
+                                <p class="mb-1 text-xs opacity-60">{{ t('home.demo.install') }}</p>
                                 <code class="block overflow-x-auto rounded border border-base-300 bg-base-200 px-2.5 py-1.5 font-mono text-xs">composer demo:{{ module.demo }}:install</code>
                             </div>
                         {% endif %}
@@ -301,33 +306,33 @@
                         <span class="inline-flex shrink-0" aria-hidden="true">
                             {% include 'components/ui/icon.twig' with {name: 'check-circle', class: 'h-3.5 w-3.5'} %}
                         </span>
-                        Requisitos y compatibilidad
+                        {{ t('home.requirements.title') }}
                     </h3>
                     <dl class="space-y-2 text-xs" aria-labelledby="requirements-title">
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Entornos</dt>
-                            <dd class="text-right opacity-70">Termux (ARM 32/64b), Windows, Linux, Mac</dd>
+                            <dt class="font-medium">{{ t('home.requirements.envs') }}</dt>
+                            <dd class="text-right opacity-70">{{ t('home.requirements.envs_value') }}</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">PHP</dt>
+                            <dt class="font-medium">{{ t('home.requirements.php') }}</dt>
                             <dd class="opacity-70">8.4.1+</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Extensiones</dt>
+                            <dt class="font-medium">{{ t('home.requirements.extensions') }}</dt>
                             <dd class="opacity-70">pdo_sqlite, sqlite3, mbstring</dd>
                         </div>
                         <div class="flex justify-between gap-2 border-b border-base-300/50 pb-1.5">
-                            <dt class="font-medium">Composer</dt>
+                            <dt class="font-medium">{{ t('home.requirements.composer') }}</dt>
                             <dd class="opacity-70">2.x</dd>
                         </div>
                         <div class="flex justify-between gap-2 pb-0.5">
-                            <dt class="font-medium">Navegadores</dt>
+                            <dt class="font-medium">{{ t('home.requirements.browsers') }}</dt>
                             <dd class="text-right opacity-70">
                                 <span>Chrome 111+</span>, <span>Safari 16.4+</span>, <span>Firefox 128+</span>
                             </dd>
                         </div>
                     </dl>
-                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">Sin Node.js, sin paso de build ni CDN en runtime.</p>
+                    <p class="pt-2 border-t border-base-300 text-xs opacity-60">{{ t('home.requirements.note') }}</p>
                 </div>
             </div>
         </div>
