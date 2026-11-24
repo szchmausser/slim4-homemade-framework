@@ -221,7 +221,7 @@ mi-app/
 
 El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php`, `config/navigation/tasks.php` (la entrada del módulo en el menú) y `lang/{es,en}/tasks.php` (sus claves de traducción). Sin ese comando, la app base queda limpia. El layout es plano, el mismo del tutorial: el demo no crea un namespace `App\Tasks`; lo único que agrupa por demo es la migración, en `database/migrations/tasks/`, para reservar la banda 900.
 
-Hay tres demos (`tasks`, `contacts` y `notes`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
+Hay tres demos (`tasks`, `contacts` y `notes`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla filtra, pagina y ordena en el servidor (`filterMode`, `paginationMode` y `sortMode` en `'remote'` dentro de `contacts-tabulator.js`, con los filtros de cabecera nativos de la librería: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
 ## 4. Dependencias del backend
 
@@ -4489,7 +4489,7 @@ vuelta.
 
 ### 15.3.2 Qué superficies están externalizadas (y cuáles no)
 
-Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en los catálogos base (`lang/es.php` y `lang/en.php`, 117 claves cada uno, con las mismas claves en el mismo orden) y en los catálogos que cada demo trae en su scaffold (101 claves por idioma: `tasks` 29, `contacts` 47, `notes` 25).
+Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en los catálogos base (`lang/es.php` y `lang/en.php`, 117 claves cada uno, con las mismas claves en el mismo orden) y en los catálogos que cada demo trae en su scaffold (116 claves por idioma: `tasks` 36, `contacts` 50, `notes` 30).
 
 | Superficie | Dónde | Claves |
 |---|---|---|
@@ -4505,7 +4505,7 @@ Esta es la foto exacta después de externalizar los tres demos, el JS de contact
 | Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.home` en el base; `nav.<demo>` viaja con cada demo |
 | Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why`, en el catálogo de cada demo |
 | Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (36 claves, en `lang/<locale>/tasks.php`) |
-| Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` + `nav.contacts` (47 claves, en `lang/<locale>/contacts.php`) |
+| Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` + `nav.contacts` (50 claves, en `lang/<locale>/contacts.php`) |
 | Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (30 claves, en `lang/<locale>/notes.php`) |
 | Puerta de login | `framework/Http/Middleware/RequireAuthMiddleware.php` | `auth.login_required` |
 
@@ -6002,6 +6002,50 @@ $listado = Pagination::fromRequest(
 `url()` devuelve `/tasks` si no hay estado y `/tasks?q=plan&status=pendiente` si lo hay. `Pagination` expone `page_url_base` (la base con `?` o `&` ya elegido), que es lo que concatenan los `<a>` de la plantilla para conservar `q`, `sort`, `dir` y los filtros al cambiar de página. `pageUrl()` compone esa misma base con `page`/`per_page` y es lo que alimenta el `HX-Push-Url` de las acciones: la URL canónica que el servidor renderizó, no los enlaces del paginador. El selector de tamaño de página es un GET, así que el formulario reemplaza la query del `action`: el componente acepta `action` (la ruta pelada) y `params` (los campos ocultos) para que cambiar el tamaño tampoco pierda el estado. Sin JS: los hidden son HTML.
 
 El demo `tasks` usa búsqueda en `title`, filtro `status` y orden por `title`/`created_at`; `notes` usa búsqueda en `title` y `body` y las mismas columnas de orden. Los dos tienen un formulario GET, encabezados con `aria-sort` y links de orden construidos con `url()`. `contacts` queda afuera a propósito: su orden no es estado de la URL sino de Tabulator, que manda `sort[i][field]` y su propio multi-orden por AJAX. Es otro contrato —el cliente es el dueño de la grilla— y meterlo acá obligaría al primitivo a aceptar una forma que ningún listado server-rendered usa.
+
+### 16.3 La grilla de `contacts`: filtros de cabecera en modo remoto
+
+La tabla de `contacts` filtra por su cuenta: los tres campos de la cabecera (Nombre, Email y Teléfono) son filtros **de la librería**, no un formulario del servidor. Con `filterMode: 'remote'` el valor viaja al endpoint y el `LIKE` lo resuelve la base sobre la tabla completa; filtrar en el cliente las diez filas de la página diría que hay menos contactos de los que hay.
+
+La configuración es la de Tabulator, sin cajas propias, debounce casero ni `setFilter` manual:
+
+```js excerpt
+filterMode: 'remote',
+headerFilterLiveFilterDelay: 400,
+paginationOutOfRange: 'first',
+dataSendParams: {page: 'page', size: 'per_page', sort: 'sort', filter: 'filters'},
+columns: [
+    // ...
+    {title: i18n.columns.name, field: 'name', headerFilter: 'input', headerFilterFunc: 'like', headerFilterPlaceholder: dictionary.name},
+]
+```
+
+- **`headerFilter: 'input'` y `headerFilterFunc: 'like'` por columna.** Es el filtro de cabecera nativo: `input` para el campo de texto y `like` como comparación. El `type` que viaja es `like` y el `%` del patrón lo pone el servidor, no el cliente. El placeholder sale del diccionario del locale, como el resto de los textos de la tabla: el JS no lleva una sola cadena de interfaz.
+- **`headerFilterLiveFilterDelay: 400`.** Filtro en vivo con la pausa acordada: la librería espera a que el usuario deje de tipear antes de volver a pedir la página (su default son 300 ms).
+- **`dataSendParams` con los cuatro nombres fijos.** Es el vocabulario del query string: `page`, `per_page`, `sort` y `filters`. El de los filtros se declara explícitamente porque la documentación de Tabulator alterna entre `filter` y `filters` para ese array, y el default no es un contrato que convenga heredar: el nombre que fija el cliente es el que lee el servidor, y `per_page` sigue siendo el nombre del resto de la app.
+- **`paginationOutOfRange: 'first'`.** Un filtro que reduce las páginas puede dejar la tabla pidiendo una página que ya no existe; en modo remoto eso es un `data` vacío y un paginador mintiendo. La librería vuelve sola a la primera página al cambiar el filtro, y esta opción cubre el borde.
+
+Del lado del servidor, `ContactController::data()` lee el array y lo valida con el mismo criterio que el orden:
+
+```php excerpt
+private const FILTERABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
+private const FILTER_TYPES = ['like', '='];
+```
+
+- **`field` y `type` salen de esas constantes, nunca del request.** Un campo que no esté en `FILTERABLE` —o un tipo que no sea `like`/`=`— se ignora en silencio: el listado sale completo y ningún nombre de columna ni operador del request llega a la query.
+- **El valor se escapa y el SQL declara `ESCAPE`.** `%` y `_` son comodines de `LIKE`, así que el valor se escapa primero (la barra misma va primero) y el patrón viaja como binding en un `LIKE ? ESCAPE '\'`: filtrar `100%` busca ese literal y `a_b` no matchea `aXb`. Es el mismo criterio de `ListQuery` —se repite el escapado, no el primitivo—.
+- **Se filtra antes de paginar.** El `Builder` ya filtrado es el que entra a `Pagination::paginate()`, así `last_row` y `last_page` se calculan sobre el conjunto filtrado y el contador «de N filas» no miente.
+
+El request que arma la librería (un filtro con valor, más la página y el orden):
+
+```text
+GET /contacts/data?page=2&per_page=10&sort[0][field]=name&sort[0][dir]=asc
+    &filters[0][field]=name&filters[0][type]=like&filters[0][value]=ana
+```
+
+Los filtros viajan anidados como `filters[i][field|type|value]`: la misma serialización con corchetes que ya usa `sort[i][field|dir]`, y el valor va URL-encoded como cualquier otro parámetro.
+
+**Este contrato es del demo, no de `ListQuery`.** `ListQuery` es el primitivo de los listados server-rendered: su estado vive en la URL (`?q=&sort=&dir=&status=`), el request nunca aporta un nombre de columna y la página se compone con `Pagination` sobre esa URL. La grilla AJAX tiene otro dueño del estado —el cliente manda el array de filtros y el endpoint devuelve `{last_page, last_row, data}` en vez de enlaces— así que `contacts` repite el escapado del `LIKE` en su controlador en lugar de reusar el primitivo: meter la forma AJAX adentro obligaría a `ListQuery` a aceptar un contrato que ningún listado por URL usa.
 
 ## 17. Levantar el servidor y mantenerlo vivo
 
