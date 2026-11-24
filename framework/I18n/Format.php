@@ -12,7 +12,7 @@ use InvalidArgumentException;
  * Formato de cantidades y fechas según el locale activo.
  *
  *     Format::number(1234.5, 2);                     // 1.234,50 en es; 1,234.50 en en
- *     Format::date($task->completed_at, 'numeric_time'); // 07/03/2024 15:04 en es
+ *     Format::date($task->completed_at, 'numeric_time'); // 07/03/2024 3:04 PM en es
  *
  * La división es la de S2: el framework posee el primitivo —separadores y
  * patrones según idioma— y la app elige **qué** mostrar y con cuántos
@@ -21,9 +21,10 @@ use InvalidArgumentException;
  * romper el formato.
  *
  * La API expone `kinds` y no patrones libres: la app pide «numérica con hora»
- * y el framework decide cómo se escribe en el idioma activo. Sin `ext-intl` y
- * sin dependencias nuevas (S3): el motor es `number_format()` y
- * `DateTimeInterface::format()`.
+ * y el framework decide cómo se escribe la fecha en el idioma activo; el ciclo
+ * de la hora es una política global de la app (`LocaleData::useHourCycle()`),
+ * 12 horas por defecto. Sin `ext-intl` y sin dependencias nuevas (S3): el motor
+ * es `number_format()` y `DateTimeInterface::format()`.
  */
 final class Format
 {

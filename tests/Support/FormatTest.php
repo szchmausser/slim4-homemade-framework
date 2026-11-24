@@ -44,7 +44,7 @@ final class FormatTest extends TestCase
         $this->previousLocale = self::translator()->getLocale();
 
         // El ciclo horario es estático y global: cada test arranca y termina en
-        // el ciclo natural de cada locale.
+        // el default de 12 horas.
         LocaleData::useHourCycle(null);
     }
 
@@ -165,8 +165,8 @@ final class FormatTest extends TestCase
     {
         return [
             'es: numérica'            => ['es', 'numeric', '07/03/2024'],
-            'es: numérica con hora'   => ['es', 'numeric_time', '07/03/2024 15:04'],
-            'es: sólo hora'           => ['es', 'time', '15:04'],
+            'es: numérica con hora'   => ['es', 'numeric_time', '07/03/2024 3:04 PM'],
+            'es: sólo hora'           => ['es', 'time', '3:04 PM'],
             'en: numérica'            => ['en', 'numeric', '03/07/2024'],
             'en: numérica con hora'   => ['en', 'numeric_time', '03/07/2024 3:04 PM'],
             'en: sólo hora'           => ['en', 'time', '3:04 PM'],
@@ -193,46 +193,48 @@ final class FormatTest extends TestCase
     {
         self::useLocale('es');
 
-        self::assertSame('07/03/2024 15:04', Format::date('2024-03-07 15:04:05', 'numeric_time'));
+        self::assertSame('07/03/2024 3:04 PM', Format::date('2024-03-07 15:04:05', 'numeric_time'));
     }
 
-    /** S8: `es` declara 24 horas en la tabla; no hay que forzar nada. */
-    public function test_es_usa_24_horas_por_su_ciclo_natural(): void
+    /** S8: el default es 12 horas para todos los idiomas, también para `es`. */
+    public function test_es_usa_12_horas_por_defecto(): void
     {
         self::useLocale('es');
 
-        self::assertSame('24', LocaleData::for('es')['hour_cycle']);
-        self::assertSame('07/03/2024 15:04', Format::date(self::moment(), 'numeric_time'));
-        self::assertSame('15:04', Format::date(self::moment(), 'time'));
+        self::assertSame('12', LocaleData::for('es')['hour_cycle']);
+        self::assertSame('07/03/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('3:04 PM', Format::date(self::moment(), 'time'));
     }
 
-    /** S8: `en` omite `hour_cycle`; el default del campo es 12 horas. */
-    public function test_en_usa_12_horas_por_el_default_del_campo(): void
+    /** S8: `en` también arranca en 12 horas; el ciclo no depende del idioma. */
+    public function test_en_usa_12_horas_por_defecto(): void
     {
         self::useLocale('en');
 
-        self::assertSame('12', LocaleData::for('en')['hour_cycle'], 'en tiene que usar el default del campo.');
+        self::assertSame('12', LocaleData::for('en')['hour_cycle']);
         self::assertSame('03/07/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
         self::assertSame('3:04 PM', Format::date(self::moment(), 'time'));
     }
 
-    /** S8: el ciclo que fija la app gana sobre el que declara la tabla. */
-    public function test_el_ciclo_forzado_por_la_app_gana_sobre_el_locale(): void
+    /** S8: el ciclo es una política global; 24 horas aplica a los dos idiomas. */
+    public function test_use_hour_cycle_24_lleva_los_dos_idiomas_a_24_horas(): void
     {
+        LocaleData::useHourCycle('24');
+
         self::useLocale('es');
-        LocaleData::useHourCycle('12');
-        self::assertSame('07/03/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
-        self::assertSame('3:04 PM', Format::date(self::moment(), 'time'));
+        self::assertSame('24', LocaleData::for('es')['hour_cycle']);
+        self::assertSame('07/03/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('15:04', Format::date(self::moment(), 'time'));
         self::assertSame('07/03/2024', Format::date(self::moment(), 'numeric'), 'El ciclo no toca la fecha.');
 
         self::useLocale('en');
-        LocaleData::useHourCycle('24');
+        self::assertSame('24', LocaleData::for('en')['hour_cycle']);
         self::assertSame('03/07/2024 15:04', Format::date(self::moment(), 'numeric_time'));
         self::assertSame('15:04', Format::date(self::moment(), 'time'));
     }
 
-    /** S8: `null` no fija nada; cada locale vuelve a su ciclo. */
-    public function test_use_hour_cycle_null_restaura_el_ciclo_del_locale(): void
+    /** S8: `null` deshace el override y vuelve al default de 12 horas. */
+    public function test_use_hour_cycle_null_vuelve_a_12_horas(): void
     {
         LocaleData::useHourCycle('24');
 
@@ -243,7 +245,7 @@ final class FormatTest extends TestCase
         self::assertSame('03/07/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
 
         self::useLocale('es');
-        self::assertSame('07/03/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('07/03/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
     }
 
     /** S8: un ciclo que no es `'12'`, `'24'` ni `null` es error de programación. */
@@ -349,7 +351,7 @@ final class FormatTest extends TestCase
             ->createTemplate("{{ 1234|num }}|{{ 1234.5|num(2) }}|{{ fecha|localdate }}|{{ fecha|localdate('numeric_time') }}|{{ fecha|localdate('time') }}")
             ->render(['fecha' => $fecha]);
 
-        self::assertSame('1.234|1.234,50|07/03/2024|07/03/2024 15:04|15:04', $es);
+        self::assertSame('1.234|1.234,50|07/03/2024|07/03/2024 3:04 PM|3:04 PM', $es);
 
         $en = self::twig(self::useLocale('en'))
             ->createTemplate("{{ 1234|num }}|{{ 1234.5|num(2) }}|{{ fecha|localdate }}|{{ fecha|localdate('numeric_time') }}|{{ fecha|localdate('time') }}")

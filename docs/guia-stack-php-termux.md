@@ -4412,13 +4412,14 @@ Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` pa
 
 - **El header pinta las migas tal cual: el TEXTO se arma al construir la miga.** `Controller::breadcrumbs()`/`breadcrumbsFor()` traducen la raíz con `Trans::t('nav.home')` y cada controlador pasa su miga ya traducida (`Trans::t('nav.tasks')`); `layouts/parts/topbar.twig` sólo imprime `crumb.label`. Poner una CLAVE en `breadcrumbs` imprimiría `nav.home` en el header: eso se hace sólo donde el menú se arma una vez por proceso (sidebar y portada), no acá.
 - **El texto de un JS de demo no vive en el JS.** Un asset estático no puede traducir: si un JS de scaffold arma texto visible, el servidor le manda el diccionario ya resuelto (el demo de contacts usa `data-strings` con JSON). Incrustar cadenas en el archivo lo deja en un solo idioma.
-- **El formato de fechas y cantidades sí es por locale, y no depende de `ext-intl`.** Lo resuelve
-  `Framework\I18n\Format` con los datos de locale en código, no el `php.ini` del despliegue: el detalle
-  y la tabla están justo abajo, y lo que sigue afuera está en «Qué queda pendiente» (15.3.2).
+- **El formato de fechas y cantidades es por locale (orden y separadores), y no depende de `ext-intl`.**
+  Lo resuelve `Framework\I18n\Format` con los datos de locale en código, no el `php.ini` del despliegue;
+  el ciclo horario es aparte, una política global de la app. El detalle y la tabla están justo abajo, y
+  lo que sigue afuera está en «Qué queda pendiente» (15.3.2).
 
 **Fechas y cantidades por locale (`Format`).** El framework posee el primitivo y la app elige qué
 mostrar y con cuántos decimales: `Format::number(1234.5, 2)` devuelve `1.234,50` en español y
-`1,234.50` en inglés, y `Format::date($task->completed_at, 'numeric_time')` devuelve `07/03/2024 15:04`
+`1,234.50` en inglés, y `Format::date($task->completed_at, 'numeric_time')` devuelve `07/03/2024 3:04 PM`
 en español y `03/07/2024 3:04 PM` en inglés. En Twig son `|num`, con decimales opcionales
 (`{{ pagination.total|num }}`, `{{ importe|num(2) }}`), y `|localdate`, con kind opcional
 (`{{ task.completed_at|localdate('numeric_time') }}`). Ninguna vista, controlador ni scaffold escribe
@@ -4429,35 +4430,33 @@ hora). Un kind desconocido lanza `InvalidArgumentException` con la lista de los 
 programación, no una entrada del usuario.
 
 Los datos viven en `framework/I18n/LocaleData.php`, en código y no en `lang/`: un separador no es texto
-traducible y una edición del catálogo no puede romper el formato. La tabla guarda la fecha y el ciclo
-horario; la hora y sus combinaciones se derivan de ese ciclo, así que no hay una clave de patrón por
-kind:
+traducible y una edición del catálogo no puede romper el formato. La tabla guarda sólo los separadores y
+la fecha; la hora no es una propiedad del idioma:
 
-| Locale | `decimal` | `group` | `numeric` | `hour_cycle` |
-|---|---|---|---|---|
-| `es` | `,` | `.` | `d/m/Y` | `'24'` |
-| `en` | `.` | `,` | `m/d/Y` | no declara → `'12'` (default) |
+| Locale | `decimal` | `group` | `numeric` |
+|---|---|---|---|
+| `es` | `,` | `.` | `d/m/Y` |
+| `en` | `.` | `,` | `m/d/Y` |
 
-`hour_cycle` es `'12'` o `'24'`, y `'12'` es el default del campo cuando la entrada no lo declara:
-`en` lo omite y usa `g:i A`; `es` declara `'24'` porque es su uso natural —forzarlo a 12 haría que el
-español muestre «3:04 PM»—. De ahí salen las horas: `'12'` → `g:i A`, `'24'` → `H:i`; `time` es esa
-hora y `numeric_time` es la fecha (`numeric`) más un espacio más la hora. `en` usa además el mes antes
-que el día; `es`, día antes que mes.
+`en` usa el mes antes que el día; `es`, día antes que mes. Las horas se derivan del ciclo horario
+efectivo —`'12'` → `g:i A`, `'24'` → `H:i`—, así que no hay una clave de patrón por kind: `time` es la
+hora y `numeric_time` es la fecha (`numeric`) más un espacio más la hora. En 12 horas los marcadores son
+`AM`/`PM` tal como los emite PHP (`g:i A`), sin localizar.
 
-El ciclo es global y es una decisión de app, no de locale: `LocaleData::useHourCycle('12')` (o `'24'`)
-lo fija una vez en el bootstrap y gana sobre la tabla, con el mismo efecto en todas las peticiones;
-`useHourCycle(null)` vuelve al ciclo natural de cada locale. Un valor distinto lanza
-`InvalidArgumentException` con los válidos en el mensaje. No es una preferencia por visitante ni se
-guarda en la sesión.
+El ciclo horario es una **política de la app**, no del locale: el default es de 12 horas para todos los
+idiomas y la app lo cambia una vez en el bootstrap con `LocaleData::useHourCycle('24')` (o `'12'`),
+que aplica a todas las peticiones por igual; `useHourCycle(null)` deshace el override y vuelve al
+default de 12. Un valor distinto lanza `InvalidArgumentException` con los válidos en el mensaje. No es
+una preferencia por visitante ni se guarda en la sesión.
 
-El ciclo forzado cambia la hora visible, no la fecha: con `useHourCycle('12')` en español,
-`Format::date($momento, 'numeric_time')` devuelve `07/03/2024 3:04 PM`.
+Con el default de 12 horas, `Format::date($momento, 'numeric_time')` devuelve `07/03/2024 3:04 PM` en
+español y `03/07/2024 3:04 PM` en inglés; con `useHourCycle('24')`, los dos pasan a `07/03/2024 15:04` y
+`03/07/2024 15:04`. El ciclo cambia la hora visible, no la fecha.
 
 El locale activo sale de `Trans::locale()`, el mismo que `LocaleMiddleware` fija en cada
 petición. Un locale sin entrada no rompe el render: cae al locale base (`APP_LOCALE`) y, si el base
 tampoco tiene tabla, a `es`. Agregar un idioma con formato propio es agregar una entrada a esa tabla
-—con `hour_cycle` si no usa 12 horas—; su catálogo en `lang/` es otra cosa; `Format` y las vistas no
-se tocan.
+—separadores y fecha—; su catálogo en `lang/` es otra cosa; `Format` y las vistas no se tocan.
 
 Si el valor tiene que viajar a un formulario o a una API, va crudo: ISO para la fecha y `.` para el
 decimal. El primitivo es para lo que se renderiza y se lee, no para el valor que el servidor espera de

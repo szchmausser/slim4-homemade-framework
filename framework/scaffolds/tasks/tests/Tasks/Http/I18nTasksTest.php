@@ -97,7 +97,7 @@ final class I18nTasksTest extends TasksTestCase
 
         $html = self::texto((string) self::app()->handle(self::request('GET', '/tasks'))->getBody());
 
-        self::assertStringContainsString('Completada el 02/02/2026 03:04', $html);
+        self::assertStringContainsString('Completada el 02/02/2026 3:04 AM', $html);
     }
 
     /**

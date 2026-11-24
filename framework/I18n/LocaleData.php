@@ -7,14 +7,15 @@ namespace Framework\I18n;
 use InvalidArgumentException;
 
 /**
- * Datos de formato por locale: separadores, fecha y ciclo horario.
+ * Datos de formato por locale: separadores y patrón de fecha.
  *
  * Vive en código y no en `lang/` a propósito (S2): un separador de miles no es
  * texto traducible. Si los patrones vivieran en el catálogo, editar una
  * traducción podría cambiar `1.234` por `1,234` sin que nadie lo note, y el
  * formato dejaría de ser responsabilidad del framework. Acá agregar un idioma
  * es agregar una entrada —y sólo eso—: `decimal` y `group` los usa
- * `Format::number()`; la fecha y el ciclo horario, `Format::date()`.
+ * `Format::number()` y `numeric`, `Format::date()`. El ciclo horario no es del
+ * locale: es una política global de la app (ver `useHourCycle()`).
  *
  * Los patrones son de `DateTimeInterface::format()`, no de ICU: el stack no
  * puede asumir `ext-intl` en Termux, y dos motores para la misma salida darían
@@ -27,7 +28,7 @@ final class LocaleData
     /** Kinds de `Format::date()`; el orden es el de la lista que muestra el error. */
     public const KINDS = ['numeric', 'numeric_time', 'time'];
 
-    /** Ciclo horario cuando la entrada del locale no declara `hour_cycle`. */
+    /** Ciclo horario por defecto de la app: 12 horas, para todos los idiomas. */
     private const DEFAULT_HOUR_CYCLE = '12';
 
     /**
@@ -45,27 +46,23 @@ final class LocaleData
     /**
      * Entradas conocidas: sólo los idiomas que el cromo ofrece hoy.
      *
-     * `hour_cycle` es opcional y ausente significa `'12'`, el
-     * `DEFAULT_HOUR_CYCLE`: es el ciclo natural del campo y el que usa un
-     * locale que no lo declara. `es` declara `'24'` porque es su uso natural
-     * —forzarlo a 12 haría que el español muestre «3:04 PM»—; `en` lo omite y
-     * toma el default. `numeric` es sólo la fecha: la hora sale de
-     * `HOUR_PATTERNS` según el ciclo.
+     * `decimal` y `group` son los separadores de número y `numeric` es la
+     * fecha. La hora no vive acá: el ciclo horario es una política global de la
+     * app (`useHourCycle()`), no una propiedad del idioma, y `HOUR_PATTERNS` lo
+     * traduce a patrón.
      *
-     * @var array<string, array{decimal: string, group: string, numeric: string, hour_cycle?: string}>
+     * @var array<string, array{decimal: string, group: string, numeric: string}>
      */
     private const LOCALES = [
         'es' => [
-            'decimal'    => ',',
-            'group'      => '.',
-            'numeric'    => 'd/m/Y',
-            'hour_cycle' => '24',
+            'decimal' => ',',
+            'group'   => '.',
+            'numeric' => 'd/m/Y',
         ],
         'en' => [
             'decimal' => '.',
             'group'   => ',',
             'numeric' => 'm/d/Y',
-            // Sin `hour_cycle`: usa el default del campo, `'12'`.
         ],
     ];
 
@@ -86,16 +83,16 @@ final class LocaleData
      * idioma a medio configurar muestra números y fechas legibles con el
      * formato del idioma de respaldo en vez de romper el render.
      *
-     * El ciclo es el forzado con `useHourCycle()` si hay uno; si no, el que
-     * declara la entrada o el default del campo. Las horas y sus combinaciones
-     * se derivan acá, así la tabla no repite patrones por kind.
+     * El ciclo es global: el que fijó `useHourCycle()` o el default de la app
+     * (`'12'`), nunca el del locale. Las horas y sus combinaciones se derivan
+     * acá, así la tabla no repite patrones por kind.
      *
      * @return array{decimal: string, group: string, numeric: string, hour_cycle: string, numeric_time: string, time: string}
      */
     public static function for(string $locale): array
     {
         $entry = self::entry($locale);
-        $cycle = self::$hourCycle ?? $entry['hour_cycle'] ?? self::DEFAULT_HOUR_CYCLE;
+        $cycle = self::$hourCycle ?? self::DEFAULT_HOUR_CYCLE;
         $time = self::HOUR_PATTERNS[$cycle];
 
         return [
@@ -109,13 +106,14 @@ final class LocaleData
     }
 
     /**
-     * Fija el ciclo horario de toda la app, o vuelve al natural del locale.
+     * Fija el ciclo horario de toda la app, o vuelve al default de 12 horas.
      *
      * Es una decisión de **app**, no de locale: se llama una vez en el
-     * bootstrap y gana sobre `hour_cycle` de la tabla. `null` no fija nada:
-     * cada locale vuelve a su ciclo declarado (o al default del campo). Los
-     * valores aceptados son `'12'`, `'24'` y `null`; cualquier otro es un
-     * error de programación, así que lanza con la lista en el mensaje.
+     * bootstrap y aplica a todos los idiomas. `null` deshace el override y
+     * deja el default de la app (`'12'`, `DEFAULT_HOUR_CYCLE`); no hay ciclo
+     * «natural» del idioma. Los valores aceptados son `'12'`, `'24'` y
+     * `null`; cualquier otro es un error de programación, así que lanza con la
+     * lista en el mensaje.
      */
     public static function useHourCycle(?string $cycle): void
     {
@@ -137,7 +135,7 @@ final class LocaleData
     /**
      * Entrada del locale o, si no está, la del base y la de reserva.
      *
-     * @return array{decimal: string, group: string, numeric: string, hour_cycle?: string}
+     * @return array{decimal: string, group: string, numeric: string}
      */
     private static function entry(string $locale): array
     {
