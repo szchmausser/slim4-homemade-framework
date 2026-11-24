@@ -42,6 +42,9 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   del módulo incluido (`nav.tasks`/`nav.contacts`/`nav.notes` dicen
   «Tareas»/«Contactos»/«Notas»): ningún demo deja su texto en un solo idioma,
   salvo las palabras que se escriben igual en los dos («Email», «#»).
+  Las fechas y cantidades visibles van por `Framework\I18n\Format` (o los filtros
+  `|num`/`|localdate`), nunca por un patrón escrito en la vista, el controlador
+  o el scaffold; los valores de formulario y las APIs quedan crudos (ISO y `.`).
 - **El locale se resuelve por petición.** Precedencia: `?lang=` > sesión >
   `Accept-Language` > `APP_LOCALE` (default `es`; fallback de catálogo
   `APP_FALLBACK_LOCALE`, default `en`). El orden vive en

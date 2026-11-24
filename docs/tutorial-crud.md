@@ -1233,7 +1233,9 @@ vuelven a español cuando volvés.
 
 **Qué no prueba**: que toda la app esté traducida. El cromo ya venía así; acá se suman tus seis claves.
 El resolver de locale —`?lang=`, sesión, `Accept-Language`, selector del pie— es del shell y no se
-construye en este recorrido: está en `docs/guia-stack-php-termux.md` §15.3.
+construye en este recorrido: está en `docs/guia-stack-php-termux.md` §15.3. Las fechas y cantidades
+tienen su propio primitivo en el framework (`Format`, los filtros `|num`/`|localdate`) y no se enseñan
+acá: ver `docs/guia-stack-php-termux.md` §15.3.2.
 
 **Falla si**:
 

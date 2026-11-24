@@ -2821,8 +2821,8 @@ class Task extends Model
     protected $fillable = ['title', 'status', 'completed_at'];
 
     protected $casts = [
-        // Carbon y no string: la vista formatea la fecha con `|date()` y el toggle
-        // le asigna `Carbon::now()`.
+        // Carbon y no string: la vista la formatea con `|localdate('numeric_time')`
+        // y el toggle le asigna `Carbon::now()`.
         'completed_at' => 'datetime',
     ];
 }
@@ -4412,7 +4412,39 @@ Si el archivo no existe, nada se rompe: el locale activo cae al fallback `en` pa
 
 - **El header pinta las migas tal cual: el TEXTO se arma al construir la miga.** `Controller::breadcrumbs()`/`breadcrumbsFor()` traducen la raíz con `Trans::t('nav.home')` y cada controlador pasa su miga ya traducida (`Trans::t('nav.tasks')`); `layouts/parts/topbar.twig` sólo imprime `crumb.label`. Poner una CLAVE en `breadcrumbs` imprimiría `nav.home` en el header: eso se hace sólo donde el menú se arma una vez por proceso (sidebar y portada), no acá.
 - **El texto de un JS de demo no vive en el JS.** Un asset estático no puede traducir: si un JS de scaffold arma texto visible, el servidor le manda el diccionario ya resuelto (el demo de contacts usa `data-strings` con JSON). Incrustar cadenas en el archivo lo deja en un solo idioma.
-- **El formato de fechas y números no es por locale**, y no lo va a ser sin `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, y los nombres de mes y día que vienen con el idioma). La extensión no está garantizada en el PHP de Termux: mientras tanto, el formato queda en el `php.ini` del despliegue y las fechas se muestran en un solo formato.
+- **El formato de fechas y cantidades sí es por locale, y no depende de `ext-intl`.** Lo resuelve
+  `Framework\I18n\Format` con los datos de locale en código, no el `php.ini` del despliegue: el detalle
+  y la tabla están justo abajo, y lo que sigue afuera está en «Qué queda pendiente» (15.3.2).
+
+**Fechas y cantidades por locale (`Format`).** El framework posee el primitivo y la app elige qué
+mostrar y con cuántos decimales: `Format::number(1234.5, 2)` devuelve `1.234,50` en español y
+`1,234.50` en inglés, y `Format::date($task->completed_at, 'numeric_time')` devuelve `07/03/2024 15:04`
+en español y `03/07/2024 3:04 PM` en inglés. En Twig son `|num`, con decimales opcionales
+(`{{ pagination.total|num }}`, `{{ importe|num(2) }}`), y `|localdate`, con kind opcional
+(`{{ task.completed_at|localdate('numeric_time') }}`). Ninguna vista, controlador ni scaffold escribe
+un patrón ni un separador: si una fecha o una cantidad visible no sale del primitivo, es un bug.
+
+Los kinds son tres: `numeric` (sólo fecha, el default), `numeric_time` (fecha y hora) y `time` (sólo
+hora). Un kind desconocido lanza `InvalidArgumentException` con la lista de los válidos: es un error de
+programación, no una entrada del usuario.
+
+Los datos viven en `framework/I18n/LocaleData.php`, en código y no en `lang/`: un separador no es texto
+traducible y una edición del catálogo no puede romper el formato. La tabla es esta:
+
+| Locale | `decimal` | `group` | `numeric` | `numeric_time` | `time` |
+|---|---|---|---|---|---|
+| `es` | `,` | `.` | `d/m/Y` | `d/m/Y H:i` | `H:i` |
+| `en` | `.` | `,` | `m/d/Y` | `m/d/Y g:i A` | `g:i A` |
+
+`en` usa el mes antes que el día y la hora en 12 horas (`g:i A`); `es`, al revés: día antes que mes y
+24 horas. El locale activo sale de `Trans::locale()`, el mismo que `LocaleMiddleware` fija en cada
+petición. Un locale sin entrada no rompe el render: cae al locale base (`APP_LOCALE`) y, si el base
+tampoco tiene tabla, a `es`. Agregar un idioma con formato propio es agregar una entrada a esa tabla
+—su catálogo en `lang/` es otra cosa—; `Format` y las vistas no se tocan.
+
+Si el valor tiene que viajar a un formulario o a una API, va crudo: ISO para la fecha y `.` para el
+decimal. El primitivo es para lo que se renderiza y se lee, no para el valor que el servidor espera de
+vuelta.
 
 ### 15.3.2 Qué superficies están externalizadas (y cuáles no)
 
@@ -4448,7 +4480,11 @@ Las dos superficies de error no se quedan en `t()`: la página de error es autó
 
 **Qué queda pendiente (y por qué).**
 
-- **Fechas y números**, que piden `ext-intl` (`NumberFormatter`, `IntlDateFormatter`, nombres de mes y día). La extensión no está garantizada en el PHP de Termux; mientras tanto el formato queda en el `php.ini` del despliegue. Es la única superficie del frontend que sigue fuera del catálogo.
+- **Nombres de mes y día, plurales, moneda y zonas horarias.** No los cubre el primitivo: los nombres
+  de mes y día y el formato de moneda son datos de locale que todavía no están en la tabla (y
+  `ext-intl`, que los traería, no está garantizada en el PHP de Termux); los plurales son gramática,
+  no formato; y las zonas horarias no tienen caso de uso. Cuando alguno haga falta, se agrega al
+  primitivo o a un helper propio, nunca como un patrón escrito en una vista.
 
 **El código.** La extensión de Twig, que es lo único que se suma a Twig para traducir (sin `symfony/twig-bridge`: el paquete canónico del filtro `trans`, pero con una superficie mucho más grande que la necesaria):
 
@@ -4477,6 +4513,15 @@ use Twig\TwigFunction;
  *     {{ 'modal.close'|trans }}
  *     {{ t('pagination.showing', {'%from%': pagination.from}) }}
  *
+ * `|num` y `|localdate` son la cara Twig de `Format`: el framework pone los
+ * separadores y patrones del locale activo y la app elige la forma y los
+ * decimales. Devuelven strings sin marcar como seguros: Twig los escapa como
+ * cualquier otro texto.
+ *
+ *     {{ pagination.total|num }}
+ *     {{ amount|num(2) }}
+ *     {{ task.completed_at|localdate('numeric_time') }}
+ *
  * La firma usa `Symfony\Contracts\Translation\TranslatorInterface` y no la
  * clase concreta: el contenedor expone la interfaz (S2) y las extensiones no
  * necesitan un `Translator` para traducir.
@@ -4500,7 +4545,11 @@ final class TranslationExtension extends AbstractExtension
      */
     public function getFilters(): array
     {
-        return [new TwigFilter('trans', $this->translate(...))];
+        return [
+            new TwigFilter('trans', $this->translate(...)),
+            new TwigFilter('num', Format::number(...)),
+            new TwigFilter('localdate', Format::date(...)),
+        ];
     }
 
     /**
@@ -4590,6 +4639,19 @@ final class Trans
     public static function t(string $key, array $params = []): string
     {
         return self::translator()->trans($key, $params);
+    }
+
+    /**
+     * Locale activo del traductor.
+     *
+     * `LocaleMiddleware` fija el locale en cada petición sobre el mismo
+     * traductor que registra el contenedor, así que este valor es el de la
+     * petición en curso y no el de `APP_LOCALE`. Lo usa `Format` para elegir
+     * separadores y patrones; sin registro previo vale el fallback de `t()`.
+     */
+    public static function locale(): string
+    {
+        return self::translator()->getLocale();
     }
 
     /**
@@ -5245,7 +5307,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                        recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
                         ? (task.completed_at
-                            ? t('tasks.status_done_at', {'%date%': task.completed_at|date('d/m/Y H:i')})
+                            ? t('tasks.status_done_at', {'%date%': task.completed_at|localdate('numeric_time')})
                             : t('tasks.status_done'))
                         : t('tasks.status_pending') %}
                     {# `-mt-0.5` centra el icono de 20px sobre el primer renglón
@@ -5601,12 +5663,16 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 
    Los textos salen de `lang/<locale>.php` con `t()`: las claves son las de `pagination.*` y el
    español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
-   sin él, el sustantivo del contador y del selector sale del catálogo. #}
+   sin él, el sustantivo del contador y del selector sale del catálogo.
+
+   Los tres contadores del texto (`from`, `to`, `total`) salen con `|num`: el separador de
+   miles lo pone el locale activo (`Format`), no la vista. Las opciones de `per_page` no se
+   formatean: son el `value` que el server espera. #}
 {% if pagination.total > 0 %}
 {% set unit = label|default(t('pagination.label')) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
-        {{ t('pagination.showing', {'%from%': pagination.from, '%to%': pagination.to, '%total%': pagination.total, '%label%': unit}) }}
+        {{ t('pagination.showing', {'%from%': pagination.from|num, '%to%': pagination.to|num, '%total%': pagination.total|num, '%label%': unit}) }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">
