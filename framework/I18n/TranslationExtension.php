@@ -20,6 +20,15 @@ use Twig\TwigFunction;
  *     {{ 'modal.close'|trans }}
  *     {{ t('pagination.showing', {'%from%': pagination.from}) }}
  *
+ * `|num` y `|localdate` son la cara Twig de `Format`: el framework pone los
+ * separadores y patrones del locale activo y la app elige la forma y los
+ * decimales. Devuelven strings sin marcar como seguros: Twig los escapa como
+ * cualquier otro texto.
+ *
+ *     {{ pagination.total|num }}
+ *     {{ amount|num(2) }}
+ *     {{ task.completed_at|localdate('numeric_time') }}
+ *
  * La firma usa `Symfony\Contracts\Translation\TranslatorInterface` y no la
  * clase concreta: el contenedor expone la interfaz (S2) y las extensiones no
  * necesitan un `Translator` para traducir.
@@ -43,7 +52,11 @@ final class TranslationExtension extends AbstractExtension
      */
     public function getFilters(): array
     {
-        return [new TwigFilter('trans', $this->translate(...))];
+        return [
+            new TwigFilter('trans', $this->translate(...)),
+            new TwigFilter('num', Format::number(...)),
+            new TwigFilter('localdate', Format::date(...)),
+        ];
     }
 
     /**

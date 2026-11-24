@@ -92,7 +92,7 @@
                        recuadro es puramente visual (`aria-hidden`). #}
                     {% set estado_texto = task.status == 'completado'
                         ? (task.completed_at
-                            ? t('tasks.status_done_at', {'%date%': task.completed_at|date('d/m/Y H:i')})
+                            ? t('tasks.status_done_at', {'%date%': task.completed_at|localdate('numeric_time')})
                             : t('tasks.status_done'))
                         : t('tasks.status_pending') %}
                     {# `-mt-0.5` centra el icono de 20px sobre el primer renglón

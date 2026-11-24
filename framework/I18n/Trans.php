@@ -73,6 +73,19 @@ final class Trans
     }
 
     /**
+     * Locale activo del traductor.
+     *
+     * `LocaleMiddleware` fija el locale en cada petición sobre el mismo
+     * traductor que registra el contenedor, así que este valor es el de la
+     * petición en curso y no el de `APP_LOCALE`. Lo usa `Format` para elegir
+     * separadores y patrones; sin registro previo vale el fallback de `t()`.
+     */
+    public static function locale(): string
+    {
+        return self::translator()->getLocale();
+    }
+
+    /**
      * Traductor registrado, o el de por defecto la primera vez.
      *
      * El fallback se construye una sola vez: hacerlo en cada `t()` sería

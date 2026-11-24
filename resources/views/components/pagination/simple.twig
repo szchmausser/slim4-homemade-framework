@@ -18,12 +18,16 @@
 
    Los textos salen de `lang/<locale>.php` con `t()`: las claves son las de `pagination.*` y el
    español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
-   sin él, el sustantivo del contador y del selector sale del catálogo. #}
+   sin él, el sustantivo del contador y del selector sale del catálogo.
+
+   Los tres contadores del texto (`from`, `to`, `total`) salen con `|num`: el separador de
+   miles lo pone el locale activo (`Format`), no la vista. Las opciones de `per_page` no se
+   formatean: son el `value` que el server espera. #}
 {% if pagination.total > 0 %}
 {% set unit = label|default(t('pagination.label')) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
-        {{ t('pagination.showing', {'%from%': pagination.from, '%to%': pagination.to, '%total%': pagination.total, '%label%': unit}) }}
+        {{ t('pagination.showing', {'%from%': pagination.from|num, '%to%': pagination.to|num, '%total%': pagination.total|num, '%label%': unit}) }}
     </p>
 
     <div class="flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:gap-2">

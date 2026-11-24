@@ -37,8 +37,8 @@ class Task extends Model
     protected $fillable = ['title', 'status', 'completed_at'];
 
     protected $casts = [
-        // Carbon y no string: la vista formatea la fecha con `|date()` y el toggle
-        // le asigna `Carbon::now()`.
+        // Carbon y no string: la vista la formatea con `|localdate('numeric_time')`
+        // y el toggle le asigna `Carbon::now()`.
         'completed_at' => 'datetime',
     ];
 }
