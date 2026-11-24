@@ -47,6 +47,40 @@ final class ContactController extends Controller
      */
     private const SORTABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
 
+    /**
+     * Columnas por las que se puede filtrar: clave que llega en el filtro =>
+     * columna SQL.
+     *
+     * Mismo criterio que `SORTABLE`: el filtro de cabecera de la tabla nombra una
+     * columna con `field`, pero lo que entra a la query sale de este mapa. Un
+     * `field` que no esté acá se descarta antes de tocar el `Builder`.
+     *
+     * @var array<string, string>
+     */
+    private const FILTERABLE = ['name' => 'name', 'email' => 'email', 'phone' => 'phone'];
+
+    /**
+     * Operadores de filtro aceptados.
+     *
+     * `like` es el que usa el filtro de cabecera de la tabla (`headerFilterFunc`);
+     * `=` es el otro tipo básico de Tabulator y los dos se pueden aplicar con el
+     * valor como binding. Cualquier otra cosa se ignora: el operador nunca viaja
+     * al SQL.
+     *
+     * @var list<string>
+     */
+    private const FILTER_TYPES = ['like', '='];
+
+    /**
+     * Barra con la que se escapan los comodines de `LIKE`; se declara como
+     * `ESCAPE` en el SQL. Se escapa primero la barra misma, así un valor con `\`
+     * no altera el patrón. Mismo criterio que `Framework\Http\ListQuery`, que
+     * filtra los listados server-rendered: acá se repite el escapado, no el
+     * primitivo (el contrato de la tabla remota es de este demo, no de
+     * `ListQuery`).
+     */
+    private const LIKE_ESCAPE = '\\';
+
     /** `GET /contacts`: renderiza la página; las filas las pide la tabla a `data`. */
     public function index(Request $request, Response $response): Response
     {
@@ -195,17 +229,25 @@ final class ContactController extends Controller
     /**
      * `GET /contacts/data`: el endpoint que consume el modo remoto de la tabla.
      *
-     * Devuelve `{last_page, last_row, data}` con la página y el orden resueltos
-     * en el servidor. `page` y `per_page` son los mismos nombres del resto de la
-     * app y los resuelve `Pagination::fromRequest()`, que clampea el tamaño y la
-     * página fuera de rango.
+     * Devuelve `{last_page, last_row, data}` con la página, el orden y los
+     * filtros de cabecera resueltos en el servidor. `page` y `per_page` son los
+     * mismos nombres del resto de la app y los resuelve
+     * `Pagination::fromRequest()`, que clampea el tamaño y la página fuera de
+     * rango. `filters` es el nombre que fija `dataSendParams` en
+     * `contacts-tabulator.js`, porque el default de la librería se documenta de
+     * las dos formas (`filter` y `filters`).
      */
     public function data(Request $request, Response $response): Response
     {
         $query = $request->getQueryParams();
 
         $listing = Pagination::fromRequest(
-            $this->sortedContacts($query['sort'] ?? null),
+            // Filtros antes de paginar: `last_page` y `last_row` salen del
+            // conjunto filtrado, no del listado completo.
+            $this->filteredContacts(
+                $this->sortedContacts($query['sort'] ?? null),
+                $query['filters'] ?? null
+            ),
             $request,
             Url::path('/contacts/data')
         );
@@ -303,6 +345,11 @@ final class ContactController extends Controller
             'actions' => [
                 'edit'   => Trans::t('contacts.edit'),
                 'delete' => Trans::t('contacts.delete'),
+            ],
+            'filters' => [
+                'name'  => Trans::t('contacts.filter_name'),
+                'email' => Trans::t('contacts.filter_email'),
+                'phone' => Trans::t('contacts.filter_phone'),
             ],
             'empty'      => Trans::t('contacts.empty'),
             'loading'    => Trans::t('contacts.loading'),
@@ -424,6 +471,66 @@ final class ContactController extends Controller
         }
 
         return $applied === 0 ? $query->orderByDesc('id') : $query;
+    }
+
+    /**
+     * Query con los filtros de cabecera de la tabla aplicados.
+     *
+     * La librería manda `filters[i][field]`, `filters[i][type]` y
+     * `filters[i][value]`. `field` sólo entra si está en `FILTERABLE` y `type`
+     * sólo si es uno de `FILTER_TYPES`: el nombre de la columna y el operador
+     * salen de esas constantes, nunca del request. Un valor no string o vacío se
+     * descarta (un filtro vacío no filtra: en particular no ocultaría los
+     * teléfonos en `null`).
+     *
+     * Se aplica antes de `Pagination::paginate()`, así el total y las páginas
+     * salen del conjunto filtrado.
+     *
+     * @return Builder<Contact>
+     */
+    private function filteredContacts(Builder $query, mixed $filters): Builder
+    {
+        foreach (is_array($filters) ? $filters : [] as $filter) {
+            if (!is_array($filter)) {
+                continue;
+            }
+
+            $field = $filter['field'] ?? null;
+            $column = is_string($field) ? (self::FILTERABLE[$field] ?? null) : null;
+            $type = $filter['type'] ?? null;
+            $value = $filter['value'] ?? null;
+
+            if ($column === null
+                || !is_string($type)
+                || !in_array($type, self::FILTER_TYPES, true)
+                || !is_string($value)
+                || $value === ''
+            ) {
+                continue;
+            }
+
+            if ($type === '=') {
+                // El valor viaja como binding: `whereIn` de un solo valor, igual
+                // que `ListQuery`, así no se interpola nada.
+                $query->whereIn($column, [$value]);
+                continue;
+            }
+
+            $pattern = '%' . str_replace(
+                ['\\', '%', '_'],
+                [self::LIKE_ESCAPE . self::LIKE_ESCAPE, self::LIKE_ESCAPE . '%', self::LIKE_ESCAPE . '_'],
+                $value
+            ) . '%';
+
+            // La columna se interpola porque sale de `FILTERABLE`; el patrón
+            // viaja como binding y la barra de `ESCAPE` es un literal del código.
+            $query->whereRaw(
+                $query->getQuery()->getGrammar()->wrap($column) . " LIKE ? ESCAPE '" . self::LIKE_ESCAPE . "'",
+                [$pattern]
+            );
+        }
+
+        return $query;
     }
 
     /**

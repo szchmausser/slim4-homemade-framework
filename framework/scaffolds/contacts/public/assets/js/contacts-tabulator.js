@@ -41,6 +41,11 @@
         "'": '&#39;',
     }[character]));
 
+    // Textos de los filtros de cabecera. Si el diccionario no los trae, los
+    // placeholders quedan como los pone la librería y las columnas se filtran
+    // igual: el filtro es comportamiento, no texto.
+    const filterLabels = i18n.filters || {};
+
     const actions = (contact) => `
         <div class="contact-actions">
             <button type="button" class="btn btn-square btn-ghost btn-sm size-9"
@@ -167,13 +172,25 @@
         pagination: true,
         paginationMode: 'remote',
         sortMode: 'remote',
+        // Filtros de cabecera nativos de la librería, también remotos: el valor
+        // viaja al servidor y el `LIKE` lo resuelve la base sobre la tabla
+        // completa. Filtrar acá las diez filas de la página diría que hay menos
+        // contactos de los que hay. La espera de 400 ms es la acordada para el
+        // filtro en vivo (el default de la librería son 300).
+        filterMode: 'remote',
+        headerFilterLiveFilterDelay: 400,
+        // Un filtro que reduce las páginas puede dejar la tabla en una página
+        // que ya no existe: en modo remoto eso es una respuesta con `data`
+        // vacío y un paginador mintiendo. `first` la trae a la primera.
+        paginationOutOfRange: 'first',
         paginationSize: 10,
         paginationSizeSelector: [5, 10, 25, 50, 100],
-        // El bundle 6.7.1 manda el tamaño como `size` y el nombre del query
-        // string se fija con `dataSendParams` (el viejo `paginationSizeParameter`
-        // ya no existe en esta versión). Así el cliente y el servidor hablan el
-        // mismo vocabulario del resto de la app: `page` y `per_page`.
-        dataSendParams: {size: 'per_page'},
+        // Los cuatro nombres del query string se fijan acá: la página, el
+        // tamaño, el orden y los filtros. El de los filtros es el que la
+        // documentación escribe de las dos formas (`filter` y `filters`), así
+        // que cliente y servidor comparten un único vocabulario explícito; el
+        // tamaño sigue llamándose `per_page` como en el resto de la app.
+        dataSendParams: {page: 'page', size: 'per_page', sort: 'sort', filter: 'filters'},
         paginationCounter: 'rows',
         paginationButtonCount: 5,
         // El paquete de textos de Tabulator también llega del servidor: la clave
@@ -201,9 +218,9 @@
             // `#` lo numera el servidor: es la posición en el orden visible, así
             // que no se puede ordenar (el id no es lo que se ve en la columna).
             {title: i18n.columns.number, field: 'number', hozAlign: 'center', headerHozAlign: 'center', width: 60, headerSort: false},
-            {title: i18n.columns.name, field: 'name', minWidth: 140},
-            {title: i18n.columns.email, field: 'email', minWidth: 180},
-            {title: i18n.columns.phone, field: 'phone', minWidth: 140},
+            {title: i18n.columns.name, field: 'name', minWidth: 140, headerFilter: 'input', headerFilterFunc: 'like', headerFilterPlaceholder: filterLabels.name},
+            {title: i18n.columns.email, field: 'email', minWidth: 180, headerFilter: 'input', headerFilterFunc: 'like', headerFilterPlaceholder: filterLabels.email},
+            {title: i18n.columns.phone, field: 'phone', minWidth: 140, headerFilter: 'input', headerFilterFunc: 'like', headerFilterPlaceholder: filterLabels.phone},
             {
                 title: i18n.columns.actions,
                 field: 'actions',
@@ -257,15 +274,38 @@
         });
     };
 
-    table.on('tableBuilt', decorateCollapseToggles);
-    table.on('dataProcessed', decorateCollapseToggles);
+    // El filtro de cabecera es un <input> sin etiqueta: lo genera la librería y
+    // su único texto es el placeholder. Se le copia ese mismo texto como
+    // `aria-label` (tampoco eso puede venir del HTML de la página), columna por
+    // columna, porque el placeholder solo no es un nombre accesible estable.
+    const nameHeaderFilters = () => {
+        Object.keys(filterLabels).forEach((field) => {
+            const column = table.getColumn(field);
+            if (!column) {
+                return;
+            }
+
+            const input = column.getElement().querySelector('.tabulator-header-filter input');
+            if (input && input.getAttribute('aria-label') !== filterLabels[field]) {
+                input.setAttribute('aria-label', filterLabels[field]);
+            }
+        });
+    };
+
+    const decorate = () => {
+        decorateCollapseToggles();
+        nameHeaderFilters();
+    };
+
+    table.on('tableBuilt', decorate);
+    table.on('dataProcessed', decorate);
 
     // Tabulator alterna la fila desde un handler propio sobre el toggle y no
     // garantiza que el click llegue a este contenedor, así que escuchar el
     // evento era frágil: el `aria-expanded` quedaba clavado en false. Se
     // observa la clase `open` del propio toggle, que es la fuente de verdad, y
     // se copia al atributo ARIA.
-    new MutationObserver(decorateCollapseToggles).observe(root, {
+    new MutationObserver(decorate).observe(root, {
         attributes: true,
         attributeFilter: ['class'],
         subtree: true,

@@ -95,6 +95,10 @@ final class I18nContactsTest extends ContactsTestCase
         self::assertSame('No hay contactos todavía.', $es['empty'] ?? null);
         self::assertSame('Cargando...', $es['loading'] ?? null);
         self::assertSame('Mostrar u ocultar los datos de la fila', $es['collapse'] ?? null);
+        // Los filtros de cabecera: el JS no lleva texto, lo recibe por acá.
+        self::assertSame('Buscar por nombre', $es['filters']['name'] ?? null);
+        self::assertSame('Buscar por email', $es['filters']['email'] ?? null);
+        self::assertSame('Buscar por teléfono', $es['filters']['phone'] ?? null);
         self::assertSame('Filas', $es['pagination']['page_size'] ?? null);
         self::assertSame('Primera', $es['pagination']['first'] ?? null);
         self::assertSame('Mostrando', $es['pagination']['counter']['showing'] ?? null);
@@ -108,6 +112,8 @@ final class I18nContactsTest extends ContactsTestCase
         self::assertSame('Delete', $en['actions']['delete'] ?? null);
         self::assertSame('No contacts yet.', $en['empty'] ?? null);
         self::assertSame('Loading...', $en['loading'] ?? null);
+        self::assertSame('Search by name', $en['filters']['name'] ?? null);
+        self::assertSame('Search by phone', $en['filters']['phone'] ?? null);
         self::assertSame('Rows', $en['pagination']['page_size'] ?? null);
         self::assertSame('First', $en['pagination']['first'] ?? null);
         self::assertSame('rows', $en['pagination']['counter']['rows'] ?? null);
