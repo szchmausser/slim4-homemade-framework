@@ -97,6 +97,38 @@ final class PaginationTest extends TestCase
         self::assertEquals($esperado, $obtenido);
     }
 
+    /**
+     * Con una base que ya trae query string (el estado de ListQuery), el enlace
+     * de página no puede perderlo: usa `&` y conserva `q`. Antes se concatenaba
+     * `?page=` siempre y la búsqueda se caía al paginar.
+     */
+    public function test_el_enlace_de_pagina_conserva_la_query_string_de_la_base(): void
+    {
+        self::assertSame(
+            '/tasks?q=plan&page=2&per_page=10',
+            Pagination::pageUrl('/tasks?q=plan', 2, 10)
+        );
+
+        $this->seedUsers(3);
+        $p = Pagination::paginate($this->query(), 1, 10, '/tasks?q=plan');
+
+        self::assertSame('/tasks?q=plan&page=2&per_page=10', $p['page_url_base'] . 'page=2&per_page=10');
+    }
+
+    /**
+     * PRESERVE: una base sin query string sigue armando exactamente la misma
+     * URL que la plantilla concatenaba a mano (`?page=…&per_page=…`).
+     */
+    public function test_la_base_sin_query_string_mantiene_el_formato_historico(): void
+    {
+        self::assertSame('/notes?page=3&per_page=10', Pagination::pageUrl('/notes', 3, 10));
+
+        $this->seedUsers(3);
+        $p = Pagination::paginate($this->query(), 1, 10, '/notes');
+
+        self::assertSame('/notes?page=3&per_page=10', $p['page_url_base'] . 'page=3&per_page=10');
+    }
+
     private function query(): Builder
     {
         return User::orderByDesc('id');

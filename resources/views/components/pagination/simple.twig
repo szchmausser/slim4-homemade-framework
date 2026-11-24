@@ -1,12 +1,18 @@
 {# Paginación reutilizable (daisyUI + HTMX).
    Obligatorios: pagination (ver Pagination::paginate) y target (selector hx-target).
-   Opcionales: swap (default outerHTML), show_size (default true) y label (default «registros»).
+   Opcionales: swap (default outerHTML), show_size (default true), label (default «registros»),
+   action (destino del selector de tamaño; default `pagination.base_url`) y params (mapa de
+   campos ocultos que viajan con ese selector).
 
    Cada <a> lleva `href` y `hx-get` con la MISMA URL: sin href no tiene rol de enlace ni entra en el
    orden de tabulación, así que con teclado o lector de pantalla las páginas 2+ serían inalcanzables.
    Con JS cargado, htmx intercepta el click: el href es el fallback, no un segundo camino. El control
-   de tamaño vive en un `<form method="get">` con `per_page` como único campo, y el submit sin JS está
-   en un `<noscript>`: con JS manda htmx y no aparece ningún botón de más.
+   de tamaño vive en un `<form method="get">` con `per_page` y los `params` como campos ocultos, y el
+   submit sin JS está en un `<noscript>`: con JS manda htmx y no aparece ningún botón de más.
+
+   `params` conserva el estado de `ListQuery` al cambiar de tamaño: un GET de formulario reemplaza la
+   query del `action`, así que `q`, `sort`, `dir` y los filtros tienen que viajar como hidden. `action`
+   es la ruta pelada (`url('/tasks')`): la base no se usa porque ya trae su propia query string.
 
    La página actual es un `<span>` con `aria-current="page"`, no un `<button>`: no hace nada, y un
    control enfocable que se anuncia como botón y no responde a Enter es peor que texto. Conserva
@@ -20,11 +26,16 @@
    español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
    sin él, el sustantivo del contador y del selector sale del catálogo.
 
+   Los enlaces de página salen de `pagination.page_url_base`, que ya trae el separador elegido
+   (`?` o `&`) según la base: cuando `base_url` viene de `ListQuery::url()` y lleva `q`, `sort`
+   o filtros, el enlace los conserva. La plantilla no adivina la forma de la URL.
+
    Los tres contadores del texto (`from`, `to`, `total`) salen con `|num`: el separador de
    miles lo pone el locale activo (`Format`), no la vista. Las opciones de `per_page` no se
    formatean: son el `value` que el server espera. #}
 {% if pagination.total > 0 %}
 {% set unit = label|default(t('pagination.label')) %}
+{% set form_action = action|default(pagination.base_url) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
         {{ t('pagination.showing', {'%from%': pagination.from|num, '%to%': pagination.to|num, '%total%': pagination.total|num, '%label%': unit}) }}
@@ -41,17 +52,22 @@
            No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta y ese
            color lo heredaría el select; `.pagination-label` usa el 75 %, el
            mismo tono del contador, y deja el select a tinta plena. #}
-        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
+        <form method="get" action="{{ form_action }}" class="flex items-center gap-2">
+            {# El GET del formulario reemplaza la query del action: el estado de
+               la lista viaja como hidden y llega intacto al servidor. #}
+            {% for nombre, valor in params|default({}) %}
+                <input type="hidden" name="{{ nombre }}" value="{{ valor }}">
+            {% endfor %}
             <label class="flex items-center gap-2">
                 <span class="pagination-label">{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}</span>
                 <select class="pagination-select" name="per_page"
                         aria-label="{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}"
                         data-focus-key="pagination-size"
-                        hx-get="{{ pagination.base_url }}"
+                        hx-get="{{ form_action }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"
                         hx-trigger="change"
-                        hx-include="this">
+                        hx-include="closest form">
                     {% for size in pagination.allowed_per_page %}
                         <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
                     {% endfor %}
@@ -73,14 +89,14 @@
                válido, porque `&per_page` no termina en `;` y por lo tanto no
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
-                {% set destino_primera = pagination.base_url ~ '?page=1&per_page=' ~ pagination.per_page %}
+                {% set destino_primera = pagination.page_url_base ~ 'page=1&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_primera|raw }}"
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-first"
                    aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</a>
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino = pagination.page_url_base ~ 'page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
@@ -101,7 +117,7 @@
                           data-focus-key="pagination-page-{{ p }}"
                           aria-current="page">{{ p }}</span>
                 {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    {% set destino = pagination.page_url_base ~ 'page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="pagination-control pagination-control--square"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
@@ -112,14 +128,14 @@
             {% endfor %}
 
             {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino = pagination.page_url_base ~ 'page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-next"
                    aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</a>
-                {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino_ultima = pagination.page_url_base ~ 'page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"

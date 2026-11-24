@@ -35,7 +35,7 @@ final class Pagination
      *
      * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, page_url_base: string, pages: array, allowed_per_page: int[]}
      */
     public static function paginate(Builder $query, int $page, int $perPage, string $baseUrl): array
     {
@@ -56,11 +56,39 @@ final class Pagination
             'from'         => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
+            // La base ya trae elegido el separador (`?` o `&`): la plantilla
+            // agrega `page=…&per_page=…` sin adivinar la forma de la URL.
+            'page_url_base'   => self::pageUrlBase($baseUrl),
             'pages'        => self::window($page, $lastPage),
             // Los tamaños viajan con la paginación para que la plantilla no
             // mantenga su propia copia de la lista blanca.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
+    }
+
+    /**
+     * URL de una página concreta, conservando la query string de la base.
+     *
+     * `$baseUrl` puede venir de `ListQuery::url()` y traer búsqueda, orden o
+     * filtros; el enlace no puede perderlos. Para una base sin query string el
+     * resultado es idéntico al que la plantilla concatenaba a mano.
+     */
+    public static function pageUrl(string $baseUrl, int $page, int $perPage): string
+    {
+        return self::pageUrlBase($baseUrl) . 'page=' . $page . '&per_page=' . $perPage;
+    }
+
+    /**
+     * Base de los enlaces de página: la URL recibida con el separador de query
+     * ya elegido (`?` si no trae query string, `&` si ya trae).
+     */
+    private static function pageUrlBase(string $baseUrl): string
+    {
+        if (str_ends_with($baseUrl, '?') || str_ends_with($baseUrl, '&')) {
+            return $baseUrl;
+        }
+
+        return $baseUrl . (str_contains($baseUrl, '?') ? '&' : '?');
     }
 
     /**
@@ -73,7 +101,7 @@ final class Pagination
      *
      * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, page_url_base: string, pages: array, allowed_per_page: int[]}
      */
     public static function fromRequest(Builder $query, ServerRequestInterface $request, string $baseUrl): array
     {
