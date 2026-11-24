@@ -35,7 +35,7 @@ final class LocaleResolverTest extends TestCase
         [null, null, 'en', 'es', ['es', 'en'], 'en', 'la cabecera negocia cuando no hay nada más'],
         [null, null, 'zh-CN,zh;q=0.9,en;q=0.8', 'es', ['es', 'en'], 'en', 'los idiomas sin catálogo se saltean y gana el siguiente con q'],
         [null, null, 'en;q=0', 'es', ['es', 'en'], 'es', 'q=0 significa «no acepto»: se descarta'],
-        [null, null, 'es-MX', 'es', ['es', 'en'], 'es', 'una variante regional cae en el idioma base'],
+        [null, null, 'es-VE', 'es', ['es', 'en'], 'es', 'una variante regional cae en el idioma base'],
         [null, null, 'en-US,en;q=0.9', 'es', ['es', 'en'], 'en', 'la variante regional y su idioma base resuelven el mismo catálogo'],
         [null, null, '*', 'es', ['es', 'en'], 'es', 'el comodín resuelve el default'],
         [null, null, ';;;,,q=x, en', 'es', ['es', 'en'], 'en', 'la basura se ignora sin romper el parseo'],
@@ -77,7 +77,7 @@ final class LocaleResolverTest extends TestCase
 
     public function test_find_mapea_variantes_regionales_y_normaliza(): void
     {
-        self::assertSame('es', LocaleResolver::find('es-MX', ['es', 'en']));
+        self::assertSame('es', LocaleResolver::find('es-VE', ['es', 'en']));
         self::assertSame('en', LocaleResolver::find('EN', ['es', 'en']));
         self::assertSame('pt_br', LocaleResolver::find('pt-BR', ['es', 'pt_br']));
         self::assertSame('pt_br', LocaleResolver::find('pt_br', ['es', 'pt_br']));

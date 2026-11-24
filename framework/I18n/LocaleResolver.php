@@ -16,7 +16,7 @@ namespace Framework\I18n;
  * el primero disponible.
  *
  * `Accept-Language` se parsea de verdad, porque es la única entrada que escribe
- * el cliente: q-values, variantes regionales (`es-MX` → `es`), comodín, `q=0`
+ * el cliente: q-values, variantes regionales (`es-VE` → `es`), comodín, `q=0`
  * («no acepto») y basura. Nunca lanza y nunca devuelve un código que no esté en
  * la lista: un locale sin catálogo se ve como claves crudas en la pantalla.
  */
@@ -81,7 +81,7 @@ final class LocaleResolver
     /**
      * Código de `$available` que corresponde a la etiqueta, o `null`.
      *
-     * `es-MX` no tiene catálogo propio: se prueba la etiqueta completa y, si no
+     * `es-VE` no tiene catálogo propio: se prueba la etiqueta completa y, si no
      * está, el idioma base (`es`). La comparación ignora mayúsculas y trata
      * `pt_BR` y `pt-br` como el mismo código. Devolver el código de la lista —y
      * no la etiqueta pedida— es lo que garantiza que el locale tenga catálogo.

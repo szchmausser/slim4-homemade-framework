@@ -4319,7 +4319,7 @@ APP_FALLBACK_LOCALE=es
 | `Accept-Language` | no hay nada explícito ni guardado; una API sin sesión negocia acá | `Accept-Language: en` |
 | `APP_LOCALE` | último recurso; si ese código no tiene catálogo, el primero disponible | `es` |
 
-El orden vive en `LocaleResolver::resolve()`, una función **pura** (sin sesión, cabeceras ni traductor) que se prueba con una tabla de casos: precedencia, q-values, variantes regionales (`es-MX` → `es`), `*`, `q=0` («no acepto») y basura. Nunca lanza y nunca devuelve un código fuera de la lista de catálogos: un locale sin archivo se vería como claves crudas. `LocaleMiddleware` es el adaptador HTTP —lee las fuentes, llama al resolutor, aplica el resultado— y no decide nada por su cuenta:
+El orden vive en `LocaleResolver::resolve()`, una función **pura** (sin sesión, cabeceras ni traductor) que se prueba con una tabla de casos: precedencia, q-values, variantes regionales (`es-VE` → `es`), `*`, `q=0` («no acepto») y basura. Nunca lanza y nunca devuelve un código fuera de la lista de catálogos: un locale sin archivo se vería como claves crudas. `LocaleMiddleware` es el adaptador HTTP —lee las fuentes, llama al resolutor, aplica el resultado— y no decide nada por su cuenta:
 
 ```php excerpt
 $locale = LocaleResolver::resolve(
