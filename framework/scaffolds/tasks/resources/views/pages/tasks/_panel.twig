@@ -22,36 +22,70 @@
 
     {# GET puro, sin JS: un formulario GET reemplaza la query del action, así que
        el orden efectivo viaja en dos hidden y la búsqueda y el filtro como campos.
-       El botón manda el formulario; no agrega ninguno de más. #}
-    <form method="get" action="{{ url('/tasks') }}" role="search" class="mb-4 flex flex-wrap items-end gap-2">
-        {% if list_query.sort() is not null %}
-            <input type="hidden" name="sort" value="{{ list_query.sort() }}">
-            <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+       El botón manda el formulario; no agrega ninguno de más.
+
+       Encima, htmx lo dispara en vivo: `input changed delay:400ms` es el
+       debounce nativo (no un timer casero), `change` cubre el select y `search`
+       la × del `type="search"`. `hx-push-url` mantiene la URL como estado
+       compartible y `hx-target` reemplaza sólo el panel.
+
+       `id` + `hx-preserve` son la mitad del patrón: el formulario vive DENTRO de
+       la región que se cambia, así que sin `hx-preserve` cada respuesta lo
+       reemplazaría y el input perdería el foco y el caret mientras se escribe.
+       Con él, htmx deja el nodo que ya está en el DOM. El id tiene que ser único
+       en la página: `hx-preserve` se resuelve por id. #}
+    <div class="mb-4 flex flex-wrap items-end gap-2">
+        <form method="get" action="{{ url('/tasks') }}" id="tasks-search-form" role="search"
+              class="flex flex-wrap items-end gap-2"
+              hx-get="{{ url('/tasks') }}"
+              hx-trigger="input changed delay:400ms, change, search"
+              hx-target="#tareas-panel"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              hx-preserve="true">
+            {% if list_query.sort() is not null %}
+                <input type="hidden" name="sort" value="{{ list_query.sort() }}">
+                <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+            {% endif %}
+            {% include 'components/form/field.twig' with {
+                id: 'task-search',
+                name: 'q',
+                type: 'search',
+                label: t('tasks.search_placeholder'),
+                value: list_query.search()|default(''),
+                placeholder: t('tasks.search_placeholder'),
+                label_class: 'sr-only',
+                field_class: 'contents',
+                input_class: 'input w-full sm:w-64'
+            } only %}
+            <label class="flex items-center gap-2">
+                <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
+                <select name="status" class="select">
+                    <option value="">{{ t('tasks.filter_all') }}</option>
+                    {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
+                        <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'components/ui/button.twig' with {
+                label: t('tasks.search'),
+                type: 'submit'
+            } only %}
+        </form>
+
+        {# Limpiar es un enlace normal a la ruta sin estado: navega de verdad, no
+           hace un swap, así el input vuelve vacío sin JS extra. Va FUERA del
+           formulario a propósito: el formulario se conserva con `hx-preserve`,
+           y este control depende de `active()`, que cambia en cada respuesta. #}
+        {% if list_query.active() %}
+            {% include 'components/ui/button.twig' with {
+                label: t('tasks.clear'),
+                variant: 'ghost',
+                href: url('/tasks'),
+                aria_label: t('tasks.clear_aria')
+            } only %}
         {% endif %}
-        {% include 'components/form/field.twig' with {
-            id: 'task-search',
-            name: 'q',
-            label: t('tasks.search_placeholder'),
-            value: list_query.search()|default(''),
-            placeholder: t('tasks.search_placeholder'),
-            label_class: 'sr-only',
-            field_class: 'contents',
-            input_class: 'input w-full sm:w-64'
-        } only %}
-        <label class="flex items-center gap-2">
-            <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
-            <select name="status" class="select">
-                <option value="">{{ t('tasks.filter_all') }}</option>
-                {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
-                    <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        {% include 'components/ui/button.twig' with {
-            label: t('tasks.search'),
-            type: 'submit'
-        } only %}
-    </form>
+    </div>
 
     {# Encabezados ordenables: la lista es un `<ul>` (components/list/simple.twig),
        así que una fila con `role="table"`/`columnheader` es lo que hace válido

@@ -50,4 +50,9 @@ return [
     'notes.sort_label'         => 'Ordenar por',
     'notes.sort_title'         => 'Título',
     'notes.sort_created'       => 'Creada',
+
+    // Búsqueda en vivo: el control de limpiar aparece sólo si la URL trae
+    // estado; su `aria-label` lo nombra sin depender del texto visible.
+    'notes.clear'              => 'Limpiar',
+    'notes.clear_aria'         => 'Limpiar búsqueda y filtros',
 ];

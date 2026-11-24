@@ -52,4 +52,9 @@ return [
     'tasks.sort_label'         => 'Sort by',
     'tasks.sort_title'         => 'Title',
     'tasks.sort_created'       => 'Created',
+
+    // Live search: the clear control only shows when the URL carries state; its
+    // `aria-label` names it without depending on the visible text.
+    'tasks.clear'              => 'Clear',
+    'tasks.clear_aria'         => 'Clear search and filters',
 ];

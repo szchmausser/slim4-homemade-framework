@@ -53,4 +53,9 @@ return [
     'tasks.sort_label'         => 'Ordenar por',
     'tasks.sort_title'         => 'Título',
     'tasks.sort_created'       => 'Creada',
+
+    // Búsqueda en vivo: el control de limpiar aparece sólo si la URL trae
+    // estado; su `aria-label` lo nombra sin depender del texto visible.
+    'tasks.clear'              => 'Limpiar',
+    'tasks.clear_aria'         => 'Limpiar búsqueda y filtros',
 ];

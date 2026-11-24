@@ -49,4 +49,9 @@ return [
     'notes.sort_label'         => 'Sort by',
     'notes.sort_title'         => 'Title',
     'notes.sort_created'       => 'Created',
+
+    // Live search: the clear control only shows when the URL carries state; its
+    // `aria-label` names it without depending on the visible text.
+    'notes.clear'              => 'Clear',
+    'notes.clear_aria'         => 'Clear search and filters',
 ];

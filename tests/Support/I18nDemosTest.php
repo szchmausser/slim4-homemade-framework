@@ -105,6 +105,8 @@ final class I18nDemosTest extends HttpTestCase
         'tasks.sort_label'         => 'Ordenar por',
         'tasks.sort_title'         => 'Título',
         'tasks.sort_created'       => 'Creada',
+        'tasks.clear'              => 'Limpiar',
+        'tasks.clear_aria'         => 'Limpiar búsqueda y filtros',
 
         // Demo Contactos: pantalla, formulario, modales, tabla y flashes.
         'contacts.title'           => 'Contactos',
@@ -191,6 +193,8 @@ final class I18nDemosTest extends HttpTestCase
         'notes.sort_label'         => 'Ordenar por',
         'notes.sort_title'         => 'Título',
         'notes.sort_created'       => 'Creada',
+        'notes.clear'              => 'Limpiar',
+        'notes.clear_aria'         => 'Limpiar búsqueda y filtros',
     ];
 
     /**
@@ -218,6 +222,8 @@ final class I18nDemosTest extends HttpTestCase
         'tasks.sort_label',
         'tasks.sort_title',
         'tasks.sort_created',
+        'tasks.clear',
+        'tasks.clear_aria',
         'contacts.title',
         'contacts.add',
         'contacts.empty',
@@ -230,6 +236,8 @@ final class I18nDemosTest extends HttpTestCase
         'contacts.counter_rows',
         'notes.summary',
         'notes.why',
+        'notes.clear',
+        'notes.clear_aria',
     ];
 
     /**
@@ -464,7 +472,7 @@ final class I18nDemosTest extends HttpTestCase
     }
 
     /**
-     * El demo `notes` es bilingüe: sus 30 claves cambian con el locale.
+     * El demo `notes` es bilingüe: sus 32 claves cambian con el locale.
      *
      * Reemplaza la excepción de L16 de `odd/tasks/demo-conventions.md` (el demo
      * nació en inglés y sus dos catálogos decían lo mismo), revertida en L10 de

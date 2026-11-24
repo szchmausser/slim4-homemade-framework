@@ -4489,7 +4489,7 @@ vuelta.
 
 ### 15.3.2 Qué superficies están externalizadas (y cuáles no)
 
-Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en los catálogos base (`lang/es.php` y `lang/en.php`, 117 claves cada uno, con las mismas claves en el mismo orden) y en los catálogos que cada demo trae en su scaffold (116 claves por idioma: `tasks` 36, `contacts` 50, `notes` 30).
+Esta es la foto exacta después de externalizar los tres demos, el JS de contacts y las etiquetas de navegación. No es un plan: es lo que hay hoy en los catálogos base (`lang/es.php` y `lang/en.php`, 117 claves cada uno, con las mismas claves en el mismo orden) y en los catálogos que cada demo trae en su scaffold (120 claves por idioma: `tasks` 38, `contacts` 50, `notes` 32).
 
 | Superficie | Dónde | Claves |
 |---|---|---|
@@ -4504,9 +4504,9 @@ Esta es la foto exacta después de externalizar los tres demos, el JS de contact
 | Página de error con locale | `config/middleware.php` + `pages/errors/**` | `error.title`, `error.badge`, `error.*` |
 | Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.home` en el base; `nav.<demo>` viaja con cada demo |
 | Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why`, en el catálogo de cada demo |
-| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (36 claves, en `lang/<locale>/tasks.php`) |
+| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (38 claves, en `lang/<locale>/tasks.php`) |
 | Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` + `nav.contacts` (50 claves, en `lang/<locale>/contacts.php`) |
-| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (30 claves, en `lang/<locale>/notes.php`) |
+| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (32 claves, en `lang/<locale>/notes.php`) |
 | Puerta de login | `framework/Http/Middleware/RequireAuthMiddleware.php` | `auth.login_required` |
 
 **Cómo recibe sus textos un JS de demo.** `contacts-tabulator.js` no tiene una sola cadena de interfaz: `ContactController::tableStrings()` arma el diccionario del locale activo con `Trans::t()`, `pages/contacts/index.twig` lo publica en `data-strings` de un nodo oculto (`#contacts-table-i18n`) y el script hace `JSON.parse(...dataset.strings)`. El `data-*` no es casual: el parser decodifica las entidades del atributo, así que el JSON llega intacto y la vista no necesita `|raw` (un `<script type="application/json">` no decodifica nada y obligaría a abrirlo). Si falta el nodo, la tabla no se inicializa —misma regla que la URL del endpoint—: mejor ninguna tabla que una con nombres accesibles vacíos.
@@ -5218,36 +5218,70 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 
     {# GET puro, sin JS: un formulario GET reemplaza la query del action, así que
        el orden efectivo viaja en dos hidden y la búsqueda y el filtro como campos.
-       El botón manda el formulario; no agrega ninguno de más. #}
-    <form method="get" action="{{ url('/tasks') }}" role="search" class="mb-4 flex flex-wrap items-end gap-2">
-        {% if list_query.sort() is not null %}
-            <input type="hidden" name="sort" value="{{ list_query.sort() }}">
-            <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+       El botón manda el formulario; no agrega ninguno de más.
+
+       Encima, htmx lo dispara en vivo: `input changed delay:400ms` es el
+       debounce nativo (no un timer casero), `change` cubre el select y `search`
+       la × del `type="search"`. `hx-push-url` mantiene la URL como estado
+       compartible y `hx-target` reemplaza sólo el panel.
+
+       `id` + `hx-preserve` son la mitad del patrón: el formulario vive DENTRO de
+       la región que se cambia, así que sin `hx-preserve` cada respuesta lo
+       reemplazaría y el input perdería el foco y el caret mientras se escribe.
+       Con él, htmx deja el nodo que ya está en el DOM. El id tiene que ser único
+       en la página: `hx-preserve` se resuelve por id. #}
+    <div class="mb-4 flex flex-wrap items-end gap-2">
+        <form method="get" action="{{ url('/tasks') }}" id="tasks-search-form" role="search"
+              class="flex flex-wrap items-end gap-2"
+              hx-get="{{ url('/tasks') }}"
+              hx-trigger="input changed delay:400ms, change, search"
+              hx-target="#tareas-panel"
+              hx-swap="outerHTML"
+              hx-push-url="true"
+              hx-preserve="true">
+            {% if list_query.sort() is not null %}
+                <input type="hidden" name="sort" value="{{ list_query.sort() }}">
+                <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+            {% endif %}
+            {% include 'components/form/field.twig' with {
+                id: 'task-search',
+                name: 'q',
+                type: 'search',
+                label: t('tasks.search_placeholder'),
+                value: list_query.search()|default(''),
+                placeholder: t('tasks.search_placeholder'),
+                label_class: 'sr-only',
+                field_class: 'contents',
+                input_class: 'input w-full sm:w-64'
+            } only %}
+            <label class="flex items-center gap-2">
+                <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
+                <select name="status" class="select">
+                    <option value="">{{ t('tasks.filter_all') }}</option>
+                    {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
+                        <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            {% include 'components/ui/button.twig' with {
+                label: t('tasks.search'),
+                type: 'submit'
+            } only %}
+        </form>
+
+        {# Limpiar es un enlace normal a la ruta sin estado: navega de verdad, no
+           hace un swap, así el input vuelve vacío sin JS extra. Va FUERA del
+           formulario a propósito: el formulario se conserva con `hx-preserve`,
+           y este control depende de `active()`, que cambia en cada respuesta. #}
+        {% if list_query.active() %}
+            {% include 'components/ui/button.twig' with {
+                label: t('tasks.clear'),
+                variant: 'ghost',
+                href: url('/tasks'),
+                aria_label: t('tasks.clear_aria')
+            } only %}
         {% endif %}
-        {% include 'components/form/field.twig' with {
-            id: 'task-search',
-            name: 'q',
-            label: t('tasks.search_placeholder'),
-            value: list_query.search()|default(''),
-            placeholder: t('tasks.search_placeholder'),
-            label_class: 'sr-only',
-            field_class: 'contents',
-            input_class: 'input w-full sm:w-64'
-        } only %}
-        <label class="flex items-center gap-2">
-            <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
-            <select name="status" class="select">
-                <option value="">{{ t('tasks.filter_all') }}</option>
-                {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
-                    <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
-                {% endfor %}
-            </select>
-        </label>
-        {% include 'components/ui/button.twig' with {
-            label: t('tasks.search'),
-            type: 'submit'
-        } only %}
-    </form>
+    </div>
 
     {# Encabezados ordenables: la lista es un `<ul>` (components/list/simple.twig),
        así que una fila con `role="table"`/`columnheader` es lo que hace válido
@@ -6002,6 +6036,8 @@ $listado = Pagination::fromRequest(
 `url()` devuelve `/tasks` si no hay estado y `/tasks?q=plan&status=pendiente` si lo hay. `Pagination` expone `page_url_base` (la base con `?` o `&` ya elegido), que es lo que concatenan los `<a>` de la plantilla para conservar `q`, `sort`, `dir` y los filtros al cambiar de página. `pageUrl()` compone esa misma base con `page`/`per_page` y es lo que alimenta el `HX-Push-Url` de las acciones: la URL canónica que el servidor renderizó, no los enlaces del paginador. El selector de tamaño de página es un GET, así que el formulario reemplaza la query del `action`: el componente acepta `action` (la ruta pelada) y `params` (los campos ocultos) para que cambiar el tamaño tampoco pierda el estado. Sin JS: los hidden son HTML.
 
 El demo `tasks` usa búsqueda en `title`, filtro `status` y orden por `title`/`created_at`; `notes` usa búsqueda en `title` y `body` y las mismas columnas de orden. Los dos tienen un formulario GET, encabezados con `aria-sort` y links de orden construidos con `url()`. `contacts` queda afuera a propósito: su orden no es estado de la URL sino de Tabulator, que manda `sort[i][field]` y su propio multi-orden por AJAX. Es otro contrato —el cliente es el dueño de la grilla— y meterlo acá obligaría al primitivo a aceptar una forma que ningún listado server-rendered usa.
+
+**Búsqueda en vivo, sin JS propio.** En los dos listados ese mismo formulario GET se dispara además con htmx: `hx-get` a la ruta del listado, `hx-trigger="input changed delay:400ms, change, search"`, `hx-target` al id del panel, `hx-swap="outerHTML"` y `hx-push-url`. El debounce es el `delay` del trigger —`input changed` espera a que se deje de tipear y descarta el evento si el valor no cambió—, `change` cubre el selector de estado y `search` es el evento de la × nativa, por eso el campo pasa a `type="search"`. El formulario lleva `id` único y `hx-preserve="true"` porque vive DENTRO del panel que se reemplaza: sin eso cada respuesta lo cambiaría por el del servidor y el input perdería el foco y el caret a mitad de una palabra; con eso, htmx deja el nodo que ya está en el DOM. `hx-push-url` deja en la barra la misma URL con estado que produce el submit (`?q=…&status=…&sort=…`), así que la vista se comparte y se recarga igual. Limpiar no es un botón de JS sino un enlace a la ruta base (`url('/tasks')`, `url('/notes')`), con texto y `aria-label` del catálogo, que se pinta sólo si `list_query.active()` —y por eso vive fuera del formulario que `hx-preserve` conserva—: al navegar de verdad, el formulario vuelve vacío. Sin JavaScript no cambia nada: el `action` y el botón de envío siguen ahí y el formulario se manda como siempre.
 
 ### 16.3 La grilla de `contacts`: filtros de cabecera en modo remoto
 
