@@ -35,11 +35,10 @@ separador. Base `3001a95`. Entrega: `single-pr`.
   primitivo sin enseñarlo.
 - **S8 (ciclo horario)**: «deberias tener la primitiva para manejar a 12h y 24h, estableciendo por
   defecto el de 12h, y que el usuario pueda cambiar el por defecto si es que le gusta o conviene mas usar
-  el formato 24h». Implementación: `LocaleData` declara `hour_cycle` (`'12'`|`'24'`) por locale y el
-  **valor por defecto del campo es `'12'`** cuando el locale no lo declara; `es` declara `'24'` porque es
-  su uso natural y forzarlo a 12 haría que el español muestre «3:04 PM». La app cambia el ciclo global con
-  `LocaleData::useHourCycle('24')` (o `'12'`) una vez en el bootstrap; un valor inválido lanza. Los
-  patrones de hora se derivan del ciclo (`12` → `g:i A`, `24` → `H:i`) en lugar de duplicarse por kind.
+  el formato 24h». Implementación corregida (L7): el ciclo **no es dato del locale**. Es una decisión
+  global de la app con default `'12'` para cualquier idioma; `LocaleData::useHourCycle('24')` lo cambia y
+  `null` vuelve al default. La tabla de locales no declara ciclo. Un valor inválido lanza. Los patrones de
+  hora se derivan del ciclo (`12` → `g:i A`, `24` → `H:i`) en lugar de duplicarse por kind.
 
 ## Tasks
 
@@ -56,19 +55,24 @@ separador. Base `3001a95`. Entrega: `single-pr`.
   mensaje completo de la excepción, rama `APP_LOCALE=pt` → `es`, y que los filtros no marcan la salida
   como segura). Total final: 312 tests / 5337 assertions sin demos. Ruta: padre + verificador. Commit:
   `f68986c` (código y tests) y `5bce60e` (documentación).
-- **L5**: S8 cerrado en `99391f8`. Forma de la tabla: `es` declara `hour_cycle => '24'`, `en` **omite** el
-  campo para que el default documentado (`'12'`) sea real y testeable por la API pública, sin locales
-  especulativos. Precedencia: override de la app > campo del locale > `'12'`. Patrones derivados
-  (`12` → `g:i A`, `24` → `H:i`). Tests: 40 en `FormatTest` (317 / 5352 sin demos; 372 con tasks; 332 con
-  notes).
+- **L5**: S8 cerrado en `99391f8`, corregido en `3db4359`. Versión final: la tabla de locales guarda solo
+  `decimal`, `group` y `numeric`; el ciclo es global con default `'12'` y `useHourCycle('24'|'12'|null)` lo
+  cambia. Patrones derivados (`12` → `g:i A`, `24` → `H:i`). Tests: 40 en `FormatTest` (317 / 5354 sin
+  demos; 372 con tasks; 332 con notes).
 - **L6**: límite conocido y aceptado: los valores de `hour_cycle` de la tabla son datos de código y solo
   `useHourCycle()` valida su entrada; un typo en una entrada futura (p. ej. `'25'`) fallaría al renderizar
   esa fecha en lugar de normalizarse. Se acepta porque la tabla tiene dos entradas y el fallo es inmediato
   y visible; si crece, se valida al resolver el ciclo.
-- **T4** — Ciclo horario (S8): `hour_cycle` por locale con `'12'` como default del campo, `es` en `'24'`,
-  `LocaleData::useHourCycle()` para forzar el ciclo global, patrones de hora derivados del ciclo, tests de
+- **L7**: corrección del usuario: «yo pedi 12h por defecto, indistintamente el idioma seleccionado, y si el
+  usuario quiere ver 24, ya ahi entra la politica de la app, tal como habiamos acordado... actualmente,
+  español muestra en 24h y no fue lo que pedi». El ciclo sale de la tabla de locales: es política global de
+  la app, default `'12'` para todos los idiomas, `useHourCycle('24')` para el 24 y `null` para volver.
+  `L6` queda sin efecto (ya no hay ciclos por entrada). Efecto conocido y documentado: en 12h los
+  marcadores son `AM`/`PM` de PHP, no localizados («3:04 PM» también en español).
+- **T4** — Ciclo horario (S8): `LocaleData::useHourCycle()` como política global (default 12h, `'24'`
+  opcional, `null` vuelve al default), sin ciclo por locale, patrones de hora derivados del ciclo, tests de
   los dos ciclos en los dos idiomas, del override, del valor inválido y del default. La guía documenta el
-  knob. Ruta: worker. Commit: `99391f8`
+  knob. Ruta: worker. Commit: `99391f8`, corregido en `3db4359`
 
 ## Log
 
