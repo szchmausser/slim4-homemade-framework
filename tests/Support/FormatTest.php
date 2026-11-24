@@ -42,11 +42,16 @@ final class FormatTest extends TestCase
     protected function setUp(): void
     {
         $this->previousLocale = self::translator()->getLocale();
+
+        // El ciclo horario es estático y global: cada test arranca y termina en
+        // el ciclo natural de cada locale.
+        LocaleData::useHourCycle(null);
     }
 
     protected function tearDown(): void
     {
         self::localeAware()->setLocale($this->previousLocale);
+        LocaleData::useHourCycle(null);
     }
 
     /** Traductor de la app, ya registrado en `Trans`. */
@@ -189,6 +194,73 @@ final class FormatTest extends TestCase
         self::useLocale('es');
 
         self::assertSame('07/03/2024 15:04', Format::date('2024-03-07 15:04:05', 'numeric_time'));
+    }
+
+    /** S8: `es` declara 24 horas en la tabla; no hay que forzar nada. */
+    public function test_es_usa_24_horas_por_su_ciclo_natural(): void
+    {
+        self::useLocale('es');
+
+        self::assertSame('24', LocaleData::for('es')['hour_cycle']);
+        self::assertSame('07/03/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('15:04', Format::date(self::moment(), 'time'));
+    }
+
+    /** S8: `en` omite `hour_cycle`; el default del campo es 12 horas. */
+    public function test_en_usa_12_horas_por_el_default_del_campo(): void
+    {
+        self::useLocale('en');
+
+        self::assertSame('12', LocaleData::for('en')['hour_cycle'], 'en tiene que usar el default del campo.');
+        self::assertSame('03/07/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('3:04 PM', Format::date(self::moment(), 'time'));
+    }
+
+    /** S8: el ciclo que fija la app gana sobre el que declara la tabla. */
+    public function test_el_ciclo_forzado_por_la_app_gana_sobre_el_locale(): void
+    {
+        self::useLocale('es');
+        LocaleData::useHourCycle('12');
+        self::assertSame('07/03/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('3:04 PM', Format::date(self::moment(), 'time'));
+        self::assertSame('07/03/2024', Format::date(self::moment(), 'numeric'), 'El ciclo no toca la fecha.');
+
+        self::useLocale('en');
+        LocaleData::useHourCycle('24');
+        self::assertSame('03/07/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+        self::assertSame('15:04', Format::date(self::moment(), 'time'));
+    }
+
+    /** S8: `null` no fija nada; cada locale vuelve a su ciclo. */
+    public function test_use_hour_cycle_null_restaura_el_ciclo_del_locale(): void
+    {
+        LocaleData::useHourCycle('24');
+
+        self::useLocale('en');
+        self::assertSame('03/07/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+
+        LocaleData::useHourCycle(null);
+        self::assertSame('03/07/2024 3:04 PM', Format::date(self::moment(), 'numeric_time'));
+
+        self::useLocale('es');
+        self::assertSame('07/03/2024 15:04', Format::date(self::moment(), 'numeric_time'));
+    }
+
+    /** S8: un ciclo que no es `'12'`, `'24'` ni `null` es error de programación. */
+    public function test_un_ciclo_horario_desconocido_lanza_con_la_lista_de_los_validos(): void
+    {
+        try {
+            LocaleData::useHourCycle('13');
+        } catch (InvalidArgumentException $e) {
+            self::assertSame(
+                "Unknown hour cycle '13'; valid values: '12', '24', null.",
+                $e->getMessage()
+            );
+
+            return;
+        }
+
+        self::fail('Un ciclo desconocido tiene que lanzar InvalidArgumentException.');
     }
 
     /** S4: `pt` no tiene tabla; cae al locale base y no lanza. */

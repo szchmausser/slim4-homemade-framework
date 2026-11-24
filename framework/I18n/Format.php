@@ -50,7 +50,7 @@ final class Format
      * Fecha y/o hora con el patrón del locale activo para ese kind.
      *
      * Un string se interpreta con `DateTimeImmutable`: es lo que llega crudo
-     * de la base (`Y-m-d H:i:s`) cuando el valor no viene ya como Carbon.
+     * de la base cuando el valor no viene ya como Carbon.
      */
     public static function date(DateTimeInterface|string $value, string $kind = 'numeric'): string
     {

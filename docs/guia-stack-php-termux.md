@@ -4429,18 +4429,35 @@ hora). Un kind desconocido lanza `InvalidArgumentException` con la lista de los 
 programación, no una entrada del usuario.
 
 Los datos viven en `framework/I18n/LocaleData.php`, en código y no en `lang/`: un separador no es texto
-traducible y una edición del catálogo no puede romper el formato. La tabla es esta:
+traducible y una edición del catálogo no puede romper el formato. La tabla guarda la fecha y el ciclo
+horario; la hora y sus combinaciones se derivan de ese ciclo, así que no hay una clave de patrón por
+kind:
 
-| Locale | `decimal` | `group` | `numeric` | `numeric_time` | `time` |
-|---|---|---|---|---|---|
-| `es` | `,` | `.` | `d/m/Y` | `d/m/Y H:i` | `H:i` |
-| `en` | `.` | `,` | `m/d/Y` | `m/d/Y g:i A` | `g:i A` |
+| Locale | `decimal` | `group` | `numeric` | `hour_cycle` |
+|---|---|---|---|---|
+| `es` | `,` | `.` | `d/m/Y` | `'24'` |
+| `en` | `.` | `,` | `m/d/Y` | no declara → `'12'` (default) |
 
-`en` usa el mes antes que el día y la hora en 12 horas (`g:i A`); `es`, al revés: día antes que mes y
-24 horas. El locale activo sale de `Trans::locale()`, el mismo que `LocaleMiddleware` fija en cada
+`hour_cycle` es `'12'` o `'24'`, y `'12'` es el default del campo cuando la entrada no lo declara:
+`en` lo omite y usa `g:i A`; `es` declara `'24'` porque es su uso natural —forzarlo a 12 haría que el
+español muestre «3:04 PM»—. De ahí salen las horas: `'12'` → `g:i A`, `'24'` → `H:i`; `time` es esa
+hora y `numeric_time` es la fecha (`numeric`) más un espacio más la hora. `en` usa además el mes antes
+que el día; `es`, día antes que mes.
+
+El ciclo es global y es una decisión de app, no de locale: `LocaleData::useHourCycle('12')` (o `'24'`)
+lo fija una vez en el bootstrap y gana sobre la tabla, con el mismo efecto en todas las peticiones;
+`useHourCycle(null)` vuelve al ciclo natural de cada locale. Un valor distinto lanza
+`InvalidArgumentException` con los válidos en el mensaje. No es una preferencia por visitante ni se
+guarda en la sesión.
+
+El ciclo forzado cambia la hora visible, no la fecha: con `useHourCycle('12')` en español,
+`Format::date($momento, 'numeric_time')` devuelve `07/03/2024 3:04 PM`.
+
+El locale activo sale de `Trans::locale()`, el mismo que `LocaleMiddleware` fija en cada
 petición. Un locale sin entrada no rompe el render: cae al locale base (`APP_LOCALE`) y, si el base
 tampoco tiene tabla, a `es`. Agregar un idioma con formato propio es agregar una entrada a esa tabla
-—su catálogo en `lang/` es otra cosa—; `Format` y las vistas no se tocan.
+—con `hour_cycle` si no usa 12 horas—; su catálogo en `lang/` es otra cosa; `Format` y las vistas no
+se tocan.
 
 Si el valor tiene que viajar a un formulario o a una API, va crudo: ISO para la fecha y `.` para el
 decimal. El primitivo es para lo que se renderiza y se lee, no para el valor que el servidor espera de
