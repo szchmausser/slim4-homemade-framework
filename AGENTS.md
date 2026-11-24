@@ -77,7 +77,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
 | `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
-| `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans`, `Trans::t()` y resolutor del locale por request (`?lang=` > sesión > `Accept-Language` > `APP_LOCALE`). |
+| `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans` y los filtros de formato `num`/`localdate`, `Trans::t()`, `Format` con `LocaleData` (fechas y cantidades por locale, ciclo horario global de 12 h por defecto) y resolutor del locale por request (`?lang=` > sesión > `Accept-Language` > `APP_LOCALE`). |
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
 | `routes/*.php` | Rutas por convención; `web.php` primero, el resto alfabético. |
 | `resources/views/` | Twig: layouts, componentes, partials. |

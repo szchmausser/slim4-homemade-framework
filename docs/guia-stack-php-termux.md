@@ -218,7 +218,7 @@ mi-app/
 └── phpunit.xml
 ```
 
-El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php` (la entrada del módulo en el menú). Sin ese comando, la app base queda limpia. El layout es plano, el mismo del tutorial: el demo no crea un namespace `App\Tasks`; lo único que agrupa por demo es la migración, en `database/migrations/tasks/`, para reservar la banda 900.
+El demo de tareas no vive en `app/` por defecto: está en `framework/scaffolds/tasks/` y `composer demo:tasks:install` lo copia a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php`, `config/navigation/tasks.php` (la entrada del módulo en el menú) y `lang/{es,en}/tasks.php` (sus claves de traducción). Sin ese comando, la app base queda limpia. El layout es plano, el mismo del tutorial: el demo no crea un namespace `App\Tasks`; lo único que agrupa por demo es la migración, en `database/migrations/tasks/`, para reservar la banda 900.
 
 Hay tres demos (`tasks`, `contacts` y `notes`); el segundo, `contacts`, trae un CRUD de contactos y listado **Tabulator 6.7.1** vendorizado con SRI. El seed genera 100 contactos y la tabla pagina y ordena en el servidor (`paginationMode: 'remote'` y `sortMode: 'remote'` en `contacts-tabulator.js`: 10 filas por defecto, selector 5/10/25/50/100). Se instala con `composer demo:contacts:install` y se quita con `composer demo:contacts:remove`; el instalador genérico vive en `scripts/demo.php` y resuelve el scaffold por nombre.
 
@@ -4287,8 +4287,10 @@ Esto es lo que hay; después, cómo se usa cuando agregás algo tuyo.
 | Fábrica | `framework/I18n/TranslatorFactory.php` | Arma el traductor, resuelve default/fallback y carga el catálogo base de cada locale más los catálogos de demo que haya |
 | Resolutor | `framework/I18n/LocaleResolver.php` | Función pura que elige el locale de una petición |
 | Middleware | `framework/Http/Middleware/LocaleMiddleware.php` | Adaptador HTTP: resuelve, fija el locale, recuerda y agrega `Vary` |
-| Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()` y el filtro `trans` en las plantillas |
-| Accesor PHP | `framework/I18n/Trans.php` | `Trans::t()` para controladores, comandos y scripts |
+| Extensión Twig | `framework/I18n/TranslationExtension.php` | Expone `t()`, el filtro `trans` y los filtros de formato `num` y `localdate` |
+| Accesor PHP | `framework/I18n/Trans.php` | `Trans::t()` para controladores, comandos y scripts; `Trans::locale()` para el idioma activo |
+| Formato | `framework/I18n/Format.php` | `Format::number()` y `Format::date()` con los kinds `numeric`, `numeric_time` y `time` |
+| Datos por locale | `framework/I18n/LocaleData.php` | Separadores y patrón de fecha por idioma; ciclo horario global (12 h por defecto) con `useHourCycle()` |
 | Catálogos base | `lang/es.php`, `lang/en.php` | Arrays planos `clave => texto` del cromo y de la app; `locale.name` es el nombre nativo |
 | Catálogos de demo | `lang/<locale>/<demo>.php` | Los copia el scaffold al instalar el demo; existen sólo mientras está puesto |
 | Selector | `routes/web.php` + `layouts/parts/footer.twig` | `POST /locale` con CSRF y el `<select>` del pie |
@@ -4685,7 +4687,7 @@ final class Trans
 
 ## 16. Ejemplo funcional de punta a punta (lista de tareas con HTMX)
 
-> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php` y `config/navigation/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags (por Composer van **después de `--`**): `composer demo:tasks:install -- --force` reinstala sobre archivos existentes —antes los respalda en `storage/backups/`—, `--no-db` opera solo sobre archivos y `--no-files` solo sobre la DB. Lo instalado queda registrado en `storage/demo-state/<demo>.json` con el sha256 de cada archivo: comparar contra ese manifiesto distingue un archivo **desactualizado** (lo movió el scaffold y nadie lo editó: se pisa o se borra sin backup) de uno **editado** (el `remove` aborta y pide `composer demo:tasks:remove -- --force` o `--no-files`).
+> El demo es opcional. `composer demo:tasks:install` copia el scaffold de `framework/scaffolds/tasks/` a `app/Models/Task.php`, `app/Http/Controllers/TaskController.php`, `resources/views/pages/tasks/`, `database/{migrations,seeds}/tasks/`, `tests/Tasks/`, `routes/tasks.php`, `config/navigation/tasks.php` y `lang/{es,en}/tasks.php`, y además corre las migraciones y el `TaskSeeder`. `composer demo:tasks:remove` borra esos archivos y limpia la tabla `tasks` más sus filas de `phinxlog`. Flags (por Composer van **después de `--`**): `composer demo:tasks:install -- --force` reinstala sobre archivos existentes —antes los respalda en `storage/backups/`—, `--no-db` opera solo sobre archivos y `--no-files` solo sobre la DB. Lo instalado queda registrado en `storage/demo-state/<demo>.json` con el sha256 de cada archivo: comparar contra ese manifiesto distingue un archivo **desactualizado** (lo movió el scaffold y nadie lo editó: se pisa o se borra sin backup) de uno **editado** (el `remove` aborta y pide `composer demo:tasks:remove -- --force` o `--no-files`).
 
 La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de presentación del stack. El formulario de altas vive en `framework/scaffolds/tasks/resources/views/pages/tasks/index.twig`.
 

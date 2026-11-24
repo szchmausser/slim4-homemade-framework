@@ -115,7 +115,7 @@ El CRUD de Tareas es el demo instalable (`composer demo:tasks:install`). Para tu
 
 - Respuestas HTMX devuelven HTML de la región, nunca redirects (303 solo para navegación normal; `HX-Redirect` para HTMX).
 - Toda URL de plantilla va por `url('/login')` (en PHP, `Framework\Http\Url::path()`), nunca un literal raíz-absoluto a mano: es lo único que permite servir la app desde una carpeta con `APP_BASE_PATH=/app` (vacío = raíz, sin cambios). Un literal raíz-absoluto nuevo deja esa URL fuera del prefijo.
-- Los textos visibles del shell salen de `lang/{es,en}.php` con `{{ t('clave') }}` o `|trans` en Twig y `Trans::t('clave')` en PHP (flashes incluidos), con la clave en inglés (`pagination.showing`, `modal.close`). El locale se resuelve por request: `?lang=` > sesión > `Accept-Language` > `APP_LOCALE` (default `es`, fallback `en`), y el visitante elige con el selector del footer (`POST /locale` con CSRF). `APP_LOCALE` sólo decide cuando no hay nada más; no se agregan literales españoles nuevos a layouts ni componentes.
+- Los textos visibles del shell salen de `lang/{es,en}.php` con `{{ t('clave') }}` o `|trans` en Twig y `Trans::t('clave')` en PHP (flashes incluidos), con la clave en inglés (`pagination.showing`, `modal.close`); cada demo trae las suyas en `lang/<locale>/<demo>.php` y existen sólo con el demo instalado, y las fechas y cantidades salen de `Format` (`|num`, `|localdate`, 12 h por defecto). El locale se resuelve por request: `?lang=` > sesión > `Accept-Language` > `APP_LOCALE` (default `es`, fallback `en`), y el visitante elige con el selector del footer (`POST /locale` con CSRF). `APP_LOCALE` sólo decide cuando no hay nada más; no se agregan literales españoles nuevos a layouts ni componentes.
 - `data-theme` gobierna claro/oscuro: cero utilities `dark:`, cero JS de UI de terceros.
 - Assets en `public/assets/` vendorizados con SRI, más `app.js` del shell (nada de CDN en runtime).
 - Clases daisyUI as-is; componentes compartidos a `components/` con params.
@@ -182,7 +182,7 @@ bootstrap/ config/ routes/ resources/views/  App, DI, rutas, plantillas
 resources/views/layouts/parts/  Head, sidebar, header, toasts y footer del shell
 resources/views/components/      Button, modal, alert, field, list, table y pagination
 database/migrations/ database/seeds/  Schema versionado + datos base
-lang/  Catálogos de traducción (es/en), clave => texto
+lang/  Catálogos de traducción (base es/en + uno por demo instalado)
 public/assets/  Frontend vendorizado + app.js del shell, con SRI
 tests/  Suite (unit + HTTP)
 scripts/  Herramientas CLI (backup, lint, verificación, demo)
