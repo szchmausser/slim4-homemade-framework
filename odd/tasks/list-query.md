@@ -69,3 +69,22 @@ y que componga con la paginación existente. Base `975e591`.
   `strict_variables=false`, emitiría el link sin separador (ningún test los renderiza); las mutaciones de
   `notes` siguen redirigiendo a `/notes` sin estado (comportamiento previo del demo). El formulario de alta
   de `tasks` postea solo `?page=&per_page=` (heredado, no regresión de esta feature).
+- **L7**: T5 verificado en navegador real (ego-browser) con la app corriendo. Estado inicial: 10 filas y sin
+  enlace de limpiar. Al tipear `demo 42` con pausas de 150 ms: **1 fila** («Tarea demo 42»), la URL pasa a
+  `?q=demo%2042&sort=created_at&dir=desc&page=1&per_page=10`, el foco sigue en `#task-search`, la marca
+  `window.__probe` sobrevive (no hubo recarga) y aparece «Limpiar» con `href="/tasks"`. Al clickearlo, la
+  URL queda vacía y el input también. Confirmado: debounce, foco y caret conservados, push-url y limpiar.
+  La × nativa del `type="search"` quedó sin ejercitar, pero dispara el mismo evento `search` que ya está en
+  el trigger. El usuario temporal se creó y se borró, el servidor se detuvo y el demo se desinstaló: el
+  árbol quedó sin demos.
+- **S8 (búsqueda en vivo y limpiar)**: «se puede hacer la busqueda en vivo en los demos de tareas y notas? no
+  me gusta tener que presionar un boton para que se inicie la busqueda... tambien hace falta un boton para
+  limpiar la busqueda y resetear todos los filtros». Implementación con HTMX sobre el formulario existente
+  (`hx-get` + `hx-trigger="input changed delay:400ms, change, search"` + `hx-push-url`), con `hx-preserve` e
+  `id` en el formulario para que el input no pierda foco ni caret cuando se reemplaza el panel. El control
+  de limpiar es un enlace a la ruta base (sin estado), con texto de catálogo, visible solo si hay estado
+  activo. Sin JS propio, y el envío normal queda intacto para quien no tiene JS.
+- **T5** — Búsqueda en vivo (S8): atributos HTMX + `hx-preserve` en los formularios de `tasks` y `notes`,
+  `type="search"` para que la × nativa dispare `search`, enlace de limpiar con `list_query.active()`,
+  claves de catálogo en es/en, tests del render parcial con `q` y de los atributos, y nota en la guía.
+  Ruta: worker. Commit: `e048e4c`
