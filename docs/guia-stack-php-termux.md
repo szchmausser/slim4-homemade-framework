@@ -113,6 +113,7 @@ mi-app/
 │   │   ├── Controller.php
 │   │   ├── CsrfTokens.php
 │   │   ├── Flash.php
+│   │   ├── ListQuery.php
 │   │   ├── Pagination.php
 │   │   ├── Url.php
 │   │   └── Middleware/
@@ -2332,6 +2333,7 @@ namespace App\Http\Controllers;
 
 use Framework\Http\Controller;
 use Framework\Http\Flash;
+use Framework\Http\ListQuery;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\I18n\Trans;
@@ -2345,10 +2347,10 @@ use Slim\Exception\HttpNotFoundException;
 /**
  * Controlador de `tasks`: las seis acciones y el único render de su pantalla.
  *
- * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
- * para el recorte, `Validator` para el título, `Flash` para los avisos y
- * `Controller::render()` para la plantilla. El modelo vive en `app/Models/Task.php`,
- * el layout plano que enseña la convención.
+ * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `ListQuery`
+ * para el estado del listado, `Pagination` para el recorte, `Validator` para el
+ * título, `Flash` para los avisos y `Controller::render()` para la plantilla. El
+ * modelo vive en `app/Models/Task.php`, el layout plano que enseña la convención.
  *
  * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
  * único lugar que elige plantilla y estado.
@@ -2357,26 +2359,47 @@ class TaskController extends Controller
 {
     /**
      * Slice paginado más la metadata, para toda respuesta de esta ruta: la página
-     * completa y el swap parcial necesitan la paginación al día. La página y el
-     * tamaño salen del query string (`page`, `per_page`), que mandan el navegador
-     * y los enlaces de HTMX por igual.
+     * completa y el swap parcial necesitan la paginación al día.
+     *
+     * `ListQuery` resuelve búsqueda, orden y filtro desde el query string contra
+     * el whitelist de abajo: el request sólo puede elegir `title` o `created_at`
+     * para ordenar, `status` sólo vale `pendiente` o `completado`, y la búsqueda
+     * sólo toca `title`. La página y el tamaño siguen saliendo de `Pagination`.
+     *
+     * El `orderBy('id', 'desc')` final es el desempate estable: dos tareas creadas en
+     * el mismo segundo comparten `created_at`, y sin el id el orden dependería
+     * del plan de SQLite. El id es una columna del código, nunca del request.
      *
      * @return array<string, mixed>
      */
     private function pageData(Request $request): array
     {
+        $listQuery = ListQuery::fromRequest($request, [
+            'search'  => ['title'],
+            'sort'    => ['title', 'created_at'],
+            'default' => ['created_at', 'desc'],
+            'filters' => ['status' => ['pendiente', 'completado']],
+        ]);
+
+        $query = $listQuery->apply(Task::query());
+        // Desempate estable: se llama como sentencia y no se encadena, porque
+        // `Builder` reenvía `orderBy` al query builder y una cadena haría que
+        // PHPStan pierda el tipo Eloquent. La columna es del código, no del request.
+        $query->orderBy('id', 'desc');
+
         $listing = Pagination::fromRequest(
-            Task::orderByDesc('id'),
+            $query,
             $request,
-            // Con el prefijo ya aplicado: el `base_url` de este resultado es la
-            // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
-            // los dos heredan el prefijo sin saberlo.
-            Url::path('/tasks')
+            // El base_url sale de la URL canónica de la lista: conserva la
+            // búsqueda y el filtro, y el prefijo ya viene aplicado. Los enlaces
+            // del paginador y el HX-Push-Url lo heredan.
+            $listQuery->url(Url::path('/tasks'))
         );
 
         return [
             'tasks'      => $listing['items'],
             'pagination' => $listing,
+            'list_query' => $listQuery,
         ];
     }
 
@@ -2429,13 +2452,13 @@ class TaskController extends Controller
 
         // La posición se publica desde acá y no con un `hx-push-url` fijo en la
         // plantilla: `Pagination` recorta la página pedida al rango real, así que
-        // sólo el servidor que renderizó sabe qué página mostró.
+        // sólo el servidor que renderizó sabe qué página mostró. `pageUrl()`
+        // conserva la búsqueda, el orden y el filtro de `base_url`.
         $pagination = $data['pagination'];
 
         // La URL empujada es la canónica de la vista y no la de la acción:
         // `/tasks/5/toggle` sólo acepta POST, y recargarla sería un 404.
-        return $response->withHeader('HX-Push-Url', sprintf(
-            '%s?page=%d&per_page=%d',
+        return $response->withHeader('HX-Push-Url', Pagination::pageUrl(
             $pagination['base_url'],
             $pagination['current_page'],
             $pagination['per_page']
@@ -4481,9 +4504,9 @@ Esta es la foto exacta después de externalizar los tres demos, el JS de contact
 | Página de error con locale | `config/middleware.php` + `pages/errors/**` | `error.title`, `error.badge`, `error.*` |
 | Etiquetas de navegación y migas | `config/container.php`, `config/navigation/*.php`, `routes/web.php`, `layouts/parts/sidebar.twig` | `nav.home` en el base; `nav.<demo>` viaja con cada demo |
 | Metadatos de los módulos | `framework/scaffolds/*/config/navigation/*.php` + `pages/home.twig` | `tasks.summary`/`why`, `contacts.summary`/`why`, `notes.summary`/`why`, en el catálogo de cada demo |
-| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (29 claves, en `lang/<locale>/tasks.php`) |
+| Demo Tareas: vistas y flashes | `framework/scaffolds/tasks/**` | `tasks.*` + `nav.tasks` (36 claves, en `lang/<locale>/tasks.php`) |
 | Demo Contactos: vistas, flashes y textos del JS | `framework/scaffolds/contacts/**` | `contacts.*` + `nav.contacts` (47 claves, en `lang/<locale>/contacts.php`) |
-| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (25 claves, en `lang/<locale>/notes.php`) |
+| Demo Notes: vistas y flashes | `framework/scaffolds/notes/**` | `notes.*` + `nav.notes` (30 claves, en `lang/<locale>/notes.php`) |
 | Puerta de login | `framework/Http/Middleware/RequireAuthMiddleware.php` | `auth.login_required` |
 
 **Cómo recibe sus textos un JS de demo.** `contacts-tabulator.js` no tiene una sola cadena de interfaz: `ContactController::tableStrings()` arma el diccionario del locale activo con `Trans::t()`, `pages/contacts/index.twig` lo publica en `data-strings` de un nodo oculto (`#contacts-table-i18n`) y el script hace `JSON.parse(...dataset.strings)`. El `data-*` no es casual: el parser decodifica las entidades del atributo, así que el JSON llega intacto y la vista no necesita `|raw` (un `<script type="application/json">` no decodifica nada y obligaría a abrirlo). Si falta el nodo, la tabla no se inicializa —misma regla que la URL del endpoint—: mejor ninguna tabla que una con nombres accesibles vacíos.
@@ -5184,6 +5207,77 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
 {# La utilidad de foco apagado va sólo acá: el panel no es un control y el anillo
    alrededor de la región no informa nada. Los controles conservan el suyo. #}
 <div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
+    {# Estado del listado, ya validado por `ListQuery`: el mismo mapa que serializa
+       `url()`. `estado_sin_orden` deja afuera `sort`/`dir` para que los encabezados
+       ordenables los reemplacen sin duplicarlos; `estado_lista` los incluye y viaja
+       como hidden cuando se cambia el tamaño de página. #}
+    {% set estado_sin_orden = {} %}
+    {% if list_query.search() is not null %}{% set estado_sin_orden = estado_sin_orden|merge({'q': list_query.search()}) %}{% endif %}
+    {% for nombre, valor in list_query.filters() %}{% set estado_sin_orden = estado_sin_orden|merge({(nombre): valor}) %}{% endfor %}
+    {% set estado_lista = estado_sin_orden|merge({'sort': list_query.sort(), 'dir': list_query.direction()}) %}
+
+    {# GET puro, sin JS: un formulario GET reemplaza la query del action, así que
+       el orden efectivo viaja en dos hidden y la búsqueda y el filtro como campos.
+       El botón manda el formulario; no agrega ninguno de más. #}
+    <form method="get" action="{{ url('/tasks') }}" role="search" class="mb-4 flex flex-wrap items-end gap-2">
+        {% if list_query.sort() is not null %}
+            <input type="hidden" name="sort" value="{{ list_query.sort() }}">
+            <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+        {% endif %}
+        {% include 'components/form/field.twig' with {
+            id: 'task-search',
+            name: 'q',
+            label: t('tasks.search_placeholder'),
+            value: list_query.search()|default(''),
+            placeholder: t('tasks.search_placeholder'),
+            label_class: 'sr-only',
+            field_class: 'contents',
+            input_class: 'input w-full sm:w-64'
+        } only %}
+        <label class="flex items-center gap-2">
+            <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
+            <select name="status" class="select">
+                <option value="">{{ t('tasks.filter_all') }}</option>
+                {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
+                    <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% include 'components/ui/button.twig' with {
+            label: t('tasks.search'),
+            type: 'submit'
+        } only %}
+    </form>
+
+    {# Encabezados ordenables: la lista es un `<ul>` (components/list/simple.twig),
+       así que una fila con `role="table"`/`columnheader` es lo que hace válido
+       `aria-sort`. El enlace conserva búsqueda y filtro y cambia sólo sort/dir. #}
+    <div role="table" aria-label="{{ t('tasks.sort_label') }}" class="mb-2">
+        <div role="row" class="flex items-center gap-4 text-sm font-semibold">
+            {% for columna, datos in {
+                'title': {'etiqueta': t('tasks.sort_title'), 'defecto': 'asc'},
+                'created_at': {'etiqueta': t('tasks.sort_created'), 'defecto': 'desc'}
+            } %}
+                {% set activa = list_query.sort() == columna %}
+                {% set siguiente = activa
+                    ? (list_query.direction() == 'asc' ? 'desc' : 'asc')
+                    : datos.defecto %}
+                {% set aria = activa
+                    ? (list_query.direction() == 'asc' ? 'ascending' : 'descending')
+                    : 'none' %}
+                <div role="columnheader" aria-sort="{{ aria }}" class="flex items-center gap-1">
+                    <a class="link link-hover" href="{{ (url('/tasks') ~ '?' ~ (estado_sin_orden|merge({'sort': columna, 'dir': siguiente})|url_encode))|raw }}">{{ datos.etiqueta }}</a>
+                    {% if activa %}
+                        {% include 'components/ui/icon.twig' with {
+                            name: 'arrow-right',
+                            class: 'h-3 w-3 ' ~ (list_query.direction() == 'asc' ? '-rotate-90' : 'rotate-90')
+                        } only %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
     {# `hx-disabled-elt` se declara una vez en la región y las filas lo heredan: htmx
        resuelve el atributo subiendo por los ancestros. Sin esto, un doble click en
        cualquier botón de fila dispara dos veces la misma mutación. #}
@@ -5215,11 +5309,15 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
         {% include 'pages/tasks/_list.twig' %}
     </div>
 
-    {# Paginación dentro del swap: viaja actualizada con cada acción. #}
+    {# Paginación dentro del swap: viaja actualizada con cada acción. El action es
+       la ruta pelada y `estado_lista` son los hidden que conservan búsqueda, orden
+       y filtro cuando se cambia el tamaño de página. #}
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#tareas-panel',
-        label: t('tasks.pagination_label')
+        label: t('tasks.pagination_label'),
+        action: url('/tasks'),
+        params: estado_lista
     } %}
 </div>
 ```
@@ -5240,7 +5338,9 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
    Para tu entidad, copia el archivo y cambia los campos de la fila. #}
 {# Posición de la lista (página y tamaño) que arrastra toda acción de fila: sin esto,
    tocar una fila desde la página 2 re-renderiza la 1 y el usuario pierde la fila que
-   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual. #}
+   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual, pasada por
+   `list_query.url()`: así la búsqueda, el orden y el filtro también sobreviven a la
+   acción, y con una URL sin estado el resultado es la misma cadena de siempre. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
 {# El query va con `|raw` para que el `&` salga literal; la cadena sale de dos enteros
    de `Pagination`, nunca de texto del usuario. La ruta pasa por `url()`, que le
@@ -5259,7 +5359,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 {# `flex-wrap`: el mensaje de error viaja en su propia línea en vez
                    de robarle ancho al input y a los botones en móvil. #}
-                <form hx-put="{{ url('/tasks/' ~ task.id) }}?{{ posicion|raw }}"
+                <form hx-put="{{ list_query.url(url('/tasks/' ~ task.id) ~ '?' ~ posicion)|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
@@ -5304,7 +5404,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         icon: 'x',
                         icon_class: 'h-3.5 w-3.5',
                         extra_class: 'gap-1.5',
-                        hx_get: url('/tasks') ~ '?' ~ posicion,
+                        hx_get: list_query.url(url('/tasks') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'cancel-' ~ task.id
@@ -5387,7 +5487,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
                         aria_label: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
                         title: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
-                        hx_post: url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
+                        hx_post: list_query.url(url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
@@ -5401,7 +5501,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                         extra_class: 'btn-square size-9',
                         aria_label: t('tasks.edit'),
                         title: t('tasks.edit'),
-                        hx_get: url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
+                        hx_get: list_query.url(url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'edit-' ~ task.id
@@ -5442,7 +5542,7 @@ La raíz (`GET /`) renderiza `resources/views/pages/home.twig`, la página de pr
                             variant: 'error',
                             icon: 'trash',
                             extra_class: 'gap-1.5',
-                            hx_delete: url('/tasks/' ~ task.id) ~ '?' ~ posicion,
+                            hx_delete: list_query.url(url('/tasks/' ~ task.id) ~ '?' ~ posicion),
                             hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
                             hx_target: '#tareas-panel',
                             hx_swap: 'outerHTML',
@@ -5545,7 +5645,7 @@ final class Pagination
      *
      * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, page_url_base: string, pages: array, allowed_per_page: int[]}
      */
     public static function paginate(Builder $query, int $page, int $perPage, string $baseUrl): array
     {
@@ -5566,11 +5666,39 @@ final class Pagination
             'from'         => $total === 0 ? 0 : ($page - 1) * $perPage + 1,
             'to'           => $total === 0 ? 0 : min($page * $perPage, $total),
             'base_url'     => $baseUrl,
+            // La base ya trae elegido el separador (`?` o `&`): la plantilla
+            // agrega `page=…&per_page=…` sin adivinar la forma de la URL.
+            'page_url_base'   => self::pageUrlBase($baseUrl),
             'pages'        => self::window($page, $lastPage),
             // Los tamaños viajan con la paginación para que la plantilla no
             // mantenga su propia copia de la lista blanca.
             'allowed_per_page' => self::ALLOWED_PER_PAGE,
         ];
+    }
+
+    /**
+     * URL de una página concreta, conservando la query string de la base.
+     *
+     * `$baseUrl` puede venir de `ListQuery::url()` y traer búsqueda, orden o
+     * filtros; el enlace no puede perderlos. Para una base sin query string el
+     * resultado es idéntico al que la plantilla concatenaba a mano.
+     */
+    public static function pageUrl(string $baseUrl, int $page, int $perPage): string
+    {
+        return self::pageUrlBase($baseUrl) . 'page=' . $page . '&per_page=' . $perPage;
+    }
+
+    /**
+     * Base de los enlaces de página: la URL recibida con el separador de query
+     * ya elegido (`?` si no trae query string, `&` si ya trae).
+     */
+    private static function pageUrlBase(string $baseUrl): string
+    {
+        if (str_ends_with($baseUrl, '?') || str_ends_with($baseUrl, '&')) {
+            return $baseUrl;
+        }
+
+        return $baseUrl . (str_contains($baseUrl, '?') ? '&' : '?');
     }
 
     /**
@@ -5583,7 +5711,7 @@ final class Pagination
      *
      * @param string $baseUrl destino de los enlaces, ya resuelto con Url::path()
      *
-     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, pages: array, allowed_per_page: int[]}
+     * @return array{items: \Illuminate\Support\Collection, total: int, per_page: int, current_page: int, last_page: int, from: int, to: int, base_url: string, page_url_base: string, pages: array, allowed_per_page: int[]}
      */
     public static function fromRequest(Builder $query, ServerRequestInterface $request, string $baseUrl): array
     {
@@ -5663,13 +5791,19 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
 ```twig
 {# Paginación reutilizable (daisyUI + HTMX).
    Obligatorios: pagination (ver Pagination::paginate) y target (selector hx-target).
-   Opcionales: swap (default outerHTML), show_size (default true) y label (default «registros»).
+   Opcionales: swap (default outerHTML), show_size (default true), label (default «registros»),
+   action (destino del selector de tamaño; default `pagination.base_url`) y params (mapa de
+   campos ocultos que viajan con ese selector).
 
    Cada <a> lleva `href` y `hx-get` con la MISMA URL: sin href no tiene rol de enlace ni entra en el
    orden de tabulación, así que con teclado o lector de pantalla las páginas 2+ serían inalcanzables.
    Con JS cargado, htmx intercepta el click: el href es el fallback, no un segundo camino. El control
-   de tamaño vive en un `<form method="get">` con `per_page` como único campo, y el submit sin JS está
-   en un `<noscript>`: con JS manda htmx y no aparece ningún botón de más.
+   de tamaño vive en un `<form method="get">` con `per_page` y los `params` como campos ocultos, y el
+   submit sin JS está en un `<noscript>`: con JS manda htmx y no aparece ningún botón de más.
+
+   `params` conserva el estado de `ListQuery` al cambiar de tamaño: un GET de formulario reemplaza la
+   query del `action`, así que `q`, `sort`, `dir` y los filtros tienen que viajar como hidden. `action`
+   es la ruta pelada (`url('/tasks')`): la base no se usa porque ya trae su propia query string.
 
    La página actual es un `<span>` con `aria-current="page"`, no un `<button>`: no hace nada, y un
    control enfocable que se anuncia como botón y no responde a Enter es peor que texto. Conserva
@@ -5683,11 +5817,16 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
    español no cambió. `label` sigue siendo el override por pantalla («tareas», «contactos»);
    sin él, el sustantivo del contador y del selector sale del catálogo.
 
+   Los enlaces de página salen de `pagination.page_url_base`, que ya trae el separador elegido
+   (`?` o `&`) según la base: cuando `base_url` viene de `ListQuery::url()` y lleva `q`, `sort`
+   o filtros, el enlace los conserva. La plantilla no adivina la forma de la URL.
+
    Los tres contadores del texto (`from`, `to`, `total`) salen con `|num`: el separador de
    miles lo pone el locale activo (`Format`), no la vista. Las opciones de `per_page` no se
    formatean: son el `value` que el server espera. #}
 {% if pagination.total > 0 %}
 {% set unit = label|default(t('pagination.label')) %}
+{% set form_action = action|default(pagination.base_url) %}
 <div class="pagination-footer flex flex-col items-center gap-3 sm:flex-row sm:items-center sm:justify-between">
     <p class="pagination-counter text-center sm:text-left">
         {{ t('pagination.showing', {'%from%': pagination.from|num, '%to%': pagination.to|num, '%total%': pagination.total|num, '%label%': unit}) }}
@@ -5704,17 +5843,22 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
            No se usa el `.label` de daisyUI: atenúa al 60 % de la tinta y ese
            color lo heredaría el select; `.pagination-label` usa el 75 %, el
            mismo tono del contador, y deja el select a tinta plena. #}
-        <form method="get" action="{{ pagination.base_url }}" class="flex items-center gap-2">
+        <form method="get" action="{{ form_action }}" class="flex items-center gap-2">
+            {# El GET del formulario reemplaza la query del action: el estado de
+               la lista viaja como hidden y llega intacto al servidor. #}
+            {% for nombre, valor in params|default({}) %}
+                <input type="hidden" name="{{ nombre }}" value="{{ valor }}">
+            {% endfor %}
             <label class="flex items-center gap-2">
                 <span class="pagination-label">{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}</span>
                 <select class="pagination-select" name="per_page"
                         aria-label="{{ t('pagination.per_page', {'%label%': unit|capitalize}) }}"
                         data-focus-key="pagination-size"
-                        hx-get="{{ pagination.base_url }}"
+                        hx-get="{{ form_action }}"
                         hx-target="{{ target }}"
                         hx-swap="{{ swap|default('outerHTML') }}"
                         hx-trigger="change"
-                        hx-include="this">
+                        hx-include="closest form">
                     {% for size in pagination.allowed_per_page %}
                         <option value="{{ size }}"{% if size == pagination.per_page %} selected{% endif %}>{{ size }}</option>
                     {% endfor %}
@@ -5736,14 +5880,14 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                válido, porque `&per_page` no termina en `;` y por lo tanto no
                es una referencia de carácter. #}
             {% if pagination.current_page > 1 %}
-                {% set destino_primera = pagination.base_url ~ '?page=1&per_page=' ~ pagination.per_page %}
+                {% set destino_primera = pagination.page_url_base ~ 'page=1&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_primera|raw }}"
                    hx-get="{{ destino_primera|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-first"
                    aria-label="{{ t('pagination.go_first') }}">{{ t('pagination.first') }}</a>
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino = pagination.page_url_base ~ 'page=' ~ (pagination.current_page - 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
@@ -5764,7 +5908,7 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
                           data-focus-key="pagination-page-{{ p }}"
                           aria-current="page">{{ p }}</span>
                 {% else %}
-                    {% set destino = pagination.base_url ~ '?page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
+                    {% set destino = pagination.page_url_base ~ 'page=' ~ p ~ '&per_page=' ~ pagination.per_page %}
                     <a class="pagination-control pagination-control--square"
                        href="{{ destino|raw }}"
                        hx-get="{{ destino|raw }}"
@@ -5775,14 +5919,14 @@ Cada acción lo mezcla (`$this->pageData($request) + ['editing_id' => ...]`): fu
             {% endfor %}
 
             {% if pagination.current_page < pagination.last_page %}
-                {% set destino = pagination.base_url ~ '?page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino = pagination.page_url_base ~ 'page=' ~ (pagination.current_page + 1) ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino|raw }}"
                    hx-get="{{ destino|raw }}"
                    hx-target="{{ target }}" hx-swap="{{ swap|default('outerHTML') }}"
                    data-focus-key="pagination-next"
                    aria-label="{{ t('pagination.go_next') }}">{{ t('pagination.next') }}</a>
-                {% set destino_ultima = pagination.base_url ~ '?page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
+                {% set destino_ultima = pagination.page_url_base ~ 'page=' ~ pagination.last_page ~ '&per_page=' ~ pagination.per_page %}
                 <a class="pagination-control"
                    href="{{ destino_ultima|raw }}"
                    hx-get="{{ destino_ultima|raw }}"
@@ -5805,6 +5949,59 @@ Tres decisiones que importan:
 1. **Los links conservan `per_page`.** Sin eso, cambiar de página resetearía el tamaño a 10 en silencio. El selector, al revés, resetea a página 1 (no manda `page`): es lo correcto cuando cambia el tamaño.
 2. **`per_page` se valida contra lista blanca** (`clampPerPage`): un `?per_page=999999` cae al default en vez de traer la tabla entera a memoria — que es exactamente el bug de 18.3 con otro nombre.
 3. **En vacío no se renderiza nada** (el `{% if %}` exterior): la fila "No hay tareas todavía" ya comunica el estado, y un paginador de cero páginas es ruido.
+
+### 16.2 Búsqueda, filtro y orden con `ListQuery`
+
+Un listado con buscador, filtro y encabezados ordenables tiene tres estados y ningún lugar dónde esconderlos: `?q=`, `?sort=&dir=` y un parámetro por filtro. Si el estado vive en la sesión, la URL deja de describir lo que se ve y no se puede compartir; si el controlador lee `sort` directo, el nombre de columna del request termina dentro del `ORDER BY`. `Framework\Http\ListQuery` resuelve las dos cosas: lee la query string, la valida contra un whitelist declarado por la pantalla y devuelve una consulta Eloquent lista.
+
+La API:
+
+| Miembro | Qué hace |
+|---|---|
+| `ListQuery::fromRequest($request, $options)` | Lee `q`, `sort`, `dir` y los filtros declarados, ya normalizados |
+| `search(): ?string` | Término recortado y limitado a 100 caracteres; se escapa al armar el `LIKE` |
+| `sort(): ?string` / `direction(): string` | Columna efectiva (la pedida si es válida, si no el default) y `asc`/`desc` |
+| `filters(): array` | Sólo los filtros aceptados, `nombre => valor` |
+| `active(): bool` | ¿La URL trae estado propio? Los defaults no cuentan |
+| `apply(Builder $query): Builder` | Aplica búsqueda (OR entre columnas), filtros y orden |
+| `url(string $path): string` | Ruta con el query string del estado explícito |
+
+Las opciones son la garantía de seguridad, no una comodidad:
+
+```php
+$listQuery = ListQuery::fromRequest($request, [
+    'search'  => ['title'],                       // columnas del LIKE
+    'sort'    => ['title', 'created_at'],         // columnas ordenables
+    'default' => ['created_at', 'desc'],          // cuando no hay sort válido
+    'filters' => ['status' => ['pendiente', 'completado']],
+]);
+```
+
+- **El nombre de columna nunca sale del request.** `sort` sólo se usa si está en `sort`; un filtro sólo si su nombre está declarado en `filters` y el valor está en su lista; `dir` se reduce a `asc`/`desc`. Un `?sort=id` o un `?dir=;drop` caen al default, y un `?status=borrado` se ignora sin romper la lista.
+- **`LIKE` se escapa.** `%` y `_` son comodines: el término se recorta, se limita y se arma como `LIKE ? ESCAPE '\'` con bindings. Buscar `100%` busca ese literal; buscar `a_b` no matchea `aXb`.
+- **La búsqueda agrupa con OR y no se escapa del grupo.** El término puede aparecer en cualquiera de las columnas de `search`; sin paréntesis, el OR dejaría afuera al filtro.
+
+Composición con la paginación: el listado arma una sola base y la reutiliza.
+
+```php
+$listQuery = ListQuery::fromRequest($request, $opciones);
+
+$query = $listQuery->apply(Task::query());
+// Desempate estable: se llama como sentencia y no se encadena, porque `Builder`
+// reenvía `orderBy` al query builder y una cadena pierde el tipo Eloquent
+// (PHPStan). La columna es del código, nunca del request.
+$query->orderBy('id', 'desc');
+
+$listado = Pagination::fromRequest(
+    $query,
+    $request,
+    $listQuery->url(Url::path('/tasks'))
+);
+```
+
+`url()` devuelve `/tasks` si no hay estado y `/tasks?q=plan&status=pendiente` si lo hay. `Pagination` expone `page_url_base` (la base con `?` o `&` ya elegido), que es lo que concatenan los `<a>` de la plantilla para conservar `q`, `sort`, `dir` y los filtros al cambiar de página. `pageUrl()` compone esa misma base con `page`/`per_page` y es lo que alimenta el `HX-Push-Url` de las acciones: la URL canónica que el servidor renderizó, no los enlaces del paginador. El selector de tamaño de página es un GET, así que el formulario reemplaza la query del `action`: el componente acepta `action` (la ruta pelada) y `params` (los campos ocultos) para que cambiar el tamaño tampoco pierda el estado. Sin JS: los hidden son HTML.
+
+El demo `tasks` usa búsqueda en `title`, filtro `status` y orden por `title`/`created_at`; `notes` usa búsqueda en `title` y `body` y las mismas columnas de orden. Los dos tienen un formulario GET, encabezados con `aria-sort` y links de orden construidos con `url()`. `contacts` queda afuera a propósito: su orden no es estado de la URL sino de Tabulator, que manda `sort[i][field]` y su propio multi-orden por AJAX. Es otro contrato —el cliente es el dueño de la grilla— y meterlo acá obligaría al primitivo a aceptar una forma que ningún listado server-rendered usa.
 
 ## 17. Levantar el servidor y mantenerlo vivo
 

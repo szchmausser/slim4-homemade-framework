@@ -21,6 +21,14 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 - **URLs siempre por helper.** En Twig `{{ url('/ruta') }}`; en PHP
   `Framework\Http\Url::path('/ruta')`. Nunca literales raíz-absolutos: rompen
   `APP_BASE_PATH`.
+- **El estado de un listado se valida contra un whitelist.** Búsqueda, orden y
+  filtros de un listado server-rendered se leen con `Framework\Http\ListQuery`:
+  el request nunca aporta un nombre de columna (sólo entra lo declarado en
+  `search`, `sort` y `filters`) y `Pagination` conserva ese estado en sus
+  enlaces. Los listados con búsqueda u orden usan `ListQuery`, nunca un
+  `orderBy` con un valor del request. La excepción es `contacts`: su orden es de
+  Tabulator (`sort[i][field]`, multi-orden, contrato AJAX) y no estado de URL,
+  así que no usa `ListQuery`.
 - **Los textos visibles del cromo y de las páginas van por catálogo.** En
   componentes, layouts y páginas se usa `{{ t('clave') }}` (o `|trans`) con la
   clave en inglés; el texto vive en `lang/{es,en}.php`. Desde PHP la misma clave
@@ -75,7 +83,7 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
 |---|---|
 | `app/` | Código de la app: todas las entidades van planas en `app/Models` y `app/Http/Controllers`, que es lo que enseña el tutorial. Los demos siguen esa misma convención (`app/Models/Task.php`), así que instalar uno no crea un namespace `App\<Demo>`; su único agrupamiento es la migración en `database/migrations/<demo>/`, que reserva una banda de versiones (`tasks` 900, `notes` 910, `contacts` 920). |
 | `framework/Auth` | Sesión, remember-me, throttle, provider de usuarios. |
-| `framework/Http` | Controller base, CSRF, Flash, Pagination, Url, middlewares. |
+| `framework/Http` | Controller base, CSRF, Flash, ListQuery, Pagination, Url, middlewares. |
 | `framework/Validation` | Validator propio (respect/validation). |
 | `framework/I18n` | Traductor (symfony/translation), extensión Twig con `t()`/`trans` y los filtros de formato `num`/`localdate`, `Trans::t()`, `Format` con `LocaleData` (fechas y cantidades por locale, ciclo horario global de 12 h por defecto) y resolutor del locale por request (`?lang=` > sesión > `Accept-Language` > `APP_LOCALE`). |
 | `framework/scaffolds/*` | Demos instalables (tasks, contacts, notes). |
