@@ -42,4 +42,12 @@ return [
     'notes.created'         => 'Nota creada.',
     'notes.updated'         => 'Nota actualizada.',
     'notes.deleted'         => 'Nota eliminada.',
+
+    // Listado: búsqueda y orden (ListQuery); el orden sólo acepta title y
+    // created_at, la búsqueda recorre title y body.
+    'notes.search'             => 'Buscar',
+    'notes.search_placeholder' => 'Buscar en título y cuerpo',
+    'notes.sort_label'         => 'Ordenar por',
+    'notes.sort_title'         => 'Título',
+    'notes.sort_created'       => 'Creada',
 ];

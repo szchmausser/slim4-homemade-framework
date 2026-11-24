@@ -76,6 +76,14 @@ final class I18nTasksTest extends TasksTestCase
         self::assertStringContainsString('<span>Borrar</span>', $html);
         self::assertStringContainsString('Mostrando 1 al 1 de 1 tareas', $html);
 
+        // Listado: búsqueda, filtro y encabezados ordenables.
+        self::assertStringContainsString('<span>Buscar</span>', $html);
+        self::assertStringContainsString('placeholder="Buscar por título"', $html);
+        self::assertStringContainsString('<span class="text-sm font-semibold">Estado</span>', $html);
+        self::assertStringContainsString('Todos los estados', $html);
+        self::assertStringContainsString('aria-label="Ordenar por"', $html);
+        self::assertStringContainsString('>Título</a>', $html);
+
         // La fila en edición trae el label del campo y los dos botones: el swap
         // de `/tasks/{id}/edit` es una respuesta de htmx, así que se pide así.
         $task = Task::query()->firstOrFail();
@@ -120,6 +128,12 @@ final class I18nTasksTest extends TasksTestCase
         self::assertStringContainsString('<span>Add</span>', $html);
         self::assertStringContainsString('>Tasks<', $html, 'El sidebar no muestra la etiqueta traducida.');
         self::assertStringContainsString('>Home</a>', $html, 'La miga raíz no sale del catálogo.');
+
+        // El listado también cambia de idioma: botón, filtro y encabezados.
+        self::assertStringContainsString('<span>Search</span>', $html);
+        self::assertStringContainsString('placeholder="Search by title"', $html);
+        self::assertStringContainsString('All statuses', $html);
+        self::assertStringContainsString('aria-label="Sort by"', $html);
         self::assertStringContainsString('aria-current="page">Tasks', $html);
         self::assertStringNotContainsString('>Inicio</a>', $html);
         self::assertStringNotContainsString('Mis tareas', $html);

@@ -7,7 +7,9 @@
    Para tu entidad, copia el archivo y cambia los campos de la fila. #}
 {# Posición de la lista (página y tamaño) que arrastra toda acción de fila: sin esto,
    tocar una fila desde la página 2 re-renderiza la 1 y el usuario pierde la fila que
-   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual. #}
+   tocó. Se arma una sola vez y todas las URLs de fila la usan tal cual, pasada por
+   `list_query.url()`: así la búsqueda, el orden y el filtro también sobreviven a la
+   acción, y con una URL sin estado el resultado es la misma cadena de siempre. #}
 {% set posicion = 'page=' ~ pagination.current_page ~ '&per_page=' ~ pagination.per_page %}
 {# El query va con `|raw` para que el `&` salga literal; la cadena sale de dos enteros
    de `Pagination`, nunca de texto del usuario. La ruta pasa por `url()`, que le
@@ -26,7 +28,7 @@
             <li class="rounded-box border border-base-300 bg-base-100 p-3">
                 {# `flex-wrap`: el mensaje de error viaja en su propia línea en vez
                    de robarle ancho al input y a los botones en móvil. #}
-                <form hx-put="{{ url('/tasks/' ~ task.id) }}?{{ posicion|raw }}"
+                <form hx-put="{{ list_query.url(url('/tasks/' ~ task.id) ~ '?' ~ posicion)|raw }}"
                       hx-target="#tareas-panel"
                       hx-swap="outerHTML"
                       class="flex flex-wrap items-center gap-2">
@@ -71,7 +73,7 @@
                         icon: 'x',
                         icon_class: 'h-3.5 w-3.5',
                         extra_class: 'gap-1.5',
-                        hx_get: url('/tasks') ~ '?' ~ posicion,
+                        hx_get: list_query.url(url('/tasks') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'cancel-' ~ task.id
@@ -154,7 +156,7 @@
                         extra_class: 'btn-square size-9 ' ~ (task.status == 'completado' ? 'icon-success' : ''),
                         aria_label: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
                         title: task.status == 'completado' ? t('tasks.mark_pending') : t('tasks.mark_done'),
-                        hx_post: url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion,
+                        hx_post: list_query.url(url('/tasks/' ~ task.id ~ '/toggle') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
@@ -168,7 +170,7 @@
                         extra_class: 'btn-square size-9',
                         aria_label: t('tasks.edit'),
                         title: t('tasks.edit'),
-                        hx_get: url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion,
+                        hx_get: list_query.url(url('/tasks/' ~ task.id ~ '/edit') ~ '?' ~ posicion),
                         hx_target: '#tareas-panel',
                         hx_swap: 'outerHTML',
                         data_focus_key: 'edit-' ~ task.id
@@ -209,7 +211,7 @@
                             variant: 'error',
                             icon: 'trash',
                             extra_class: 'gap-1.5',
-                            hx_delete: url('/tasks/' ~ task.id) ~ '?' ~ posicion,
+                            hx_delete: list_query.url(url('/tasks/' ~ task.id) ~ '?' ~ posicion),
                             hx_headers: {'csrf_name': csrf_name, 'csrf_value': csrf_value}|json_encode,
                             hx_target: '#tareas-panel',
                             hx_swap: 'outerHTML',

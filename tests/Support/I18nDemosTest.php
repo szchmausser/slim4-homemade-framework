@@ -19,7 +19,7 @@ use Twig\Environment;
  *   de un demo existe en `lang/<locale>/` sólo mientras el demo está instalado
  *   (S1-S2), y esta suite corre sin demos. Los tres demos se traducen Y SE
  *   TRADUCE SU NOMBRE: `notes` dejó de ser inglés en los dos catálogos (L10 de
- *   `odd/tasks/i18n.md`), así que su español es una traducción real, sus 24
+ *   `odd/tasks/i18n.md`), así que su español es una traducción real, sus 30
  *   claves cambian con el locale como las de `tasks` y `contacts`, y su
  *   etiqueta de menú dice «Notas» donde `nav.tasks` dice «Tareas». Ya no hay
  *   ninguna excepción declarada de «clave que dice lo mismo a propósito»: sólo
@@ -97,6 +97,15 @@ final class I18nDemosTest extends HttpTestCase
         'tasks.completed'       => 'Tarea completada.',
         'tasks.invalid_data'    => 'Datos inválidos.',
 
+        // Listado: búsqueda, filtro y orden (ListQuery).
+        'tasks.search'             => 'Buscar',
+        'tasks.search_placeholder' => 'Buscar por título',
+        'tasks.filter_status'      => 'Estado',
+        'tasks.filter_all'         => 'Todos los estados',
+        'tasks.sort_label'         => 'Ordenar por',
+        'tasks.sort_title'         => 'Título',
+        'tasks.sort_created'       => 'Creada',
+
         // Demo Contactos: pantalla, formulario, modales, tabla y flashes.
         'contacts.title'           => 'Contactos',
         'contacts.subtitle'        => 'CRUD de contactos con listado en Tabulator: numeración, columnas y acciones sobre SQLite.',
@@ -172,6 +181,13 @@ final class I18nDemosTest extends HttpTestCase
         'notes.created'           => 'Nota creada.',
         'notes.updated'           => 'Nota actualizada.',
         'notes.deleted'           => 'Nota eliminada.',
+
+        // Listado: búsqueda y orden (ListQuery).
+        'notes.search'             => 'Buscar',
+        'notes.search_placeholder' => 'Buscar en título y cuerpo',
+        'notes.sort_label'         => 'Ordenar por',
+        'notes.sort_title'         => 'Título',
+        'notes.sort_created'       => 'Creada',
     ];
 
     /**
@@ -192,6 +208,13 @@ final class I18nDemosTest extends HttpTestCase
         'tasks.not_found',
         'tasks.summary',
         'tasks.why',
+        'tasks.search',
+        'tasks.search_placeholder',
+        'tasks.filter_status',
+        'tasks.filter_all',
+        'tasks.sort_label',
+        'tasks.sort_title',
+        'tasks.sort_created',
         'contacts.title',
         'contacts.add',
         'contacts.empty',
@@ -435,7 +458,7 @@ final class I18nDemosTest extends HttpTestCase
     }
 
     /**
-     * El demo `notes` es bilingüe: sus 24 claves cambian con el locale.
+     * El demo `notes` es bilingüe: sus 30 claves cambian con el locale.
      *
      * Reemplaza la excepción de L16 de `odd/tasks/demo-conventions.md` (el demo
      * nació en inglés y sus dos catálogos decían lo mismo), revertida en L10 de

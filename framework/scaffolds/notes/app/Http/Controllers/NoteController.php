@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Note;
 use Framework\Http\Controller;
 use Framework\Http\Flash;
+use Framework\Http\ListQuery;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\I18n\Trans;
@@ -20,7 +21,7 @@ use Slim\Exception\HttpNotFoundException;
  * que comparten.
  *
  * Lo llama Slim desde `routes/notes.php`, ya con sesión, CSRF y login resueltos.
- * Usa `Note`, `Validator` y `Pagination`; responde por el `Controller` base.
+ * Usa `Note`, `ListQuery`, `Validator` y `Pagination`; responde por el `Controller` base.
  *
  * Para tu entidad: copia el archivo, cambia el modelo y cierra cada mutación
  * con `redirect()`.
@@ -35,6 +36,11 @@ final class NoteController extends Controller
      * Datos del listado: las notas de la página pedida, la metadata del
      * paginador y la miga de pan.
      *
+     * `ListQuery` resuelve búsqueda y orden desde el query string: `q` recorre
+     * `title` y `body`, y `sort` sólo acepta `title` o `created_at`. El
+     * `orderBy('id', 'desc')` desempata dos notas creadas en el mismo segundo (el id
+     * sale del código, nunca del request).
+     *
      * La comparten las cuatro acciones que renderizan la pantalla (`index`,
      * `edit` y los rechazos de `store` y `update`), así el recorte de página y la
      * miga no se repiten en cada una.
@@ -43,15 +49,28 @@ final class NoteController extends Controller
      */
     private function pageData(Request $request): array
     {
+        $listQuery = ListQuery::fromRequest($request, [
+            'search'  => ['title', 'body'],
+            'sort'    => ['title', 'created_at'],
+            'default' => ['created_at', 'desc'],
+        ]);
+
+        $query = $listQuery->apply(Note::query());
+        // Desempate estable: se llama como sentencia y no se encadena, porque
+        // `Builder` reenvía `orderBy` al query builder y una cadena haría que
+        // PHPStan pierda el tipo Eloquent. La columna es del código, no del request.
+        $query->orderBy('id', 'desc');
+
         $pagination = Pagination::fromRequest(
-            Note::orderByDesc('id'),
+            $query,
             $request,
-            Url::path('/notes')
+            $listQuery->url(Url::path('/notes'))
         );
 
         return [
             'notes'      => $pagination['items'],
             'pagination' => $pagination,
+            'list_query' => $listQuery,
             // La miga la pinta el header del shell: Inicio como enlace y Notes
             // como página actual. Sin ella, el header cae en su fallback y
             // muestra «Inicio» como si estuvieras en la portada.
@@ -84,9 +103,11 @@ final class NoteController extends Controller
             return $rendered;
         }
 
-        return $rendered->withHeader('HX-Push-Url', Url::path('/notes')
-            . '?page=' . $data['pagination']['current_page']
-            . '&per_page=' . $data['pagination']['per_page']);
+        return $rendered->withHeader('HX-Push-Url', Pagination::pageUrl(
+            $data['pagination']['base_url'],
+            $data['pagination']['current_page'],
+            $data['pagination']['per_page']
+        ));
     }
 
     /* Acciones de ruta: las invoca Slim, una por cada ruta de `routes/notes.php`. */

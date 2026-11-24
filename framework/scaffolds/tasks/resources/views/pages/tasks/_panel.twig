@@ -11,6 +11,77 @@
 {# La utilidad de foco apagado va sólo acá: el panel no es un control y el anillo
    alrededor de la región no informa nada. Los controles conservan el suyo. #}
 <div id="tareas-panel" tabindex="-1" class="focus:outline-none" hx-disabled-elt="#tareas-panel button">
+    {# Estado del listado, ya validado por `ListQuery`: el mismo mapa que serializa
+       `url()`. `estado_sin_orden` deja afuera `sort`/`dir` para que los encabezados
+       ordenables los reemplacen sin duplicarlos; `estado_lista` los incluye y viaja
+       como hidden cuando se cambia el tamaño de página. #}
+    {% set estado_sin_orden = {} %}
+    {% if list_query.search() is not null %}{% set estado_sin_orden = estado_sin_orden|merge({'q': list_query.search()}) %}{% endif %}
+    {% for nombre, valor in list_query.filters() %}{% set estado_sin_orden = estado_sin_orden|merge({(nombre): valor}) %}{% endfor %}
+    {% set estado_lista = estado_sin_orden|merge({'sort': list_query.sort(), 'dir': list_query.direction()}) %}
+
+    {# GET puro, sin JS: un formulario GET reemplaza la query del action, así que
+       el orden efectivo viaja en dos hidden y la búsqueda y el filtro como campos.
+       El botón manda el formulario; no agrega ninguno de más. #}
+    <form method="get" action="{{ url('/tasks') }}" role="search" class="mb-4 flex flex-wrap items-end gap-2">
+        {% if list_query.sort() is not null %}
+            <input type="hidden" name="sort" value="{{ list_query.sort() }}">
+            <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+        {% endif %}
+        {% include 'components/form/field.twig' with {
+            id: 'task-search',
+            name: 'q',
+            label: t('tasks.search_placeholder'),
+            value: list_query.search()|default(''),
+            placeholder: t('tasks.search_placeholder'),
+            label_class: 'sr-only',
+            field_class: 'contents',
+            input_class: 'input w-full sm:w-64'
+        } only %}
+        <label class="flex items-center gap-2">
+            <span class="text-sm font-semibold">{{ t('tasks.filter_status') }}</span>
+            <select name="status" class="select">
+                <option value="">{{ t('tasks.filter_all') }}</option>
+                {% for valor, etiqueta in {'pendiente': t('tasks.status_pending'), 'completado': t('tasks.status_done')} %}
+                    <option value="{{ valor }}"{% if list_query.filters().status|default('') == valor %} selected{% endif %}>{{ etiqueta }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        {% include 'components/ui/button.twig' with {
+            label: t('tasks.search'),
+            type: 'submit'
+        } only %}
+    </form>
+
+    {# Encabezados ordenables: la lista es un `<ul>` (components/list/simple.twig),
+       así que una fila con `role="table"`/`columnheader` es lo que hace válido
+       `aria-sort`. El enlace conserva búsqueda y filtro y cambia sólo sort/dir. #}
+    <div role="table" aria-label="{{ t('tasks.sort_label') }}" class="mb-2">
+        <div role="row" class="flex items-center gap-4 text-sm font-semibold">
+            {% for columna, datos in {
+                'title': {'etiqueta': t('tasks.sort_title'), 'defecto': 'asc'},
+                'created_at': {'etiqueta': t('tasks.sort_created'), 'defecto': 'desc'}
+            } %}
+                {% set activa = list_query.sort() == columna %}
+                {% set siguiente = activa
+                    ? (list_query.direction() == 'asc' ? 'desc' : 'asc')
+                    : datos.defecto %}
+                {% set aria = activa
+                    ? (list_query.direction() == 'asc' ? 'ascending' : 'descending')
+                    : 'none' %}
+                <div role="columnheader" aria-sort="{{ aria }}" class="flex items-center gap-1">
+                    <a class="link link-hover" href="{{ (url('/tasks') ~ '?' ~ (estado_sin_orden|merge({'sort': columna, 'dir': siguiente})|url_encode))|raw }}">{{ datos.etiqueta }}</a>
+                    {% if activa %}
+                        {% include 'components/ui/icon.twig' with {
+                            name: 'arrow-right',
+                            class: 'h-3 w-3 ' ~ (list_query.direction() == 'asc' ? '-rotate-90' : 'rotate-90')
+                        } only %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
     {# `hx-disabled-elt` se declara una vez en la región y las filas lo heredan: htmx
        resuelve el atributo subiendo por los ancestros. Sin esto, un doble click en
        cualquier botón de fila dispara dos veces la misma mutación. #}
@@ -42,10 +113,14 @@
         {% include 'pages/tasks/_list.twig' %}
     </div>
 
-    {# Paginación dentro del swap: viaja actualizada con cada acción. #}
+    {# Paginación dentro del swap: viaja actualizada con cada acción. El action es
+       la ruta pelada y `estado_lista` son los hidden que conservan búsqueda, orden
+       y filtro cuando se cambia el tamaño de página. #}
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
         target: '#tareas-panel',
-        label: t('tasks.pagination_label')
+        label: t('tasks.pagination_label'),
+        action: url('/tasks'),
+        params: estado_lista
     } %}
 </div>

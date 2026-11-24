@@ -43,4 +43,14 @@ return [
     'tasks.marked_pending'   => 'Tarea marcada como pendiente.',
     'tasks.completed'        => 'Tarea completada.',
     'tasks.invalid_data'     => 'Datos inválidos.',
+
+    // Listado: búsqueda, filtro y orden (ListQuery). El filtro sólo acepta los
+    // valores declarados en el controlador y el orden, sólo sus dos columnas.
+    'tasks.search'             => 'Buscar',
+    'tasks.search_placeholder' => 'Buscar por título',
+    'tasks.filter_status'      => 'Estado',
+    'tasks.filter_all'         => 'Todos los estados',
+    'tasks.sort_label'         => 'Ordenar por',
+    'tasks.sort_title'         => 'Título',
+    'tasks.sort_created'       => 'Creada',
 ];

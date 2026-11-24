@@ -9,6 +9,65 @@
   del paginador.
 #}
 <div id="notes-panel">
+    {# Estado del listado ya validado por `ListQuery`. `estado_sin_orden` deja
+       afuera `sort`/`dir` para que los encabezados ordenables los reemplacen;
+       `estado_lista` los incluye para el selector de tamaño de página. #}
+    {% set estado_sin_orden = {} %}
+    {% if list_query.search() is not null %}{% set estado_sin_orden = estado_sin_orden|merge({'q': list_query.search()}) %}{% endif %}
+    {% set estado_lista = estado_sin_orden|merge({'sort': list_query.sort(), 'dir': list_query.direction()}) %}
+
+    {# GET puro, sin JS: el formulario reemplaza la query del action, así que el
+       orden efectivo viaja en dos hidden y la búsqueda como campo. #}
+    <form method="get" action="{{ url('/notes') }}" role="search" class="mb-4 flex flex-wrap items-end gap-2">
+        {% if list_query.sort() is not null %}
+            <input type="hidden" name="sort" value="{{ list_query.sort() }}">
+            <input type="hidden" name="dir" value="{{ list_query.direction() }}">
+        {% endif %}
+        {% include 'components/form/field.twig' with {
+            id: 'note-search',
+            name: 'q',
+            label: t('notes.search_placeholder'),
+            value: list_query.search()|default(''),
+            placeholder: t('notes.search_placeholder'),
+            label_class: 'sr-only',
+            field_class: 'contents',
+            input_class: 'input w-full sm:w-64'
+        } only %}
+        {% include 'components/ui/button.twig' with {
+            label: t('notes.search'),
+            type: 'submit'
+        } only %}
+    </form>
+
+    {# Encabezados ordenables: la lista es un `<ul>`, así que una fila con
+       `role="table"`/`columnheader` es lo que hace válido `aria-sort`. El enlace
+       conserva la búsqueda y cambia sólo sort/dir. #}
+    <div role="table" aria-label="{{ t('notes.sort_label') }}" class="mb-2">
+        <div role="row" class="flex items-center gap-4 text-sm font-semibold">
+            {% for columna, datos in {
+                'title': {'etiqueta': t('notes.sort_title'), 'defecto': 'asc'},
+                'created_at': {'etiqueta': t('notes.sort_created'), 'defecto': 'desc'}
+            } %}
+                {% set activa = list_query.sort() == columna %}
+                {% set siguiente = activa
+                    ? (list_query.direction() == 'asc' ? 'desc' : 'asc')
+                    : datos.defecto %}
+                {% set aria = activa
+                    ? (list_query.direction() == 'asc' ? 'ascending' : 'descending')
+                    : 'none' %}
+                <div role="columnheader" aria-sort="{{ aria }}" class="flex items-center gap-1">
+                    <a class="link link-hover" href="{{ (url('/notes') ~ '?' ~ (estado_sin_orden|merge({'sort': columna, 'dir': siguiente})|url_encode))|raw }}">{{ datos.etiqueta }}</a>
+                    {% if activa %}
+                        {% include 'components/ui/icon.twig' with {
+                            name: 'arrow-right',
+                            class: 'h-3 w-3 ' ~ (list_query.direction() == 'asc' ? '-rotate-90' : 'rotate-90')
+                        } only %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
     {% embed 'components/list/simple.twig' with {
         items: notes,
         empty: t('notes.empty')
@@ -18,7 +77,7 @@
                acciones como iconos con nombre accesible. #}
             <li class="flex items-start justify-between gap-3 rounded-box border border-base-300 bg-base-100 p-3">
                 <div class="min-w-0">
-                    <a class="font-semibold" href="{{ url('/notes/' ~ item.id ~ '/edit') }}">{{ item.title }}</a>
+                    <a class="font-semibold" href="{{ list_query.url(url('/notes/' ~ item.id ~ '/edit')) }}">{{ item.title }}</a>
                     {% if item.body %}
                         <p class="text-sm opacity-70">{{ item.body }}</p>
                     {% endif %}
@@ -30,7 +89,7 @@
                         size: 'sm',
                         icon: 'pencil',
                         aria_label: t('notes.edit_aria', {'%title%': item.title}),
-                        href: url('/notes/' ~ item.id ~ '/edit')
+                        href: list_query.url(url('/notes/' ~ item.id ~ '/edit'))
                     } only %}
 
                     {# Borrar no es un POST directo desde la fila: abre el diálogo
@@ -86,6 +145,8 @@
 
     {% include 'components/pagination/simple.twig' with {
         pagination: pagination,
-        target: '#notes-panel'
+        target: '#notes-panel',
+        action: url('/notes'),
+        params: estado_lista
     } %}
 </div>

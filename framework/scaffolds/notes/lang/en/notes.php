@@ -41,4 +41,12 @@ return [
     'notes.created'         => 'Note created.',
     'notes.updated'         => 'Note updated.',
     'notes.deleted'         => 'Note deleted.',
+
+    // Listing: search and order (ListQuery); order only accepts title and
+    // created_at, search goes over title and body.
+    'notes.search'             => 'Search',
+    'notes.search_placeholder' => 'Search title and body',
+    'notes.sort_label'         => 'Sort by',
+    'notes.sort_title'         => 'Title',
+    'notes.sort_created'       => 'Created',
 ];

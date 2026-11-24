@@ -42,4 +42,14 @@ return [
     'tasks.marked_pending'   => 'Task marked as pending.',
     'tasks.completed'        => 'Task completed.',
     'tasks.invalid_data'     => 'Invalid data.',
+
+    // Listing: search, filter and order (ListQuery). The filter only accepts the
+    // values declared in the controller and sorting only its two columns.
+    'tasks.search'             => 'Search',
+    'tasks.search_placeholder' => 'Search by title',
+    'tasks.filter_status'      => 'Status',
+    'tasks.filter_all'         => 'All statuses',
+    'tasks.sort_label'         => 'Sort by',
+    'tasks.sort_title'         => 'Title',
+    'tasks.sort_created'       => 'Created',
 ];

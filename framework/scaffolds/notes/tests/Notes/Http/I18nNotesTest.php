@@ -64,6 +64,11 @@ final class I18nNotesTest extends HttpTestCase
         self::assertMatchesRegularExpression('/for="title">\s*Título/', $html, 'La etiqueta del campo no salió del catálogo.');
         self::assertStringContainsString('Cuerpo (opcional)', $html);
 
+        // Listado: búsqueda y encabezados ordenables.
+        self::assertStringContainsString('<span>Buscar</span>', $html);
+        self::assertStringContainsString('placeholder="Buscar en título y cuerpo"', $html);
+        self::assertStringContainsString('aria-label="Ordenar por"', $html);
+
         // Sidebar y miga: el nombre del módulo también sale del catálogo.
         self::assertStringContainsString('>Notas<', $html, 'El sidebar en español no traduce el nombre del módulo.');
         self::assertStringContainsString('aria-current="page">Notas', $html, 'La miga en español no traduce el nombre del módulo.');
@@ -106,6 +111,11 @@ final class I18nNotesTest extends HttpTestCase
         self::assertStringContainsString('aria-label="Delete Groceries"', $html);
         self::assertMatchesRegularExpression('/for="title">\s*Title/', $html, 'La etiqueta del campo no salió del catálogo.');
         self::assertStringContainsString('Body (optional)', $html);
+
+        // El listado también cambia de idioma: botón y encabezados.
+        self::assertStringContainsString('<span>Search</span>', $html);
+        self::assertStringContainsString('placeholder="Search title and body"', $html);
+        self::assertStringContainsString('aria-label="Sort by"', $html);
 
         self::assertStringContainsString('>Notes<', $html, 'El sidebar en inglés no muestra el nombre del módulo.');
         self::assertStringContainsString('aria-current="page">Notes', $html, 'La miga en inglés no muestra el nombre del módulo.');

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use Framework\Http\Controller;
 use Framework\Http\Flash;
+use Framework\Http\ListQuery;
 use Framework\Http\Pagination;
 use Framework\Http\Url;
 use Framework\I18n\Trans;
@@ -19,10 +20,10 @@ use Slim\Exception\HttpNotFoundException;
 /**
  * Controlador de `tasks`: las seis acciones y el único render de su pantalla.
  *
- * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `Pagination`
- * para el recorte, `Validator` para el título, `Flash` para los avisos y
- * `Controller::render()` para la plantilla. El modelo vive en `app/Models/Task.php`,
- * el layout plano que enseña la convención.
+ * Capa controlador. Slim lo invoca desde `routes/tasks.php`; suma `ListQuery`
+ * para el estado del listado, `Pagination` para el recorte, `Validator` para el
+ * título, `Flash` para los avisos y `Controller::render()` para la plantilla. El
+ * modelo vive en `app/Models/Task.php`, el layout plano que enseña la convención.
  *
  * Para tu entidad, copia las acciones que necesites y deja `respond()` como el
  * único lugar que elige plantilla y estado.
@@ -31,26 +32,47 @@ class TaskController extends Controller
 {
     /**
      * Slice paginado más la metadata, para toda respuesta de esta ruta: la página
-     * completa y el swap parcial necesitan la paginación al día. La página y el
-     * tamaño salen del query string (`page`, `per_page`), que mandan el navegador
-     * y los enlaces de HTMX por igual.
+     * completa y el swap parcial necesitan la paginación al día.
+     *
+     * `ListQuery` resuelve búsqueda, orden y filtro desde el query string contra
+     * el whitelist de abajo: el request sólo puede elegir `title` o `created_at`
+     * para ordenar, `status` sólo vale `pendiente` o `completado`, y la búsqueda
+     * sólo toca `title`. La página y el tamaño siguen saliendo de `Pagination`.
+     *
+     * El `orderBy('id', 'desc')` final es el desempate estable: dos tareas creadas en
+     * el mismo segundo comparten `created_at`, y sin el id el orden dependería
+     * del plan de SQLite. El id es una columna del código, nunca del request.
      *
      * @return array<string, mixed>
      */
     private function pageData(Request $request): array
     {
+        $listQuery = ListQuery::fromRequest($request, [
+            'search'  => ['title'],
+            'sort'    => ['title', 'created_at'],
+            'default' => ['created_at', 'desc'],
+            'filters' => ['status' => ['pendiente', 'completado']],
+        ]);
+
+        $query = $listQuery->apply(Task::query());
+        // Desempate estable: se llama como sentencia y no se encadena, porque
+        // `Builder` reenvía `orderBy` al query builder y una cadena haría que
+        // PHPStan pierda el tipo Eloquent. La columna es del código, no del request.
+        $query->orderBy('id', 'desc');
+
         $listing = Pagination::fromRequest(
-            Task::orderByDesc('id'),
+            $query,
             $request,
-            // Con el prefijo ya aplicado: el `base_url` de este resultado es la
-            // fuente de los enlaces del paginador y del `HX-Push-Url`, así que
-            // los dos heredan el prefijo sin saberlo.
-            Url::path('/tasks')
+            // El base_url sale de la URL canónica de la lista: conserva la
+            // búsqueda y el filtro, y el prefijo ya viene aplicado. Los enlaces
+            // del paginador y el HX-Push-Url lo heredan.
+            $listQuery->url(Url::path('/tasks'))
         );
 
         return [
             'tasks'      => $listing['items'],
             'pagination' => $listing,
+            'list_query' => $listQuery,
         ];
     }
 
@@ -103,13 +125,13 @@ class TaskController extends Controller
 
         // La posición se publica desde acá y no con un `hx-push-url` fijo en la
         // plantilla: `Pagination` recorta la página pedida al rango real, así que
-        // sólo el servidor que renderizó sabe qué página mostró.
+        // sólo el servidor que renderizó sabe qué página mostró. `pageUrl()`
+        // conserva la búsqueda, el orden y el filtro de `base_url`.
         $pagination = $data['pagination'];
 
         // La URL empujada es la canónica de la vista y no la de la acción:
         // `/tasks/5/toggle` sólo acepta POST, y recargarla sería un 404.
-        return $response->withHeader('HX-Push-Url', sprintf(
-            '%s?page=%d&per_page=%d',
+        return $response->withHeader('HX-Push-Url', Pagination::pageUrl(
             $pagination['base_url'],
             $pagination['current_page'],
             $pagination['per_page']
