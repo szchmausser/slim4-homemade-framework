@@ -34,7 +34,7 @@
         <form method="get" action="{{ url('/notes') }}" id="notes-search-form" role="search"
               class="flex flex-wrap items-end gap-2"
               hx-get="{{ url('/notes') }}"
-              hx-trigger="input changed delay:400ms, change, search"
+              hx-trigger="input changed delay:400ms, search"
               hx-target="#notes-panel"
               hx-swap="outerHTML"
               hx-push-url="true"

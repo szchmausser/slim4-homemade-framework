@@ -38,7 +38,7 @@
         <form method="get" action="{{ url('/tasks') }}" id="tasks-search-form" role="search"
               class="flex flex-wrap items-end gap-2"
               hx-get="{{ url('/tasks') }}"
-              hx-trigger="input changed delay:400ms, change, search"
+              hx-trigger="input changed delay:400ms, change from:select, search"
               hx-target="#tareas-panel"
               hx-swap="outerHTML"
               hx-push-url="true"

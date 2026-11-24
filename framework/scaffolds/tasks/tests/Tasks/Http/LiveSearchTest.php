@@ -71,9 +71,9 @@ final class LiveSearchTest extends TasksTestCase
         self::assertStringContainsString('action="/tasks"', $form);
         self::assertStringContainsString('hx-get="/tasks"', $form);
         self::assertStringContainsString(
-            'hx-trigger="input changed delay:400ms, change, search"',
+            'hx-trigger="input changed delay:400ms, change from:select, search"',
             $form,
-            'El debounce es el delay del trigger y la × del type=search dispara `search`.'
+            'El debounce es el delay del trigger, la × del type=search dispara `search` y `change` queda acotado al `<select>` de estado: sobre el texto, `change` disparaba al perder el foco y el swap se llevaba el clic de «Limpiar` (dos clics).'
         );
         self::assertStringContainsString('hx-target="#tareas-panel"', $form);
         self::assertStringContainsString('hx-swap="outerHTML"', $form);
