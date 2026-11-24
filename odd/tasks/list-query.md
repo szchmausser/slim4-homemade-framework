@@ -77,6 +77,14 @@ y que componga con la paginación existente. Base `975e591`.
   La × nativa del `type="search"` quedó sin ejercitar, pero dispara el mismo evento `search` que ya está en
   el trigger. El usuario temporal se creó y se borró, el servidor se detuvo y el demo se desinstaló: el
   árbol quedó sin demos.
+- **L8**: el usuario reportó que «Limpiar» necesitaba dos clics. No se pudo reproducir en Chromium
+  (automatizado ni con clic real), pero el mecanismo es claro y dependiente del motor: el trigger incluía
+  `change` para el input de texto, así que al hacer clic en el enlace el input perdía el foco, disparaba
+  `change`, htmx pedía y reemplazaba el panel justo cuando el clic iba a navegar. Fix: el texto escucha
+  solo `input changed delay:400ms` y `search`; `change` queda acotado al selector con `change from:select`
+  (`notes` no lo necesita). Verificado en navegador con clic real y el input enfocado: limpia al primer
+  clic, la búsqueda sigue en vivo (10 filas → 1 con `demo 42`) y el selector dispara (`status=completado`).
+  Suites: notes 26/206, tasks 68/394, base 336/5781; `docs:check` verde. Commit `1edfd7d`.
 - **S8 (búsqueda en vivo y limpiar)**: «se puede hacer la busqueda en vivo en los demos de tareas y notas? no
   me gusta tener que presionar un boton para que se inicie la busqueda... tambien hace falta un boton para
   limpiar la busqueda y resetear todos los filtros». Implementación con HTMX sobre el formulario existente
