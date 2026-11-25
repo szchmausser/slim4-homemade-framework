@@ -488,7 +488,7 @@ return [
 
 `label` es el texto que imprime el sidebar. `key` es lo que el sidebar compara con el `active` que
 devuelve tu página —el controlador lo pasa junto con los datos— para marcar la entrada actual; acá todavía
-no hay página que lo devuelva: se suma en 6.6. `position` ordena las entradas (Inicio es 0; Tareas 10,
+no hay shell que lo use: se suma en 6.3, cuando la página herede el layout. `position` ordena las entradas (Inicio es 0; Tareas 10,
 Contactos 20, Notas 30). La conversión de `label` a clave del catálogo llega en 6.8, al cerrar el capítulo.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
@@ -832,14 +832,32 @@ texto del vacío quedan como están. Lo único que aparece son los bloques.
 {% endblock %}
 ```
 
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `index()`.
+
+**Después**: el shell necesita saber en qué sección estás. El sidebar compara la clave `key` de
+`config/navigation/notes.php` con el `active` que devuelve tu página (lo anunciamos en 4.1), y resalta la
+entrada que coincide:
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes'  => Note::orderByDesc('id')->get(),
+            'active' => 'notes',
+        ]);
+    }
+```
+
 **Comprobación**: recarga `/notes`. Ahora está el sidebar —con tu usuario al pie, como en el paso 1—, el
-header y el tema. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
+header y el tema, y **el menú resalta «Notas»**. **El `<body>`, el `<head>` y los assets ya no son tuyos.** El contenido se sigue viendo
 como en 6.2: un título y una lista sin estilos propios. No tiene que haber tarjeta, ni filas con borde, ni
 espaciado entre los ítems; si ves una tarjeta, estás mirando el paso siguiente.
 
 **Falla si**:
 
 - Ves la página sin sidebar: falta el `{% extends %}` o la plantilla no es `layouts/app.twig`.
+- El menú muestra «Notas» pero no la resalta: falta `active`, o su valor no coincide con la `key` del
+  archivo de navegación.
 - Ves el contenido dos veces: quedó el `<!DOCTYPE html>` de 6.2 además de los bloques.
 - El título de la pestaña no cambia por página: falta el `{% block title %}`.
 
@@ -1015,46 +1033,15 @@ dentro del mismo `card-body`.
         </div>
 ```
 
-**Archivo**: `app/Http/Controllers/NoteController.php`, método `index()`.
-
-**Antes**:
-
-```php
-    public function index(Request $request, Response $response): Response
-    {
-        return $this->render($request, $response, 'pages/notes/index.twig', [
-            'notes' => Note::orderByDesc('id')->get(),
-        ]);
-    }
-```
-
-**Después**: el arreglo de datos suma una cosa que **lee el shell, no tu vista**:
-
-- `active`: el valor que el sidebar compara con la clave `key` de `config/navigation/notes.php` para
-  marcar la entrada (lo adelantamos en 4.1). Sin él, la página funciona igual pero el menú no resalta
-  «Notas».
-
-```php
-    public function index(Request $request, Response $response): Response
-    {
-        return $this->render($request, $response, 'pages/notes/index.twig', [
-            'notes'  => Note::orderByDesc('id')->get(),
-            'active' => 'notes',
-        ]);
-    }
-```
-
 Ese `data-modal-open` lo resuelve el shell: **ninguna vista escribe JavaScript para abrir un diálogo**. En
 7.5 el botón pasa a `components/ui/button.twig`, con la misma delegación.
 
-**Comprobación**: aparecen el título con su icono, el botón «Agregar nota» a la derecha y la lista vacía;
-el menú lateral resalta «Notas». El botón todavía no abre nada: el modal es el paso 7.
+**Comprobación**: aparecen el título con su icono, el subtítulo, el botón «Agregar nota» a la derecha y la
+lista vacía. El botón todavía no abre nada: el modal es el paso 7.
 
 **Falla si**:
 
 - El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
-- El menú no resalta «Notas»: falta `active`, o el valor no coincide con la clave `key` del archivo de
-  navegación.
 
 **Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
 
