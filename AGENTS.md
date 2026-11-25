@@ -76,6 +76,10 @@ es infraestructura reusable; `framework/scaffolds/*` son demos copiables.
   instalada, sincronizá el scaffold o volvé a instalarla.
 - **La documentación copiada se sincroniza.** `composer docs:check` falla si una
   copia diverge; después de tocar una vista/test copiado, corré `composer docs:sync`.
+- **El tutorial se documenta con capturas del resultado.** Toda sección cuyo efecto sea
+  visible termina con la captura de ese efecto, tomada del estado que la sección deja. Si
+  el efecto es un cambio de idioma, van las dos (es/en) desde la misma pantalla y el mismo
+  usuario: la captura es la evidencia, no la descripción de lo que debería verse.
 
 ## Mapa rápido
 

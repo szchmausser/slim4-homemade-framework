@@ -1292,7 +1292,12 @@ traducir; evitan el literal copiado en cada vista y la cadena escrita en el cont
 y no se encuentra buscando. Sin ellos, cambiar «Agregar nota» en seis pantallas son seis ediciones, y una
 se olvida.
 
-![Los mismos textos, ahora pedidos al catálogo: la pantalla no cambia](tutorial-crud-images/06-7-encabezado.png)
+La misma pantalla, con el selector del pie en cada idioma. El marcado no cambió: cambió el valor que se
+pide al catálogo.
+
+![La pantalla en español: los seis textos salen del catálogo](tutorial-crud-images/06-8-es.png)
+
+![La misma pantalla en inglés: el mismo marcado, otras cadenas](tutorial-crud-images/06-8-en.png)
 
 ## 7. El alta: del formulario crudo al modal del proyecto
 
