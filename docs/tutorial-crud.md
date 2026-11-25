@@ -20,7 +20,7 @@ Necesitas:
 los middlewares; la autenticación; los assets y el sistema visual; la regionalización —resolver de
 locale, `?lang=`, sesión, `Accept-Language`, selector del pie—; el despliegue. Todo eso está en
 `docs/guia-stack-php-termux.md` y aquí se da por hecho que el framework ya arranca. El catálogo de
-textos aparece recién al cerrar el capítulo 6: hasta ahí el texto se escribe a mano y en 6.7 se pasa a
+textos aparece recién al cerrar el capítulo 6: hasta ahí el texto se escribe a mano y en 6.8 se pasa a
 claves. Qué es una clave y cómo se pide se explica ahí, una sola vez.
 
 ## Cómo leer cada paso
@@ -486,9 +486,10 @@ return [
 ];
 ```
 
-`label` es el texto que imprime el sidebar. `key` es lo que el sidebar compara con el `active` de la
-página para marcarla; `position` ordena las entradas (Inicio es 0; Tareas 10, Contactos 20, Notas 30).
-El sidebar imprime `label` tal cual; la conversión a clave del catálogo llega en 6.7.
+`label` es el texto que imprime el sidebar. `key` es lo que el sidebar compara con el `active` que
+devuelve tu página —el controlador lo pasa junto con los datos— para marcar la entrada actual; acá todavía
+no hay página que lo devuelva: se suma en 6.6. `position` ordena las entradas (Inicio es 0; Tareas 10,
+Contactos 20, Notas 30). La conversión de `label` a clave del catálogo llega en 6.8, al cerrar el capítulo.
 
 **Comprobación**: con sesión iniciada, recarga cualquier página. En el menú lateral aparece «Notas»
 debajo de «Inicio», y al tocarlo llegas a `/notes`, que responde el texto de prueba del paso anterior.
@@ -669,7 +670,7 @@ HTML;
 No agregues `use App\Models\Note;` todavía: en este paso no hay consulta ni plantilla.
 
 > **En este capítulo el texto se escribe a mano.** Ni el heredoc ni la plantilla piden la cadena: «Notas»
-> va tal cual en el marcado y ahí se queda hasta 6.7, cuando la pantalla ya está armada y el catálogo se
+> va tal cual en el marcado y ahí se queda hasta 6.8, cuando la pantalla ya está armada y el catálogo se
 > explica una sola vez.
 
 **Comprobación**: abre `http://localhost:8080/notes`. Ves una página blanca con el título y el
@@ -768,7 +769,7 @@ use App\Models\Note;
 ```
 
 **Después**: reemplaza ese párrafo por la lista. El texto sigue escrito a mano: el `<h1>` dice «Notas» y
-el vacío dice «No hay notas todavía.». En 6.7, al cerrar el capítulo, las dos pasan al catálogo.
+el vacío dice «No hay notas todavía.». En 6.8, al cerrar el capítulo, las dos pasan al catálogo.
 
 ```twig
     <h1>Notas</h1>
@@ -1027,15 +1028,59 @@ dentro del mismo `card-body`.
     }
 ```
 
-**Después**: el arreglo de datos suma dos cosas que **lee el shell, no tu vista**:
+**Después**: el arreglo de datos suma una cosa que **lee el shell, no tu vista**:
 
-- `active`: el sidebar lo compara con la clave `key` de `config/navigation/notes.php` para marcar la
-  entrada. Sin él, la página funciona igual pero el menú no resalta «Notas».
-- `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Su fallback es un
-  único «Inicio» marcado como actual, así que sin esta clave el encabezado dice que estás en la
-  portada aunque estés en `/notes`. Con dos migas pinta la ruta y marca la última con
-  `aria-current="page"`. La etiqueta es texto que el header imprime tal cual, así que se escribe
-  completa: `'Notas'`. En 6.7, al cerrar el capítulo, se cambia por la clave del catálogo.
+- `active`: el valor que el sidebar compara con la clave `key` de `config/navigation/notes.php` para
+  marcar la entrada (lo adelantamos en 4.1). Sin él, la página funciona igual pero el menú no resalta
+  «Notas».
+
+```php
+    public function index(Request $request, Response $response): Response
+    {
+        return $this->render($request, $response, 'pages/notes/index.twig', [
+            'notes'  => Note::orderByDesc('id')->get(),
+            'active' => 'notes',
+        ]);
+    }
+```
+
+Ese `data-modal-open` lo resuelve el shell: **ninguna vista escribe JavaScript para abrir un diálogo**. En
+7.5 el botón pasa a `components/ui/button.twig`, con la misma delegación.
+
+**Comprobación**: aparecen el título con su icono, el botón «Agregar nota» a la derecha y la lista vacía;
+el menú lateral resalta «Notas». El botón todavía no abre nada: el modal es el paso 7.
+
+**Falla si**:
+
+- El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
+- El menú no resalta «Notas»: falta `active`, o el valor no coincide con la clave `key` del archivo de
+  navegación.
+
+**Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
+
+**Qué ganaste**: la pantalla ya dice qué es y ofrece la acción. Y mira el costo: el
+encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
+vista, y ninguna habla de notas. Eso tiene arreglo, y llega en el capítulo 12, cuando la entidad ya
+funciona.
+
+![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
+
+### 6.7 La miga: el header dice dónde estás
+
+**Objetivo**: que el header muestre la ruta hasta esta pantalla en lugar de decir siempre «Inicio».
+
+**Estado de partida**: 6.6 hecho. El header pinta su fallback —un único «Inicio» marcado como actual—,
+así que en `/notes` el visitante lee que está en la portada.
+
+**Archivo**: `app/Http/Controllers/NoteController.php`, método `index()`.
+
+**Antes**: el arreglo de datos no dice nada del header.
+
+**Después**: suma `breadcrumbs`, que el header lee tal cual —como `active`, no es de tu vista—:
+
+- `breadcrumbs`: el header arma la miga con `{label, href?, icon?, current?}`. Con dos migas pinta la
+  ruta y marca la última como actual. La etiqueta la imprime el header tal cual, así que va completa:
+  `'Notas'`. En 6.8, al cerrar el capítulo, se cambia por la clave del catálogo.
 
 ```php
     public function index(Request $request, Response $response): Response
@@ -1048,34 +1093,34 @@ dentro del mismo `card-body`.
     }
 ```
 
-Ese `data-modal-open` lo resuelve el shell: **ninguna vista escribe JavaScript para abrir un diálogo**. En
-7.5 el botón pasa a `components/ui/button.twig`, con la misma delegación.
-
-**Comprobación**: aparecen el título, el botón «Agregar nota» a la derecha y la lista vacía. El botón
-todavía no abre nada: el modal es el paso 7.
+**Comprobación**: el header dice «Inicio › Notas». «Inicio» es un enlace; «Notas» no lo es y queda
+marcada como la página actual.
 
 **Falla si**:
 
-- El botón aparece sin estilo: la clase `btn` no existe en el bundle, o el layout no está cargando los assets.
-- El header sigue diciendo «Inicio»: falta `breadcrumbs`, o la última miga no lleva `current` y el
-  encabezado la pinta como enlace.
+- El header sigue diciendo solo «Inicio»: falta la clave `breadcrumbs`.
+- El header no muestra «Inicio» antes de «Notas»: armaste el array a mano en vez de usar
+  `breadcrumbs()`, que es quien lo agrega.
+- «Notas» aparece como enlace: la última miga no quedó marcada como actual.
 
-**Qué no prueba**: que el botón haga algo, ni que la fila tenga acciones. Eso son los pasos 7 y 8.
+**Qué no prueba**: que el menú lateral resalte esa entrada. Eso es `active`, en 6.6.
 
-**Qué ganaste**: la pantalla ya dice qué es y ofrece la acción. Y mira el costo: el
-encabezado quedó con nueve líneas de markup propio adentro de `index.twig`, más que el resto de la
-vista, y ninguna habla de notas. Eso tiene arreglo, y llega en el capítulo 12, cuando la entidad ya
-funciona.
+**Qué ganaste**: el header dice en qué pantalla estás y el visitante puede volver a la portada con un
+clic. Y no escribiste la miga: `breadcrumbs()` ya pone la portada al principio.
 
-![El encabezado con su acción y el listado](tutorial-crud-images/06-7-encabezado.png)
+**Pieza — `Controller::breadcrumbs()`**: resuelve la miga del header con la portada ya incluida y la
+última entrada marcada como actual. Úsalo en toda acción que renderice una página propia; evita repetir
+el array y olvidar esa marca, que es lo que un lector de pantalla necesita para saber dónde está.
 
-### 6.7 Tu app en dos idiomas: las cadenas al catálogo
+La miga se ve en la captura del paso anterior: «Inicio › Notas» en el header.
+
+### 6.8 Tu app en dos idiomas: las cadenas al catálogo
 
 **Objetivo**: que los textos de la pantalla dejen de estar escritos en el marcado y salgan de un
 catálogo por idioma, para que el selector del pie los muestre en español o en inglés sin tocar una línea
 de Twig.
 
-**Estado de partida**: 6.6 hecho; el título, el subtítulo, el botón, el encabezado de la lista y el vacío
+**Estado de partida**: 6.7 hecho; el título, el subtítulo, el botón, el encabezado de la lista y el vacío
 están escritos a mano en `index.twig` y `_panel.twig`, el breadcrumb en `index()` y la etiqueta del menú
 en `config/navigation/notes.php`.
 
@@ -1087,8 +1132,8 @@ cadena y el mismo `t()` en todas las plantillas.
 
 Este paso se puede saltear: si tu app vive en un solo idioma, lo que sigue funciona igual con los textos
 escritos a mano, aunque la regla del proyecto es que el texto visible salga del catálogo. Si querés que el
-selector del pie traduzca lo que escribís —y que agregar un idioma sea
-un archivo, no una refactorización—, las claves de esta pantalla van acá: una línea por cadena en
+selector del pie traduzca lo que escribís —y que agregar un idioma sea un archivo, no una
+refactorización—, las claves de esta pantalla van acá: una línea por cadena en
 `lang/es.php` y la misma clave en `lang/en.php`, el catálogo base que ya trae el cromo. No hay archivos
 nuevos: se agregan claves a los que existen y cambia cómo se pide el texto.
 
@@ -3373,7 +3418,7 @@ escrito para que la segunda entidad no te obligue a releer los quince anteriores
 **Los textos del cromo no están en las vistas: salen de `lang/`.** Cuando tu entidad reusa el shell, el texto
 visible se agrega como clave en `lang/es.php` y `lang/en.php` con el mismo nombre en los dos —las claves de
 tu entidad las agregás vos en los dos catálogos base—; en la plantilla se pide con `t()` y desde PHP con
-`Trans::t()` (6.7). Los demos no ensucian ese catálogo: cada uno trae el suyo en su scaffold
+`Trans::t()` (6.8). Los demos no ensucian ese catálogo: cada uno trae el suyo en su scaffold
 (`framework/scaffolds/<demo>/lang/<locale>/<demo>.php`) e instalarlo es lo que enciende sus claves; si no
 está instalado, no existen. Lo que queda fuera de este recorrido —resolver de locale, selector del pie,
 cambio de idioma— está en la guía, §15.3.
