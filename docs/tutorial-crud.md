@@ -1263,6 +1263,13 @@ título de la pestaña a la vez, sin tocar la plantilla ni el controlador. Y la 
 cambia el idioma en el selector del pie a «English» y recarga; estas seis cadenas salen en inglés, y
 vuelven a español cuando volvés.
 
+**De dónde sale ese selector.** No lo construiste: viene con el shell (`layouts/app.twig`, parcial
+`parts/footer.twig`), igual que el sidebar o el header, y por eso no aparece explicado en ningún paso
+anterior. Pinta una opción por cada catálogo que exista en `lang/`: con `es.php` y `en.php` ofrece dos, y si
+tu app tuviera uno solo **no se muestra** —no hay nada que elegir—. Es un POST con CSRF y la elección
+queda en la sesión, como el resto de lo que resuelve el shell; si querés cambiarlo o moverlo, está en la
+guía, §15.3.
+
 **Qué no prueba**: que toda la app esté traducida. El cromo ya venía así; acá se suman tus seis claves.
 El resolver de locale —`?lang=`, sesión, `Accept-Language`, selector del pie— es del shell y no se
 construye en este recorrido: está en `docs/guia-stack-php-termux.md` §15.3. Las fechas y cantidades

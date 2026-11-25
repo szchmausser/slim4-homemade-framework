@@ -11,6 +11,7 @@ use Framework\I18n\TranslatorFactory;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
+use Twig\TwigFunction;
 
 /**
  * Contratos mínimos de los componentes base. Los demos los ejercitan por HTTP,
@@ -415,5 +416,27 @@ final class ComponentContractTest extends TestCase
         self::assertSame(1, substr_count($html, '<svg'));
         self::assertStringContainsString('class="flex flex-wrap items-start justify-between gap-3"', $html);
         self::assertStringContainsString('<button>Agregar</button>', $html);
+    }
+
+    public function test_el_selector_de_idioma_solo_se_pinta_con_mas_de_un_catalogo(): void
+    {
+        // Un select de una sola opción con su botón es un control muerto: el
+        // cromo lo esconde cuando no hay nada que elegir.
+        $this->twig->addFunction(new TwigFunction('url', static fn (string $path): string => $path));
+        $datos = [
+            'php_version' => '8.5.5',
+            'app_env' => 'local',
+            'app_locale' => 'es',
+            'current_path' => '/notes',
+        ];
+
+        $uno = $this->twig->render('layouts/parts/footer.twig', $datos + ['locale_names' => ['es' => 'Español']]);
+        self::assertStringNotContainsString('action="/locale"', $uno);
+        self::assertStringNotContainsString('<select', $uno);
+
+        $dos = $this->twig->render('layouts/parts/footer.twig', $datos + ['locale_names' => ['es' => 'Español', 'en' => 'English']]);
+        self::assertStringContainsString('action="/locale"', $dos);
+        self::assertStringContainsString('value="en"', $dos);
+        self::assertStringContainsString('>English<', $dos);
     }
 }

@@ -5,6 +5,8 @@
 
    El selector de idioma es un POST con CSRF: cambia la elección guardada en la
    sesión, así que es una mutación y el Guard la protege como a cualquier otra.
+   **Sólo se pinta cuando hay más de un catálogo**: con un solo idioma no hay nada
+   que elegir y un select de una opción con su botón es un control muerto (S7).
    `locale_names` sale del `locale.name` de CADA catálogo, así que cada idioma se
    muestra en su propio idioma; `app_locale` es el resuelto por el middleware en
    esta petición. `current_path` viaja como campo oculto —sin el prefijo de
@@ -14,6 +16,7 @@
 <footer class="footer footer-center min-h-12 border-t border-base-300 bg-base-100 p-0 text-xs opacity-80">
     <aside class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 py-1">
         <span>PHP {{ php_version }} · SQLite · {{ t('footer.environment', {'%env%': app_env}) }}</span>
+        {% if locale_names|length > 1 %}
         <form method="post" action="{{ url('/locale') }}" class="flex items-center gap-1">
             <input type="hidden" name="redirect_to" value="{{ current_path|default('/') }}">
             <select name="lang" class="select select-xs" aria-label="{{ t('footer.language') }}">
@@ -29,5 +32,6 @@
             } only %}
             {% include 'components/form/csrf.twig' %}
         </form>
+        {% endif %}
     </aside>
 </footer>
